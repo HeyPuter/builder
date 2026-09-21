@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>You're offline — AI Builder</title>
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#171c24">
+  <!-- Self-contained by design: this page is served by the service worker when
+       the network is unavailable, so it must reference no external assets. Match
+       the app's theme resolution (explicit choice → OS preference) before paint. -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('theme');
+        var theme = (stored === 'light' || stored === 'dark')
+          ? stored
+          : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {}
+    })();
+  </script>
+  <style>
+    :root {
+      --bg: #f5f5f5; --fg: #171c24; --muted: #5b6472;
+      --card: #ffffff; --border: rgba(0,0,0,.08);
+      --accent: #171c24; --accent-fg: #ffffff;
+    }
+    html[data-theme="dark"] {
+      --bg: #171c24; --fg: #eef1f6; --muted: #9aa4b2;
+      --card: #1e2530; --border: rgba(255,255,255,.10);
+      --accent: #ffffff; --accent-fg: #171c24;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      background: var(--bg); color: var(--fg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px; line-height: 1.6; -webkit-font-smoothing: antialiased;
+    }
+    .card { max-width: 420px; width: 100%; text-align: center; }
+    .icon {
+      width: 72px; height: 72px; margin: 0 auto 20px;
+      border-radius: 20px; display: block;
+    }
+    h1 { font-size: 1.5rem; margin: 0 0 8px; letter-spacing: -.01em; }
+    p { margin: 0 0 24px; color: var(--muted); }
+    button {
+      appearance: none; border: 0; cursor: pointer;
+      background: var(--accent); color: var(--accent-fg);
+      font: inherit; font-weight: 600;
+      padding: 11px 22px; border-radius: 10px;
+      transition: opacity .15s ease, transform .05s ease;
+    }
+    button:hover { opacity: .9; }
+    button:active { transform: translateY(1px); }
+    button:focus-visible { outline: 2px solid var(--muted); outline-offset: 3px; }
+    .hint { margin-top: 20px; font-size: .82rem; color: var(--muted); }
+    @media (prefers-reduced-motion: reduce) { button { transition: none; } }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <!-- Inline "open box + sparkles" mark, tinted to the current theme's fg. -->
+    <svg class="icon" viewBox="0 0 512 512" role="img" aria-label="AI Builder" xmlns="http://www.w3.org/2000/svg">
+      <rect width="512" height="512" rx="112" fill="var(--card)" stroke="var(--border)"/>
+      <g fill="var(--fg)">
+        <path d="M256 300 118 250v150l138 50z" opacity=".9"/>
+        <path d="M256 300 394 250v150l-138 50z" opacity=".7"/>
+        <path d="M118 250 256 200l138 50-138 50z"/>
+        <path d="M256 96l16 40 40 16-40 16-16 40-16-40-40-16 40-16z"/>
+        <path d="M176 150l10 26 26 10-26 10-10 26-10-26-26-10 26-10z" opacity=".85"/>
+        <path d="M344 168l8 20 20 8-20 8-8 20-8-20-20-8 20-8z" opacity=".7"/>
+      </g>
+    </svg>
+    <h1>You're offline</h1>
+    <p>AI Builder needs an internet connection to create and build with AI. Check your connection and try again.</p>
+    <button type="button" onclick="location.reload()">Try again</button>
+    <p class="hint">Your saved projects are safe and will be here when you reconnect.</p>
+  </main>
+  <script>
+    // Auto-recover: when the browser regains connectivity, reload straight back
+    // into the app instead of making the user tap the button.
+    window.addEventListener('online', function () { location.reload(); });
+  </script>
+</body>
+</html>

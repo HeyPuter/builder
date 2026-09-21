@@ -1,0 +1,16 @@
+# https://builder.puter.com/
+#
+# Everything here is public and everything is meant to be indexed, by search
+# crawlers and by the AI agents that increasingly answer "what can build me an
+# app from a description?" on their behalf. So: no disallow rules, and no
+# per-agent carve-outs — a rule that only some crawlers honour is a rule that
+# mostly serves to advertise what you would rather they skipped.
+#
+# A compact, plain-text map of the site for language models lives at
+# https://builder.puter.com/llms.txt (generated from the same page registry as
+# the sitemap — see scripts/build-seo.mjs).
+
+User-agent: *
+Allow: /
+
+Sitemap: https://builder.puter.com/sitemap.xml

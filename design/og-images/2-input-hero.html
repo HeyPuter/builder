@@ -1,0 +1,61 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../src/vendor/google-fonts.css">
+<style>
+  /* OPTION 2 — The input is the hero (app-consistent composer, typed prompt) */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1200px; height: 630px; overflow: hidden; }
+  body {
+    font-family: 'Roboto', sans-serif;
+    background: #171c24;
+    color: #e7e9ec;
+    position: relative;
+    -webkit-font-smoothing: antialiased;
+  }
+  .brand { position: absolute; top: 56px; left: 64px; display: flex; align-items: center; gap: 14px; }
+  .brand .mark { width: 50px; height: 50px; border-radius: 12px; overflow: hidden; box-shadow: 0 0 0 1px rgba(255,255,255,.07); }
+  .brand .mark img { width: 100%; height: 100%; display: block; }
+  .brand .name { font-size: 21px; font-weight: 700; }
+  .brand .byline { font-size: 14.5px; color: #8b94a0; margin-top: 2px; }
+
+  .composer {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: 900px; height: 220px;
+    background: #1e242d; border: 1px solid #3a4350; border-radius: 14px;
+    padding: 30px 32px 22px; position: absolute;
+    box-shadow: 0 30px 80px rgba(0,0,0,.4);
+  }
+  .composer .text { font-size: 29px; font-weight: 400; color: #e7e9ec; letter-spacing: -0.005em; }
+  .composer .caret { display: inline-block; width: 3px; height: 30px; background: #6cb0f5; border-radius: 2px; vertical-align: -4px; margin-left: 4px; }
+  .composer .row { position: absolute; left: 28px; right: 24px; bottom: 20px; display: flex; align-items: center; }
+  .composer .send {
+    margin-left: auto; width: 46px; height: 46px; border-radius: 10px;
+    background: #6cb0f5; display: flex; align-items: center; justify-content: center;
+  }
+  .url { position: absolute; bottom: 56px; left: 50%; transform: translateX(-50%); font-size: 19px; font-weight: 500; color: #6a7480; letter-spacing: 0.01em; }
+</style>
+</head>
+<body>
+  <div class="brand">
+    <div class="mark"><img src="../../icon.png" alt=""></div>
+    <div>
+      <div class="name">AI Builder</div>
+      <div class="byline">by Puter</div>
+    </div>
+  </div>
+
+  <div class="composer">
+    <div class="text">Build me a workout tracker with progress charts<span class="caret"></span></div>
+    <div class="row">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8b94a0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+      <div class="send">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <div class="url">builder.puter.com — build apps &amp; websites with AI, free</div>
+</body>
+</html>

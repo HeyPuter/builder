@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../src/vendor/google-fonts.css">
+<style>
+  /* OPTION 4 — Icon-centric brand card */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1200px; height: 630px; overflow: hidden; }
+  body {
+    font-family: 'Roboto', sans-serif;
+    background:
+      radial-gradient(600px 400px at 50% 38%, rgba(108,176,245,.09), transparent 65%),
+      #14181f;
+    color: #e7e9ec;
+    display: flex; align-items: center; justify-content: center;
+    -webkit-font-smoothing: antialiased;
+  }
+  .stack { display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .mark {
+    width: 132px; height: 132px; border-radius: 30px; overflow: hidden;
+    box-shadow: 0 0 0 1px rgba(255,255,255,.08), 0 24px 60px rgba(0,0,0,.5);
+  }
+  .mark img { width: 100%; height: 100%; display: block; }
+  h1 { margin-top: 44px; font-size: 46px; font-weight: 700; letter-spacing: -0.015em; }
+  h1 .ai { color: #6cb0f5; }
+  .sub { margin-top: 20px; font-size: 21px; font-weight: 400; color: #8b94a0; letter-spacing: 0.01em; }
+  .sub b { color: #b4bbc6; font-weight: 500; }
+</style>
+</head>
+<body>
+  <div class="stack">
+    <div class="mark"><img src="../../icon.png" alt=""></div>
+    <h1>Build apps &amp; websites <span class="ai">with AI</span></h1>
+    <div class="sub">Free · No code · <b>builder.puter.com</b></div>
+  </div>
+</body>
+</html>

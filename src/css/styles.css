@@ -1,0 +1,6003 @@
+/* Vendored third-party CSS (see scripts/fetch-vendor.mjs). These @imports are
+   inlined and their font url()s fingerprinted by Vite at build time, so nothing
+   here is fetched from a CDN at runtime. */
+@import url('../vendor/highlight-atom-one-dark.min.css');
+@import url('../vendor/google-fonts.css');
+@import url('../vendor/material-symbols.css');
+
+/* Height of the top toolbar (burger / new project / account). One token,
+   because the layout below the bar is sized as "the viewport minus the bar":
+   .chat's height/max-height, the preview pane's and loading overlay's top
+   offsets. Phones get a taller bar (44px finger targets, see the ≤900px block);
+   when those offsets were hard-coded 30px they fell out of step there, and the
+   body's flex column squeezed the toolbar back down to 30px in an active chat —
+   its 44px controls hung 14px below it, over the top of the conversation, and
+   the right-hand account control drifted 7px above the burger. */
+:root {
+    --toolbar-h: 30px;
+}
+
+/* Apply the font to the body */
+body {
+    font-family: 'Roboto', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    height: 100vh;
+    height: 100dvh; /* track the *dynamic* viewport so mobile address bars don't hide the input */
+    display: flex;
+    overflow: hidden;
+    background: #f5f5f56e;
+    flex-direction: column;
+}
+
+/* Global keyboard focus ring for every interactive control. Previously only
+   .version-item and .clarify-card had one, and several text inputs set
+   `outline: none`, leaving keyboard users with no visible focus on the composer
+   or most buttons/links. :focus-visible keeps it keyboard-only (a mouse click
+   never leaves a ring). Element-type selectors give this enough specificity to
+   override the per-input `outline: none` rules below; component-specific
+   :focus-visible rules later in the file (.version-item, .clarify-card) still
+   win by source order, preserving their bespoke styling. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible,
+[role="button"]:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+}
+
+.chat {
+    display: flex;
+    justify-content: flex-start;
+    flex-direction: column;
+    max-width: 600px;
+    margin: 0 auto;
+    max-height: calc(100vh - var(--toolbar-h));
+    max-height: calc(100dvh - var(--toolbar-h));
+    width: 100%;
+    padding-left: 20px;
+    padding-right: 20px;
+    box-sizing: border-box;
+}
+
+/* Initial state: center the input box vertically until a conversation starts.
+   position:relative anchors the copyright footer to the bottom of this
+   full-height column (the only absolutely-positioned descendants present in the
+   empty state live inside .chat-input, which is itself relative). */
+.chat:not(.active) {
+    height: calc(100vh - var(--toolbar-h));
+    height: calc(100dvh - var(--toolbar-h));
+    /* Start-aligned, not centered: the hero below grows to fill the column and
+       centers its own children, which looks identical when everything fits —
+       but a centered flex item taller than its container overflows off BOTH
+       ends, and the part above the top can never be scrolled to. */
+    justify-content: flex-start;
+    position: relative;
+    /* A short viewport (a phone in landscape, a small window) can't fit the
+       hero + footer. body never scrolls, so without this the tagline was
+       clipped off the top and the footer sat over the composer with no way
+       to reach either. Scroll instead; scrollbar hidden like every other
+       scroller here. */
+    overflow-y: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+.chat:not(.active)::-webkit-scrollbar { display: none; }
+
+/* Landing hero: a real flex column here (display:contents in the active state,
+   see .home-hero below) that fills the space above the footer and centers its
+   children in it. When that space is shorter than the hero, it grows to its
+   content instead of overflowing both ends, and the column above scrolls. */
+.chat:not(.active) .home-hero {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    flex: 1 0 auto;
+}
+
+.chat-box {
+    overflow-y: auto;
+    margin-bottom: 0;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    margin-top: 10px; 
+}
+
+.chat-box .message-content ::marker {
+    color: #5e5e5e;
+}
+
+.toolbar{
+    position: relative;
+    overflow: visible;
+    height: var(--toolbar-h);
+    /* Never let the body's flex column trade this bar's height away to the
+       chat column below it (see --toolbar-h). */
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+}
+
+.user-menu-container {
+    position: absolute;
+    right: 8px;
+    /* The burger + new-chat icons are 20px tall anchored at top:10px, so their
+       centers sit at y=20px. Offset 5px below the toolbar's vertical center to
+       line the Sign In button / profile circle up with them. */
+    top: calc(50% + 5px);
+    transform: translateY(-50%);
+    /* The transform above creates a stacking context, which traps the dropdown's
+       own z-index inside it. Lift the whole container above the preview pane
+       (z-index: 50) so the open dropdown isn't hidden behind it. */
+    z-index: 1000;
+    /* Lay the theme toggle and the account/sign-in control out in a row, anchored
+       to the toolbar's right edge (the container has no width, so it grows
+       leftward from right:8px). The dropdown is absolutely positioned, so it's
+       taken out of this flow and still anchors to the container's right edge. */
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+/* Theme toggle (sun/moon) — a quiet icon button matching .user-menu-btn. */
+.theme-toggle-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #292929;
+    transition: background 0.15s, color 0.15s;
+}
+
+.theme-toggle-btn:hover {
+    background: rgba(0,0,0,0.08);
+}
+
+/* "Open on the web" link — a pill button matching .sign-in-btn, with an icon. */
+.open-web-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: 1px solid #ccc;
+    cursor: pointer;
+    padding: 4px 12px;
+    border-radius: 14px;
+    font-size: 13px;
+    color: #333;
+    white-space: nowrap;
+    text-decoration: none;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.open-web-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+.open-web-btn:hover {
+    background: rgba(0,0,0,0.06);
+    border-color: #999;
+    color: #333;
+    text-decoration: none;
+}
+
+/* Signed-in avatar button — the username's initial in a colored circle. The
+   hover/open feedback is a soft ring around the avatar rather than the icon
+   buttons' background circle; aria-expanded holds it while the panel is open. */
+.user-menu-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Nudge the avatar off the window edge (the container anchors at right:8px,
+       a bit tight for a filled circle). */
+    margin-right: 5px;
+}
+
+.user-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #4da3ff, #0b6fd9);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    transition: box-shadow 0.15s;
+}
+
+.user-menu-btn:hover .user-avatar,
+.user-menu-btn[aria-expanded="true"] .user-avatar {
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+}
+
+/* The toolbar's text buttons: Sign In when signed out, and "Send feedback"
+   when signed in with no account panel to hold the row (hosted inside Puter).
+   Same pill as .open-web-btn. */
+.sign-in-btn,
+.feedback-btn {
+    background: none;
+    border: 1px solid #ccc;
+    cursor: pointer;
+    padding: 4px 12px;
+    border-radius: 14px;
+    font-size: 13px;
+    color: #333;
+    white-space: nowrap;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.sign-in-btn:hover,
+.feedback-btn:hover {
+    background: rgba(0,0,0,0.06);
+    border-color: #999;
+}
+
+/* ---- Account panel (avatar dropdown) ----
+   Same card + ▲ caret language as the preview toolbar popovers, but fixed
+   under the top toolbar's right edge and appended to <body> so a toolbar
+   re-render (updateUserMenu) can't tear it down. The top offset is set inline
+   at open by positionUserPanel() — the toolbar is taller on phones. */
+.user-panel {
+    position: fixed;
+    top: 46px; /* fallback; measured from the trigger at open */
+    right: 8px;
+    width: 264px;
+    max-width: calc(100vw - 16px);
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+    /* Above .user-menu-container (1000), whose stacking context the panel
+       escapes by living on <body>. */
+    z-index: 1001;
+    /* visible so the ▲ caret can poke above the top edge. */
+    overflow: visible;
+    --panel-caret-border: #ddd;
+    --panel-caret-fill: #fff;
+}
+/* The dialog container takes focus on open (for Escape + tab order); it's not
+   a control, so it should never paint a focus ring. */
+.user-panel:focus,
+.user-panel:focus-visible { outline: none; }
+/* Bordered ▲ caret, same two-triangle trick as the preview popovers (see the
+   "Toolbar popover caret" block); --panel-caret-x set by positionPanelCaret. */
+.user-panel::before,
+.user-panel::after {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: var(--panel-caret-x, calc(100% - 22px));
+    transform: translateX(-50%);
+    border: 8px solid transparent;
+    border-top: none;
+    border-bottom-color: var(--panel-caret-border);
+    pointer-events: none;
+}
+.user-panel::after {
+    top: -7px;
+    border-bottom-color: var(--panel-caret-fill);
+}
+.user-panel.caret-hidden::before,
+.user-panel.caret-hidden::after { display: none; }
+
+/* Identity header: a larger avatar + username. */
+.user-panel-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px;
+    border-bottom: 1px solid #eee;
+}
+.user-panel-avatar {
+    flex: 0 0 auto;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #4da3ff, #0b6fd9);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+}
+.user-panel-id {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+.user-panel-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #222;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.user-panel-sub {
+    font-size: 12px;
+    color: #6f6f6f;
+}
+
+/* Action rows, same shape as .device-panel-option. */
+.user-panel-body {
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.user-panel-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 10px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    color: #333;
+    text-align: left;
+}
+.user-panel-item:hover { background: #f2f2f2; }
+.user-item-icon { display: inline-flex; align-items: center; color: #555; flex: 0 0 auto; }
+.user-item-label { flex: 1 1 auto; min-width: 0; }
+.user-item-external { display: inline-flex; align-items: center; color: #707070; }
+.user-item-external svg { width: 13px; height: 13px; }
+.user-panel-sep { height: 1px; margin: 4px 6px; background: #eee; }
+.user-panel-logout { color: #c62828; }
+.user-panel-logout .user-item-icon { color: inherit; }
+.user-panel-logout:hover { background: rgba(198, 40, 40, 0.08); }
+
+/* Theme section: a small label over a three-segment Light / Dark / Device
+   control. The active segment (kept current by syncUserPanelTheme) reads as a
+   raised pill, iOS-style. */
+.user-panel-theme {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 6px 10px 10px;
+}
+.user-theme-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #6f6f6f;
+}
+.user-theme-seg {
+    display: flex;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 8px;
+    background: #f1f2f4;
+}
+.user-theme-opt {
+    flex: 1 1 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 5px 0;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    cursor: pointer;
+    font-size: 12px;
+    color: #555;
+    transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+}
+.user-theme-opt svg { width: 13px; height: 13px; }
+.user-theme-opt:hover { color: #222; }
+.user-theme-opt.active {
+    background: #fff;
+    color: #111;
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.chat-header{
+    margin-top: -10%;
+}
+
+.chat-header h1{
+    text-align: center; 
+    font-weight: 400; 
+    font-size: 27px;
+    user-select: none;
+}
+
+.chat-input {
+    padding-top: 0;
+    padding-bottom: 0;
+    position: relative;
+    font-size: 16px;
+    background: white;
+    border-radius: 10px;
+    border: 1px solid #DDD;
+    margin-bottom: 15px;
+}
+
+.chat-input:has(.chat-input-message:focus):not(.disabled) {
+    /* Use a neutral border to indicate text focus. Target only the text field
+       so Send/Stop cannot leave the composer highlighted after a turn. */
+    border-color: #999;
+}
+
+.chat-input.disabled{
+    background-color: #f8f8f8;
+}
+
+.chat-input.drag-over {
+    background-color: #f0f8ff;
+    /* Keep the border width at 1px (same as the resting/focus states) and only
+       change color + style. Bumping it to 2px grew the auto-height box by ~1px
+       and nudged the textarea, visibly resizing the input on drag-over. */
+    border: 1px dashed #007bff;
+    border-radius: 10px;
+}
+.chat-input.drag-over .chat-input-message,
+.chat-input.drag-over .chat-input-message-actions {
+    background: transparent;
+}
+
+
+.message {
+    margin-bottom: 10px;
+    width: fit-content;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+}
+.message.progress-message{
+    padding-bottom: 0;
+}
+
+.message-content p:only-child, .message-content p:last-child {
+    margin-bottom: 0;
+}
+
+.message-content p strong{
+    font-weight: 500;
+}
+
+.message-content math{
+    margin-top: 15px;
+    margin-bottom: 20px;
+    text-align: center;
+    display: flex;
+    justify-content: center;
+    font-size: 120%;
+}
+
+.message-image{
+    max-width: 250px;
+    max-height: 300px;
+    border-radius: 4px;
+    padding: 3px;
+    background: white;
+    box-shadow: 0px 0px 2px #939393;
+    margin-left: 2px;
+    margin-bottom: 10px;
+    margin-top: 1px;
+}
+
+.user-message {
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+.user-message .message-content{
+    background-color: #dee2e67a;
+    word-wrap: break-word;
+}
+
+.message-content{
+    padding: 10px 15px;
+    border-radius: 15px;
+}
+
+.message-content h2{
+    font-weight: 500;
+}
+
+.ai-message {
+    width: 100%;
+    box-sizing: border-box;
+    max-width: none;
+}
+.ai-message .message-content{
+    padding-left: 0px;
+    padding-right:0;
+}
+.progress-message {
+    background-color: #F8F9FA;
+    color: #666;
+    border: 1px solid #F8F9FA;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 10px;
+}
+
+.progress-message.success {
+    background-color: #ceffda;
+    color: #087020;
+    border-color: #9aedae;
+}
+
+.progress-message.error {
+    background-color: #ffd8dc;
+    color: #b81a2b;
+    border-color: #ffadb4;
+    text-align: left;
+}
+
+.upgrade-message {
+    background: linear-gradient(135deg, #4facfe 0%, #6263dc 100%);
+    color: #ffffff;
+    border-color: #7dbfff;
+    box-shadow: 0 4px 15px rgba(79, 172, 254, 0.3);
+    border-radius: 10px;
+    margin-bottom: 30px;
+}
+
+.upgrade-button {
+    background: white;
+    border: none;
+    color: #6263dc;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 10px 24px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    margin-top: 8px;
+    display: inline-block;
+}
+
+.upgrade-button:hover {
+    background: #f0f0f0;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.upgrade-button:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.error-message {
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+.error-message .message-content {
+    background-color: #fff4f4;
+    border: 1px solid #ffd0d4;
+    color: #c4283a;
+    border-radius: 12px;
+    word-wrap: break-word;
+}
+
+.error-message-inner {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.error-message-icon {
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.error-message-text {
+    line-height: 1.45;
+}
+
+/* ---- Resume-after-interruption banner ---- */
+/* The transient-retry status line reuses the .resume-banner box (light + dark)
+   for a consistent, calm look; only the outer message wrapper needs its own
+   spacing rule. */
+.resume-banner-message,
+.retry-status-message {
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+.resume-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 12px 11px 14px;
+    border: 1px solid #e6e6e6;
+    border-radius: 12px;
+    background: #fafafa;
+    color: #555;
+    font-size: 14px;
+}
+
+.resume-banner-icon {
+    flex-shrink: 0;
+    color: #707070;
+}
+
+.resume-banner-text {
+    flex: 1;
+    line-height: 1.45;
+}
+
+.resume-build-btn {
+    flex-shrink: 0;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    color: #444;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 7px 14px;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.resume-build-btn:hover {
+    background: #f7f7f7;
+    border-color: #bbb;
+    color: #222;
+}
+
+.resume-build-btn:active {
+    background: #f0f0f0;
+    border-color: #9a9a9a;
+    color: #222;
+}
+.chat-input-message {
+    flex: 1;
+    border: none;
+    font-size: 14px; 
+    height: 18px;
+    max-height: 200px;
+    resize: none;
+    overflow-y: auto;
+    box-sizing: border-box;
+    min-height: 80px;
+    height: 48px;
+    transition: 0.1s ease all;
+    width: 100%;
+    border-top-right-radius: 10px;
+    border-top-left-radius: 10px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+.chat-input-message:focus-within, .chat-input-message:focus {
+    outline: none;
+    border-color: #bfbaba;
+}
+.chat-input-message::placeholder{
+    color: #757575;
+}
+.chat-input-message-actions{
+    overflow: hidden;
+    height: 40px;
+    position: absolute;
+    bottom: 2px;
+    width: 100%;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.chat.active .chat-input-message{
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    margin-bottom: -3px;
+}
+
+.chat-input.disabled .chat-input-message{
+    background-color: #f8f8f8;
+}
+
+.send {
+    padding: 7px 10px;
+    background-color: #484d51;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    width: 25px;
+    height: 25px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    transition: 0.3s ease background-color;
+    /* Push the send button to the right edge of the actions row (the model
+       picker that used to carry this margin was removed). */
+    margin-left: auto;
+    margin-right: 10px;
+}
+
+.send:hover {
+    background-color: #333;
+}
+
+.send:disabled {
+    background-color: #999;
+    cursor: not-allowed;
+}
+
+.attachment-button {
+    padding: 7px 10px;
+    background-color: transparent;
+    color: #666;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    width: 25px;
+    height: 25px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    transition: 0.2s ease background-color;
+    margin-left: 10px;
+}
+
+.attachment-button:hover:not(:disabled) {
+    background-color: #f0f0f0;
+    color: #333;
+}
+
+.attachment-button:disabled {
+    cursor: default;
+    opacity: 0.5;
+}
+
+.attachment-button svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Follow-up suggestion chips shown above the input after a completed turn.
+   A single horizontally-scrollable row so extra chips stay reachable without
+   wrapping or stretching the input area. */
+.chat-suggestions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 5px;
+    /* Horizontal scroll only. overflow-x:auto alone makes overflow-y compute to
+       auto too (so the row becomes vertically scrollable on a sub-pixel sliver),
+       hence the explicit overflow-y:hidden. The vertical padding then keeps the
+       chips' top/bottom borders off the clip edge so they aren't shaved. */
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 10px 0px 5px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    /* Chip labels aren't selectable — a drag-to-scroll pull (see
+       enableSuggestionMouseScroll) would otherwise sweep a text selection
+       across the row. Static rather than .dragging-scoped because selection
+       starts before the drag threshold is crossed. */
+    user-select: none;
+    -webkit-user-select: none;
+    animation: suggestionsIn 0.25s ease;
+}
+.chat-suggestions::-webkit-scrollbar {
+    display: none;
+}
+
+/* Soft edge fades that hint at off-screen chips. Toggled by JS based on the
+   scroll position (see updateSuggestionFade): the right edge fades only while
+   more chips lie to the right, the left edge only once scrolled away from the
+   start. Implemented as a mask so the chips fade to transparent rather than to
+   a hard-coded background colour. Shared by the post-turn suggestion row and
+   the empty-state starter-prompt row. */
+.chat-suggestions.fade-right,
+.chat-starter-prompts.fade-right {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent 100%);
+            mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent 100%);
+}
+.chat-suggestions.fade-left,
+.chat-starter-prompts.fade-left {
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 44px);
+            mask-image: linear-gradient(to right, transparent 0, #000 44px);
+}
+.chat-suggestions.fade-left.fade-right,
+.chat-starter-prompts.fade-left.fade-right {
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 44px, #000 calc(100% - 44px), transparent 100%);
+            mask-image: linear-gradient(to right, transparent 0, #000 44px, #000 calc(100% - 44px), transparent 100%);
+}
+
+@keyframes suggestionsIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* While the row is being pulled sideways (drag-to-scroll, see
+   enableSuggestionMouseScroll) the whole strip — chips included — shows the
+   grabbing cursor instead of the buttons' pointer. */
+.chat-suggestions.dragging,
+.chat-suggestions.dragging button,
+.chat-starter-prompts.dragging,
+.chat-starter-prompts.dragging button {
+    cursor: grabbing;
+}
+
+.chat-suggestion-chip,
+.chat-starter-chip {
+    flex: 0 0 auto;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    color: #444;
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.2;
+    padding: 7px 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.chat-suggestion-chip:hover,
+.chat-starter-chip:hover {
+    background: #f7f7f7;
+    border-color: #bbb;
+    color: #222;
+}
+
+.chat-suggestion-chip:active,
+.chat-suggestion-chip.selected,
+.chat-starter-chip:active,
+.chat-starter-chip.selected {
+    background: #f0f0f0;
+    border-color: #9a9a9a;
+    color: #222;
+}
+
+/* Small lead-in above the empty-state starter prompts. Centered to match the
+   tagline/composer; hidden once the chat is active, like the row below it. */
+.chat-starter-heading {
+    margin-top: 18px;
+    text-align: center;
+    font-size: 13px;
+    color: #6f6f6f;
+    animation: suggestionsIn 0.25s ease;
+}
+.chat.active .chat-starter-heading {
+    display: none;
+}
+
+/* Empty/new-chat starter prompts: a single horizontally-scrollable row of chips
+   under the composer — a one-click way to see a real app get built. Mirrors the
+   post-turn .chat-suggestions row (same scroll + edge-fade behavior): centered
+   while the chips fit, scrolling once they overflow. Hidden once the chat is
+   active, mirroring .chat-tagline. */
+.chat-starter-prompts {
+    display: flex;
+    align-items: center;
+    /* `safe center` keeps the row centered while the chips fit, but falls back
+       to start-alignment once they overflow so the first chip is never clipped
+       out of reach. */
+    justify-content: safe center;
+    gap: 8px;
+    margin-top: 6px;
+    /* Horizontal scroll only — see .chat-suggestions for why overflow-y is
+       pinned and the vertical padding keeps the chip borders off the clip edge. */
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 4px 0;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    /* No text selection during a drag-to-scroll pull — see .chat-suggestions. */
+    user-select: none;
+    -webkit-user-select: none;
+    animation: suggestionsIn 0.25s ease;
+}
+.chat-starter-prompts::-webkit-scrollbar {
+    display: none;
+}
+
+.chat.active .chat-starter-prompts {
+    display: none;
+}
+
+/* Trailing "regenerate" chip on the suggestion row — revealed by scrolling to
+   the far right. Styled like a chip but icon-led and slightly recessed so it
+   reads as a row action rather than a prompt to send. */
+.chat-suggestion-regenerate {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #f4f4f4;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    color: #555;
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.2;
+    padding: 7px 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.chat-suggestion-regenerate svg {
+    width: 14px;
+    height: 14px;
+}
+.chat-suggestion-regenerate:hover {
+    background: #ededed;
+    border-color: #bbb;
+    color: #222;
+}
+.chat-suggestion-regenerate:disabled {
+    cursor: default;
+}
+/* While a fresh set is being generated, spin the refresh icon. */
+.chat-suggestion-regenerate.loading svg {
+    animation: suggestionSpin 0.7s linear infinite;
+}
+@keyframes suggestionSpin {
+    to { transform: rotate(360deg); }
+}
+
+.attachment-preview {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 10px;
+    max-width: 100%;
+}
+
+.clear-attachments {
+    background: none;
+    border: none;
+    color: #999;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    transition: all 0.2s ease;
+}
+
+.clear-attachments:hover {
+    background-color: #e9ecef;
+    color: #dc3545;
+}
+
+.attachment-thumbnails {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.attachment-thumbnail {
+    position: relative;
+    width: 60px;
+    height: 60px;
+    border-radius: 4px;
+    overflow: visible;
+    background: white;
+    border: 1px solid #ddd;
+}
+
+.attachment-thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.remove-attachment {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    border: none;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    color: #8a8a8a;
+    /* Hidden with opacity, not display:none — it is a real Tab stop, and a
+       display:none button is unreachable by keyboard (the tray had no other
+       way to remove a single file). Same pattern as .chat-menu-btn. */
+    opacity: 0;
+}
+
+.attachment-thumbnail:hover .remove-attachment,
+.remove-attachment:focus-visible,
+.attachment-thumbnail:focus-within .remove-attachment {
+    opacity: 1;
+}
+
+.remove-attachment:hover {
+    color: #000000;
+}
+
+.attachment-info {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    font-size: 10px;
+    padding: 2px 4px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.attached-images {
+    margin-top: 10px;
+}
+
+.attached-images .message-image {
+    margin-right: 8px;
+    margin-bottom: 8px;
+    width: 50px;
+}
+
+.image-placeholder {
+    display: inline-block;
+    padding: 8px 12px;
+    background: #f0f0f0;
+    border-radius: 4px;
+    margin-right: 8px;
+    margin-bottom: 8px;
+    font-size: 12px;
+    color: #666;
+}
+
+.message-content {
+    line-height: 1.5;
+    /* Break long unbreakable tokens (URLs, hashes) so they can't force the
+       message — and the whole chat column — wider than the viewport. */
+    overflow-wrap: anywhere;
+}
+
+/* Markdown tables (rendered by marked) have no styling otherwise; keep them
+   inside the chat column and horizontally scrollable instead of forcing the
+   page wider. Applies at all widths. */
+.message-content table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin: 0 0 10px 0;
+    -webkit-overflow-scrolling: touch;
+}
+
+.message-content th,
+.message-content td {
+    border: 1px solid #e3e3e3;
+    padding: 6px 10px;
+    text-align: left;
+}
+
+.progress-message .message-content {
+    display: flex;
+    padding: 5px 10px;
+    padding-bottom: 5px; /* Override default padding-bottom for progress messages */
+}
+
+.message-content p {
+    margin: 0 0 10px 0;
+}
+
+.message-content pre {
+    background: rgba(0, 0, 0, 0.05);
+    padding: 0;
+    border-radius: 4px;
+    overflow-x: auto;
+}
+code, pre{
+    font-family: "Roboto Mono", monospace;
+}
+
+.message-content code {
+    font-family: "Roboto Mono", monospace;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+.message-content ul, .message-content ol {
+    margin: 0 0 10px 0px;
+    padding-left: 35px;
+}
+
+/* Blockquotes the model writes. Every other block in a message has a rule here
+   (p, pre, ul/ol, table, h2); a quote had none, so it fell back to the UA
+   default — a bare 40px indent with 1em margins — which reads as a stray
+   indented paragraph rather than a quotation, and sits on different spacing
+   from everything around it. A left rule plus muted text is the conventional
+   cue, and the 10px bottom margin matches its siblings. */
+.message-content blockquote {
+    margin: 0 0 10px 0;
+    padding: 2px 0 2px 12px;
+    border-left: 3px solid #e3e3e3;
+    color: #555;
+}
+/* The quote's own last block shouldn't add a second gap below the rule. */
+.message-content blockquote > :last-child {
+    margin-bottom: 0;
+}
+/* A nested quote steps in again instead of stacking flush against its parent. */
+.message-content blockquote blockquote {
+    margin-top: 8px;
+}
+
+a {
+    /* 6.3:1 on white / 5.8:1 on the page background (the model's markdown
+       links sit on both); the previous rgb(47,134,233) was 3.7:1 / 3.4:1.
+       Same blue .chat-app-link and .publish-url-display already use. */
+    color: #1a5fb4;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+.progress-spinner {
+    display: inline-block;
+}
+
+.progress-message .progress-spinner{
+    margin-right: 5px;
+    margin-left: 10px;
+}
+
+.floating-spinner,
+.floating-spinner-leaving {
+    margin-top: 10px;
+    margin-bottom: 10px;
+    padding: 5px 10px;
+    display: flex;
+    align-items: center;
+    /* Fade the thinking dots in/out. The node is inserted at opacity 0;
+       showSpinner() forces a reflow then adds .is-visible to fade in.
+       fadeOutSpinner() swaps the identity class to .floating-spinner-leaving
+       (no .is-visible) to fade back to 0, then removes the node. */
+    opacity: 0;
+    transition: opacity 200ms ease;
+}
+.floating-spinner.is-visible {
+    opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+    .floating-spinner,
+    .floating-spinner-leaving {
+        transition: none;
+    }
+    .floating-spinner {
+        opacity: 1;
+    }
+}
+
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.dir, .file, .app, .email{
+    cursor: pointer;
+    display: inline; 
+    padding: 0px 2px; 
+    border-radius: 2px;
+    font-weight: 500;
+}
+
+.dir{
+    display: inline-block;
+}
+
+.dir:hover, .file:hover, .app:hover{
+    background: #ffffffc2;
+}
+
+/* Dark theme styles */
+
+.transcript-toggle.active .toggle-icon {
+    transform: rotate(-180deg);
+}
+
+.transcript-content.hidden {
+    display: none;
+    opacity: 0;
+    transform: translateY(-10px);
+}
+
+.transcript-content:not(.hidden) {
+    display: block;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
+    background: white;
+}
+
+.message {
+    position: relative;
+    font-size: 14px;
+}
+
+.code-block {
+    position: relative;
+    margin: 1em 0;
+    background: #f8f8f8;
+    border-radius: 8px;
+    overflow: hidden;
+    font-size: 12px;
+}
+
+.code-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1px 5px;
+    background: #f3f3f3;
+    border-bottom: 1px solid #eee;
+    font-family: 'Roboto', sans-serif;
+    margin-top: -18px;
+}
+
+.code-language {
+    font-size: 11px;
+    color: #666;
+    text-transform: lowercase;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+}
+
+.code-copy-btn.success {
+    background: rgba(14, 135, 42, 0.1);
+    border-radius: 4px;
+}
+
+.code-copy-btn.success svg path {
+    fill: #0e872a;
+}
+
+.code-block code {
+    display: block;
+    padding: 12px 16px;
+    overflow-x: auto;
+    line-height: 1.6;
+    border-top-right-radius: 0;
+    border-top-left-radius: 0;
+}
+
+.code-block code::-webkit-scrollbar {
+    height: 8px;
+}
+
+.code-block code::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.code-block code::-webkit-scrollbar-thumb {
+    background: #ddd;
+    border-radius: 4px;
+}
+
+.code-block code::-webkit-scrollbar-thumb:hover {
+    background: #ccc;
+}
+
+/* Dark theme support */
+
+.send.processing {
+    background-color: #d64242 !important;
+}
+.send.processing:hover {
+    background-color: #b53535 !important;
+}
+
+/* Chat History Styles */
+
+.chat-item {
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    user-select: none;
+}
+
+/* Row beneath the thumbnail: project title + url on the left, options menu on
+   the right. */
+.chat-item-footer {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+}
+
+.chat-item-content{
+    flex-grow: 1;
+    min-width: 0;
+}
+
+/* Sidebar entry thumbnail: the project's live screenshot, with a placeholder
+   glyph shown until (or unless) the image loads. Full-width card image on its
+   own row above the title/url. */
+.chat-thumb {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #f1f3f5;
+    border: 1px solid #e6e8eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+}
+
+.chat-thumb-ph {
+    width: 30px;
+    height: 30px;
+    color: #c2c7cd;
+}
+
+.chat-thumb-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: fill;
+    object-position: top center;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+/* Only reveal the screenshot once it has actually loaded (see .loaded toggle
+   in updateChatHistorySidebar); the placeholder shows through until then. */
+.chat-thumb.loaded .chat-thumb-img { opacity: 1; }
+
+.chat-item:hover .chat-item-title{
+    background-color: #f8f8f8;
+}
+
+.chat-item:hover .chat-item-options {
+    opacity: 1;
+}
+
+/* Dark theme styles for chat history */
+
+/* Dark theme styles for attachments */
+
+/* Header New Chat Button */
+.header-new-chat {
+    border-radius: 5px;
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background-color 0.1s ease;
+    color: #292929; 
+    display: flex; 
+    align-items: center; 
+    margin-left: 10px;
+    cursor: pointer;
+    width: 20px;
+    height: 20px;
+    justify-content: center;
+    align-items: center;
+}
+
+
+.header-new-chat:hover {
+    background-color: #e9e9e9;
+    text-decoration: none;
+}
+
+.header-new-chat.hidden {
+    display: none !important;
+}
+
+/* Dark theme styles for header new chat button */
+.example-prompts.hidden {
+    opacity: 0;
+    height: 0;
+    padding: 0;
+    margin: 0;
+    overflow: hidden;
+}
+
+.header-new-chat{
+    cursor: pointer;
+    position: absolute;
+    left: 60px;
+    top: 10px;
+}
+
+.todo-list .message-content{
+    background-color: white;
+    padding: 15px 15px 15px 15px;
+}
+
+.todo-list ul{
+    padding-left: 0;
+    margin-bottom: 0;
+}
+.todo-list li{
+    list-style: none;
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.todo-list li:last-child {
+    margin-bottom: 0;
+}
+
+/* Pending (backlog) todos are dimmed so the active item stands out */
+.todo-list .todo-pending {
+    opacity: 0.5;
+}
+
+.todo-list .todo-completed {
+    color: #029802;
+}
+
+.todo-list ul li svg {
+    margin-bottom: 0;
+    margin-right: 5px;
+}
+
+/* Shimmer effect: a light highlight sweeps across the text. Applied to
+   in-progress todo labels via the .shimmer utility class. */
+.shimmer {
+    --shimmer-base: rgba(0,0,0,0.8);
+    --shimmer-highlight: rgba(0,0,0,0.25);
+    --shimmer-duration: 2s;
+}
+
+/* The gradient-clipped-to-text effect only renders where background-clip: text
+   is supported. Guard it behind @supports so browsers without that feature keep
+   the inherited (visible) text color instead of color: transparent (which would
+   leave the label invisible with no sweep). The app background is always light,
+   so the gradient is dark-on-light in every OS theme — do NOT add a
+   prefers-color-scheme: dark override here, since the page never goes dark and a
+   white gradient would render as invisible white-on-light text. */
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+    .shimmer {
+        background: linear-gradient(
+            90deg,
+            var(--shimmer-base) 0%,
+            var(--shimmer-base) 42%,
+            var(--shimmer-highlight) 50%,
+            var(--shimmer-base) 58%,
+            var(--shimmer-base) 100%
+        );
+        background-size: 200% 100%;
+        background-position: 100% 0;
+
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        color: transparent;
+
+        animation: shimmer-sweep var(--shimmer-duration) linear infinite;
+    }
+}
+
+@keyframes shimmer-sweep {
+    0%   { background-position: 100% 0; }
+    100% { background-position: -100% 0; }
+}
+
+/* ---- Clarifying-questions card (AskClarifyingQuestions tool) --------------
+   An interactive, single-question-at-a-time card rendered in the chat flow while
+   the agent waits for the user to answer. Matches the app's quiet, minimal
+   surface language (white card, 1px border, no heavy shadows). */
+.clarify-card {
+    animation: suggestionsIn 0.2s ease;
+}
+.clarify-card:focus,
+.clarify-card:focus-visible {
+    outline: none;
+}
+.clarify-card .message-content {
+    padding: 0 !important;
+    width: 100%;
+    box-sizing: border-box;
+}
+.clarify-inner {
+    background: #fff;
+    border: 1px solid #e4e4e4;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.clarify-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px 10px;
+}
+.clarify-question {
+    font-size: 15px;
+    font-weight: 500;
+    color: #1f1f1f;
+    line-height: 1.35;
+}
+.clarify-nav {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: none;
+    color: #9a9a9a;
+}
+.clarify-count {
+    font-size: 12px;
+    color: #6f6f6f;
+    white-space: nowrap;
+    padding: 0 2px;
+}
+.clarify-nav button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: #8a8a8a;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.clarify-nav button:hover:not(:disabled) {
+    background: #f1f1f1;
+    color: #444;
+}
+.clarify-nav button:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.clarify-options {
+    display: flex;
+    flex-direction: column;
+}
+.clarify-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    border-top: 1px solid #f0f0f0;
+    padding: 12px 16px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+    color: #2b2b2b;
+    transition: background 0.12s ease;
+}
+.clarify-option:hover,
+.clarify-option.active {
+    background: #f5f5f5;
+}
+.clarify-option .clarify-num {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    background: #f0f0f0;
+    color: #666;
+    font-size: 12px;
+    font-weight: 500;
+    transition: background 0.12s ease, color 0.12s ease;
+}
+.clarify-option:hover .clarify-num,
+.clarify-option.active .clarify-num {
+    background: #e2e2e2;
+    color: #333;
+}
+.clarify-option .clarify-label {
+    flex: 1;
+}
+.clarify-option.chosen .clarify-label {
+    font-weight: 500;
+}
+.clarify-option .clarify-hint {
+    flex: none;
+    display: flex;
+    align-items: center;
+    color: #b5b5b5;
+    min-width: 15px;
+}
+
+.clarify-custom-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-top: 1px solid #f0f0f0;
+    padding: 10px 16px;
+}
+.clarify-custom-icon {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    color: #b0b0b0;
+}
+.clarify-custom {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+    color: #6f6f6f;
+    text-align: left;
+}
+.clarify-custom .clarify-custom-icon {
+    margin-left: -36px; /* align the icon to the option number column */
+    width: 24px;
+}
+.clarify-custom:hover {
+    color: #555;
+}
+.clarify-custom-input {
+    flex: 1;
+    border: none;
+    background: none;
+    outline: none;
+    font-family: inherit;
+    font-size: 14px;
+    color: #2b2b2b;
+    padding: 0;
+}
+.clarify-custom-input::placeholder {
+    color: #757575;
+}
+.clarify-custom-ok {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: #484d51;
+    color: #fff;
+    border-radius: 6px;
+    cursor: pointer;
+}
+.clarify-custom-ok:hover {
+    background: #33373a;
+}
+.clarify-skip {
+    flex: none;
+    margin-left: auto;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 5px 14px;
+    font-family: inherit;
+    font-size: 13px;
+    color: #555;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+.clarify-skip:hover {
+    background: #f7f7f7;
+    border-color: #bbb;
+    color: #222;
+}
+
+/* Compact recap left in the transcript once the card is resolved (also the
+   render path on chat reload — see renderClarifySummary). */
+.clarify-summary {
+    animation: suggestionsIn 0.2s ease;
+}
+.clarify-summary .message-content {
+    padding: 0 !important;
+}
+.clarify-summary-inner {
+    background: #fafafa;
+    border: 1px solid #ececec;
+    border-radius: 12px;
+    padding: 12px 16px;
+}
+.clarify-summary-title {
+    font-size: 13px;
+    color: #6f6f6f;
+    margin-bottom: 8px;
+}
+.clarify-summary-inner ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.clarify-summary-inner li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px 10px;
+    font-size: 14px;
+}
+.clarify-summary-q {
+    color: #6f6f6f;
+}
+.clarify-summary-a {
+    color: #1f1f1f;
+    font-weight: 500;
+}
+
+/* Tagline above chat input */
+.chat-tagline {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    text-align: center;
+    font-size: 1.625rem;
+    font-weight: 500;
+    line-height: 1.25;
+    margin-bottom: 8px;
+}
+
+/* The hero line is a semantic <h1> for SEO. Neutralise the browser-default
+   h1 font-size/margin so it renders exactly like the surrounding tagline text
+   (size, weight, and line-height all inherit from .chat-tagline). */
+.chat-tagline-text {
+    font: inherit;
+    margin: 0;
+}
+
+/* Secondary line under the main tagline. Muted, hidden once the chat is
+   active, mirroring .chat-tagline. */
+.chat-tagline-sub {
+    text-align: center;
+    font-size: 1.0625rem;
+    line-height: 1.55;
+    color: #5f6675;
+    margin-bottom: 18px;
+}
+
+.chat.active .chat-tagline-sub {
+    display: none;
+}
+
+/* Copyright notice at the bottom of the empty-state landing screen. In flow
+   after the hero rather than pinned: with room to spare it still lands at the
+   bottom, because the hero above it grows to fill the column (see
+   .chat:not(.active) .home-hero); when the viewport is too short it follows
+   the hero down and scrolls with it instead of covering the composer. Hidden
+   once a conversation starts, mirroring .chat-tagline-sub. */
+.chat-copyright {
+    flex-shrink: 0;
+    padding: 24px 0 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    text-align: center;
+    font-size: 0.8125rem;
+    color: #5f6670;
+}
+
+.chat.active .chat-copyright {
+    display: none;
+}
+
+/* Row of links to the static marketing/guide pages, above the copyright line on
+   the landing screen (web build only — see updateUserMenu's caller in ui.js).
+   Wraps rather than scrolls: on a narrow phone it becomes two centered lines,
+   which is fine for a footer and keeps every link tappable. */
+.chat-footer-nav {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 6px 16px;
+    max-width: 560px;
+}
+
+.chat-footer-nav a {
+    color: #5f6670;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.chat-footer-nav a:hover {
+    color: #5e6470;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+/* Logo sits above the tagline text and links home. */
+.chat-tagline-logo {
+    display: inline-flex;
+    line-height: 0;
+}
+
+.chat-tagline-icon {
+    height: 2em;
+    width: auto;
+    flex: none;
+    /* Keep the icon painted during the shimmer (which clips bg to text). */
+    -webkit-text-fill-color: initial;
+    border-radius: 6px;
+}
+
+.chat.active .chat-tagline {
+    display: none;
+}
+
+/* One-shot shimmer: same gradient sweep but plays only once */
+.shimmer-once {
+    --shimmer-base: rgba(0,0,0,0.8);
+    --shimmer-highlight: rgba(0,0,0,0.25);
+}
+
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+    .shimmer-once {
+        background: linear-gradient(
+            90deg,
+            var(--shimmer-base) 0%,
+            var(--shimmer-base) 42%,
+            var(--shimmer-highlight) 50%,
+            var(--shimmer-base) 58%,
+            var(--shimmer-base) 100%
+        );
+        background-size: 200% 100%;
+        background-position: 100% 0;
+
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        color: transparent;
+
+        animation: shimmer-once-sweep 2s linear forwards;
+    }
+}
+
+/* One-shot sweep that travels across and back, ending where it started. */
+@keyframes shimmer-once-sweep {
+    0%   { background-position: 100% 0; }
+    50%  { background-position: -100% 0; }
+    100% { background-position: 100% 0; }
+}
+
+/* Chat History Sidebar Styles */
+.chat-history-sidebar {
+    position: fixed;
+    left: -300px;
+    top: 0;
+    width: 300px;
+    height: 100vh;
+    height: 100dvh;
+    background: #ffffff;
+    transition: left 0.1s ease;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Border + shadow only while open. When closed the panel sits off-screen at
+   left:-300px, but its right edge lands at ~x:0, so a border/shadow here would
+   bleed a dark strip onto the visible left edge of the page. */
+.chat-history-sidebar.open {
+    left: 0;
+    border-right: 1px solid #e0e0e0;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar-header {
+    padding: 10px;
+    border-bottom: 1px solid #f1f1f1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8f9fa;
+}
+
+.sidebar-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 400;
+    color: #5e5e5e;
+    padding-left: 50px;
+}
+
+.sidebar-new-project {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    border: 1px solid #d9d9d9;
+    background: #fff;
+    color: #444;
+    font-size: 12px;
+    line-height: 1;
+    padding: 3px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    text-decoration: none;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.sidebar-new-project .snp-plus {
+    font-size: 15px;
+    line-height: 1;
+}
+
+.sidebar-new-project:hover {
+    background: #f1f1f1;
+    border-color: #c4c4c4;
+    color: #222;
+    text-decoration: none;
+}
+
+.close-sidebar {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: #666;
+    padding: 5px;
+    border-radius: 3px;
+}
+
+.close-sidebar:hover {
+    background: #e9e9e9;
+    color: #333;
+}
+
+.sidebar-search {
+    position: relative;
+    padding: 10px 15px;
+    border-bottom: 1px solid #f1f1f1;
+}
+
+.sidebar-search-icon {
+    position: absolute;
+    left: 26px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #707070;
+    pointer-events: none;
+}
+
+.chat-search-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 12px 8px 34px;
+    font-size: 14px;
+    color: #333;
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    outline: none;
+    transition: border-color 0.15s ease;
+}
+
+.chat-search-input::placeholder {
+    color: #757575;
+}
+
+.chat-search-input:focus {
+    border-color: #b8b8b8;
+}
+
+.chat-list-empty {
+    padding: 20px 15px;
+    text-align: center;
+    font-size: 13px;
+    color: #6f6f6f;
+}
+
+/* Section header for the Pinned / Recent split (shown only when at least one
+   project is pinned). Quiet, uppercase label — it organizes the list without
+   competing with the project titles. */
+.chat-section-label {
+    padding: 14px 15px 4px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #6f6f6f;
+    user-select: none;
+}
+/* The first label (Pinned) sits just under the search box — trim its top gap. */
+.chat-section-label:first-child { padding-top: 6px; }
+/* Tighten the gap between a label and its first item (items carry a 12px top
+   margin of their own). */
+.chat-section-label + .chat-item { margin-top: 2px; }
+
+.chat-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 0;
+    scrollbar-width: thin;
+    scrollbar-color: #ddd transparent;
+    overflow-x: hidden;
+    /* Reserve the scrollbar's space permanently so toggling overflow-y to
+       hidden while a context menu is open (below) doesn't reclaim its width
+       and reflow the items — which caused a visible size jump / flicker. */
+    scrollbar-gutter: stable;
+}
+
+/* While a chat item's context menu is open, lock the list. The menu is
+   position:fixed and anchored to the button, so scrolling would slide the
+   item out from under it; `.menu-open` (set in the chat-menu-btn handler) is
+   the single source of truth and is cleared when the menu is dismissed. */
+.chat-list:has(.chat-item.menu-open) {
+    overflow-y: hidden;
+}
+
+.chat-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.chat-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.chat-list::-webkit-scrollbar-thumb {
+    background: #ddd;
+    border-radius: 4px;
+}
+
+.chat-list::-webkit-scrollbar-thumb:hover {
+    background: #ccc;
+}
+
+.chat-item {
+    padding: 10px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    position: relative;
+    margin: 12px 15px;
+    border-radius: 12px;
+}
+
+/* Invisible full-card link overlaid on each sidebar item so the entry is a real
+   link (right-click → "Open in new tab", cmd/ctrl/middle-click, copy address).
+   Sits ABOVE the inert title/thumbnail — so right-clicks there land on the link —
+   but the genuinely-interactive controls (menu button, app-url link, rename
+   editor) are lifted above it (z-index 2) so they stay clickable. Left-click is
+   intercepted in JS and never navigates. */
+.chat-item-link {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+    text-decoration: none;
+    outline-offset: -2px;
+}
+
+.chat-item:hover,
+.chat-item.menu-open {
+    background-color: #f8f9fa;
+}
+
+.chat-item.active {
+    background-color: #f2f2f2;
+}
+
+/* While a chat is being deleted or duplicated, show it as disabled (no
+   interaction) and dim it. */
+.chat-item.deleting,
+.chat-item.duplicating {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* Deleted-project removal (see animateChatItemRemoval in ui.js). Two phases:
+   the entry first fades and slides out (.chat-item-removing), then its box
+   collapses (.chat-item-collapsing) so the entries below glide up into the
+   gap. The JS pins the item's height inline before collapsing (auto can't
+   animate), so height: 0 needs !important to beat that inline value. Both
+   rules sit after .deleting above so their opacity wins the tie. */
+.chat-item.chat-item-removing {
+    pointer-events: none;
+    transition: opacity 0.16s ease-out, transform 0.16s ease-out;
+    opacity: 0;
+    transform: translateX(-16px) scale(0.98);
+}
+
+.chat-item.chat-item-collapsing {
+    transition: height 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+                margin 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+                padding 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.16s ease-out,
+                transform 0.16s ease-out;
+    height: 0 !important;
+    margin-top: 0;
+    margin-bottom: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    overflow: hidden;
+}
+
+.chat-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: #333;
+    line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Inline rename editor (input + confirm/cancel) — sits in place of .chat-title.
+   Pinned to the title's single-line height (font-size 14px * line-height 1.4 ≈
+   20px) so swapping the title for the editor never resizes the sidebar entry. */
+.chat-title-edit {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 230px;
+    height: 20px;
+    /* Above the full-card link overlay so the input/buttons stay clickable. */
+    position: relative;
+    z-index: 2;
+}
+
+.chat-title-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 100%;
+    font-size: 13px;
+    font-family: inherit;
+    color: #333;
+    line-height: 1;
+    padding: 0 6px;
+    border: 1px solid #007bff;
+    border-radius: 4px;
+    background: #fff;
+    outline: none;
+    box-sizing: border-box;
+}
+
+.chat-title-confirm,
+.chat-title-cancel {
+    flex: 0 0 auto;
+    width: 20px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+    background: #f0f0f0;
+    color: #555;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.chat-title-confirm:hover {
+    background: #0a6ae0;
+    color: #fff;
+}
+
+.chat-title-cancel:hover {
+    background: #e5e5e5;
+    color: #333;
+}
+
+.chat-app-link {
+    font-size: 11px;
+    color: #1a5fb4;
+    text-decoration: none;
+    display: block;
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    /* Above the full-card link overlay: this is its own link (the published
+       site, opened in a new tab) and must stay independently clickable. */
+    position: relative;
+    z-index: 2;
+}
+
+.chat-app-link:hover {
+    text-decoration: underline;
+}
+
+.chat-menu-btn {
+    flex: 0 0 auto;
+    /* Stretch to fill the footer row's height; negative margins then extend the
+       hit area out to the card's top/right/bottom edges (the 10px values match
+       the .chat-item padding) so a tall strip around the ⋮ is clickable instead
+       of the item link underneath. The glyph stays vertically centered. */
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: #707070;
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: bold;
+    padding: 2px 10px;
+    margin: -10px -10px -10px 0;
+    border-radius: 3px;
+    opacity: 0;
+    transition: all 0.1s ease;
+    /* Above the full-card link overlay (z-index 1) so the menu stays clickable. */
+    z-index: 2;
+    line-height: 1;
+}
+
+.chat-item:hover .chat-menu-btn,
+.chat-item.menu-open .chat-menu-btn,
+/* It is a real Tab stop: keyboard focus must not land on an invisible button
+   (the focus ring painted on an opacity-0 element is invisible too). */
+.chat-menu-btn:focus-visible,
+.chat-item:focus-within .chat-menu-btn {
+    opacity: 1;
+}
+
+/* Hover-revealed controls on devices that cannot hover — an iPad in landscape
+   (1024px, wider than the phone breakpoint), a touch laptop, a Chromebook in
+   tablet mode. Without hover, display:none / opacity:0 controls are simply
+   unreachable: an attached file could not be removed at all, and the sidebar
+   ⋮ and issue-row actions were invisible-but-tappable. The ≤900px block below
+   handles phones; this covers every other hover-less viewport. */
+@media (hover: none), (pointer: coarse) {
+    .remove-attachment {
+        opacity: 1;
+        top: -8px;
+        right: -8px;
+        width: 24px;
+        height: 24px;
+        font-size: 14px;
+        background: #fff;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+    }
+    .chat-menu-btn { opacity: 1; }
+    .issue-actions { opacity: 1; }
+}
+
+
+/* Toolbar button styles */
+
+/* Burger Menu Styles */
+.chat-history-toggle {
+    cursor: pointer;
+    position: absolute;
+    top: 10px;
+    left: 20px;
+    width: 30px;
+    height: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 3px;
+    background: transparent;
+    border: none;
+    border-radius: 5px;
+    padding: 0;
+    transition: background-color 0.2s ease;
+    z-index: 9999999;
+    overflow: visible;
+}
+
+.chat-history-toggle:hover {
+    background-color: #e9e9e9;
+}
+
+.burger-line {
+    width: 12px;
+    height: 1px;
+    background-color: #333;
+    border-radius: 2px;
+    transition: all 0.3s ease;
+    display: block;
+}
+
+/* Transform burger into cross when active */
+.chat-history-toggle.active {
+    gap: 5px;
+}
+
+.chat-history-toggle.active .burger-line {
+}
+
+.chat-history-toggle.active .burger-line:nth-child(1) {
+    transform: translateY(6px) rotate(45deg);
+}
+
+.chat-history-toggle.active .burger-line:nth-child(2) {
+    opacity: 0;
+    transform: scaleX(0);
+}
+
+.chat-history-toggle.active .burger-line:nth-child(3) {
+    transform: translateY(-6px) rotate(-45deg);
+}
+
+.save-chat-btn.saved {
+    background-color: #4caf50;
+    color: white;
+}
+
+/* Adjust chat container when sidebar is open */
+body.sidebar-open .chat {
+    margin-left: 300px;
+}
+
+img {
+    width: 100%
+}
+
+/* ===== App preview pane (browser-like view shown when an app/site is published) ===== */
+.preview-pane {
+    display: none;
+}
+
+body.preview-active .preview-pane {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: var(--toolbar-h); /* sits below the window toolbar */
+    right: 0;
+    bottom: 0;
+    width: calc(100% - 480px);
+    background: #fff;
+    border: 1px solid #dddddda3;
+    border-radius: 10px;
+    z-index: 50;
+    margin: 10px 10px 15px;
+}
+
+.preview-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-bottom: 1px solid #e5e5e5;
+    flex: 0 0 auto;
+}
+
+/* Three-section toolbar so the address cluster (reload + URL + open-in-new-tab)
+   sits centered. The side sections grow equally from a 0 basis, so whenever both
+   fit within their share the centre cluster lands at the true toolbar midpoint;
+   when space is tight the wider (right) side floors at its content width and the
+   cluster drifts left rather than clipping any control. */
+.preview-toolbar-left,
+.preview-toolbar-right {
+    flex: 1 1 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.preview-toolbar-left { justify-content: flex-start; }
+.preview-toolbar-right { justify-content: flex-end; }
+
+.preview-toolbar-center {
+    flex: 0 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.preview-toolbar button {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    color: #555;
+    flex: 0 0 auto;
+}
+
+.preview-toolbar button svg {
+    stroke-width: 1.5;
+}
+
+.preview-toolbar button:hover {
+    background: #e5e5e56e;
+}
+
+/* A toolbar button whose popover/menu is open stays visibly "on" until it
+   closes. Keyed off aria-expanded, which every panel/menu open-close path
+   already maintains, so the highlight can't drift from reality. (The filled
+   Publish button overrides this with its own held state below.) */
+.preview-toolbar button[aria-expanded="true"] {
+    background: #e0e0e0;
+    color: #222;
+}
+
+/* Undo/redo are disabled at history boundaries (and during a restore).
+   pointer-events:none also suppresses the hover background in both themes. */
+.preview-toolbar button:disabled {
+    opacity: 0.35;
+    cursor: default;
+    pointer-events: none;
+}
+
+/* Spinner swapped in for the download icon while the zip is prepared.
+   currentColor picks up the toolbar button color in both themes. The button is
+   disabled to block re-entry, so undo the :disabled dim — a spinner at 35%
+   opacity reads as broken, not busy. */
+.preview-toolbar .preview-download.is-downloading { opacity: 1; }
+.download-spinner {
+    width: 14px;
+    height: 14px;
+    border: 1.5px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    box-sizing: border-box;
+    flex: 0 0 auto;
+    animation: spin 0.7s linear infinite;
+}
+
+/* Toolbar button clusters (version nav, device toggle): tight groups whose
+   buttons sit 2px apart. Separators between sections are drawn with explicit
+   .preview-toolbar-divider spans (below). */
+.preview-history-group,
+.preview-responsive-group {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex: 0 0 auto;
+}
+/* Looser spacing inside the version/download cluster so the two buttons read as
+   distinct rather than glued together. */
+.preview-history-group { gap: 8px; }
+
+/* Vertical separator between toolbar sections/buttons (e.g. expand toggle ↔
+   element selector, version/download cluster ↔ Publish). The toolbar section's
+   8px gap spaces it on both sides. */
+.preview-toolbar-divider {
+    width: 1px;
+    height: 18px;
+    background: #e0e0e0;
+    flex: 0 0 auto;
+}
+
+/* Device selector trigger: a standard square toolbar button showing the
+   current-device glyph, opening the device-size panel. */
+.preview-device-current {
+    display: inline-flex;
+    align-items: center;
+}
+
+/* Click-to-edit: the armed "select element" toggle, plus the target chip shown
+   above the composer once an element is picked. The blue matches the selection
+   outline the baked helper draws inside the preview iframe. */
+.preview-select-element.active {
+    background: #2563eb !important;
+    color: #fff !important;
+}
+
+.edit-target-bar {
+    margin-bottom: 10px;
+    max-width: 100%;
+}
+
+.edit-target-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+    padding: 5px 6px 5px 10px;
+    border: 1px solid #cdddff;
+    background: #eff4ff;
+    color: #1d4ed8;
+    border-radius: 999px;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.edit-target-icon {
+    flex: 0 0 auto;
+}
+
+.edit-target-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.edit-target-text code {
+    font-family: inherit;
+    font-weight: 600;
+}
+
+.edit-target-snippet {
+    opacity: 0.75;
+}
+
+.edit-target-cancel {
+    flex: 0 0 auto;
+    border: none;
+    background: transparent;
+    color: #1d4ed8;
+    cursor: pointer;
+    font-size: 15px;
+    line-height: 1;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.edit-target-cancel:hover {
+    background: rgba(29, 78, 216, 0.12);
+}
+
+.preview-body.device-mobile,
+.preview-body.device-tablet {
+    display: flex;
+    justify-content: center;
+    background: #f0f0f0;
+}
+
+.preview-body.device-mobile .preview-frame {
+    max-width: 375px;
+    border-left: 1px solid #e0e0e0;
+    border-right: 1px solid #e0e0e0;
+    background: #fff;
+}
+
+.preview-body.device-tablet .preview-frame {
+    max-width: 768px;
+    border-left: 1px solid #e0e0e0;
+    border-right: 1px solid #e0e0e0;
+    background: #fff;
+}
+
+/* ---- Publish (draft vs. published) -------------------------------------- */
+/* Toolbar Publish button. Overrides the square 28px toolbar button so the
+   label fits. It's a call-to-action (filled blue) when there's something to
+   publish — never published yet, or unpublished changes — and quiet otherwise
+   (site live and up to date). data-state drives the look. */
+/* Scoped under .preview-toolbar so the text color beats the toolbar's generic
+   `.preview-toolbar button { color: #555 }` rule (which outranks a lone class). */
+/* Filled controls with white text and the small brand-blue text use #0a6ae0
+   (5.1:1 on white) rather than #007bff (4.0:1 — below AA for 13px text);
+   their hover state steps down to #0858c2. Borders keep #007bff (3:1 is the
+   bar for non-text UI, and it passes). */
+.preview-toolbar .preview-publish-btn {
+    width: auto !important;
+    height: 28px;
+    padding: 0 12px !important;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #fff;
+    background: #0a6ae0 !important;
+    margin-left: 10px;
+}
+.preview-toolbar .preview-publish-btn:hover { background: #0858c2 !important; }
+/* Held "open" state while the publish popover is up (mirrors hover). The color
+   is restated because the generic [aria-expanded="true"] rule above outranks
+   `.preview-toolbar .preview-publish-btn` and would darken the label. */
+.preview-toolbar .preview-publish-btn[aria-expanded="true"] { background: #0858c2 !important; color: #fff; }
+/* Up to date: quiet, so a live-and-synced site doesn't nag. */
+.preview-toolbar .preview-publish-btn[data-state="clean"] {
+    color: #2d7d46;
+    background: #eaf6ee !important;
+    font-weight: 500;
+}
+.preview-publish-btn[data-state="clean"]:hover { background: #ddefe3 !important; }
+.preview-toolbar .preview-publish-btn[data-state="clean"][aria-expanded="true"] { background: #ddefe3 !important; color: #2d7d46; }
+.preview-publish-btn .preview-publish-label { line-height: 1; }
+/* The app's default focus ring is blue (button:focus-visible) — a blue ring
+   around our blue button reads as a glitch. Use a clean inset white ring on the
+   filled states, and the standard blue ring only on the quiet "clean" state. */
+.preview-publish-btn:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: -4px;
+}
+.preview-publish-btn[data-state="clean"]:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+}
+/* The "unpublished changes" dot — shown only in the dirty state. */
+.preview-publish-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #fff;
+    flex: 0 0 auto;
+    display: none;
+}
+.preview-publish-btn[data-state="dirty"] .preview-publish-dot { display: block; }
+
+/* Publish popover — same card/shadow language as the version-history panel,
+   anchored under the toolbar on the right (where the button lives). The
+   share-draft popover shares this chrome verbatim (deliberately identical, so
+   the two read as siblings); only their inner content differs. */
+.preview-publish-panel,
+.preview-share-panel {
+    position: absolute;
+    top: 50px;
+    right: 12px;
+    width: 400px;
+    max-width: calc(100% - 24px);
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+    z-index: 60;
+    /* visible (not hidden) so the ▲ caret can poke above the top edge; the
+       body below owns its own scroll clipping instead. */
+    overflow: visible;
+}
+/* Device-size panel — the same popover chrome as publish/share, but anchored
+   under the LEFT toolbar cluster (where its trigger lives) and sized to its
+   three rows. */
+.preview-device-panel {
+    position: absolute;
+    top: 50px;
+    left: 12px;
+    width: 200px;
+    max-width: calc(100% - 24px);
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+    z-index: 60;
+    /* visible so the ▲ caret can poke above the top edge. */
+    overflow: visible;
+}
+.preview-device-panel:focus,
+.preview-device-panel:focus-visible { outline: none; }
+.device-panel-body {
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.device-panel-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 8px;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    color: #333;
+    text-align: left;
+}
+.device-panel-option:hover { background: #f2f2f2; }
+.device-panel-option.selected { font-weight: 600; }
+.device-option-icon { display: inline-flex; align-items: center; color: #555; }
+.device-option-label { flex: 1 1 auto; }
+.device-option-check { display: inline-flex; align-items: center; color: #2d7d46; }
+
+.publish-panel-header,
+.share-panel-header,
+.device-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+    border-bottom: 1px solid #eee;
+    flex: 0 0 auto;
+}
+.publish-panel-header .publish-panel-close,
+.share-panel-header .share-panel-close,
+.device-panel-header .device-panel-close {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    width: 22px;
+    height: 22px;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    color: #555;
+}
+.publish-panel-header .publish-panel-close:hover,
+.share-panel-header .share-panel-close:hover,
+.device-panel-header .device-panel-close:hover { background: #ececec; }
+.publish-panel-body,
+.share-panel-body { padding: 12px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+/* The dialog container takes focus on open (for Escape + tab order); it's not a
+   control, so it should never paint a focus ring. */
+.preview-publish-panel:focus,
+.preview-publish-panel:focus-visible,
+.preview-share-panel:focus,
+.preview-share-panel:focus-visible { outline: none; }
+
+/* ---- Toolbar popover caret ----
+   The ▲ notch tying each toolbar popover (versions / issues / publish / share)
+   to the button that opened it. Two stacked triangles fake a bordered caret:
+   ::before draws the border-color triangle, ::after the fill one 1px lower, so
+   ~1px of border shows on the flanks while the fill's base overpaints the
+   panel's top border and opens the notch into the panel. --panel-caret-x (the
+   trigger button's center) is set per open — and on resize — by
+   positionPanelCaret() in ui.js, which adds .caret-hidden when no anchor is
+   visible. The dark-theme blocks below re-point the two color vars. */
+.preview-versions-panel,
+.preview-issues-panel,
+.preview-publish-panel,
+.preview-share-panel,
+.preview-device-panel {
+    --panel-caret-border: #ddd;
+    --panel-caret-fill: #fff;
+}
+.preview-versions-panel::before, .preview-versions-panel::after,
+.preview-issues-panel::before, .preview-issues-panel::after,
+.preview-publish-panel::before, .preview-publish-panel::after,
+.preview-share-panel::before, .preview-share-panel::after,
+.preview-device-panel::before, .preview-device-panel::after {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: var(--panel-caret-x, 50%);
+    transform: translateX(-50%);
+    border: 8px solid transparent;
+    border-top: none;
+    border-bottom-color: var(--panel-caret-border);
+    pointer-events: none;
+}
+.preview-versions-panel::after,
+.preview-issues-panel::after,
+.preview-publish-panel::after,
+.preview-share-panel::after,
+.preview-device-panel::after {
+    top: -7px;
+    border-bottom-color: var(--panel-caret-fill);
+}
+.preview-pane .caret-hidden::before,
+.preview-pane .caret-hidden::after { display: none; }
+
+.publish-blurb {
+    margin: 0;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: #666;
+}
+
+/* Primary action button (Publish / Publish changes). */
+.publish-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    width: 100%;
+    height: 36px;
+    padding: 0 12px;
+    border: none;
+    border-radius: 7px;
+    background: #0a6ae0;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    line-height: 1; /* so the text box matches the icon box → both center evenly */
+    transition: background-color 0.15s ease;
+}
+.publish-action:hover { background: #0858c2; }
+.publish-action:disabled { background: #9bbfe6; cursor: default; }
+/* display:block drops the SVG's inline baseline gap so the glyph centers on the
+   same axis as the label rather than sitting a hair high. */
+.publish-action svg { width: 16px; height: 16px; flex: 0 0 auto; display: block; }
+.publish-action span { line-height: 1; }
+/* Inline spinner shown on the action while a publish is in flight. Uses
+   currentColor so it reads on both the blue (light) and accent (dark) button. */
+.publish-spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    box-sizing: border-box;
+    flex: 0 0 auto;
+    animation: publish-spin 0.7s linear infinite;
+}
+@keyframes publish-spin { to { transform: rotate(360deg); } }
+
+/* Inline "finishing the current task…" row shown in place of the primary
+   Publish action while a build turn or version restore is running. Neutral
+   (not the blue action button) so it reads as an explanation, not as
+   publishing-in-progress. The spinner inherits this row's color. */
+.publish-waiting {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 36px;
+    padding: 8px 12px;
+    border-radius: 7px;
+    background: #f4f5f7;
+    color: #555;
+    font-size: 12.5px;
+    line-height: 1.4;
+}
+.publish-waiting .publish-spinner { width: 13px; height: 13px; }
+
+/* "Live" status line + dot. Green when up to date, amber when there are
+   unpublished changes (mirrors the toolbar dirty state). */
+.publish-live {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #2d7d46;
+}
+.publish-live.is-stale { color: #9a5b00; }
+.publish-live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #2bb14e;
+    flex: 0 0 auto;
+}
+.publish-live.is-stale .publish-live-dot { background: #e8a33d; }
+
+/* The public URL row: link + copy + open. */
+.publish-url-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: #f7f7f7;
+    border-radius: 6px;
+    padding: 4px 4px 4px 10px;
+    height: 32px;
+    box-sizing: border-box;
+}
+.publish-url-display {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 13px;
+    color: #1a5fb4;
+    text-decoration: none;
+}
+.publish-url-display:hover { text-decoration: underline; }
+.publish-icon-btn {
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: transparent;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #555;
+    padding: 0;
+    text-decoration: none;
+}
+.publish-icon-btn:hover { background: #e8e8e8; }
+.publish-icon-btn.copied { color: #0e872a; }
+.publish-icon-btn svg { width: 15px; height: 15px; }
+
+/* "Change address" trigger + the inline editor it swaps to (reuses the
+   editing-address toggle pattern from the toolbar address bar). */
+.publish-change-address {
+    align-self: flex-start;
+    border: none;
+    background: transparent;
+    color: #0a6ae0;
+    font-size: 12.5px;
+    cursor: pointer;
+    padding: 2px 0;
+}
+.publish-change-address:hover { text-decoration: underline; }
+.publish-address-edit {
+    display: none;
+    align-items: center;
+    gap: 2px;
+    background: #f7f7f7;
+    border-radius: 6px;
+    padding: 2px 4px 2px 10px;
+    height: 32px;
+    box-sizing: border-box;
+}
+.preview-publish-panel.editing-address .publish-change-address { display: none; }
+.preview-publish-panel.editing-address .publish-address-edit { display: flex; }
+/* First-publish address picker — same look as the rename editor, but always
+   visible (no toggle) and with no save/cancel buttons (the Publish button is the
+   confirm). */
+.publish-name-row {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    background: #f7f7f7;
+    border-radius: 6px;
+    padding: 2px 4px 2px 10px;
+    height: 32px;
+    box-sizing: border-box;
+}
+.publish-address-fix { font-size: 12.5px; color: #6f6f6f; white-space: nowrap; flex: 0 0 auto; }
+.publish-address-input,
+.publish-name-input {
+    flex: 1;
+    min-width: 30px;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 12.5px;
+    color: #323232;
+    padding: 4px 2px;
+    font-family: inherit;
+}
+.publish-address-save,
+.publish-address-cancel {
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: transparent;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #555;
+    padding: 0;
+}
+.publish-address-save:hover { color: #0e872a; }
+.publish-address-cancel:hover { color: #c0392b; }
+
+/* Up-to-date confirmation + the muted "last published" stamp. */
+.publish-uptodate {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: #2d7d46;
+}
+.publish-uptodate svg { width: 15px; height: 15px; flex: 0 0 auto; }
+.publish-meta { font-size: 11.5px; color: #6f6f6f; }
+
+/* ---- Publish progress + share views (inside the popover body) -------------
+   While a publish runs the popover body becomes a progress note; on success it
+   becomes a share view: gradient check badge, social share row, the site as a
+   link-preview card, and Copy link / Visit site actions. Sized to the 400px
+   panel; both views center their content. */
+/* The share view can outgrow a short window — cap the panel to its pane and
+   let the body scroll (it already has overflow-y:auto; min-height lets it
+   actually shrink as a flex child). The mobile rule's 70vh still wins there. */
+.preview-publish-panel { max-height: calc(100% - 62px); }
+.publish-panel-body { min-height: 0; }
+
+/* Shared heading grammar for both views. */
+.publish-result-title {
+    font-size: 15.5px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: #1a1a1a;
+    margin: 0 0 5px;
+}
+.publish-result-sub {
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: #71717a;
+    margin: 0;
+}
+
+/* Progress view: quiet spinner + reassurance that closing costs nothing. */
+.publish-result-progress {
+    text-align: center;
+    padding: 26px 10px 20px;
+}
+.publish-result-spinner {
+    display: block;
+    width: 26px;
+    height: 26px;
+    margin: 0 auto 16px;
+    border: 3px solid #e6e6ea;
+    border-top-color: #6b6b73;
+    border-radius: 50%;
+    box-sizing: border-box;
+    animation: publish-spin 0.8s linear infinite;
+}
+.publish-result-progress .publish-result-sub {
+    max-width: 280px;
+    margin: 0 auto;
+}
+
+/* Share view. */
+.publish-result-success {
+    text-align: center;
+    padding-top: 12px;
+}
+.publish-result-badge {
+    width: 52px;
+    height: 52px;
+    margin: 0 auto 14px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    background: linear-gradient(135deg, #58b3ff 0%, #2f86e9 42%, #8b5cf6 100%);
+}
+.publish-result-badge svg { width: 24px; height: 24px; display: block; }
+
+.publish-share-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 14px 0 16px;
+}
+.publish-share-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #1a1a1a;
+    text-decoration: none;
+    transition: background-color 0.12s ease, transform 0.12s ease;
+}
+.publish-share-icon:hover { background: #f2f2f4; transform: translateY(-1px); }
+.publish-share-icon svg { width: 18px; height: 18px; display: block; }
+
+/* The site as a link-preview card: how the shared link will read elsewhere. */
+.publish-site-card {
+    text-align: left;
+    border: 1px solid #e6e6ea;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 12px;
+}
+.publish-site-card-main { padding: 12px 14px; }
+.publish-site-card-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+.publish-site-card-icon,
+.publish-site-card-letter {
+    flex: 0 0 auto;
+    width: 20px;
+    height: 20px;
+    border-radius: 5px;
+}
+.publish-site-card-icon { object-fit: cover; display: block; }
+.publish-site-card-letter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: #fff;
+    background: linear-gradient(135deg, #58b3ff 0%, #2f86e9 42%, #8b5cf6 100%);
+}
+.publish-site-card-title {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #1a5fb4;
+    text-decoration: none;
+}
+.publish-site-card-title:hover { text-decoration: underline; }
+.publish-site-card-host {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: #1d7d3f;
+    margin-top: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.publish-site-card-desc {
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: #555;
+    margin: 7px 0 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.publish-site-card-hint {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 14px;
+    background: #f7f7f9;
+    border-top: 1px solid #ececf0;
+    font-size: 11.5px;
+    color: #76767f;
+}
+.publish-site-card-hint svg { width: 13px; height: 13px; flex: 0 0 auto; }
+.publish-site-card-hint span { min-width: 0; }
+
+/* Footer actions: secondary Copy link, primary Visit site (36px to match the
+   form's .publish-action height). */
+.publish-result-actions {
+    display: flex;
+    gap: 8px;
+}
+.publish-result-copy,
+.publish-result-visit {
+    flex: 1 1 0;
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    height: 36px;
+    border-radius: 7px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.publish-result-copy {
+    border: 1px solid #d9d9de;
+    background: #fff;
+    color: #333;
+    padding: 0 10px;
+}
+.publish-result-copy:hover { background: #f6f6f8; border-color: #c9c9cf; }
+.publish-result-copy.copied { color: #0e872a; }
+.publish-result-visit {
+    border: none;
+    background: #111;
+    color: #fff;
+    padding: 0 10px;
+}
+.publish-result-visit:hover { background: #000; }
+.publish-result-copy svg,
+.publish-result-visit svg { width: 15px; height: 15px; flex: 0 0 auto; display: block; }
+.publish-result-copy span,
+.publish-result-visit span { line-height: 1; }
+
+/* --- Share-draft popover content (its chrome is shared with the publish
+   popover above; the draft URL row reuses .publish-url-row) ----------------- */
+/* Draft status line: same grammar as .publish-live (dot + short bold label)
+   with the color flipped to amber — the at-a-glance signal that this link is
+   the living draft, not the stable public site. Amber values match
+   .publish-live.is-stale so "draft" and "unpublished changes" share a hue. */
+.share-draft-status {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #9a5b00;
+}
+.share-draft-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #e8a33d;
+    flex: 0 0 auto;
+}
+/* One-line handoff for anyone who opened Share wanting their PUBLIC link:
+   routes to the Publish popover rather than showing a second URL here — one
+   URL per surface is what keeps draft vs published unambiguous. Styled like
+   .publish-change-address (quiet link-look, not a boxed button). */
+.share-publish-handoff {
+    align-self: flex-start;
+    border: none;
+    background: transparent;
+    padding: 2px 0;
+    font-size: 12.5px;
+    color: #666;
+    cursor: pointer;
+    text-align: left;
+}
+.share-publish-handoff span { color: #0a6ae0; font-weight: 600; white-space: nowrap; }
+.share-publish-handoff:hover span { text-decoration: underline; }
+
+.preview-body {
+    flex: 1;
+    overflow: hidden;
+    border-bottom-right-radius: 10px;
+    border-bottom-left-radius: 10px;
+    position: relative; /* positioning context for the updating overlay */
+}
+
+/* Overlay shown while a freshly-deployed change propagates to the CDN */
+.preview-updating {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.82);
+    z-index: 5;
+    pointer-events: auto;
+}
+
+/* Small frosted-glass square holding the spinner + text */
+.preview-updating-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    width: 150px;
+    height: 150px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.45);
+    -webkit-backdrop-filter: blur(14px) saturate(160%);
+    backdrop-filter: blur(14px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.55);
+}
+
+.preview-updating-spinner {
+    width: 28px;
+    height: 28px;
+    border: 3px solid rgba(0, 0, 0, 0.12);
+    border-top-color: #555;
+    border-radius: 50%;
+    animation: preview-updating-spin 0.8s linear infinite;
+}
+
+@keyframes preview-updating-spin {
+    to { transform: rotate(360deg); }
+}
+
+.preview-updating-text {
+    font-size: 12px;
+    color: #555;
+}
+
+.preview-frame {
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+}
+
+/* When the preview is showing, dock the chat to the left at a fixed width */
+body.preview-active .chat {
+    margin-right: auto;
+    margin-left: 0;
+    max-width: 480px;
+    padding-right: 30px;
+}
+
+/* preview-toggle-chat shows two icons: "expand preview" (chat visible) and
+   "collapse / show chat" (chat hidden). Swap them based on the layout state. */
+.preview-toggle-chat .ptc-collapse { display: none; }
+body.chat-hidden .preview-toggle-chat .ptc-expand { display: none; }
+body.chat-hidden .preview-toggle-chat .ptc-collapse { display: block; }
+
+/* When chat is hidden, expand preview to full width */
+body.preview-active.chat-hidden .preview-pane {
+    width: calc(100% - 20px);
+}
+
+body.preview-active.chat-hidden .chat {
+    display: none;
+}
+
+/* Dark theme support for the preview pane */
+
+/* Version history panel: a dropdown under its toolbar button, which lives in the
+   left section, so anchor it to the pane's left edge. */
+.preview-versions-panel {
+    position: absolute;
+    top: 50px;
+    right: 12px;
+    width: 320px;
+    max-height: 60vh;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+    z-index: 60;
+    /* visible (not hidden) so the ▲ caret can poke above the top edge; the
+       list's own overflow-y handles scroll clipping, and its 4px padding +
+       8px row radius keep hover fills clear of the panel corners. */
+    overflow: visible;
+}
+
+.versions-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+    border-bottom: 1px solid #eee;
+    flex: 0 0 auto;
+}
+
+.versions-panel-header .versions-panel-close {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    width: 22px;
+    height: 22px;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.versions-panel-header .versions-panel-close:hover {
+    background: #ececec;
+}
+
+.versions-empty {
+    padding: 16px 14px;
+    font-size: 12.5px;
+    color: #6f6f6f;
+    line-height: 1.5;
+}
+
+.versions-list {
+    overflow-y: auto;
+    padding: 4px;
+}
+
+.version-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+}
+
+.version-item:hover {
+    background: #f5f5f5;
+}
+
+.version-item.current {
+    background: #eef5ff;
+}
+
+/* Keyboard focus ring for arrow-key navigation of the version list. :focus-visible
+   keeps it keyboard-only so a mouse click doesn't leave a ring behind. */
+.version-item:focus {
+    outline: none;
+}
+.version-item:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: -2px;
+    background: #eef5ff;
+}
+
+.version-info {
+    flex: 1;
+    /* min-width:0 lets the flex item shrink below its content; overflow:hidden
+       makes it actually clip, so the label's text-overflow:ellipsis engages
+       (without it some layouts fall back to a hard mid-word cut). */
+    min-width: 0;
+    overflow: hidden;
+}
+
+.version-label {
+    font-size: 13px;
+    color: #222;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.version-meta {
+    font-size: 11.5px;
+    color: #6f6f6f;
+    margin-top: 2px;
+}
+
+.version-restore {
+    flex: 0 0 auto;
+    border: 1px solid #d6d6d6;
+    background: #fff;
+    color: #333;
+    font-size: 12px;
+    padding: 5px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.version-restore:hover {
+    background: #f0f0f0;
+    border-color: #c4c4c4;
+}
+
+.version-restore:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.version-current-badge {
+    flex: 0 0 auto;
+    font-size: 11px;
+    color: #2563c9;
+    font-weight: 600;
+    padding: 4px 8px;
+}
+
+/* =========================================================================
+   ISSUES PANEL (see js/issues.js) — same card/shadow language as the
+   version-history / publish popovers, anchored under the toolbar.
+   ========================================================================= */
+
+/* The toolbar button hosts a floating open-count badge. */
+.preview-toolbar .preview-issues { position: relative; }
+.issues-count-badge {
+    position: absolute;
+    top: -1px;
+    right: -3px;
+    min-width: 13px;
+    height: 13px;
+    padding: 0 3px;
+    border-radius: 7px;
+    background: #0a6ae0;
+    color: #fff;
+    font-size: 9px;
+    line-height: 13px;
+    font-weight: 600;
+    text-align: center;
+    pointer-events: none;
+    box-sizing: border-box;
+}
+.issues-count-badge[hidden] { display: none; }
+/* Nothing open, everything awaiting the user's check → green: "the AI is
+   waiting on you", not "work outstanding". */
+.issues-count-badge.review-only { background: #2d7d46; }
+
+.preview-issues-panel {
+    position: absolute;
+    top: 50px;
+    right: 12px;
+    width: 360px;
+    max-width: calc(100% - 24px);
+    max-height: 60vh;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+    z-index: 60;
+    /* visible (not hidden) so the ▲ caret can poke above the top edge; the
+       list's own overflow-y handles scroll clipping, and its 4px padding +
+       8px row radius keep hover fills clear of the panel corners. */
+    overflow: visible;
+}
+/* The dialog container takes focus on open (for Escape + tab order); it's not
+   a control, so it should never paint a focus ring. */
+.preview-issues-panel:focus,
+.preview-issues-panel:focus-visible { outline: none; }
+
+.issues-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+    border-bottom: 1px solid #eee;
+    flex: 0 0 auto;
+}
+.issues-panel-header .issues-panel-close {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    width: 22px;
+    height: 22px;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    color: #555;
+}
+.issues-panel-header .issues-panel-close:hover { background: #ececec; }
+
+/* Quick-add row: a one-line textarea that grows a little, plus a + button. */
+.issues-add-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    padding: 10px 12px;
+    border-bottom: 1px solid #eee;
+    flex: 0 0 auto;
+}
+.issues-add-input {
+    flex: 1;
+    min-width: 0;
+    resize: none;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 7px 10px;
+    font-size: 13px;
+    font-family: inherit;
+    line-height: 1.4;
+    height: 34px;
+    max-height: 96px;
+    /* No scrollbar while autoResizeInput can still grow the box; it flips
+       this to auto once the 96px cap makes overflow real. */
+    overflow-y: hidden;
+    background: #fafafa;
+    color: #222;
+    box-sizing: border-box;
+}
+.issues-add-input:focus {
+    outline: none;
+    border-color: #2563eb;
+    background: #fff;
+}
+.issues-add-btn {
+    flex: 0 0 auto;
+    width: 34px;
+    height: 34px;
+    border: none;
+    border-radius: 8px;
+    background: #0a6ae0;
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+.issues-add-btn:hover { background: #0858c2; }
+.issues-add-btn:disabled {
+    background: #e4e4e4;
+    color: #aaa;
+    cursor: default;
+}
+
+.issues-body {
+    overflow-y: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+.issues-empty {
+    padding: 16px 14px;
+    font-size: 12.5px;
+    color: #6f6f6f;
+    line-height: 1.5;
+}
+
+/* First-run intro (no issues ever recorded): explains the panel and gates the
+   add input behind an explicit start — renderList hides the add row while it
+   shows. The [hidden] override is needed because the row's display:flex would
+   otherwise beat the UA's hidden rule (same pattern as .issues-footer). */
+.issues-add-row[hidden] { display: none; }
+.issues-intro {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 30px 20px 32px;
+    text-align: center;
+}
+.issues-intro-icon { display: flex; color: #c4c4c4; }
+.issues-intro-icon svg { width: 26px; height: 26px; }
+.issues-intro-text {
+    font-size: 13px;
+    color: #555;
+    line-height: 1.5;
+    max-width: 270px;
+}
+/* Tonal, not solid blue: the panel opens right under the toolbar's Publish
+   button, and a second solid-blue primary stacked beneath it would dilute
+   both. In this empty state the CTA has no competing controls to outrank —
+   solid blue stays reserved for the consequential actions (Publish, Send to
+   AI). Same soft-blue vocabulary as .issues-confirm-all. */
+.issues-intro-start {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: none;
+    border-radius: 8px;
+    background: #eef5ff;
+    color: #2563c9;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 8px 14px;
+    cursor: pointer;
+}
+.issues-intro-start:hover { background: #ddebff; }
+
+.issues-list { padding: 4px; }
+
+.issue-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+}
+.issue-item:hover { background: #f5f5f5; }
+@keyframes issue-item-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: none; }
+}
+.issue-item-enter { animation: issue-item-in 0.18s ease; }
+
+/* Todo-style resolve circle: empty ring when open, filled check when resolved. */
+.issue-toggle {
+    flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
+    margin-top: 2px;
+    border: 1.5px solid #8a8a8a;
+    border-radius: 50%;
+    background: transparent;
+    color: transparent;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    box-sizing: border-box;
+}
+.issue-toggle:hover { border-color: #2d7d46; color: #2d7d46; }
+.issue-item.resolved .issue-toggle {
+    border-color: #2d7d46;
+    background: #2d7d46;
+    color: #fff;
+}
+
+.issue-main {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+}
+.issue-text {
+    font-size: 13px;
+    color: #222;
+    line-height: 1.4;
+    white-space: pre-line;
+    overflow-wrap: break-word;
+    cursor: text;
+    /* Long issues are clamped in the list; click to edit shows the full text. */
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.issue-item.resolved .issue-text {
+    color: #999;
+    text-decoration: line-through;
+}
+.issue-meta {
+    font-size: 11px;
+    color: #6f6f6f;
+    margin-top: 2px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.issue-sent-chip {
+    font-size: 10px;
+    font-weight: 600;
+    color: #2563c9;
+    background: #eef5ff;
+    border-radius: 4px;
+    padding: 1px 5px;
+}
+
+/* Live state while the AI turn started from this panel is running. */
+.issue-fixing-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #2563c9;
+    background: #eef5ff;
+    border-radius: 4px;
+    padding: 1px 5px;
+}
+.issue-fixing-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: issue-fixing-pulse 1.1s ease-in-out infinite;
+}
+@keyframes issue-fixing-pulse {
+    0%, 100% { opacity: 0.25; }
+    50%      { opacity: 1; }
+}
+
+/* A clean AI turn resolved this issue (vs. a manual check-off). */
+.issue-fixed-chip {
+    font-size: 10px;
+    font-weight: 600;
+    color: #2d7d46;
+    background: #eaf6ee;
+    border-radius: 4px;
+    padding: 1px 5px;
+}
+
+/* Inline editor swapped in for .issue-text (see beginEdit in issues.js). */
+.issue-edit-input {
+    width: 100%;
+    resize: none;
+    border: 1px solid #2563eb;
+    border-radius: 6px;
+    padding: 5px 8px;
+    font-size: 13px;
+    font-family: inherit;
+    line-height: 1.4;
+    /* Same contract as .issues-add-input: autoResizeInput owns overflow. */
+    overflow-y: hidden;
+    background: #fff;
+    color: #222;
+    box-sizing: border-box;
+}
+.issue-edit-input:focus { outline: none; }
+
+/* Row actions surface on hover/focus (always visible on touch — see the
+   ≤900px block). */
+.issue-actions {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity 0.12s ease;
+}
+.issue-item:hover .issue-actions,
+.issue-item:focus-within .issue-actions { opacity: 1; }
+.issue-actions button {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    width: 24px;
+    height: 24px;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    color: #666;
+}
+.issue-actions button:hover { background: #e9e9e9; color: #222; }
+.issue-actions button:disabled {
+    opacity: 0.35;
+    cursor: default;
+    pointer-events: none;
+}
+
+/* "Ready to review" group — AI-fixed issues awaiting the user's verification,
+   pinned above the open list. */
+.issues-review-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 6px 8px 0;
+    padding: 4px 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #2563c9;
+}
+.issues-review-header .issues-confirm-all {
+    border: none;
+    border-radius: 6px;
+    background: #eef5ff;
+    color: #2563c9;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 3px 9px;
+    cursor: pointer;
+    flex: 0 0 auto;
+}
+.issues-review-header .issues-confirm-all:hover { background: #ddebff; }
+.issue-item.review { background: #f6faff; }
+.issue-item.review:hover { background: #eef5ff; }
+.issue-item.review .issue-toggle { border-color: #7fb0e8; }
+/* Reviewing is a decision point — don't hide its actions behind hover. */
+.issue-item.review .issue-actions { opacity: 1; }
+
+/* Collapsible Resolved section header. */
+.issues-resolved-header {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    width: calc(100% - 8px);
+    margin: 2px 4px 4px;
+    padding: 6px 10px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    font-size: 12px;
+    font-weight: 600;
+    color: #6f6f6f;
+    cursor: pointer;
+    text-align: left;
+}
+.issues-resolved-header:hover { background: #f5f5f5; }
+.issues-resolved-chevron {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    transition: transform 0.12s ease;
+}
+.issues-resolved-chevron.expanded { transform: rotate(90deg); }
+
+/* Footer: shown only while a running turn greys the row send buttons — it
+   carries the hint explaining why (see syncBusyUI). */
+.issues-footer {
+    padding: 10px 12px;
+    border-top: 1px solid #eee;
+    flex: 0 0 auto;
+}
+.issues-footer[hidden] { display: none; }
+.issues-busy-hint {
+    font-size: 11.5px;
+    color: #6f6f6f;
+}
+
+/* ---- In-chat issue review card ("Did the fixes work?") ----
+   Same card shell as the clarifying-questions card: white rounded card in the
+   chat flow, animated in, content padding owned by the inner element. */
+.issue-review-card { animation: suggestionsIn 0.2s ease; }
+/* Auto-dismiss fade for the success-only terminal summary (see
+   armCardAutoDismiss in issues.js — removal follows on a timer, so the
+   transition is cosmetic and reduced-motion shortening it is fine). */
+.issue-review-card.irc-leaving {
+    opacity: 0;
+    transition: opacity 0.25s ease;
+}
+.issue-review-card .message-content {
+    padding: 0 !important;
+    width: 100%;
+    box-sizing: border-box;
+}
+.irc-inner {
+    background: #fff;
+    border: 1px solid #e4e4e4;
+    border-radius: 12px;
+    overflow: hidden;
+}
+.irc-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 13px 14px 2px;
+}
+.irc-title {
+    font-size: 14.5px;
+    font-weight: 600;
+    color: #1f1f1f;
+    line-height: 1.35;
+}
+.irc-dismiss {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    width: 22px;
+    height: 22px;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    color: #888;
+    flex: 0 0 auto;
+}
+.irc-dismiss:hover { background: #ececec; color: #333; }
+.irc-sub {
+    padding: 0 14px 10px;
+    font-size: 12px;
+    color: #6f6f6f;
+    line-height: 1.4;
+}
+.irc-list { border-top: 1px solid #f0f0f0; }
+.irc-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 14px;
+    border-bottom: 1px solid #f0f0f0;
+}
+.irc-item:last-child { border-bottom: none; }
+.irc-text {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+    color: #222;
+    line-height: 1.4;
+    white-space: pre-line;
+    overflow-wrap: break-word;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.irc-actions {
+    display: flex;
+    gap: 5px;
+    flex: 0 0 auto;
+}
+.irc-actions button,
+.irc-all-fixed,
+.irc-send-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 10px;
+    cursor: pointer;
+    line-height: 1;
+}
+.irc-fixed {
+    border: 1px solid #cde7d6;
+    background: #eaf6ee;
+    color: #2d7d46;
+}
+.irc-fixed:hover { background: #ddefe3; }
+.irc-broken {
+    border: 1px solid #e2e2e2;
+    background: #fff;
+    color: #666;
+}
+.irc-broken:hover { background: #f4f4f4; color: #333; }
+.irc-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding: 10px 14px;
+    border-top: 1px solid #f0f0f0;
+}
+.irc-all-fixed {
+    border: none;
+    background: #2d7d46;
+    color: #fff;
+}
+.irc-all-fixed:hover { background: #256b3b; }
+/* Closing summary once every pending item is decided. */
+.irc-terminal {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 14px;
+}
+.irc-terminal-text {
+    flex: 1;
+    font-size: 13px;
+    color: #555;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.irc-terminal-ok { color: #2d7d46; }
+.irc-send-back {
+    border: none;
+    background: #0a6ae0;
+    color: #fff;
+    flex: 0 0 auto;
+}
+.irc-send-back:hover { background: #0858c2; }
+
+/* Dark theme support for the version history panel */
+
+/* =========================================================================
+   RESPONSIVE / MOBILE + TABLET SUPPORT
+   Everything below is additive and gated by viewport width, so the existing
+   desktop layout (> 1100px) is left exactly as-is.
+   ========================================================================= */
+
+/* Helper elements injected by renderSkeleton(); hidden unless a rule below
+   reveals them. (The reveal rules carry higher specificity, so source order
+   is irrelevant.) */
+.sidebar-backdrop { display: none; }
+
+/* Mobile chat⇄app switcher (a two-segment control) + the preview toolbar's
+   overflow menu. Both are desktop-irrelevant (both panes show side-by-side), so
+   they stay hidden until the ≤900px rules reveal them. The overflow hide is
+   scoped to `.preview-toolbar` so it outranks `.preview-toolbar button {
+   display:flex }` (0,1,1) — a bare `.preview-overflow` would lose to it and the
+   button would leak onto desktop. */
+.view-seg { display: none; }
+.preview-toolbar .preview-overflow { display: none; }
+
+/* The segmented control itself. A pill-shaped track holding two equal segments;
+   the active one (set by syncViewSeg from the body view-state) gets a raised
+   white chip. The track is a clearly recessed grey so the white chip reads even
+   on a white toolbar; sized small enough to coexist with the busy preview bar. */
+.view-seg {
+    align-items: center;
+    gap: 2px;
+    padding: 2px;
+    background: #e6e8ec;
+    border: 1px solid #d3d7dd;
+    border-radius: 9px;
+    flex: 0 0 auto;
+}
+/* Every segment rule is scoped under `.view-seg` (specificity ≥ 0,2,0) so it
+   beats the always-on `.preview-toolbar button { width:28px; height:28px;
+   padding:0; ... }` rule (0,1,1) for EVERY property — otherwise, inside the
+   preview toolbar, the segments would inherit the icon-button size/padding and
+   the active chip would burst out of the track. (The chat-toolbar instance
+   isn't under `.preview-toolbar`, so it was never affected.) */
+.view-seg .view-seg-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    width: auto;
+    height: auto;
+    box-sizing: border-box;
+    border: none;
+    background: transparent;
+    color: #5f6670;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1;
+    padding: 6px 11px;
+    border-radius: 7px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.view-seg .view-seg-btn svg { width: 15px; height: 15px; flex: 0 0 auto; }
+/* Selected segment: a solid dark chip with white text — unmistakable on the
+   light track, and it won't clash with the (blue/green) Publish button. */
+.view-seg .view-seg-btn.active {
+    background: #1f2937;
+    color: #fff;
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.22);
+}
+.view-seg .view-seg-btn:not(.active):hover { color: #2c323b; }
+
+/* ---- Narrow desktop / small landscape (≤1100px) ----
+   The 3-way device-simulation toggle is the first thing to drop when the
+   window itself is small, and the side-by-side dock gets a little tighter so
+   the preview keeps usable width. */
+@media (max-width: 1100px) {
+    .preview-responsive-group { display: none; }
+    /* The trigger is gone, so a device panel left open would float anchorless
+       (the device selector has no overflow-menu row to re-anchor to). */
+    .preview-device-panel { display: none; }
+}
+
+@media (min-width: 901px) and (max-width: 1100px) {
+    body.preview-active .chat {
+        max-width: 400px;
+        padding-right: 20px;
+    }
+    body.preview-active .preview-pane {
+        width: calc(100% - 400px);
+    }
+}
+
+/* ===================== Phones & small tablets (≤900px) ===================== */
+@media (max-width: 900px) {
+    /* --- Chat surface --- */
+    .chat {
+        padding-left: 14px;
+        padding-right: 14px;
+    }
+
+    /* iOS Safari zooms the whole page when an input with font-size < 16px gets
+       focus. Bump the interactive text fields to 16px to suppress that. */
+    .chat-input-message,
+    .chat-search-input,
+    .publish-name-input,
+    .publish-address-input {
+        font-size: 16px;
+    }
+    /* Keep the https:// / .puter.site affixes the same size as the (now 16px)
+       address input so the row reads as one cohesive field. The 32px row height
+       still comfortably fits 16px text. */
+    .publish-address-fix {
+        font-size: 16px;
+    }
+
+    /* Finger-friendly touch targets */
+    .send,
+    .attachment-button {
+        width: 34px;
+        height: 34px;
+    }
+    .chat-input-message-actions {
+        height: 48px;
+    }
+
+    /* Top toolbar: the burger / new-chat / theme / account controls are sized
+       for a mouse on desktop (20-24px). Grow them to ~44px finger targets and
+       space the left pair apart so they're comfortable to tap. Each control is
+       a flex box that centers its icon, so enlarging the box doesn't move the
+       glyph — it just adds hittable area. Taller toolbar keeps them centered. */
+    :root {
+        --toolbar-h: 44px;
+    }
+    .chat-history-toggle {
+        top: 0;
+        left: 4px;
+        width: 44px;
+        height: 44px;
+    }
+    .header-new-chat {
+        top: 0;
+        left: 56px;
+        width: 44px;
+        height: 44px;
+    }
+    /* Drop the desktop +5px nudge so the right cluster centers in the taller
+       toolbar alongside the burger / new-chat boxes. */
+    .user-menu-container {
+        top: 50%;
+    }
+    .theme-toggle-btn,
+    .user-menu-btn {
+        width: 44px;
+        height: 44px;
+        padding: 0;
+    }
+    .sign-in-btn,
+    .feedback-btn {
+        min-height: 40px;
+        padding: 8px 16px;
+        font-size: 14px;
+    }
+    /* Comfortable touch targets for the account panel rows and theme segments. */
+    .user-panel-item {
+        min-height: 44px;
+        font-size: 14px;
+    }
+    .user-theme-opt {
+        min-height: 38px;
+        font-size: 13px;
+    }
+
+    .chat-tagline {
+        font-size: 1.375rem;
+    }
+    .chat-tagline-sub {
+        font-size: 1rem;
+    }
+
+    /* Tap targets. The desktop sizes of these controls (18–24px) are fine
+       for a pointer but under the ~40px a fingertip needs; grow them on phones
+       (the surrounding rows have the room). */
+    .view-seg .view-seg-btn { padding: 9px 12px; }
+    .chat-title-confirm,
+    .chat-title-cancel { width: 32px; font-size: 13px; }
+    .edit-target-cancel { width: 28px; height: 28px; font-size: 18px; }
+    .publish-icon-btn,
+    .publish-address-save,
+    .publish-address-cancel,
+    .properties-address-save,
+    .properties-address-cancel { width: 32px; height: 32px; }
+    .clarify-nav button { width: 32px; height: 32px; }
+
+    /* Touch devices can't hover — reveal the controls that desktop only shows
+       on hover, otherwise they're impossible to reach by tap. */
+    .remove-attachment {
+        opacity: 1;
+        top: -8px;
+        right: -8px;
+        width: 24px;
+        height: 24px;
+        font-size: 14px;
+        background: #fff;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+    }
+    .chat-menu-btn { opacity: 1; }
+
+    /* --- Sidebar: cap width on tiny screens + tap-to-dismiss scrim --- */
+    .chat-history-sidebar {
+        width: min(300px, 85vw);
+    }
+    .chat-history-sidebar.open ~ .sidebar-backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.4);
+        z-index: 999; /* under the sidebar itself (z-index 1000) */
+    }
+
+    /* --- App preview ---
+       The side-by-side dock can't fit on a phone, so the preview becomes a
+       full-screen layer and the floating toggle switches between it and chat. */
+    body.preview-active .preview-pane {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100vh;
+        height: 100dvh;
+        margin: 0;
+        border: none;
+        border-radius: 0;
+        z-index: 1400;
+    }
+    body.preview-active.mobile-view-chat .preview-pane {
+        display: none;
+    }
+
+    /* Chat fills the width in normal flow; the fixed preview covers it when shown. */
+    body.preview-active .chat {
+        max-width: 100%;
+        width: 100%;
+        margin: 0 auto;
+        padding-right: 14px;
+    }
+
+    /* The top toolbar's burger has a very high z-index; hide the toolbar while
+       the full-screen preview is the active view so it can't float on top. */
+    body.preview-active:not(.mobile-view-chat) .toolbar {
+        display: none;
+    }
+
+    /* Desktop-only preview affordance (hide-chat) is meaningless full-screen.
+       Needs to outrank `.preview-toolbar button { display: flex }`. */
+    .preview-toolbar .preview-toggle-chat {
+        display: none;
+    }
+
+    /* With the toggle gone, the element selector leads the left section — its
+       separator would float orphaned, so drop it too. */
+    .preview-toolbar-divider {
+        display: none;
+    }
+
+    /* Keep the preview toolbar's buttons from overflowing. */
+    .preview-toolbar {
+        gap: 4px;
+        padding: 6px 8px;
+    }
+    .preview-toolbar button {
+        width: 32px;
+        height: 32px;
+        flex: 0 0 auto;
+    }
+    /* On the narrowest phones (360px) the select tool + chat⇄app switcher +
+       Reload + ⋯ + Publish come to ~368px, so Reload overlapped the ⋯ button
+       by 8px. Tuck Reload into the ⋯ menu there (the handler adds the row
+       whenever this button is hidden). */
+    @media (max-width: 374px) {
+        body.preview-active .preview-reload { display: none; }
+    }
+
+    /* Version-history panel stays inside a narrow screen. The taller mobile
+       toolbar (32px buttons) pushes all four popovers down so their caret
+       still sits just under it. */
+    .preview-versions-panel {
+        width: min(320px, calc(100vw - 24px));
+        top: 54px;
+        right: 12px;
+        max-height: 70vh;
+    }
+
+    /* Issues panel: clamp to the viewport, and keep row actions always
+       visible — there's no hover to reveal them on touch. */
+    .preview-issues-panel {
+        width: min(360px, calc(100vw - 24px));
+        top: 54px;
+        right: 12px;
+        max-height: 70vh;
+    }
+    .issue-actions { opacity: 1; }
+    /* Prevent iOS zoom-on-focus (mirrors the composer inputs above). */
+    .issues-add-input,
+    .issue-edit-input { font-size: 16px; }
+
+    /* The Publish button is the key call-to-action — keep its label (don't let
+       the generic 32px-square mobile button rule collapse it to an icon), and
+       keep its popover inside the viewport. */
+    .preview-publish-btn {
+        width: auto !important;
+        height: 32px;
+        padding: 0 12px !important;
+    }
+    .preview-publish-panel,
+    .preview-share-panel {
+        width: min(400px, calc(100vw - 24px));
+        top: 54px;
+        right: 12px;
+        max-height: 70vh;
+    }
+
+    /* --- Chat ⇄ app switcher (mobile only, preview active) ---
+       A two-segment control replaces the old floating pill: it shows both
+       destinations with the current view highlighted, lives in the toolbar
+       instead of floating over content, and appears in whichever toolbar is
+       visible (chat view → the main toolbar; app view → the preview toolbar). */
+    body.preview-active .view-seg {
+        display: inline-flex;
+    }
+    /* (Segment sizing/padding is owned by the scoped `.view-seg .view-seg-btn`
+       base rule, which already outranks `.preview-toolbar button`.) */
+    /* Chat-view instance: center it in the toolbar's empty middle, between the
+       left controls (burger / new-chat) and the right-hand user menu. */
+    .view-seg-toolbar {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+    }
+
+    /* Phones can't fit the version-history / download buttons beside the centered
+       switcher and Publish, so they collapse into the overflow ("…") menu. The
+       buttons stay in the DOM (hidden) — the menu triggers their clicks — so all
+       their existing logic is reused. */
+    .preview-history-group { display: none; }
+    body.preview-active .preview-overflow { display: inline-flex; }
+}
+
+/* Very small phones (≤380px): trim chrome a touch more. */
+@media (max-width: 380px) {
+    .chat {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+    .chat-tagline { font-size: 1.2rem; }
+    .chat-tagline-sub { font-size: 0.95rem; }
+}
+
+/* ---- Custom confirmation modal (irreversible / destructive actions) ----
+   In-app dialog (not puter.ui.prompt) so it matches the app's look. Used by
+   confirmByTyping() for the "type a word to confirm" delete flow. */
+.confirm-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000000; /* above everything, incl. the sidebar toggle (9999999) */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    box-sizing: border-box;
+    /* A dialog taller than a short viewport (a landscape phone, a small
+       window) scrolls inside its card rather than being clipped top and
+       bottom with its buttons out of reach — the body itself never scrolls. */
+    overflow-y: auto;
+    background: rgba(20, 22, 30, 0.45);
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+.confirm-modal-overlay.open { opacity: 1; }
+
+.confirm-modal {
+    width: 400px;
+    max-width: 100%;
+    max-height: 100%;
+    overflow-y: auto;
+    box-sizing: border-box;
+    background: #fff;
+    border-radius: 14px;
+    padding: 26px 24px 22px;
+    box-shadow: 0 12px 44px rgba(0, 0, 0, 0.24);
+    text-align: center;
+    transform: translateY(8px) scale(0.98);
+    transition: transform 0.15s ease;
+}
+.confirm-modal-overlay.open .confirm-modal {
+    transform: translateY(0) scale(1);
+}
+
+.confirm-modal-icon {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 16px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fdecec;
+    color: #e5484d;
+}
+.confirm-modal-icon svg {
+    width: 26px;
+    height: 26px;
+    display: block;
+}
+
+.confirm-modal-title {
+    font-size: 17px;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin-bottom: 7px;
+}
+.confirm-modal-body {
+    font-size: 14px;
+    line-height: 1.5;
+    color: #666;
+    margin-bottom: 14px;
+}
+.confirm-modal-hint {
+    font-size: 13px;
+    line-height: 1.4;
+    color: #6f6f6f;
+    margin-bottom: 8px;
+}
+.confirm-modal-hint strong {
+    font-weight: 600;
+    color: #444;
+}
+
+.confirm-modal-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    font-size: 14px;
+    font-family: inherit;
+    color: #333;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    outline: none;
+    margin-bottom: 20px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.confirm-modal-input:focus {
+    border-color: #e5484d;
+    box-shadow: 0 0 0 3px rgba(229, 72, 77, 0.15);
+}
+/* The red border + glow above IS this field's focus indicator. The global
+   input:focus-visible ring (which text inputs match on any focus) painted a
+   second, blue outline 2px outside it — two clashing rings on the "type
+   delete" field the dialog auto-focuses. */
+.confirm-modal-input:focus-visible {
+    outline: none;
+}
+
+.confirm-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+.confirm-modal-btn {
+    padding: 9px 18px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: inherit;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.15s ease, opacity 0.15s ease;
+}
+.confirm-modal-cancel {
+    background: #f0f0f0;
+    color: #333;
+}
+.confirm-modal-cancel:hover { background: #e5e5e5; }
+.confirm-modal-confirm {
+    background: #e5484d;
+    color: #fff;
+}
+.confirm-modal-confirm:hover:not(:disabled) { background: #d23a3f; }
+.confirm-modal-confirm:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+/* Project Properties dialog — reuses .confirm-modal-overlay for the backdrop. */
+.properties-modal {
+    width: 420px;
+    max-width: 100%;
+    max-height: 100%;
+    overflow-y: auto;
+    box-sizing: border-box;
+    background: #fff;
+    border-radius: 14px;
+    padding: 22px 24px 20px;
+    box-shadow: 0 12px 44px rgba(0, 0, 0, 0.24);
+    text-align: left;
+    transform: translateY(8px) scale(0.98);
+    transition: transform 0.15s ease;
+}
+.confirm-modal-overlay.open .properties-modal {
+    transform: translateY(0) scale(1);
+}
+.properties-modal-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+.properties-modal-title {
+    flex: 1;
+    font-size: 17px;
+    font-weight: 600;
+    color: #1a1a1a;
+    line-height: 1.3;
+    word-break: break-word;
+}
+.properties-modal-x {
+    flex: none;
+    border: none;
+    background: transparent;
+    color: #999;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 6px;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+.properties-modal-x:hover { background: #f0f0f0; color: #444; }
+
+.properties-cost {
+    text-align: center;
+    background: #f6f7f9;
+    border-radius: 12px;
+    padding: 18px 16px;
+    margin-bottom: 16px;
+}
+.properties-cost-value {
+    font-size: 30px;
+    font-weight: 700;
+    color: #1a1a1a;
+    letter-spacing: -0.5px;
+}
+.properties-cost-label {
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #6b7280;
+    margin-top: 4px;
+}
+
+.properties-rows {
+    display: flex;
+    flex-direction: column;
+}
+.properties-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 16px;
+    padding: 10px 2px;
+    font-size: 14px;
+    border-top: 1px solid #f0f0f0;
+}
+.properties-row:first-child { border-top: none; }
+.properties-key { color: #6f6f6f; flex: none; }
+.properties-val {
+    color: #1a1a1a;
+    text-align: right;
+    word-break: break-word;
+    min-width: 0;
+}
+.properties-val a { color: #2563eb; text-decoration: none; }
+.properties-val a:hover { text-decoration: underline; }
+
+/* Published row: live link + Rename, or "Not published" + Publish, plus the
+   inline address editor that replaces them in place. */
+.properties-row-published { align-items: center; }
+.properties-val-published {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.properties-published-link { word-break: break-all; }
+.properties-published-none { color: #6f6f6f; }
+.properties-site-btn {
+    flex: 0 0 auto;
+    border: none;
+    background: transparent;
+    color: #0a6ae0;
+    font-size: 12.5px;
+    cursor: pointer;
+    padding: 2px 0;
+}
+.properties-site-btn:hover { text-decoration: underline; }
+.properties-address-edit {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    background: #f7f7f7;
+    border-radius: 6px;
+    padding: 2px 4px 2px 10px;
+    height: 32px;
+    box-sizing: border-box;
+    width: 100%;
+}
+.properties-address-fix { font-size: 12.5px; color: #6f6f6f; white-space: nowrap; flex: 0 0 auto; }
+.properties-address-input {
+    flex: 1;
+    min-width: 30px;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 12.5px;
+    color: #323232;
+    padding: 4px 2px;
+    font-family: inherit;
+}
+.properties-address-save,
+.properties-address-cancel {
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: transparent;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #555;
+    padding: 0;
+}
+.properties-address-save svg,
+.properties-address-cancel svg { width: 15px; height: 15px; }
+.properties-address-save:hover { color: #0e872a; }
+.properties-address-cancel:hover { color: #c0392b; }
+.properties-address-save:disabled,
+.properties-address-input:disabled { opacity: 0.5; cursor: default; }
+
+.properties-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 18px;
+}
+.properties-modal-close {
+    background: #f0f0f0;
+    color: #333;
+}
+.properties-modal-close:hover { background: #e5e5e5; }
+
+/* =========================================================================
+   DARK THEME
+   Everything below is gated by html[data-theme="dark"] (set before first paint
+   by the inline script in index.html, kept in sync by the theme runtime in
+   js/ui.js). It is ENTIRELY ADDITIVE — no light-mode rule above is touched, so
+   the default (light) appearance is unchanged. Colours flow from the small
+   semantic palette declared first; component overrides reference those tokens.
+
+   Two things deliberately stay theme-independent: the syntax-highlight surface
+   (<code class="hljs"> already paints on atom-one-dark's #282c34 in both modes)
+   and the published-app preview iframe (a separate, cross-origin document that
+   renders the user's own app — our CSS neither reaches nor should recolour it).
+   ========================================================================= */
+html[data-theme="dark"] {
+    /* Render native widgets (form fields, scrollbars, default backgrounds) in
+       their dark variants — a safety net beneath the explicit overrides. */
+    color-scheme: dark;
+
+    --bg: #171c24;             /* page background */
+    --surface: #1e242d;        /* cards, inputs, sidebar, preview chrome (was white) */
+    --surface-raised: #242b35; /* elevated layers: dropdowns, panels, modals */
+    --surface-subtle: #1b212a; /* recessed strips: progress, headers, url bar, code */
+    --surface-hover: #2a313c;  /* generic hover fill (was #f0f0f0 / #f8f8f8 / #e9e9e9) */
+    --surface-active: #313945; /* active / selected fill (was #f2f2f2 / #e5e5e5) */
+
+    --text: #e7e9ec;           /* primary text (was #1a1a1a / #222 / #333) */
+    --text-secondary: #b4bbc6; /* secondary text (was #555 / #666) */
+    --text-muted: #8b94a0;     /* muted text (was #888 / #999 / #9a9a9a) */
+    --text-faint: #6a7480;     /* faint text / placeholders (was #aeaeae / #b5b5b5) */
+
+    --border: #333b47;         /* default borders (was #ddd / #e0e0e0) */
+    --border-strong: #475061;  /* emphasised / hover borders (was #bbb / #999) */
+    --border-subtle: #262d37;  /* faint separators (was #f0f0f0 / #eee / #f1f1f1) */
+
+    --accent: #6cb0f5;         /* links / focus / primary accent (was #007bff / #2f86e9) */
+    --accent-soft: rgba(108, 176, 245, 0.14);
+    --danger: #ff6b75;
+    --danger-soft: rgba(255, 107, 117, 0.13);
+    --success: #4ade80;
+    --success-soft: rgba(74, 222, 128, 0.13);
+}
+
+/* ---- Base ---- */
+html[data-theme="dark"] body {
+    background: var(--bg);
+    color: var(--text);
+}
+html[data-theme="dark"] a { color: var(--accent); }
+html[data-theme="dark"] .chat-box .message-content ::marker { color: var(--text-muted); }
+
+/* ---- Toolbar / user menu / theme toggle ---- */
+html[data-theme="dark"] .theme-toggle-btn { color: var(--text-secondary); }
+html[data-theme="dark"] .theme-toggle-btn:hover { background: rgba(255, 255, 255, 0.08); }
+html[data-theme="dark"] .user-menu-btn:hover .user-avatar,
+html[data-theme="dark"] .user-menu-btn[aria-expanded="true"] .user-avatar {
+    box-shadow: 0 0 0 3px rgba(108, 176, 245, 0.35);
+}
+
+/* ---- Account panel ---- */
+html[data-theme="dark"] .user-panel {
+    background: var(--surface);
+    border-color: var(--border);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    --panel-caret-border: var(--border);
+    --panel-caret-fill: var(--surface);
+}
+html[data-theme="dark"] .user-panel-header { border-bottom-color: var(--border); }
+html[data-theme="dark"] .user-panel-name { color: var(--text); }
+html[data-theme="dark"] .user-panel-sub { color: var(--text-muted); }
+html[data-theme="dark"] .user-panel-item { color: var(--text-secondary); }
+html[data-theme="dark"] .user-panel-item:hover { background: var(--surface-hover); }
+html[data-theme="dark"] .user-item-icon { color: var(--text-muted); }
+html[data-theme="dark"] .user-item-external { color: var(--text-muted); }
+html[data-theme="dark"] .user-panel-sep { background: var(--border); }
+html[data-theme="dark"] .user-theme-label { color: var(--text-muted); }
+html[data-theme="dark"] .user-theme-seg { background: rgba(255, 255, 255, 0.06); }
+html[data-theme="dark"] .user-theme-opt { color: var(--text-secondary); }
+html[data-theme="dark"] .user-theme-opt:hover { color: var(--text); }
+html[data-theme="dark"] .user-theme-opt.active {
+    background: var(--surface-hover);
+    color: var(--text);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+html[data-theme="dark"] .user-panel-logout { color: #f08a80; }
+html[data-theme="dark"] .user-panel-logout .user-item-icon { color: inherit; }
+html[data-theme="dark"] .user-panel-logout:hover { background: rgba(240, 138, 128, 0.12); }
+
+html[data-theme="dark"] .sign-in-btn,
+html[data-theme="dark"] .feedback-btn,
+html[data-theme="dark"] .open-web-btn {
+    border-color: var(--border-strong);
+    color: var(--text);
+}
+html[data-theme="dark"] .sign-in-btn:hover,
+html[data-theme="dark"] .feedback-btn:hover,
+html[data-theme="dark"] .open-web-btn:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: var(--text-muted);
+}
+
+/* New-chat "+" (its SVG strokes are hardcoded #000 — re-stroke to follow text) */
+html[data-theme="dark"] .header-new-chat { color: var(--text); }
+html[data-theme="dark"] .header-new-chat svg line { stroke: currentColor; }
+html[data-theme="dark"] .header-new-chat:hover { background: var(--surface-hover); }
+
+/* Burger menu lines + hover */
+html[data-theme="dark"] .burger-line { background-color: var(--text); }
+html[data-theme="dark"] .chat-history-toggle:hover { background-color: var(--surface-hover); }
+
+/* ---- Composer ---- */
+html[data-theme="dark"] .chat-input {
+    background: var(--surface);
+    border-color: var(--border);
+}
+html[data-theme="dark"] .chat-input:has(.chat-input-message:focus):not(.disabled) { border-color: var(--border-strong); }
+html[data-theme="dark"] .chat-input.disabled,
+html[data-theme="dark"] .chat-input.disabled .chat-input-message { background-color: var(--surface-subtle); }
+html[data-theme="dark"] .chat-input.drag-over {
+    background-color: var(--accent-soft);
+    border-color: var(--accent);
+}
+html[data-theme="dark"] .chat-input-message {
+    background: transparent;
+    color: var(--text);
+}
+html[data-theme="dark"] .chat-input-message::placeholder { color: var(--text-muted); }
+/* The primary Send control mirrors light mode's inversion (dark plate, white
+   arrow): a light plate with a dark arrow. Its old #484d51 plate sat at 1.8:1
+   against the dark composer — a grey square that barely read as a button. The
+   arrow's fill is a presentation attribute on the SVG, so CSS wins over it.
+   The Stop (processing) state keeps its red plate + white glyph. */
+html[data-theme="dark"] .send { background-color: var(--text); }
+html[data-theme="dark"] .send:hover { background-color: #fff; }
+html[data-theme="dark"] .send svg path { fill: var(--bg); }
+html[data-theme="dark"] .send:disabled { background-color: var(--border-strong); }
+html[data-theme="dark"] .send:disabled svg path { fill: var(--text-faint); }
+html[data-theme="dark"] .send.processing svg path { fill: #fff; }
+html[data-theme="dark"] .chat-input-message:focus-within,
+html[data-theme="dark"] .chat-input-message:focus { border-color: var(--border-strong); }
+
+/* Attachment button (its SVG stroke is hardcoded #666 — follow the button colour) */
+html[data-theme="dark"] .attachment-button { color: var(--text-muted); }
+html[data-theme="dark"] .attachment-button svg { stroke: currentColor; }
+html[data-theme="dark"] .attachment-button:hover:not(:disabled) {
+    background-color: var(--surface-hover);
+    color: var(--text);
+}
+
+/* ---- Messages ---- */
+html[data-theme="dark"] .user-message .message-content { background-color: var(--surface-hover); }
+html[data-theme="dark"] .message-content th,
+html[data-theme="dark"] .message-content td { border-color: var(--border); }
+html[data-theme="dark"] .message-content pre { background: rgba(255, 255, 255, 0.05); }
+html[data-theme="dark"] .message-content blockquote {
+    border-left-color: var(--border);
+    color: var(--text-secondary);
+}
+html[data-theme="dark"] .message-image {
+    background: var(--surface);
+    box-shadow: 0 0 2px rgba(0, 0, 0, 0.6);
+}
+html[data-theme="dark"] .image-placeholder {
+    background: var(--surface-hover);
+    color: var(--text-muted);
+}
+
+/* Progress / status messages */
+html[data-theme="dark"] .progress-message {
+    background-color: var(--surface-subtle);
+    color: var(--text-secondary);
+    border-color: var(--surface-subtle);
+}
+html[data-theme="dark"] .progress-message.success {
+    background-color: var(--success-soft);
+    color: var(--success);
+    border-color: rgba(74, 222, 128, 0.3);
+}
+html[data-theme="dark"] .progress-message.error {
+    background-color: var(--danger-soft);
+    color: var(--danger);
+    border-color: rgba(255, 107, 117, 0.3);
+}
+/* Spinner dots carry a hardcoded #595959 fill — lift for contrast on dark. */
+html[data-theme="dark"] .progress-spinner circle { fill: #aab2bf; }
+
+/* Error message bubble */
+html[data-theme="dark"] .error-message .message-content {
+    background-color: var(--danger-soft);
+    border-color: rgba(255, 107, 117, 0.35);
+    color: var(--danger);
+}
+
+html[data-theme="dark"] .resume-banner {
+    background: var(--surface-subtle);
+    border-color: var(--border);
+    color: var(--text-secondary);
+}
+
+html[data-theme="dark"] .resume-banner-icon { color: var(--text-muted); }
+
+html[data-theme="dark"] .resume-build-btn {
+    background: var(--surface-raised);
+    border-color: var(--border-strong);
+    color: var(--text);
+}
+
+html[data-theme="dark"] .resume-build-btn:hover {
+    background: var(--surface-hover);
+    border-color: var(--border-strong);
+    color: var(--text);
+}
+
+html[data-theme="dark"] .resume-build-btn:active {
+    background: var(--surface-active);
+    border-color: var(--border-strong);
+    color: var(--text);
+}
+
+/* ---- Suggestion / starter chips ---- */
+html[data-theme="dark"] .chat-suggestion-chip,
+html[data-theme="dark"] .chat-starter-chip {
+    background: var(--surface);
+    border-color: var(--border);
+    color: var(--text-secondary);
+}
+html[data-theme="dark"] .chat-suggestion-chip:hover,
+html[data-theme="dark"] .chat-starter-chip:hover {
+    background: var(--surface-hover);
+    border-color: var(--border-strong);
+    color: var(--text);
+}
+html[data-theme="dark"] .chat-suggestion-chip:active,
+html[data-theme="dark"] .chat-suggestion-chip.selected,
+html[data-theme="dark"] .chat-starter-chip:active,
+html[data-theme="dark"] .chat-starter-chip.selected {
+    background: var(--surface-active);
+    border-color: var(--border-strong);
+    color: var(--text);
+}
+html[data-theme="dark"] .chat-starter-heading { color: var(--text-muted); }
+html[data-theme="dark"] .chat-tagline-sub { color: var(--text-muted); }
+html[data-theme="dark"] .chat-copyright { color: var(--text-muted); }
+html[data-theme="dark"] .chat-footer-nav a { color: var(--text-muted); }
+html[data-theme="dark"] .chat-footer-nav a:hover { color: var(--text-secondary); }
+html[data-theme="dark"] .chat-suggestion-regenerate {
+    background: var(--surface-subtle);
+    border-color: var(--border);
+    color: var(--text-secondary);
+}
+html[data-theme="dark"] .chat-suggestion-regenerate:hover {
+    background: var(--surface-hover);
+    border-color: var(--border-strong);
+    color: var(--text);
+}
+
+/* ---- Attachments ---- */
+html[data-theme="dark"] .attachment-preview {
+    background: var(--surface-subtle);
+    border-color: var(--border);
+}
+html[data-theme="dark"] .clear-attachments { color: var(--text-muted); }
+html[data-theme="dark"] .clear-attachments:hover { background-color: var(--surface-hover); }
+html[data-theme="dark"] .attachment-thumbnail {
+    background: var(--surface);
+    border-color: var(--border);
+}
+html[data-theme="dark"] .remove-attachment { color: var(--text-muted); }
+html[data-theme="dark"] .remove-attachment:hover { color: var(--text); }
+/* The touch-device disc (≤900px / no hover) was hard-coded white. */
+html[data-theme="dark"] .remove-attachment { background: var(--surface-raised); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5); }
+
+/* ---- Code blocks (the .hljs code surface itself stays atom-one-dark) ---- */
+html[data-theme="dark"] .code-block { background: var(--surface-subtle); }
+html[data-theme="dark"] .code-header {
+    background: var(--surface-subtle);
+    border-bottom-color: var(--border-subtle);
+}
+html[data-theme="dark"] .code-language { color: var(--text-muted); }
+html[data-theme="dark"] .code-block code::-webkit-scrollbar-track { background: #21262e; }
+html[data-theme="dark"] .code-block code::-webkit-scrollbar-thumb { background: #3a4250; }
+html[data-theme="dark"] .code-block code::-webkit-scrollbar-thumb:hover { background: #475061; }
+
+/* ---- Inline fs/app/email tokens ---- */
+html[data-theme="dark"] .dir:hover,
+html[data-theme="dark"] .file:hover,
+html[data-theme="dark"] .app:hover { background: rgba(255, 255, 255, 0.12); }
+
+/* ---- Todo list ---- */
+html[data-theme="dark"] .todo-list .message-content { background-color: var(--surface); }
+html[data-theme="dark"] .todo-list .todo-completed { color: var(--success); }
+/* The unchecked checkbox SVG carries a hardcoded #000 stroke on its <g> (too
+   dark on the dark surface); lighten it. Scoped to non-completed items so the
+   checked box keeps its green stroke. The stroke must be set on the <g> itself —
+   it owns the presentation attribute, so a stroke on the <svg> wouldn't win. */
+html[data-theme="dark"] .todo-list li:not(.todo-completed) svg g { stroke: var(--text-secondary); }
+
+/* ---- Tagline shimmer: flip the sweep to light-on-dark ---- */
+html[data-theme="dark"] .shimmer,
+html[data-theme="dark"] .shimmer-once {
+    --shimmer-base: rgba(255, 255, 255, 0.85);
+    --shimmer-highlight: rgba(255, 255, 255, 0.3);
+}
+
+/* ---- Clarifying-questions card ---- */
+html[data-theme="dark"] .clarify-inner {
+    background: var(--surface);
+    border-color: var(--border);
+}
+html[data-theme="dark"] .clarify-question { color: var(--text); }
+html[data-theme="dark"] .clarify-nav,
+html[data-theme="dark"] .clarify-count { color: var(--text-muted); }
+html[data-theme="dark"] .clarify-nav button { color: var(--text-muted); }
+html[data-theme="dark"] .clarify-nav button:hover:not(:disabled) {
+    background: var(--surface-hover);
+    color: var(--text);
+}
+html[data-theme="dark"] .clarify-option {
+    border-top-color: var(--border-subtle);
+    color: var(--text);
+}
+html[data-theme="dark"] .clarify-option:hover,
+html[data-theme="dark"] .clarify-option.active { background: var(--surface-hover); }
+html[data-theme="dark"] .clarify-option .clarify-num {
+    background: var(--surface-hover);
+    color: var(--text-muted);
+}
+html[data-theme="dark"] .clarify-option:hover .clarify-num,
+html[data-theme="dark"] .clarify-option.active .clarify-num {
+    background: var(--surface-active);
+    color: var(--text);
+}
+html[data-theme="dark"] .clarify-option .clarify-hint { color: var(--text-faint); }
+html[data-theme="dark"] .clarify-custom-row { border-top-color: var(--border-subtle); }
+html[data-theme="dark"] .clarify-custom-icon { color: var(--text-faint); }
+html[data-theme="dark"] .clarify-custom { color: var(--text-muted); }
+html[data-theme="dark"] .clarify-custom:hover { color: var(--text-secondary); }
+html[data-theme="dark"] .clarify-custom-input { color: var(--text); }
+html[data-theme="dark"] .clarify-custom-input::placeholder { color: var(--text-muted); }
+/* Same inversion as the Send button above (dark plate → light plate). */
+html[data-theme="dark"] .clarify-custom-ok { background: var(--text); color: var(--bg); }
+html[data-theme="dark"] .clarify-custom-ok:hover { background: #fff; }
+html[data-theme="dark"] .clarify-skip {
+    background: var(--surface);
+    border-color: var(--border);
+    color: var(--text-secondary);
+}
+html[data-theme="dark"] .clarify-skip:hover {
+    background: var(--surface-hover);
+    border-color: var(--border-strong);
+    color: var(--text);
+}
+html[data-theme="dark"] .clarify-summary-inner {
+    background: var(--surface-subtle);
+    border-color: var(--border);
+}
+html[data-theme="dark"] .clarify-summary-title,
+html[data-theme="dark"] .clarify-summary-q { color: var(--text-muted); }
+html[data-theme="dark"] .clarify-summary-a { color: var(--text); }
+
+/* ---- Chat history sidebar ---- */
+html[data-theme="dark"] .chat-history-sidebar {
+    background: var(--surface);
+}
+html[data-theme="dark"] .chat-history-sidebar.open {
+    border-right-color: var(--border);
+    box-shadow: 2px 0 14px rgba(0, 0, 0, 0.45);
+}
+html[data-theme="dark"] .sidebar-header {
+    background: var(--surface-subtle);
+    border-bottom-color: var(--border-subtle);
+}
+html[data-theme="dark"] .sidebar-header h3 { color: var(--text-secondary); }
+html[data-theme="dark"] .sidebar-new-project {
+    background: var(--surface);
+    border-color: var(--border-subtle);
+    color: var(--text-secondary);
+}
+html[data-theme="dark"] .sidebar-new-project:hover {
+    background: var(--surface-hover);
+    border-color: var(--border);
+    color: var(--text);
+}
+html[data-theme="dark"] .close-sidebar { color: var(--text-muted); }
+html[data-theme="dark"] .close-sidebar:hover {
+    background: var(--surface-hover);
+    color: var(--text);
+}
+html[data-theme="dark"] .sidebar-search { border-bottom-color: var(--border-subtle); }
+html[data-theme="dark"] .sidebar-search-icon { color: var(--text-muted); }
+html[data-theme="dark"] .chat-search-input {
+    color: var(--text);
+    background: var(--surface-subtle);
+    border-color: var(--border);
+}
+html[data-theme="dark"] .chat-search-input::placeholder { color: var(--text-muted); }
+html[data-theme="dark"] .chat-search-input:focus { border-color: var(--border-strong); }
+html[data-theme="dark"] .chat-list-empty { color: var(--text-muted); }
+html[data-theme="dark"] .chat-section-label { color: var(--text-muted); }
+html[data-theme="dark"] .chat-list { scrollbar-color: var(--border-strong) transparent; }
+html[data-theme="dark"] .chat-list::-webkit-scrollbar-thumb { background: #3a4250; }
+html[data-theme="dark"] .chat-list::-webkit-scrollbar-thumb:hover { background: #475061; }
+html[data-theme="dark"] .chat-item:hover,
+html[data-theme="dark"] .chat-item.menu-open { background-color: var(--surface-hover); }
+html[data-theme="dark"] .chat-item.active { background-color: var(--surface-active); }
+html[data-theme="dark"] .chat-title { color: var(--text); }
+html[data-theme="dark"] .chat-title-input {
+    color: var(--text);
+    border-color: var(--accent);
+    background: var(--surface-subtle);
+}
+html[data-theme="dark"] .chat-title-confirm,
+html[data-theme="dark"] .chat-title-cancel {
+    background: var(--surface-hover);
+    color: var(--text-secondary);
+}
+html[data-theme="dark"] .chat-title-confirm:hover { background: var(--accent); color: #0b1118; }
+html[data-theme="dark"] .chat-title-cancel:hover { background: var(--surface-active); color: var(--text); }
+html[data-theme="dark"] .chat-app-link { color: var(--accent); }
+html[data-theme="dark"] .chat-menu-btn { color: var(--text-muted); }
+html[data-theme="dark"] .chat-thumb {
+    background: var(--surface-subtle);
+    border-color: var(--border);
+}
+html[data-theme="dark"] .chat-thumb-ph { color: var(--text-muted); }
+
+/* ---- App preview pane ---- */
+html[data-theme="dark"] body.preview-active .preview-pane {
+    background: var(--surface);
+    border-color: var(--border);
+}
+html[data-theme="dark"] .preview-toolbar { border-bottom-color: var(--border); }
+html[data-theme="dark"] .preview-toolbar button { color: var(--text-secondary); }
+html[data-theme="dark"] .preview-toolbar button:hover { background: var(--surface-hover); }
+html[data-theme="dark"] .preview-toolbar button[aria-expanded="true"] {
+    background: var(--surface-active);
+    color: var(--text);
+}
+
+/* Mobile chat⇄app switcher — dark theme: a recessed track with a raised active
+   chip, mirroring the light styling. */
+html[data-theme="dark"] .view-seg {
+    background: var(--surface-subtle);
+    border-color: var(--border);
+}
+/* Scoped under `.view-seg` to outrank `html[data-theme="dark"] .preview-toolbar
+   button { color }` (0,2,1) inside the preview toolbar. */
+html[data-theme="dark"] .view-seg .view-seg-btn { color: var(--text-secondary); }
+html[data-theme="dark"] .view-seg .view-seg-btn.active {
+    background: #e7e9ec;
+    color: #171c24;
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+html[data-theme="dark"] .edit-target-chip {
+    border-color: rgba(96, 165, 250, 0.35);
+    background: rgba(37, 99, 235, 0.18);
+    color: #bfd3ff;
+}
+html[data-theme="dark"] .edit-target-cancel { color: #bfd3ff; }
+html[data-theme="dark"] .edit-target-cancel:hover { background: rgba(191, 211, 255, 0.16); }
+html[data-theme="dark"] .preview-toolbar-divider { background: var(--border); }
+html[data-theme="dark"] .preview-body.device-mobile,
+html[data-theme="dark"] .preview-body.device-tablet { background: #0f1319; }
+html[data-theme="dark"] .preview-body.device-mobile .preview-frame,
+html[data-theme="dark"] .preview-body.device-tablet .preview-frame { border-color: var(--border); }
+/* Publish button + popover (dark). Scoped under .preview-toolbar so the text
+   color beats `html[data-theme="dark"] .preview-toolbar button { color: ... }`. */
+html[data-theme="dark"] .preview-toolbar .preview-publish-btn { background: var(--accent) !important; color: #0b1118; }
+html[data-theme="dark"] .preview-toolbar .preview-publish-btn:hover { background: #8cc2ff !important; }
+html[data-theme="dark"] .preview-toolbar .preview-publish-btn[aria-expanded="true"] { background: #8cc2ff !important; color: #0b1118; }
+html[data-theme="dark"] .preview-toolbar .preview-publish-btn[data-state="clean"] {
+    color: #8fe3ab;
+    background: rgba(74, 222, 128, 0.14) !important;
+}
+html[data-theme="dark"] .preview-toolbar .preview-publish-btn[data-state="clean"]:hover { background: rgba(74, 222, 128, 0.22) !important; }
+html[data-theme="dark"] .preview-toolbar .preview-publish-btn[data-state="clean"][aria-expanded="true"] { background: rgba(74, 222, 128, 0.22) !important; color: #8fe3ab; }
+html[data-theme="dark"] .preview-publish-dot { background: #0b1118; }
+html[data-theme="dark"] .preview-publish-panel,
+html[data-theme="dark"] .preview-share-panel,
+html[data-theme="dark"] .preview-device-panel {
+    background: var(--surface);
+    border-color: var(--border);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    --panel-caret-border: var(--border);
+    --panel-caret-fill: var(--surface);
+}
+html[data-theme="dark"] .publish-panel-header,
+html[data-theme="dark"] .share-panel-header,
+html[data-theme="dark"] .device-panel-header { color: var(--text); border-bottom-color: var(--border); }
+html[data-theme="dark"] .publish-panel-header .publish-panel-close,
+html[data-theme="dark"] .share-panel-header .share-panel-close,
+html[data-theme="dark"] .device-panel-header .device-panel-close { color: var(--text-secondary); }
+html[data-theme="dark"] .publish-panel-header .publish-panel-close:hover,
+html[data-theme="dark"] .share-panel-header .share-panel-close:hover,
+html[data-theme="dark"] .device-panel-header .device-panel-close:hover { background: var(--surface-hover); }
+html[data-theme="dark"] .device-panel-option { color: var(--text-secondary); }
+html[data-theme="dark"] .device-panel-option:hover { background: var(--surface-hover); }
+html[data-theme="dark"] .device-panel-option.selected { color: var(--text); }
+html[data-theme="dark"] .device-option-icon { color: var(--text-muted); }
+html[data-theme="dark"] .device-option-check { color: #8fe3ab; }
+html[data-theme="dark"] .publish-blurb { color: var(--text-secondary); }
+html[data-theme="dark"] .publish-action { background: var(--accent); color: #0b1118; }
+html[data-theme="dark"] .publish-action:hover { background: #8cc2ff; }
+html[data-theme="dark"] .publish-action:disabled { background: rgba(108, 176, 245, 0.4); }
+html[data-theme="dark"] .publish-live { color: #8fe3ab; }
+html[data-theme="dark"] .publish-live.is-stale { color: #f0c061; }
+html[data-theme="dark"] .publish-url-row,
+html[data-theme="dark"] .publish-address-edit,
+html[data-theme="dark"] .publish-name-row { background: var(--surface-subtle); }
+html[data-theme="dark"] .publish-name-input { color: var(--text); }
+html[data-theme="dark"] .publish-url-display { color: var(--accent); }
+html[data-theme="dark"] .publish-icon-btn { color: var(--text-secondary); }
+html[data-theme="dark"] .publish-icon-btn:hover { background: var(--surface-hover); }
+html[data-theme="dark"] .publish-icon-btn.copied { color: var(--success); }
+html[data-theme="dark"] .publish-change-address { color: var(--accent); }
+html[data-theme="dark"] .publish-address-fix { color: var(--text-muted); }
+html[data-theme="dark"] .publish-address-input { color: var(--text); }
+html[data-theme="dark"] .publish-address-save { color: var(--text-secondary); }
+html[data-theme="dark"] .publish-address-save:hover { color: var(--success); }
+html[data-theme="dark"] .publish-address-cancel { color: var(--text-secondary); }
+html[data-theme="dark"] .publish-address-cancel:hover { color: var(--danger); }
+html[data-theme="dark"] .publish-waiting { background: var(--surface-subtle); color: var(--text-secondary); }
+html[data-theme="dark"] .publish-uptodate { color: #8fe3ab; }
+html[data-theme="dark"] .publish-meta { color: var(--text-muted); }
+/* Publish progress + share views (the gradient badge/letter reads on both
+   themes, so only the neutral chrome re-colors). */
+html[data-theme="dark"] .publish-result-title { color: var(--text); }
+html[data-theme="dark"] .publish-result-sub { color: var(--text-secondary); }
+html[data-theme="dark"] .publish-result-spinner {
+    border-color: var(--surface-active);
+    border-top-color: var(--text-secondary);
+}
+html[data-theme="dark"] .publish-result-badge { box-shadow: 0 10px 26px rgba(0, 123, 255, 0.28); }
+html[data-theme="dark"] .publish-share-icon { color: var(--text); }
+html[data-theme="dark"] .publish-share-icon:hover { background: var(--surface-hover); }
+html[data-theme="dark"] .publish-site-card { border-color: var(--border); }
+html[data-theme="dark"] .publish-site-card-title { color: var(--accent); }
+html[data-theme="dark"] .publish-site-card-host { color: #8fe3ab; }
+html[data-theme="dark"] .publish-site-card-desc { color: var(--text-secondary); }
+html[data-theme="dark"] .publish-site-card-hint {
+    background: var(--surface-subtle);
+    border-top-color: var(--border-subtle);
+    color: var(--text-muted);
+}
+html[data-theme="dark"] .publish-result-copy {
+    background: transparent;
+    border-color: var(--border-strong);
+    color: var(--text-secondary);
+}
+html[data-theme="dark"] .publish-result-copy:hover { background: var(--surface-hover); border-color: var(--border-strong); }
+html[data-theme="dark"] .publish-result-copy.copied { color: var(--success); }
+/* Visit site inverts with the theme: black-on-light, white-on-dark. */
+html[data-theme="dark"] .publish-result-visit { background: #eef2f7; color: #0b1118; }
+html[data-theme="dark"] .publish-result-visit:hover { background: #fff; }
+/* Share-draft popover content (amber mirrors .publish-live.is-stale). */
+html[data-theme="dark"] .share-draft-status { color: #f0c061; }
+html[data-theme="dark"] .share-publish-handoff { color: var(--text-secondary); }
+html[data-theme="dark"] .share-publish-handoff span { color: var(--accent); }
+/* Deploy-propagation overlay (frosted light → frosted dark) */
+html[data-theme="dark"] .preview-updating { background: rgba(23, 28, 36, 0.82); }
+html[data-theme="dark"] .preview-updating-card {
+    background: rgba(40, 48, 60, 0.5);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+html[data-theme="dark"] .preview-updating-spinner {
+    border-color: rgba(255, 255, 255, 0.15);
+    border-top-color: var(--text-secondary);
+}
+html[data-theme="dark"] .preview-updating-text { color: var(--text-secondary); }
+
+/* ---- Version-history panel ---- */
+html[data-theme="dark"] .preview-versions-panel {
+    background: var(--surface-raised);
+    border-color: var(--border);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+    --panel-caret-border: var(--border);
+    --panel-caret-fill: var(--surface-raised);
+}
+html[data-theme="dark"] .versions-panel-header {
+    color: var(--text);
+    border-bottom-color: var(--border-subtle);
+}
+html[data-theme="dark"] .versions-panel-header .versions-panel-close:hover { background: var(--surface-hover); }
+html[data-theme="dark"] .versions-empty { color: var(--text-muted); }
+html[data-theme="dark"] .version-item:hover { background: var(--surface-hover); }
+html[data-theme="dark"] .version-item.current { background: var(--accent-soft); }
+html[data-theme="dark"] .version-item:focus-visible {
+    outline-color: var(--accent);
+    background: var(--accent-soft);
+}
+html[data-theme="dark"] .version-label { color: var(--text); }
+html[data-theme="dark"] .version-meta { color: var(--text-muted); }
+html[data-theme="dark"] .version-restore {
+    border-color: var(--border-strong);
+    background: var(--surface);
+    color: var(--text);
+}
+html[data-theme="dark"] .version-restore:hover {
+    background: var(--surface-hover);
+    border-color: var(--text-muted);
+}
+html[data-theme="dark"] .version-current-badge { color: var(--accent); }
+
+/* ---- Issues panel ---- */
+html[data-theme="dark"] .issues-count-badge { background: var(--accent); color: #0b1118; }
+html[data-theme="dark"] .preview-issues-panel {
+    background: var(--surface-raised);
+    border-color: var(--border);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+    --panel-caret-border: var(--border);
+    --panel-caret-fill: var(--surface-raised);
+}
+html[data-theme="dark"] .issues-panel-header {
+    color: var(--text);
+    border-bottom-color: var(--border-subtle);
+}
+html[data-theme="dark"] .issues-panel-header .issues-panel-close { color: var(--text-secondary); }
+html[data-theme="dark"] .issues-panel-header .issues-panel-close:hover { background: var(--surface-hover); }
+html[data-theme="dark"] .issues-add-row { border-bottom-color: var(--border-subtle); }
+html[data-theme="dark"] .issues-add-input {
+    background: var(--surface-subtle);
+    border-color: var(--border);
+    color: var(--text);
+}
+html[data-theme="dark"] .issues-add-input:focus {
+    border-color: var(--accent);
+    background: var(--surface);
+}
+html[data-theme="dark"] .issues-add-btn { background: var(--accent); color: #0b1118; }
+html[data-theme="dark"] .issues-add-btn:hover { background: #8cc2ff; }
+html[data-theme="dark"] .issues-add-btn:disabled {
+    background: var(--surface-hover);
+    color: var(--text-faint);
+}
+html[data-theme="dark"] .issues-empty { color: var(--text-muted); }
+html[data-theme="dark"] .issues-intro-icon { color: var(--text-faint); }
+html[data-theme="dark"] .issues-intro-text { color: var(--text-secondary); }
+html[data-theme="dark"] .issues-intro-start { background: var(--accent-soft); color: var(--accent); }
+html[data-theme="dark"] .issues-intro-start:hover { background: rgba(108, 176, 245, 0.24); }
+html[data-theme="dark"] .issue-item:hover { background: var(--surface-hover); }
+html[data-theme="dark"] .issue-toggle { border-color: var(--border-strong); }
+html[data-theme="dark"] .issue-toggle:hover { border-color: var(--success); color: var(--success); }
+html[data-theme="dark"] .issue-item.resolved .issue-toggle {
+    border-color: var(--success);
+    background: var(--success);
+    color: #0b1118;
+}
+html[data-theme="dark"] .issue-text { color: var(--text); }
+html[data-theme="dark"] .issue-item.resolved .issue-text { color: var(--text-muted); }
+html[data-theme="dark"] .issue-meta { color: var(--text-muted); }
+html[data-theme="dark"] .issue-sent-chip { color: var(--accent); background: var(--accent-soft); }
+html[data-theme="dark"] .issue-fixing-chip { color: var(--accent); background: var(--accent-soft); }
+html[data-theme="dark"] .issue-fixed-chip { color: var(--success); background: var(--success-soft); }
+html[data-theme="dark"] .issues-count-badge.review-only { background: var(--success); color: #0b1118; }
+html[data-theme="dark"] .issues-review-header { color: var(--accent); }
+html[data-theme="dark"] .issues-review-header .issues-confirm-all { background: var(--accent-soft); color: var(--accent); }
+html[data-theme="dark"] .issues-review-header .issues-confirm-all:hover { background: rgba(108, 176, 245, 0.24); }
+html[data-theme="dark"] .issue-item.review { background: rgba(108, 176, 245, 0.07); }
+html[data-theme="dark"] .issue-item.review:hover { background: var(--accent-soft); }
+html[data-theme="dark"] .issue-item.review .issue-toggle { border-color: var(--accent); }
+/* In-chat issue review card */
+html[data-theme="dark"] .irc-inner {
+    background: var(--surface-raised);
+    border-color: var(--border);
+}
+html[data-theme="dark"] .irc-title { color: var(--text); }
+html[data-theme="dark"] .irc-sub { color: var(--text-muted); }
+html[data-theme="dark"] .irc-dismiss { color: var(--text-muted); }
+html[data-theme="dark"] .irc-dismiss:hover { background: var(--surface-hover); color: var(--text); }
+html[data-theme="dark"] .irc-list,
+html[data-theme="dark"] .irc-item,
+html[data-theme="dark"] .irc-footer { border-color: var(--border-subtle); }
+html[data-theme="dark"] .irc-text { color: var(--text); }
+html[data-theme="dark"] .irc-fixed {
+    border-color: rgba(74, 222, 128, 0.3);
+    background: var(--success-soft);
+    color: var(--success);
+}
+html[data-theme="dark"] .irc-fixed:hover { background: rgba(74, 222, 128, 0.24); }
+html[data-theme="dark"] .irc-broken {
+    border-color: var(--border-strong);
+    background: var(--surface);
+    color: var(--text-secondary);
+}
+html[data-theme="dark"] .irc-broken:hover { background: var(--surface-hover); color: var(--text); }
+html[data-theme="dark"] .irc-all-fixed { background: var(--success); color: #0b1118; }
+html[data-theme="dark"] .irc-all-fixed:hover { background: #6ee79a; }
+html[data-theme="dark"] .irc-terminal-text { color: var(--text-secondary); }
+html[data-theme="dark"] .irc-terminal-ok { color: var(--success); }
+html[data-theme="dark"] .irc-send-back { background: var(--accent); color: #0b1118; }
+html[data-theme="dark"] .irc-send-back:hover { background: #8cc2ff; }
+html[data-theme="dark"] .issue-edit-input {
+    background: var(--surface);
+    border-color: var(--accent);
+    color: var(--text);
+}
+html[data-theme="dark"] .issue-actions button { color: var(--text-secondary); }
+html[data-theme="dark"] .issue-actions button:hover { background: var(--surface-hover); color: var(--text); }
+html[data-theme="dark"] .issues-resolved-header { color: var(--text-muted); }
+html[data-theme="dark"] .issues-resolved-header:hover { background: var(--surface-hover); }
+html[data-theme="dark"] .issues-footer { border-top-color: var(--border-subtle); }
+html[data-theme="dark"] .issues-busy-hint { color: var(--text-muted); }
+
+/* ---- Confirmation modal ---- */
+html[data-theme="dark"] .confirm-modal {
+    background: var(--surface-raised);
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
+}
+html[data-theme="dark"] .confirm-modal-icon {
+    background: var(--danger-soft);
+    color: var(--danger);
+}
+html[data-theme="dark"] .confirm-modal-title { color: var(--text); }
+html[data-theme="dark"] .confirm-modal-body { color: var(--text-secondary); }
+html[data-theme="dark"] .confirm-modal-hint { color: var(--text-muted); }
+html[data-theme="dark"] .confirm-modal-hint strong { color: var(--text-secondary); }
+html[data-theme="dark"] .confirm-modal-input {
+    color: var(--text);
+    background: var(--surface);
+    border-color: var(--border);
+}
+html[data-theme="dark"] .confirm-modal-input:focus {
+    border-color: var(--danger);
+    box-shadow: 0 0 0 3px rgba(255, 107, 117, 0.18);
+}
+html[data-theme="dark"] .confirm-modal-cancel {
+    background: var(--surface-hover);
+    color: var(--text);
+}
+html[data-theme="dark"] .confirm-modal-cancel:hover { background: var(--surface-active); }
+
+/* ---- Project Properties dialog ---- */
+html[data-theme="dark"] .properties-modal {
+    background: var(--surface-raised);
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
+}
+html[data-theme="dark"] .properties-modal-title { color: var(--text); }
+html[data-theme="dark"] .properties-modal-x { color: var(--text-muted); }
+html[data-theme="dark"] .properties-modal-x:hover { background: var(--surface-hover); color: var(--text-secondary); }
+html[data-theme="dark"] .properties-cost { background: var(--surface-subtle); }
+html[data-theme="dark"] .properties-cost-value { color: var(--text); }
+html[data-theme="dark"] .properties-cost-label { color: var(--text-muted); }
+html[data-theme="dark"] .properties-row { border-top-color: var(--border-subtle); }
+html[data-theme="dark"] .properties-key { color: var(--text-secondary); }
+html[data-theme="dark"] .properties-val { color: var(--text); }
+html[data-theme="dark"] .properties-val a { color: var(--accent); }
+html[data-theme="dark"] .properties-published-none { color: var(--text-secondary); }
+html[data-theme="dark"] .properties-site-btn { color: var(--accent); }
+html[data-theme="dark"] .properties-address-edit { background: var(--surface-subtle); }
+html[data-theme="dark"] .properties-address-fix { color: var(--text-muted); }
+html[data-theme="dark"] .properties-address-input { color: var(--text); }
+html[data-theme="dark"] .properties-address-save,
+html[data-theme="dark"] .properties-address-cancel { color: var(--text-secondary); }
+/* Same hover colours as the publish popover's twins (.publish-address-*): the
+   light-theme greens/reds sat at ~3:1 on the dark modal surface. */
+html[data-theme="dark"] .properties-address-save:hover { color: var(--success); }
+html[data-theme="dark"] .properties-address-cancel:hover { color: var(--danger); }
+html[data-theme="dark"] .properties-modal-close {
+    background: var(--surface-hover);
+    color: var(--text);
+}
+html[data-theme="dark"] .properties-modal-close:hover { background: var(--surface-active); }
+
+/* ---- Media controls ---- */
+html[data-theme="dark"] audio::-webkit-media-controls-play-button,
+html[data-theme="dark"] audio::-webkit-media-controls-panel { background: var(--surface); }
+
+/* ---- Toast notifications (window.showToast) ----
+   Used to surface otherwise-silent failures (a failed background save or
+   version snapshot). The container is an aria-live region (set in JS). */
+.toast-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    /* Above the confirm/Settings overlay (10000000): a toast raised while a
+       dialog is up — a failed save, the sticky PWA "Reload"/"Install" offers —
+       used to render dimmed and blurred beneath it, its buttons unclickable
+       until the dialog closed. */
+    z-index: 10000001;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: min(380px, calc(100vw - 40px));
+    pointer-events: none; /* let clicks through the gaps; toasts re-enable it */
+}
+.toast {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 13px;
+    border-radius: 10px;
+    background: #1f2733;
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+    font-size: 13px;
+    line-height: 1.45;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.toast-visible { opacity: 1; transform: translateY(0); }
+.toast-hide { opacity: 0; transform: translateY(8px); }
+.toast-message { flex: 1; word-break: break-word; }
+.toast-warning { background: #8a5a00; }
+.toast-error { background: #9b2c2c; }
+.toast-close {
+    flex: none;
+    background: transparent;
+    border: none;
+    color: inherit;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0.7;
+    padding: 0 2px;
+}
+.toast-close:hover { opacity: 1; }
+/* Inline action button (e.g. "Reload" / "Install"), centered with the message
+   and close button by the toast's flex alignment. */
+.toast-action {
+    flex: none;
+    background: #fff;
+    color: #1f2733;
+    border: none;
+    border-radius: 7px;
+    font: inherit;
+    font-weight: 600;
+    font-size: 12px;
+    line-height: 1;
+    padding: 7px 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity 0.15s ease;
+}
+.toast-action:hover { opacity: 0.88; }
+.toast-action:active { transform: translateY(1px); }
+@media (prefers-reduced-motion: reduce) { .toast-action { transition: none; } }
+@media (max-width: 900px) {
+    /* Phones: hang toasts from the top, under the toolbar, instead of over
+       the composer. A sticky toast (the PWA install offer fires on the landing
+       screen, with no auto-dismiss) sat directly on the Send button. */
+    .toast-container {
+        left: 12px;
+        right: 12px;
+        bottom: auto;
+        top: calc(var(--toolbar-h) + env(safe-area-inset-top, 0px) + 10px);
+        max-width: none;
+    }
+    .toast { transform: translateY(-8px); }
+    .toast-hide { transform: translateY(-8px); }
+}
+
+/* Dark-theme keyboard focus ring (matches the global ring above to the accent
+   token used elsewhere in dark mode). */
+html[data-theme="dark"] a:focus-visible,
+html[data-theme="dark"] button:focus-visible,
+html[data-theme="dark"] input:focus-visible,
+html[data-theme="dark"] textarea:focus-visible,
+html[data-theme="dark"] select:focus-visible,
+html[data-theme="dark"] [tabindex]:focus-visible,
+html[data-theme="dark"] [role="button"]:focus-visible {
+    outline-color: var(--accent);
+}
+
+/* ===== Project-loading skeleton ==========================================
+   Full-content loading state shown while an existing project is (re)opened —
+   sidebar selection or ?p=<id> deep link (see showProjectLoading in ui.js).
+   A content-shaped skeleton of the destination, not a generic spinner: a short
+   mock conversation (user bubbles right, assistant lines left) and, when the
+   project has a live site, a mock preview pane mirroring the two-pane layout
+   the load resolves into. Sits below the toolbar so navigation stays usable,
+   above the chat + preview pane (50/60), below the sidebar (1000) and toasts. */
+.project-loading-overlay {
+    position: fixed;
+    top: var(--toolbar-h);
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 500;
+    background: #fbfbfb; /* body's #f5f5f56e over white, flattened opaque */
+    display: flex;
+    justify-content: center;
+    overflow: hidden;
+    /* Same fade-in convention as .floating-spinner: appended invisible, then
+       .is-visible after a forced layout so the transition actually runs. */
+    opacity: 0;
+    transition: opacity 200ms ease;
+    /* Block interaction only while actually shown — during the fade-out (and
+       the instant before fade-in) clicks fall through to the revealed content. */
+    pointer-events: none;
+}
+.project-loading-overlay.is-visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* While the overlay owns the screen, the landing-hero elements are hidden
+   outright (not just covered) so nothing ghosts through its fade-in — this is
+   what keeps a deep link from ever flashing the new-chat landing page. */
+body.project-loading .chat-tagline,
+body.project-loading .chat-tagline-sub,
+body.project-loading .chat-starter-heading,
+body.project-loading .chat-starter-prompts,
+body.project-loading .chat-copyright {
+    display: none;
+}
+
+/* Mock chat column — same 600px/20px envelope as .chat so skeleton bubbles sit
+   where the real messages will land. */
+.project-loading-inner {
+    width: 100%;
+    max-width: 600px;
+    box-sizing: border-box;
+    padding: 26px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 26px;
+}
+
+/* "Opening <project title>…" — doubles as the screen-reader status text.
+   Reuses the app's text-shimmer effect with quieter tokens. */
+.project-loading-title {
+    font-size: 13px;
+    text-align: center;
+    color: #777;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.project-loading-title.shimmer {
+    --shimmer-base: rgba(0, 0, 0, 0.5);
+    --shimmer-highlight: rgba(0, 0, 0, 0.16);
+}
+
+.project-loading-row {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+.project-loading-row.from-user { align-items: flex-end; }
+
+/* Skeleton blocks: one shared sweep (reuses the shimmer-sweep keyframes) with
+   identical timing everywhere so the whole screen reads as a single surface.
+   The global prefers-reduced-motion override freezes this to static blocks. */
+.project-loading-bubble,
+.project-loading-line,
+.project-loading-pill {
+    background: linear-gradient(90deg, #ececec 0%, #ececec 42%, #f7f7f7 50%, #ececec 58%, #ececec 100%);
+    background-size: 200% 100%;
+    background-position: 100% 0;
+    animation: shimmer-sweep 1.6s linear infinite;
+}
+.project-loading-bubble { height: 38px; border-radius: 18px; }
+.project-loading-line { height: 13px; border-radius: 7px; }
+
+/* Mock preview pane — same geometry as body.preview-active .preview-pane
+   (fixed, right side, calc(100% - 480px) wide, 10/10/15 margins) with a mock
+   browser toolbar + URL pill. Shown only for projects known to have a site. */
+.project-loading-preview { display: none; }
+.project-loading-overlay.with-preview { justify-content: flex-start; }
+.project-loading-overlay.with-preview .project-loading-inner { max-width: 480px; }
+.project-loading-overlay.with-preview .project-loading-preview {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    bottom: 15px;
+    width: calc(100% - 500px);
+    background: #fff;
+    border: 1px solid #dddddda3;
+    border-radius: 10px;
+    overflow: hidden;
+}
+.project-loading-preview-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 33px;
+    flex: 0 0 auto;
+    border-bottom: 1px solid #e5e5e5;
+}
+.project-loading-pill {
+    width: 40%;
+    max-width: 320px;
+    height: 16px;
+    border-radius: 8px;
+}
+
+/* On phones the two-pane layout collapses, so drop the mock preview pane and
+   re-center the chat skeleton. (The overlay's top offset follows --toolbar-h,
+   which is already 44px here, so it clears the taller bar.) */
+@media (max-width: 900px) {
+    .project-loading-overlay.with-preview { justify-content: center; }
+    .project-loading-overlay.with-preview .project-loading-inner { max-width: 600px; }
+    .project-loading-overlay.with-preview .project-loading-preview { display: none; }
+    /* Full-screen app view: the preview pane becomes a fixed z-1400 layer and
+       the toolbar is hidden, so cover the whole screen and outrank the pane —
+       otherwise a Back/Forward-triggered load would leave the OLD project's
+       app on top of the skeleton for the whole load. The sidebar (z 1000) is
+       unreachable in this state (its burger lives in the hidden toolbar), so
+       sitting above it is moot. */
+    body.preview-active:not(.mobile-view-chat) .project-loading-overlay {
+        top: 0;
+        z-index: 1450;
+    }
+}
+
+/* Dark theme */
+html[data-theme="dark"] .project-loading-overlay { background: var(--bg); }
+html[data-theme="dark"] .project-loading-title { color: var(--text-muted); }
+html[data-theme="dark"] .project-loading-title.shimmer {
+    --shimmer-base: rgba(231, 233, 236, 0.55);
+    --shimmer-highlight: rgba(231, 233, 236, 0.2);
+}
+html[data-theme="dark"] .project-loading-bubble,
+html[data-theme="dark"] .project-loading-line,
+html[data-theme="dark"] .project-loading-pill {
+    background: linear-gradient(90deg, var(--surface-raised) 0%, var(--surface-raised) 42%, var(--surface-hover) 50%, var(--surface-raised) 58%, var(--surface-raised) 100%);
+    background-size: 200% 100%;
+    background-position: 100% 0;
+}
+html[data-theme="dark"] .project-loading-overlay.with-preview .project-loading-preview {
+    background: var(--surface);
+    border-color: var(--border);
+}
+html[data-theme="dark"] .project-loading-preview-toolbar { border-bottom-color: var(--border-subtle); }
+
+/* Respect the OS "reduce motion" setting. The app has several infinite-looping
+   animations (shimmer sweeps, spinners, the preview-updating spin) plus entrance
+   transitions; motion-sensitive users get no escape hatch without this. Near-zero
+   (not zero) durations so any animationend/transitionend still fires. */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* ========================== Community feed ==========================
+   "From the community" — the daily-curated grid of featured apps under the
+   landing hero (built by js/featured.js). Everything layout-changing is scoped
+   to .chat:not(.active).has-feed: with no feed (fetch failed, empty file) the
+   landing keeps its classic centered layout, and the moment a conversation
+   starts the chat reverts to the plain 600px column (the feed itself is
+   display:none'd like the starter rows). */
+
+/* Zero-impact by default — the hero children stay direct flex items of .chat
+   (the active-chat layout depends on that). See renderSkeleton(). */
+.home-hero { display: contents; }
+
+/* Feed-present landing: the chat column widens for the grid and scrolls
+   (body never scrolls in this app; this mirrors .chat-box). The scrollbar is
+   hidden like every other scroller here. */
+.chat:not(.active).has-feed {
+    max-width: 1180px;
+    justify-content: flex-start;
+    overflow-y: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+.chat:not(.active).has-feed::-webkit-scrollbar { display: none; }
+
+/* The hero fills most of the first viewport so it reads exactly like the
+   feed-less landing — while the feed's header and first card row peek above
+   the fold. The peek, not a banner, is what invites the scroll. */
+.chat:not(.active).has-feed .home-hero {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    flex-shrink: 0;
+    min-height: max(430px, calc(100dvh - 245px));
+}
+/* Hero children re-center at the classic width (.chat's old 600px minus its
+   2×20px padding) inside the now-wide column. Only left/right margins are
+   touched so each element's own vertical rhythm survives. */
+.chat:not(.active).has-feed .home-hero > * {
+    width: 100%;
+    max-width: 560px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* With the feed present the page scrolls, so the copyright stops being pinned
+   to the viewport bottom and flows after the grid instead. */
+.chat:not(.active).has-feed .chat-copyright {
+    position: static;
+    padding: 28px 0 16px;
+}
+
+.home-feed {
+    width: 100%;
+    flex-shrink: 0;
+    margin-top: 44px;
+}
+.chat.active .home-feed { display: none; }
+
+/* Quiet, single-line header in the same voice as "Looking for an idea?" —
+   deliberately not a marketing section title. */
+.home-feed-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+.home-feed-title {
+    /* An <h2> for the document outline, styled down to the quiet lead-in
+       voice of "Looking for an idea?". */
+    margin: 0;
+    font-size: 14px;
+    font-weight: 500;
+    color: #5f6675;
+}
+.home-feed-sub {
+    margin-left: auto;
+    font-size: 12.5px;
+    color: #5f6670;
+}
+
+.home-feed-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 26px 20px;
+}
+
+/* Card: screenshot + title + one-liner + muted category tag. No CTAs — the
+   whole card is the link (YouTube's "just play it" model). */
+.feed-card {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+}
+/* The global a:hover rule (styles.css `a:hover { text-decoration: underline }`)
+   would underline the whole card's text on hover — title, description, and
+   category at once. The card is a tile, not a text link: no underline ever. */
+.feed-card:hover {
+    text-decoration: none;
+}
+.feed-thumb {
+    position: relative;
+    /* Matches the 756×391 the build normalizes snapshots to (featuredFeedPlugin
+       in vite.config.js — keep the two in sync); object-fit:cover below still
+       absorbs any odd-sized curator-override thumbnail.
+       The neutral background doubles as the image loading state. */
+    aspect-ratio: 756 / 391;
+    border-radius: 8px;
+    border: 1px solid #e3e3e3;
+    overflow: hidden;
+    background: #f2f3f5;
+}
+/* Placeholder is always painted (gradient + initial letter); the screenshot
+   layers over it and fades in on load — same pattern as .chat-thumb. */
+.feed-thumb-ph {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 34px;
+    font-weight: 500;
+    user-select: none;
+}
+.feed-thumb-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top center;
+    opacity: 0;
+    transition: opacity 0.18s ease;
+}
+.feed-thumb-img.loaded { opacity: 1; }
+
+.feed-card-meta { padding: 8px 2px 0; }
+.feed-card-title-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+/* Real app icon in the title row (the YouTube channel-avatar slot). */
+.feed-card-icon {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+    border-radius: 4px;
+    object-fit: cover;
+}
+.feed-card-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: #222;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.feed-card-cat {
+    margin-left: auto;
+    flex: 0 0 auto;
+    font-size: 11px;
+    color: #5f6670;
+    letter-spacing: 0.03em;
+}
+.feed-card-desc {
+    margin-top: 2px;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: #5f6670;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Hover: the thumb lifts — nothing happens to the text. A color flip or
+   underline on the title makes the tile read as an old-school text link. */
+.feed-card .feed-thumb {
+    transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.feed-card:hover .feed-thumb {
+    transform: translateY(-2px);
+    border-color: #bbb;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.09);
+}
+
+@media (max-width: 900px) {
+    .home-feed { margin-top: 32px; }
+    .home-feed-grid {
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 18px 12px;
+    }
+    .feed-thumb-ph { font-size: 26px; }
+    .feed-card-icon { width: 16px; height: 16px; }
+}
+/* Phones: a single roomy column (the two-up grid squeezes titles and makes
+   the thumbs too small to read — YouTube mobile made the same call). */
+@media (max-width: 480px) {
+    .home-feed-grid {
+        grid-template-columns: 1fr;
+        gap: 22px;
+    }
+}
+
+/* Dark theme */
+html[data-theme="dark"] .home-feed-title { color: var(--text-secondary); }
+html[data-theme="dark"] .home-feed-sub,
+html[data-theme="dark"] .feed-card-cat,
+html[data-theme="dark"] .feed-card-desc { color: var(--text-muted); }
+html[data-theme="dark"] .feed-thumb {
+    border-color: var(--border);
+    background: var(--surface-subtle);
+}
+html[data-theme="dark"] .feed-card-title { color: var(--text); }
+html[data-theme="dark"] .feed-card:hover .feed-thumb {
+    border-color: var(--border-strong);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+

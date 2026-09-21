@@ -1,0 +1,54 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../src/vendor/google-fonts.css">
+<style>
+  /* OPTION 1 — App replica: the real empty-state, idealized */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1200px; height: 630px; overflow: hidden; }
+  body {
+    font-family: 'Roboto', sans-serif;
+    background: #171c24;
+    color: #e7e9ec;
+    display: flex; align-items: center; justify-content: center;
+    -webkit-font-smoothing: antialiased;
+  }
+  .stack { display: flex; flex-direction: column; align-items: center; }
+  .mark {
+    width: 78px; height: 78px; border-radius: 18px; overflow: hidden;
+    box-shadow: 0 0 0 1px rgba(255,255,255,.07), 0 8px 24px rgba(0,0,0,.35);
+  }
+  .mark img { width: 100%; height: 100%; display: block; }
+  h1 { margin-top: 34px; font-size: 40px; font-weight: 700; letter-spacing: -0.01em; color: #eceef1; }
+  .sub { margin-top: 16px; font-size: 23px; font-weight: 400; color: #aab2be; }
+  .composer {
+    margin-top: 38px; width: 760px; height: 168px;
+    background: #1e242d; border: 1px solid #333b47; border-radius: 12px;
+    padding: 20px 22px 16px; position: relative;
+  }
+  .composer .ph { font-size: 20px; color: #6a7480; }
+  .composer .row { position: absolute; left: 18px; right: 16px; bottom: 14px; display: flex; align-items: center; }
+  .composer .send {
+    margin-left: auto; width: 38px; height: 38px; border-radius: 8px;
+    background: #565d66; display: flex; align-items: center; justify-content: center;
+  }
+</style>
+</head>
+<body>
+  <div class="stack">
+    <div class="mark"><img src="../../icon.png" alt=""></div>
+    <h1>Build Apps and Websites With AI</h1>
+    <div class="sub">Describe your idea and Puter will build it for you, no code required!</div>
+    <div class="composer">
+      <div class="ph">What can Puter build for you today?</div>
+      <div class="row">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8b94a0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+        <div class="send">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

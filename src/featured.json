@@ -1,0 +1,22 @@
+{
+  "updated": "2026-07-27",
+  "items": [
+    { "id": "BlockArena", "name": "Block Arena", "url": "https://blockarena.puter.site", "description": "Multiplaye first person shooter game", "category": "Games"},
+    { "id": "gymbro", "name": "Gymbro", "url": "https://gymbro.puter.site", "description": "Turn a scrawny nerd into a MONSTER!", "category": "Games"},
+    { "id": "vaults", "name": "Vaults", "url": "https://vaults.puter.site", "description": "Pick a vault. Read the lies. Take it all.", "category": "Games"},
+    { "id": "backstab", "name": "Backstab", "url": "https://backstab.puter.site", "description": "Bluff. Steal. Betray. Be the last one standing.", "category": "Games"},
+    { "id": "studysync", "name": "StudySync", "url": "https://studysync.puter.site", "description": "Track focused study time, join study groups, and more.", "category": "Productivity"},
+    { "id": "pokerface-live", "name": "PokerFace Live", "url": "https://pokerface-live.puter.site", "description": "Video-chat poker with real players around the world.", "category": "Games"},
+    { "id": "meridian", "name": "Meridian", "url": "https://meridian.puter.site/", "description": "A quiet instrument for time zones", "category": "Utilities"},
+    { "id": "pviswam", "name": "PandasPath", "url": "https://pviswam.puter.site/", "description": "Learn Python & pandas by doing.", "category": "Education"},
+    { "id": "stuff", "name": "Vaultly", "url": "https://stuff.puter.site/", "description": "Sales & inventory tracking for your digital game trading business.", "category": "Business"},
+    { "id": "spin2win", "name": "Shell Spin", "url": "https://spin2win.puter.site/", "description": "Tuck in, spin fast, smash the swarm.", "category": "Games"},
+    { "id": "hrkaichat", "name": "HRK AI", "url": "https://hrkaichat.puter.site/", "description": "Your intelligent chat companion.", "category": "Productivity", "thumbnail": "/screenshots/featured/hrkaichat.webp"},
+    { "id": "jolly-lion-7223", "name": "Galaxia", "url": "https://jolly-lion-7223.puter.site/", "description": "Arcade Shooter", "category": "Games"},
+    { "id": "homestead", "name": "Homestead", "url": "https://homestead.puter.site/", "description": "A mastery-based path from age 5 to 13.", "category": "Education"},
+    { "id": "085", "name": "085", "url": "https://085.puter.site/", "description": "A brighter way to master English.", "category": "Education", "thumbnail": "/screenshots/featured/085.webp"},
+    { "id": "tmusbot", "name": "Headshot Hub", "url": "https://tmusbot.puter.site/", "description": "Perfect Headshot Sensitivity for Every Phone.", "category": "Photography", "thumbnail": "/screenshots/featured/tmusbot.webp"},
+    { "id": "smoothdrive", "name": "SmoothDrive", "url": "https://smoothdrive.puter.site/", "description": "Driving smoothness meter.", "category": "Utilities"},
+    { "id": "apollo", "name": "Apollo", "url": "https://apollo.puter.site/", "description": "The AI App Builder", "category": "Productivity"}
+  ]
+}

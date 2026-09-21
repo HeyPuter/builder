@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI App Builder: Build Apps and Websites With AI | Puter</title>
+
+    <!-- Speed up the first connection to the puter.js CDN and analytics origin
+         (improves LCP / Core Web Vitals, which feed ranking). Invisible to users. -->
+    <link rel="preconnect" href="https://js.puter.com" crossorigin>
+    <link rel="dns-prefetch" href="https://js.puter.com">
+    <link rel="preconnect" href="https://plausible.io">
+
+    <!-- Basic SEO. No <meta name="keywords">: no major engine has used it in
+         well over a decade, and carrying one only advertises the keyword list. -->
+    <meta name="description" content="Describe what you want and Puter builds it: a working app or website, running in your browser, publishable to a real URL. Free, no code required.">
+    <meta name="author" content="Puter">
+    <meta name="application-name" content="AI Builder by Puter">
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+    <link rel="canonical" href="https://builder.puter.com/">
+
+    <!-- Open Graph (Facebook, LinkedIn, etc.) -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="AI Builder by Puter">
+    <meta property="og:title" content="AI App Builder: Build Apps and Websites With AI">
+    <meta property="og:description" content="Describe what you want and Puter builds it: a working app or website, running in your browser, publishable to a real URL. Free, no code required.">
+    <meta property="og:url" content="https://builder.puter.com/">
+    <meta property="og:image" content="https://builder.puter.com/og-image.png">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="AI Builder by Puter. Build apps and websites with AI.">
+    <meta property="og:locale" content="en_US">
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="AI App Builder: Build Apps and Websites With AI">
+    <meta name="twitter:description" content="Describe what you want and Puter builds it: a working app or website, running in your browser, publishable to a real URL. Free, no code required.">
+    <meta name="twitter:image" content="https://builder.puter.com/og-image.png">
+    <meta name="twitter:image:alt" content="AI Builder by Puter. Build apps and websites with AI.">
+
+    <!-- Structured data (Organization + WebSite + WebApplication + WebPage) is
+         INJECTED HERE at build time, from renderHomeGraph() in
+         scripts/build-seo.mjs: the same node definitions the static marketing
+         pages under src/content/ emit, under the same @id values. Keeping one source
+         means a search engine resolves all eleven documents to a single publisher
+         and a single product entity, and a change to how the product is described
+         cannot land on some pages and miss others. Edit src/content/site.js, not this
+         file. The marker is replaced by seoPagesPlugin in dev and in build alike;
+         see vite.config.js. -->
+    <!--__HOME_JSON_LD__-->
+    <link rel="icon" href="/favicons/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicons/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicons/favicon-48x48.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/favicons/apple-touch-icon.png">
+    <link rel="manifest" href="/favicons/site.webmanifest">
+    <meta name="theme-color" content="#171c24">
+    <!-- Installable-PWA hints for iOS Safari and legacy Android. The dynamic
+         theme-color (resolved before paint by the script below) covers standard
+         browsers; these cover home-screen / standalone launches. status-bar
+         "default" keeps content clear of the notch (the app has no safe-area
+         handling, so a translucent bar would overlap it). -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="AI Builder">
+
+    <!-- Privacy-friendly analytics by Plausible -->
+    <script async src="https://plausible.io/js/pa-TFe2q9zANEWpbEbfrsjzG.js"></script>
+    <script>
+      window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+      plausible.init()
+    </script>
+    <!-- Resolve the colour theme BEFORE first paint so the cloak below (and every
+         themed surface) paints in the right palette with no light→dark flash.
+         Source of truth: an explicit 'light'/'dark' choice in localStorage,
+         otherwise the OS preference. The full theme runtime (toggle, system-change
+         listener) lives in js/ui.js; this only has to set the attribute early. -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem('theme');
+          var theme = (stored === 'light' || stored === 'dark')
+            ? stored
+            : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+          document.documentElement.setAttribute('data-theme', theme);
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute('content', theme === 'dark' ? '#171c24' : '#f5f5f5');
+        } catch (e) { /* default (light) styling applies */ }
+      })();
+    </script>
+    <!-- Anti-flicker cloak: paint a matching background immediately and keep the
+         UI invisible until app.js confirms the first-paint fonts + the logo have
+         loaded, then fade in (see revealWhenReady() in js/app.js). The inline
+         failsafe guarantees the page is never left blank if app JS fails to run. -->
+    <style>
+      html { background-color: #f5f5f5; }
+      html[data-theme="dark"] { background-color: #171c24; }
+      body { opacity: 0; transition: opacity 0.2s ease; }
+      html.app-ready body { opacity: 1; }
+    </style>
+    <script>setTimeout(function(){document.documentElement.classList.add('app-ready');},3000);</script>
+    <link rel="stylesheet" href="/css/normalize.css">
+    <link rel="stylesheet" href="/css/styles.css">
+    <!-- Third-party libs (highlight.js, marked, jszip, jQuery) and the
+         highlight theme / Google Fonts CSS are vendored locally and bundled by
+         Vite — see src/vendor/ and vite.config.js. puter.js is the one
+         deliberate exception and stays on its CDN. -->
+    <script src="https://js.puter.com/v2/"></script>
+    <script>
+    window.send_svg = '<svg style="width: 20px; height: 20px;" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="32px" height="32px" viewBox="0 0 32 32"><g transform="translate(0, 0)"><path d="M16.354,1.146a.5.5,0,0,0-.708,0l-10.5,10.5a.5.5,0,0,0,0,.708l2,2a.5.5,0,0,0,.708,0L14,8.207V30.5a.5.5,0,0,0,.5.5h3a.5.5,0,0,0,.5-.5V8.207l6.146,6.147a.5.5,0,0,0,.708,0l2-2a.5.5,0,0,0,0-.708Z" fill="#ffffff"></path></g></svg>';
+    window.pause_svg = '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="32px" height="32px" viewBox="0 0 32 32"><g transform="translate(0, 0)"><path d="M9,1H2A1,1,0,0,0,1,2V30a1,1,0,0,0,1,1H9a1,1,0,0,0,1-1V2A1,1,0,0,0,9,1Z" fill="#ffffff"></path><path data-color="color-2" d="M30,1H23a1,1,0,0,0-1,1V30a1,1,0,0,0,1,1h7a1,1,0,0,0,1-1V2A1,1,0,0,0,30,1Z" fill="#ffffff"></path></g></svg>';
+    window.check_svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="16px" height="16px" viewBox="0 0 16 16"><g transform="translate(0, 0)"><path d="M15.854,3.146l-1-1c-.178-.179-.461-.195-.66-.041L5.494,8.871,1.8,6.1c-.197-.15-.478-.13-.653,.046L.146,7.146c-.183,.183-.196,.475-.03,.674l5,6c.09,.108,.221,.173,.361,.179,.008,0,.015,0,.022,0,.132,0,.26-.052,.354-.146L15.854,3.854c.195-.195,.195-.512,0-.707Z" fill="#00bf2d"></path></g></svg>`
+    window.cross_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><title>xmark</title><g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="1" stroke="currentColor"><line x1="2.25" y1="9.75" x2="9.75" y2="2.25"></line><line x1="9.75" y1="9.75" x2="2.25" y2="2.25"></line></g></svg>`
+    window.new_chat_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><title>e-add</title><g fill="#000000"><line x1="6" y1="1" x2="6" y2="11" fill="none" stroke="#000000" stroke-linecap="round" stroke-linejoin="round"></line> <line x1="1" y1="6" x2="11" y2="6" fill="none" stroke="#000000" stroke-linecap="round" stroke-linejoin="round"></line></g></svg>`
+    window.attachment_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.64 16.2a2 2 0 0 1-2.83-2.83l8.49-8.49"></path></svg>`
+    window.chat_history_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-square-menu-icon lucide-square-menu"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 8h10"/><path d="M7 12h10"/><path d="M7 16h10"/></svg>`
+    window.download_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`
+    </script>
+    <!-- Local app scripts are injected here by Vite (see vite.config.js):
+         individual files in dev, a single hashed bundle in production. -->
+</head>
+<body>
+
+    <!-- Crawlable, no-JS fallback. Browsers with JavaScript enabled never render
+         this (the app builds the real UI into <body> at runtime); it exists so
+         search engines / crawlers that don't execute JS still get meaningful,
+         indexable content and a graceful message for visitors without JS.
+         The links matter as much as the prose: they are the only path from this
+         document to the static pages under /ai-app-builder/, /guides/ and the
+         rest for a crawler that does not run scripts. The rendered UI carries the
+         same row in its landing footer (see .chat-footer-nav in js/ui.js). -->
+    <noscript>
+      <main style="max-width:660px;margin:10vh auto;padding:0 24px;line-height:1.65;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+        <h1>Build apps and websites with AI</h1>
+        <p>AI Builder by Puter turns a plain-English description into a working app or website: it writes the files, runs the result in a live preview, fixes its own errors, and publishes to a real URL. Free, no code required, entirely in your browser.</p>
+        <p><strong>The builder itself needs JavaScript to run.</strong> Please enable JavaScript and reload the page, or read more first:</p>
+        <ul>
+          <li><a href="/ai-app-builder/">AI app builder</a>: what it builds, how it works, and the FAQ.</li>
+          <li><a href="/ai-website-builder/">AI website builder</a>: describing, refining, and publishing a site.</li>
+          <li><a href="/for/">Who it's for</a>: pages for trainers, lawyers, accountants, agents, and more.</li>
+          <li><a href="/what-to-build/">What to build</a>: thirty-one ideas with the prompt for each.</li>
+          <li><a href="/features/">Features</a>: everything the builder does, in one list.</li>
+          <li><a href="/guides/">Guides</a>: full walkthroughs and how to write a build prompt.</li>
+          <li><a href="/vibe-coding/">What is vibe coding?</a>: the term, the technique, and its limits.</li>
+        </ul>
+        <p><a href="https://puter.com/">Learn more about Puter</a></p>
+      </main>
+    </noscript>
+</body>
+</html>

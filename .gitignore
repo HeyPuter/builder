@@ -1,0 +1,32 @@
+# Dependencies and package-manager caches
+node_modules/
+.npm/
+
+# Build output and Vite caches
+/dist/
+.vite/
+*.timestamp-*.mjs
+*.timestamp-*.js
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Local environment variables (keep example files versioned)
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Logs
+*.log
+
+# OS and editor artifacts
+.DS_Store
+._*
+Thumbs.db
+Desktop.ini
+.idea/
+*.swp
+*.swo
+*~
