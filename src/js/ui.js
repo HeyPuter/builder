@@ -94,9 +94,8 @@ function renderSkeleton() {
         // visible view (the preview view shows its own copy in the preview
         // toolbar). Sits in the gap between the left controls and the user menu.
         h += window.viewSegHtml('view-seg-toolbar');
-        // user menu (top right) — populated by updateUserMenu() once auth state
-        // is known: an avatar button opening the account panel when signed in,
-        // otherwise a theme toggle + Sign In button.
+        // Top-right GitHub link and user menu, populated by updateUserMenu():
+        // an account avatar when signed in, otherwise a Sign In button.
         h += `<div class="user-menu-container"></div>`;
     h += `</header>`;
     
@@ -242,13 +241,16 @@ function openFeedbackDialog() {
     } catch (e) {}
 }
 
-// Render the top-right user control based on auth state: an avatar button
+// Render the GitHub link and top-right user control based on auth state: an avatar button
 // (the username's initial) opening the account panel when the user is signed
-// in with a real account, otherwise a theme toggle plus either a Send feedback
-// button (signed in, hosted inside Puter) or a Sign In button. Temp/anonymous
+// in with a real account, otherwise a Sign In button. Signed-in users hosted
+// inside Puter get theme and feedback controls in the toolbar. Temp/anonymous
 // users are treated as signed out (matches ensureAuthenticated). Safe to call
 // repeatedly.
 function updateUserMenu() {
+    // Reconcile the theme when auth resolves or changes. Signed-out users
+    // follow the system even if this browser has a saved account preference.
+    applyTheme(getEffectiveTheme());
     const $container = $('.user-menu-container');
     if (!$container.length) return;
     const loggedIn = !!(window.user && !window.user.is_temp);
@@ -257,35 +259,39 @@ function updateUserMenu() {
     // host environment, so the account control is redundant — hide it there.
     const isApp = !!(window.puter && puter.env === 'app');
 
+    const githubLink = `<a class="github-link" href="https://github.com/HeyPuter/builder" target="_blank" rel="noopener noreferrer" title="View source on GitHub" aria-label="View source on GitHub (opens in a new tab)"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 .5C5.37.5 0 5.87 0 12.5c0 5.3 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.725-4.043-1.61-4.043-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.09-.745.083-.73.083-.73 1.205.085 1.838 1.237 1.838 1.237 1.07 1.835 2.807 1.305 3.492.998.108-.776.42-1.305.763-1.605-2.665-.305-5.467-1.333-5.467-5.93 0-1.31.468-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23A11.5 11.5 0 0 1 12 6.3c1.02.005 2.045.138 3.005.405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.295 24 17.795 24 12.5c0-6.63-5.37-12-12-12Z"/></svg></a>`;
     let h = '';
     if (loggedIn && !isApp) {
+        h += githubLink;
         // Signed in: a single avatar button opens the account panel — the
         // theme toggle lives inside the panel, so no toolbar toggle here.
         h += `<button class="user-menu-btn" title="Account" aria-haspopup="dialog" aria-expanded="${userPanelOpen ? 'true' : 'false'}">`;
             h += `<span class="user-avatar" aria-hidden="true"></span>`;
         h += `</button>`;
     } else {
-        // Signed out (or hosted inside Puter): no account panel to hold the
-        // theme toggle, so it stays in the toolbar. The icon shows the theme
-        // you'll switch TO (moon while light, sun while dark).
-        const dark = getEffectiveTheme() === 'dark';
-        h += `<button class="theme-toggle-btn" title="${dark ? 'Switch to light mode' : 'Switch to dark mode'}" aria-label="Toggle dark mode">${dark ? sun_svg : moon_svg}</button>`;
+        // Signed-in users hosted inside Puter have no account panel, so keep
+        // their theme control here. Signed-out users always follow the system.
+        if (loggedIn) {
+            const dark = getEffectiveTheme() === 'dark';
+            h += `<button class="theme-toggle-btn" title="${dark ? 'Switch to light mode' : 'Switch to dark mode'}" aria-label="Toggle dark mode">${dark ? sun_svg : moon_svg}</button>`;
+        }
         // Feedback is tied to an account (it's how we reply), so it's offered
         // only to signed-in users — here that means hosted inside Puter, where
         // there's no account panel to hold the row.
         if (loggedIn && feedbackAvailable()) {
             h += `<button class="feedback-btn" title="Send feedback">Send feedback</button>`;
         }
+        h += githubLink;
         if (!isApp) h += `<button class="sign-in-btn">Sign In</button>`;
     }
-    // Re-rendering replaces the toolbar's buttons. The signed-out theme toggle
+    // Re-rendering replaces the toolbar's buttons. The hosted-app theme toggle
     // is re-rendered BY its own activation (toggleTheme → here), so a keyboard
     // user's focus landed on <body>: the next Tab restarted from the top of the
     // page and a screen reader lost its place. Remember which control had
     // focus and hand it to the replacement.
     const active = document.activeElement;
     const focusedControl = (active && $container[0] && $container[0].contains(active))
-        ? ['theme-toggle-btn', 'user-menu-btn', 'feedback-btn', 'sign-in-btn'].find((c) => active.classList.contains(c))
+        ? ['github-link', 'theme-toggle-btn', 'user-menu-btn', 'feedback-btn', 'sign-in-btn'].find((c) => active.classList.contains(c))
         : null;
     $container.html(h);
     if (focusedControl) {
@@ -377,9 +383,9 @@ window.syncViewSeg = function() {
 // helpers below keep it in sync at runtime (toggle, OS-preference changes).
 //
 // Persistence model: localStorage 'theme' holds an EXPLICIT user choice
-// ('light' or 'dark'); when absent we follow the OS (prefers-color-scheme) and
-// keep tracking it live. The first toggle writes an explicit choice and from
-// then on the OS preference is ignored for this browser.
+// ('light' or 'dark') for signed-in users. Signed-out and temporary users always
+// follow the OS (prefers-color-scheme), keeping the saved choice for next sign-in.
+// Signed-in users without an explicit choice also follow the OS live.
 window.sun_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>`;
 window.moon_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`;
 
@@ -387,6 +393,7 @@ window.moon_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16
 window.external_link_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>`;
 
 function getStoredTheme() {
+    if (!window.user || window.user.is_temp) return null;
     try {
         const t = localStorage.getItem('theme');
         return (t === 'light' || t === 'dark') ? t : null;
@@ -408,6 +415,7 @@ function applyTheme(theme) {
 }
 // Flip light⇄dark, persist it as the explicit choice, and refresh the toggle icon.
 function toggleTheme() {
+    if (!window.user || window.user.is_temp) return;
     const next = getEffectiveTheme() === 'dark' ? 'light' : 'dark';
     try { localStorage.setItem('theme', next); } catch (e) {}
     applyTheme(next);
@@ -418,6 +426,7 @@ function toggleTheme() {
 // applying live, via the matchMedia listener below); the other two persist an
 // explicit choice, exactly like toggleTheme.
 function setThemeChoice(choice) {
+    if (!window.user || window.user.is_temp) return;
     if (choice === 'device') {
         try { localStorage.removeItem('theme'); } catch (e) {}
         applyTheme(systemPrefersDark() ? 'dark' : 'light');

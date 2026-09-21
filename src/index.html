@@ -73,16 +73,13 @@
     </script>
     <!-- Resolve the colour theme BEFORE first paint so the cloak below (and every
          themed surface) paints in the right palette with no light→dark flash.
-         Source of truth: an explicit 'light'/'dark' choice in localStorage,
-         otherwise the OS preference. The full theme runtime (toggle, system-change
-         listener) lives in js/ui.js; this only has to set the attribute early. -->
+         Start with the OS preference while auth is unknown. The theme runtime
+         in js/ui.js restores a saved choice only after a real user signs in
+         and follows system changes while signed out. -->
     <script>
       (function () {
         try {
-          var stored = localStorage.getItem('theme');
-          var theme = (stored === 'light' || stored === 'dark')
-            ? stored
-            : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+          var theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
           document.documentElement.setAttribute('data-theme', theme);
           var meta = document.querySelector('meta[name="theme-color"]');
           if (meta) meta.setAttribute('content', theme === 'dark' ? '#171c24' : '#f5f5f5');
