@@ -133,7 +133,7 @@ select:focus-visible,
        own z-index inside it. Lift the whole container above the preview pane
        (z-index: 50) so the open dropdown isn't hidden behind it. */
     z-index: 1000;
-    /* Lay the theme toggle and the account/sign-in control out in a row, anchored
+    /* Lay the GitHub link, theme toggle, and account control out in a row, anchored
        to the toolbar's right edge (the container has no width, so it grows
        leftward from right:8px). The dropdown is absolutely positioned, so it's
        taken out of this flow and still anchors to the container's right edge. */
@@ -142,8 +142,9 @@ select:focus-visible,
     gap: 15px;
 }
 
-/* Theme toggle (sun/moon) — a quiet icon button matching .user-menu-btn. */
-.theme-toggle-btn {
+/* Quiet toolbar icons for the theme toggle and GitHub link. */
+.theme-toggle-btn,
+.github-link {
     background: none;
     border: none;
     cursor: pointer;
@@ -156,8 +157,14 @@ select:focus-visible,
     transition: background 0.15s, color 0.15s;
 }
 
-.theme-toggle-btn:hover {
+.theme-toggle-btn:hover,
+.github-link:hover {
     background: rgba(0,0,0,0.08);
+}
+
+.github-link {
+    flex: 0 0 auto;
+    text-decoration: none;
 }
 
 /* "Open on the web" link — a pill button matching .sign-in-btn, with an icon. */
@@ -4224,6 +4231,7 @@ body.preview-active.chat-hidden .chat {
         top: 50%;
     }
     .theme-toggle-btn,
+    .github-link,
     .user-menu-btn {
         width: 44px;
         height: 44px;
@@ -4788,8 +4796,10 @@ html[data-theme="dark"] a { color: var(--accent); }
 html[data-theme="dark"] .chat-box .message-content ::marker { color: var(--text-muted); }
 
 /* ---- Toolbar / user menu / theme toggle ---- */
-html[data-theme="dark"] .theme-toggle-btn { color: var(--text-secondary); }
-html[data-theme="dark"] .theme-toggle-btn:hover { background: rgba(255, 255, 255, 0.08); }
+html[data-theme="dark"] .theme-toggle-btn,
+html[data-theme="dark"] .github-link { color: var(--text-secondary); }
+html[data-theme="dark"] .theme-toggle-btn:hover,
+html[data-theme="dark"] .github-link:hover { background: rgba(255, 255, 255, 0.08); }
 html[data-theme="dark"] .user-menu-btn:hover .user-avatar,
 html[data-theme="dark"] .user-menu-btn[aria-expanded="true"] .user-avatar {
     box-shadow: 0 0 0 3px rgba(108, 176, 245, 0.35);
