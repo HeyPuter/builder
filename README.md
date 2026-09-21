@@ -46,7 +46,7 @@ Follow the steps below to start building your first website or app.
 
 ```bash
 git clone https://github.com/HeyPuter/builder
-cd build
+cd builder
 npm install
 npm run dev
 ```
