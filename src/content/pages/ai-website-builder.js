@@ -2,7 +2,7 @@ import { buildLink, LINKS } from '../site.js';
 
 export default {
     slug: 'ai-website-builder',
-    updated: '2026-08-15',
+    updated: '2026-09-22',
     priority: 0.9,
     changefreq: 'weekly',
     navLabel: 'AI website builder',
@@ -275,8 +275,8 @@ export default {
                 {
                     q: 'Is it secure?',
                     a: [
-                        'Yes. Every published site is served over HTTPS with an SSL certificate that is set up and renewed for you, so visitors see the padlock and their connection is encrypted. There is no server for you to patch or keep updated.',
-                        'If your site collects anything through forms or sign-in, that data is stored under each person\'s own [Puter](' + LINKS.puter + ') account rather than in a database you have to secure.',
+                        'Published sites follow security best practices out of the box: every site is served over HTTPS with an SSL certificate handled for you, and there is no server of your own to patch or keep updated.',
+                        'The backend keeps the risk small by default. Anything your site stores through forms or sign-in lives under each person\'s own [Puter](' + LINKS.puter + ') account, so visitors only ever touch their own data. Shared data exists only when you ask for it, and even then it runs on Puter rather than on a server you have to maintain.',
                     ],
                 },
                 {
