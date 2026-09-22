@@ -1,4 +1,4 @@
-import { buildLink } from '../site.js';
+import { buildLink, LINKS } from '../site.js';
 
 export default {
     slug: 'ai-website-builder',
@@ -7,19 +7,19 @@ export default {
     changefreq: 'weekly',
     navLabel: 'AI website builder',
 
-    title: 'AI Website Builder: A Real Site From One Prompt | Puter',
+    title: 'AI Website Builder - Build a website for free with AI',
     description:
-        'Describe the site you want and Puter builds it, shows it running, and publishes it to a live URL. Real HTML you can download, no templates, no monthly fee.',
+        'Build a website with AI, no coding required. Turn your idea into a live website with Puter AI Builder. Get started for free, hosting included.',
     ogTagline: 'Describe the site. Publish the site.',
 
     hero: {
         eyebrow: 'AI website builder',
-        h1: 'An AI website builder that gives you the actual site',
+        h1: 'AI website builder that gives you a live website',
         lead:
-            'Describe the pages you need and Puter writes them, shows them running in a live preview, and publishes them to a real URL. What you get is plain HTML and CSS you can read, edit, download, and host anywhere.',
+            'Build a website with AI without writing a line of code. Puter AI Builder turns your idea into a live website, complete with free hosting.',
         cta: { label: 'Start building', href: '/' },
         secondary: { label: 'Read the walkthrough', href: '/guides/how-to-build-a-website-with-ai/' },
-        note: 'Free with a Puter account. Publishing takes one click and no hosting setup.',
+        note: 'Free with a [Puter](' + LINKS.puter + ') account. Runs in any modern browser, including on a phone.',
         demo: {
             prompt: 'Build a site for my pottery studio with classes, a gallery, and signups',
             app: {
@@ -51,57 +51,46 @@ export default {
         {
             type: 'grid',
             id: 'what-you-get',
-            heading: 'What makes this different from a template',
+            heading: 'What you get',
             intro:
-                'Template builders start from someone else\'s layout and ask you to bend it. This starts from your description.',
+                'Everything you need to go from an idea to a live website.',
             items: [
                 {
-                    icon: 'wand',
-                    title: 'No theme to fight',
+                    icon: 'layout',
+                    title: 'Designs the website for you',
                     body:
-                        'There is no gallery to pick from and no grid system you have to work around. Describe the structure and the mood you want and the layout is written for that, not adapted from a demo about a fictional yoga studio.',
+                        'Describe what the site is for and Puter AI Builder designs it: pages, layout, navigation, and copy, written for you rather than adapted from a template.',
+                },
+                {
+                    icon: 'phone',
+                    title: 'Built for every screen',
+                    body:
+                        'Every site works on phones, tablets, and desktops from the start. Check it at any width in the preview and ask for changes on small screens specifically.',
                 },
                 {
                     icon: 'cursor',
                     title: 'Change anything by pointing at it',
                     body:
-                        'Click a heading, a card, or an image in the live preview and say what should be different. You can also nudge spacing, color, and type directly on the selected element and apply the result when it looks right.',
+                        'Click a heading, a section, or an image in the live preview and say what should be different. Adjust spacing, colors, and type on the spot, and those tweaks stay put through later changes.',
                 },
                 {
-                    icon: 'code',
-                    title: 'Standard HTML and CSS',
+                    icon: 'database',
+                    title: 'Full stack when you need it',
                     body:
-                        'The output is a normal static site: HTML pages, a stylesheet, and Tailwind from a CDN. No proprietary page format, no export that loses half the design, no build step to keep alive.',
-                },
-                {
-                    icon: 'phone',
-                    title: 'Responsive from the start',
-                    body:
-                        'Sites are written mobile-first and you can check them at any width in the preview. Ask for a change on small screens specifically and you get it, rather than a desktop layout that reflows badly.',
+                        'A backend is included, so your site can grow beyond pages. Sign-in, forms that save, member areas, and AI features are ready when you want them, with nothing to set up.',
                 },
                 {
                     icon: 'globe',
-                    title: 'Publish and unpublish freely',
+                    title: 'Publish in one click, free hosting included',
                     body:
-                        'One click puts the site on its own puter.site address. Before that, a private draft link lets you show work in progress to a client or a friend without making anything public.',
+                        'Your site goes live at its own link the moment you want it, ready to share. Update it anytime and the change is live instantly.',
                 },
                 {
-                    icon: 'download',
-                    title: 'Yours to take',
+                    icon: 'users',
+                    title: 'Free to run at any scale',
                     body:
-                        'Download the whole site as a zip whenever you like and host it on any static host. Nothing about the site depends on staying here after it is built.',
+                        'Hosting is included, and anything visitors use, like sign-in or AI features, is covered by their own [Puter](' + LINKS.puter + ') account. If your site takes off, you don\'t get a surprise bill. [How it works](' + LINKS.userPays + ').',
                 },
-            ],
-        },
-
-        {
-            type: 'prose',
-            id: 'what-kind',
-            heading: 'The kinds of sites this is good at',
-            body: [
-                'It is strongest wherever the content is known and the design is the work: a portfolio, a personal site, a landing page for a launch, a small business site with hours and a menu and a map, an event page, a documentation site, a link hub, a résumé, a wedding page, a community directory.',
-                'It is equally happy building the interactive parts most site builders make you bolt on: a booking form that stores submissions, a searchable catalog, a members-only area behind a sign-in button, a pricing calculator, a gallery that loads images from cloud storage. Those are ordinary requests here, because a site built on Puter can use the same storage, accounts, and AI that an app can.',
-                'Where you should be careful is anything with real commercial or legal weight: online stores that take payments, sites holding customer records, anything under a compliance regime. You can absolutely build the front of those here, but read what was built before it handles anyone\'s money or personal data.',
             ],
         },
 
@@ -109,7 +98,7 @@ export default {
             type: 'steps',
             id: 'how-to',
             heading: 'How to build a website with AI',
-            intro: 'Start rough, then get specific. The first version exists to be reacted to.',
+            intro: 'Four steps from an idea to a live website.',
             schema: {
                 name: 'How to build a website with AI',
                 description:
@@ -117,29 +106,24 @@ export default {
             },
             items: [
                 {
-                    title: 'Say what the site is for and who it is for',
+                    title: 'Describe the website',
                     body:
-                        '"A one-page site for my two-person landscaping business in Portland, with services, a gallery, prices, and a contact form" produces a far better first version than "a business website". Purpose and audience do more work than any styling adjective.',
+                        'A sentence or two is enough: what the site is for, who it is for, and the pages you know you need. The more specific you are, the closer the first version will be.',
                 },
                 {
-                    title: 'Name the sections you know you need',
+                    title: 'Watch it build',
                     body:
-                        'List the pages or sections you are sure about and let the builder fill the rest. Anything you do not mention gets a sensible default that is easy to delete, which is faster than starting from an empty page.',
+                        'Puter AI Builder designs the pages, writes the copy, and shows the site running in a live preview. A first version is usually ready in a couple of minutes.',
                 },
                 {
-                    title: 'Give the look a direction',
+                    title: 'Make it yours',
                     body:
-                        'A couple of words of direction goes a long way: warm and editorial, clean and technical, high-contrast and loud. If you have brand colors or a logo, attach the logo and name the hex codes.',
+                        'Ask for changes in plain language, or click any element in the preview and say what should be different. Every version is saved, so you can always go back.',
                 },
                 {
-                    title: 'Refine by pointing',
+                    title: 'Publish it',
                     body:
-                        'Once the site is up in the preview, stop describing locations and start clicking them. Select the element you mean and say "make this smaller and left-aligned on mobile". Direct visual edits handle the fiddly spacing work without another round trip.',
-                },
-                {
-                    title: 'Publish, then keep editing',
-                    body:
-                        'Publishing is one click and does not freeze anything. Keep making changes afterwards and push them live whenever you want; version history means a bad edit is one restore away.',
+                        'Press Publish to get a live link you can share. Free hosting is included, and you can keep editing after it is live.',
                 },
             ],
         },
@@ -148,7 +132,7 @@ export default {
             type: 'prompts',
             id: 'starters',
             heading: 'Try one of these',
-            intro: 'Each one opens the builder with the prompt loaded. Swap in your own details first.',
+            intro: 'Pick one and Puter AI Builder makes it for you. Then make it yours by describing what to change.',
             items: [
                 {
                     title: 'Portfolio',
@@ -193,33 +177,21 @@ export default {
             type: 'grid',
             id: 'beyond-static',
             columns: 2,
-            heading: 'When the site needs to do something',
+            heading: 'A website that can do things',
             intro:
-                'The moment a site stops being brochureware, most builders ask you to buy a plan or wire up a third-party service. Here the pieces are already connected.',
+                'Most website builders stop at pages. Every site built with Puter AI Builder runs on [Puter](' + LINKS.puter + '), so the backend is already there and your site can grow the moment you need it to.',
             items: [
                 {
-                    icon: 'mail',
-                    title: 'Forms that keep what people send',
+                    icon: 'database',
+                    title: 'Backend included',
                     body:
-                        'Contact forms, booking requests, and signups can write straight into your Puter storage, so submissions are yours to read and export instead of being emailed into a void.',
-                },
-                {
-                    icon: 'pen',
-                    title: 'Content you can edit later',
-                    body:
-                        'Ask for a small admin view and you get one: edit menu items, prices, or posts in the browser and have the site read them from storage rather than from hardcoded markup.',
-                },
-                {
-                    icon: 'lock',
-                    title: 'Sign-in and members-only pages',
-                    body:
-                        'Put part of the site behind a sign-in button using Puter accounts. No user database, no session handling, no password resets to implement.',
+                        'Contact forms, bookings, and signups save what people send, so submissions are yours to read. Add sign-in and per-user data whenever you want, with nothing to set up. Storage, accounts, and a database come with every site, and anything visitors use is covered by their own Puter account ([how it works](' + LINKS.userPays + ')).',
                 },
                 {
                     icon: 'sparkles',
                     title: 'AI features on the page',
                     body:
-                        'A support chatbot that knows your FAQ, an image generator for a campaign page, a summarizer for long documents: the site can call AI models directly without you holding a provider key.',
+                        'A support chatbot that knows your business, an image generator for a campaign page, a summarizer for long documents. Your site can use chat, vision, and image models directly through Puter, with no API keys to manage and no AI bill for you to carry.',
                 },
             ],
         },
@@ -230,16 +202,49 @@ export default {
             heading: 'AI website builder FAQ',
             items: [
                 {
-                    q: 'How is this different from Wix, Squarespace, or WordPress?',
+                    q: 'What is an AI website builder?',
                     a: [
-                        'Those tools are editors: you work inside their canvas, their themes, and their plugin ecosystem, and your site stays there. That is a fair trade for many people, and it comes with a monthly bill and a ceiling.',
-                        'Here you describe the site and get standard HTML and CSS files. There is no theme to work around, no plugin marketplace to shop in, and no lock-in, because you can download the whole site and host it anywhere. The trade is that you are describing rather than dragging, which is faster once you get used to it and less familiar at first.',
+                        'An AI website builder turns a plain-language description into a complete website. You say what the site is for, who it is for, and the look you want, and the AI generates the pages, the layout, the copy, and the design, from colors and fonts to images, in minutes rather than weeks.',
+                        'Unlike a template builder, it does not start from someone else\'s layout and ask you to bend it. The site is designed around your description, works on phones and desktops from the start, and comes with the basics a search engine needs already in place.',
+                        'You don\'t need to know how to code. Once the first version is in front of you, you refine it the same way you started, by asking for changes or clicking the part you want changed, then publish it in one click. The one thing worth doing yourself is reading the copy, since the AI writes a first draft of your business rather than the final word.',
                     ],
                 },
                 {
-                    q: 'Can I use my own domain?',
+                    q: 'What kinds of websites can I build?',
                     a: [
-                        'Published sites get an address on puter.site. If you need your own domain, download the site as a zip and point your domain at any static host, or put a domain in front of the published site with your DNS provider\'s redirect or proxy tools.',
+                        'Business sites, portfolios, landing pages, restaurant and menu sites, event pages, personal sites, and small online presences of every kind. Anything that is mostly pages, images, and text is a natural fit.',
+                        'Because a backend is included, the site can also do more than show pages: forms that save submissions, bookings, sign-in, and AI features are all available when you need them.',
+                    ],
+                },
+                {
+                    q: 'How do I generate a website with AI?',
+                    a: [
+                        'Describe the site in a sentence or two, watch Puter AI Builder design and build it in the live preview, make it yours by asking for changes or pointing at what should be different, then press Publish. The four steps above walk through each one.',
+                    ],
+                },
+                {
+                    q: 'How long does it take?',
+                    a: [
+                        'A first version is usually ready in a couple of minutes. Getting it exactly how you want it is a conversation, and most sites are finished in a handful of changes. Every version is saved, so you can stop and pick it up later.',
+                    ],
+                },
+                {
+                    q: 'Can I use Puter AI Builder for free?',
+                    a: [
+                        'Yes. Building and publishing are free with a [Puter](' + LINKS.puter + ') account, and no card is required. Open Puter AI Builder, describe a site, and see it running right away. Very heavy use can hit the free tier\'s limits, at which point you can upgrade your account; ordinary building and publishing do not.',
+                    ],
+                },
+                {
+                    q: 'How much does it cost to operate?',
+                    a: [
+                        'Nothing. Anything visitors use, like sign-in or AI features, is covered by their own [Puter](' + LINKS.puter + ') account. If your site takes off, you don\'t get a surprise bill. [How it works](' + LINKS.userPays + ').',
+                    ],
+                },
+                {
+                    q: 'Does it include hosting and a domain?',
+                    a: [
+                        'Hosting is included. Every published site gets its own link that anyone can visit, served over HTTPS, with nothing to configure.',
+                        'If you want your own domain, export the site and host it wherever your domain points, or put your domain in front of the published site with your DNS provider\'s redirect or proxy tools.',
                     ],
                 },
                 {
@@ -249,27 +254,48 @@ export default {
                     ],
                 },
                 {
+                    q: 'Can I customize the design?',
+                    a: [
+                        'Yes, all of it. Describe the look you want, from colors and fonts to layout and mood, and it is designed that way from the start. Afterwards, click any element in the preview and say what should be different, or adjust spacing, colors, and type directly on it. There is no theme underneath limiting what can change.',
+                    ],
+                },
+                {
                     q: 'Can I add my own images, logo, and copy?',
                     a: [
-                        'Yes. Attach images, a logo, PDFs, or a text file with your copy in the chat and they are saved into the project for the builder to use. You can also paste your text directly into the conversation and ask for it to be placed.',
+                        'Yes. Attach images, a logo, PDFs, or a text file with your copy in the chat and they are saved into the project for Puter AI Builder to use. You can also paste your text directly into the conversation and ask for it to be placed.',
+                    ],
+                },
+                {
+                    q: 'Do I own the website?',
+                    a: [
+                        'Yes. The design, the content, and the files are yours. There is no license to renew and no export wall. Keep it on [Puter](' + LINKS.puter + ') or take it somewhere else at any time.',
+                        'The site is a normal set of web files with no framework and no proprietary format, so if you ever want a developer to take it over, you can hand them the export and they can continue in an ordinary editor.',
+                    ],
+                },
+                {
+                    q: 'Is it secure?',
+                    a: [
+                        'Yes. Every published site is served over HTTPS with an SSL certificate that is set up and renewed for you, so visitors see the padlock and their connection is encrypted. There is no server for you to patch or keep updated.',
+                        'If your site collects anything through forms or sign-in, that data is stored under each person\'s own [Puter](' + LINKS.puter + ') account rather than in a database you have to secure.',
+                    ],
+                },
+                {
+                    q: 'Can I monetize my website?',
+                    a: [
+                        'Yes. Puter AI Builder does not process payments itself, so the usual approach is to link to a payment provider you already use, such as a checkout page or a payment link, and let the site handle everything around it. Ads, affiliate links, and lead forms work the same way they would on any website you own.',
                     ],
                 },
                 {
                     q: 'Is the site good for SEO?',
                     a: [
-                        'The output is server-rendered static HTML, which is the easiest thing there is for a search engine to read: no client-side routing, no JavaScript required to see the content. Ask for the specifics you want (title and description tags, a sitemap, headings that match your keywords, Open Graph tags for social previews, structured data) and they will be written into the pages.',
+                        'Yes. The output is plain HTML, which is the easiest thing there is for a search engine to read. Ask for the specifics you want, such as title and description tags, a sitemap, headings that match your keywords, and social previews, and they will be written into the pages.',
                     ],
                 },
                 {
-                    q: 'How many pages can a site have?',
+                    q: 'How is this different from Wix, Squarespace, or WordPress?',
                     a: [
-                        'As many as you need. Larger sites are built as separate files with shared styling, and you can ask for new pages one at a time as the site grows rather than planning the whole thing up front.',
-                    ],
-                },
-                {
-                    q: 'What if I want a developer to take it over?',
-                    a: [
-                        'Hand them the zip. It is a static site with no framework, no bundler, and no proprietary format, which makes it one of the easiest things to pick up and continue in an ordinary editor.',
+                        'Those tools are editors: you work inside their canvas, their themes, and their plugin ecosystem, and your site stays there. That is a fair trade for many people, and it comes with a monthly bill and a ceiling.',
+                        'With Puter AI Builder you describe the site and get real website files. There is no theme to work around, no plugin marketplace to shop in, and no lock-in, because you can export the whole site and host it anywhere. The trade is that you are describing rather than dragging, which is faster once you get used to it and less familiar at first.',
                     ],
                 },
             ],
@@ -277,9 +303,9 @@ export default {
 
         {
             type: 'cta',
-            heading: 'Describe your site and watch it get built',
-            body: 'A sentence about who it is for and what it should say is enough to see a first version.',
-            label: 'Open the builder',
+            heading: 'Turn your idea into a live website',
+            body: 'Build it with AI, no coding required. Free to start, hosting included.',
+            label: 'Start building',
             href: buildLink(''),
         },
     ],
