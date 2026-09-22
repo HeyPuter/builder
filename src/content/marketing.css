@@ -602,7 +602,27 @@ h3 {
 .faq { max-width: var(--measure); }
 .faq-item { padding: 22px 0; border-top: 1px solid var(--border); }
 .faq-item:first-child { border-top: none; padding-top: 0; }
-.faq-item h3 { font-size: 1.08rem; margin-bottom: 10px; }
+.faq-item summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    cursor: pointer;
+    list-style: none;
+}
+.faq-item summary::-webkit-details-marker { display: none; }
+.faq-item summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 4px; }
+.faq-item h3 { font-size: 1.08rem; margin: 0; }
+.faq-chevron {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    color: var(--text-3);
+    transition: transform 0.24s ease;
+}
+.faq-item[open]:not(.is-closing) .faq-chevron { transform: rotate(180deg); }
+.faq-body { overflow: hidden; }
+.faq-body-inner { padding-top: 10px; }
 .faq-item p { margin: 0 0 14px; color: var(--text-2); font-size: 0.97rem; }
 .faq-item p:last-child { margin-bottom: 0; }
 
