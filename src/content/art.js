@@ -216,8 +216,10 @@ export const SCENES = {
         windowBox(28, 34, 200, 130) +
         textLines(44, 76, [130, 100, 150, 90], 16) +
         `<rect x="44" y="138" width="120" height="12" rx="4" fill="var(--accent-soft)"/>` +
-        `<path d="M262 70a44 44 0 1 1-14 60" stroke="var(--text-3)" fill="none" stroke-width="2"/>` +
-        `<path d="M244 124l4 10 10-5" stroke="var(--text-3)" fill="none" stroke-width="2"/>` +
+        // Reload ring, concentric with the check badge (centre 288,100), open at the
+        // upper left with the arrowhead sitting on the arc's end tangent.
+        `<path d="M288 56a44 44 0 1 1-41.4 29" stroke="var(--text-3)" fill="none" stroke-width="2"/>` +
+        `<path d="M-9 -6L0 0L-9 6" transform="translate(246.6 85) rotate(-70)" stroke="var(--text-3)" fill="none" stroke-width="2"/>` +
         `<circle cx="288" cy="100" r="24" fill="var(--accent)"/>` +
         `<path d="M278 100l7 7 13-14" stroke="var(--accent-ink)" stroke-width="3" fill="none"/>` +
         textLines(48, 190, [180]) +
@@ -239,15 +241,17 @@ export const SCENES = {
     // Version history: snapshots you can walk back through.
     history:
         FRAME +
-        `<rect x="70" y="88" width="196" height="104" rx="10" fill="var(--surface-2)" opacity="0.5"/>` +
-        `<rect x="86" y="66" width="196" height="110" rx="10" fill="var(--surface-2)"/>` +
-        windowBox(104, 44, 200, 118) +
-        textLines(120, 86, [140, 100, 120], 16) +
-        `<rect x="120" y="134" width="70" height="12" rx="4" fill="var(--accent-soft)"/>` +
-        `<path d="M56 148a30 30 0 1 0 8-40" stroke="var(--accent)" fill="none" stroke-width="2.5"/>` +
-        `<path d="M60 100l4 9-10 3" stroke="var(--accent)" fill="none" stroke-width="2.5"/>` +
-        textLines(120, 196, [90]) +
-        `<circle cx="108" cy="198" r="4" fill="var(--accent)"/>`,
+        // Restore ring sits fully left of the stack so nothing overlaps it; it runs
+        // counter-clockwise with the arrowhead on the arc's end tangent.
+        `<path d="M48 96a24 24 0 1 0 22.55 15.8" stroke="var(--accent)" fill="none" stroke-width="2.5"/>` +
+        `<path d="M-8 -5.5L0 0L-8 5.5" transform="translate(70.55 111.8) rotate(-110)" stroke="var(--accent)" fill="none" stroke-width="2.5"/>` +
+        `<rect x="88" y="88" width="196" height="104" rx="10" fill="var(--surface-2)" opacity="0.5"/>` +
+        `<rect x="104" y="66" width="196" height="110" rx="10" fill="var(--surface-2)"/>` +
+        windowBox(122, 44, 200, 118) +
+        textLines(138, 86, [140, 100, 120], 16) +
+        `<rect x="138" y="134" width="70" height="12" rx="4" fill="var(--accent-soft)"/>` +
+        textLines(138, 196, [90]) +
+        `<circle cx="126" cy="198" r="4" fill="var(--accent)"/>`,
 
     // One click to a live URL.
     publish:

@@ -131,6 +131,12 @@ export function icon(name) {
         `stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
 }
 
+// Disclosure chevron for FAQ summaries. Inline (not in ICONS) because it is
+// layout chrome for one component rather than content art a page can pick.
+const CHEVRON =
+    '<svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" ' +
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+
 function scene(name) {
     const art = SCENES[name];
     if (!art) throw new Error(`[seo] unknown scene: ${name}`);
@@ -363,8 +369,10 @@ const RENDERERS = {
     },
 
     faq(section) {
-        const items = section.items.map((item) =>
-            `<div class="faq-item"><h3>${inline(item.q)}</h3>${paragraphs(item.a)}</div>`,
+        const items = section.items.map((item, i) =>
+            `<details class="faq-item"${i === 0 ? ' open' : ''}>` +
+            `<summary><h3>${inline(item.q)}</h3>${CHEVRON}</summary>` +
+            `<div class="faq-body"><div class="faq-body-inner">${paragraphs(item.a)}</div></div></details>`,
         ).join('');
         return `<section><div class="wrap">${heading(section)}<div class="faq">${items}</div></div></section>`;
     },
@@ -564,6 +572,8 @@ export function renderPage(page, { css = '', fontCss = '', fontUrl = '', bySlug 
         (hero.demo ? renderDemo(hero.demo) : '') +
         `</div></div></div>`;
 
+    const hasFaq = (page.sections || []).some((s) => s.type === 'faq');
+
     const body = (page.sections || []).map(renderSection).join('');
     const graph = buildGraph(page, { url, trail });
 
@@ -614,6 +624,7 @@ ${body}
 ${renderRelated(page, bySlug)}
 </main>
 ${renderFooter()}
+${hasFaq ? `<script>${FAQ_SCRIPT}</script>` : ''}
 </body>
 </html>
 `;
@@ -630,6 +641,28 @@ const THEME_SCRIPT =
 // Plausible's queueing stub, kept byte-identical to the one in src/index.html
 // so both surfaces initialise the same way. The async script above it is the
 // only network request these pages make beyond their own assets.
+// Animated FAQ disclosure. <details> cannot be height-transitioned in CSS
+// because its content is display:none while closed, so the summary click is
+// intercepted and the body's height is driven with the Web Animations API:
+// opening sets the attribute first and grows from 0, closing shrinks to 0 and
+// only then removes the attribute. Without JS, or under reduced motion, the
+// element behaves natively, which is why the markup is a real <details>.
+const FAQ_SCRIPT =
+    `(function(){var f=document.querySelector('.faq');if(!f)return;` +
+    `var r=window.matchMedia('(prefers-reduced-motion: reduce)').matches;` +
+    `f.querySelectorAll('details').forEach(function(d){` +
+    `var s=d.querySelector('summary'),b=d.querySelector('.faq-body');if(!s||!b)return;` +
+    `s.addEventListener('click',function(e){e.preventDefault();` +
+    `if(d.classList.contains('is-animating'))return;` +
+    `if(r||!b.animate){d.open=!d.open;return;}` +
+    `d.classList.add('is-animating');` +
+    `if(d.open){d.classList.add('is-closing');var h=b.offsetHeight;` +
+    `var a=b.animate([{height:h+'px',opacity:1},{height:'0px',opacity:0}],{duration:220,easing:'ease',fill:'forwards'});` +
+    `a.onfinish=function(){d.open=false;a.cancel();d.classList.remove('is-animating','is-closing');};}` +
+    `else{d.open=true;var h2=b.offsetHeight;` +
+    `var a2=b.animate([{height:'0px',opacity:0},{height:h2+'px',opacity:1}],{duration:260,easing:'ease'});` +
+    `a2.onfinish=function(){d.classList.remove('is-animating');};}});});})();`;
+
 const PLAUSIBLE_SCRIPT =
     `window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},` +
     `plausible.init=plausible.init||function(i){plausible.o=i||{}};plausible.init()`;
