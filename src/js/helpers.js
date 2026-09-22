@@ -394,6 +394,68 @@ function hasActiveTodos() {
     return $list.find('li').not('.todo-completed').length > 0;
 }
 
+// A stream owns its preview: neither its text nor its DOM enters chat history.
+// Keep only a short tail and batch paints so token-sized deltas stay cheap.
+function createThinkingPreview(context) {
+    let node = null;
+    let viewport = null;
+    let content = null;
+    let tail = '';
+    let timer = null;
+    let disposed = false;
+    const signal = context.abortController && context.abortController.signal;
+
+    function remove() {
+        disposed = true;
+        clearTimeout(timer);
+        timer = null;
+        node?.remove();
+        node = viewport = content = null;
+        tail = '';
+        signal?.removeEventListener('abort', remove);
+    }
+
+    function paint() {
+        timer = null;
+        if (disposed) return;
+        if (signal?.aborted || isStaleTurn(context) || (node && !node.isConnected)) {
+            remove();
+            return;
+        }
+        if (!node) {
+            const chatBox = document.querySelector('.chat-box');
+            if (!chatBox) return;
+            // Replace the idle dots, including any that are fading out.
+            $('.floating-spinner, .floating-spinner-leaving').remove();
+            node = document.createElement('div');
+            node.className = 'thinking-preview';
+            node.innerHTML = '<div class="thinking-preview-heading" role="status" aria-live="polite">'
+                + '<span class="thinking-preview-orb" aria-hidden="true"></span>Thinking</div>'
+                + '<div class="thinking-preview-viewport" aria-live="off"><div class="thinking-preview-text"></div></div>';
+            viewport = node.querySelector('.thinking-preview-viewport');
+            content = node.querySelector('.thinking-preview-text');
+            chatBox.appendChild(node);
+        }
+        // Reasoning is untrusted plain text, never markdown or HTML.
+        content.textContent = tail.trimEnd();
+        viewport.scrollTop = viewport.scrollHeight;
+        node.classList.toggle('has-overflow', viewport.scrollHeight > viewport.clientHeight);
+        autoScrollTrigger(context);
+    }
+
+    signal?.addEventListener('abort', remove, { once: true });
+    return {
+        append(delta) {
+            if (disposed || typeof delta !== 'string' || !delta) return;
+            tail = (tail + delta).slice(-1600);
+            if (!tail.trim()) return;
+            if (!node) paint();
+            else if (timer === null) timer = setTimeout(paint, 80);
+        },
+        remove,
+    };
+}
+
 function showSpinner() {
     // Don't show the thinking dots while a progress checklist is still in
     // progress — the in-progress checklist item already indicates activity.
