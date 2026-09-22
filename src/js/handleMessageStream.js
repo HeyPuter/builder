@@ -198,88 +198,113 @@ async function handleMessageStream(stream, context) {
         context.recursed = true;
     }
     
-    // Abort-aware iteration: puter.ai.chat ignores the signal option, so this
-    // race is what actually makes an abort take effect while the stream is
-    // silent (see the abortable-stream block above).
-    for await (const completion of abortableStream(stream, context.abortController && context.abortController.signal)) {
-        // Bail if the request was aborted OR the user has since switched chats —
-        // in either case nothing from this turn should render into the live chat.
-        if (isAborted(context.abortController) || isStaleTurn(context)) {
-            return;
-        }
-
-        // Liveness stamp for the background-freeze watchdog (see
-        // mobile-lifecycle-keepalive in app.js): a chunk arriving means the
-        // stream survived the freeze and must not be declared stalled. After
-        // the abort/stale check so a dying turn can't mask the live one.
-        window.noteTurnActivity?.();
-
-        if (completion.type === "error") {
-            // The stream can deliver a TERMINAL error chunk instead of content —
-            // e.g. the request was rejected upstream (image too large, malformed
-            // request, provider outage). Previously the loop only acted on "text"
-            // and "tool_use" chunks, so an "error" chunk fell through and the turn
-            // ended with the spinner gone and NO message — a silent failure. Throw
-            // it so sendChatMessage's catch surfaces it in the chat and records it
-            // to history, exactly like an error thrown by puter.ai.chat itself.
-            throw normalizeStreamError(completion);
-        }
-        if (completion.type === "text") {
-            if (!context.currentMessage) {
-                // While the progress checklist has unfinished items, suppress
-                // mid-turn narration from the UI. The text still goes into
-                // chatHistory via saveCurrentMessage so the model's context is
-                // intact; we just don't render a bubble for it. We use an
-                // empty jQuery as the message handle so the .find/.attr calls
-                // below silently no-op.
-                context.currentMessage = hasActiveTodos() ? $() : appendMessage('', false);
-            }
-            context.currentMessageContent += completion.text;
-
-            // Only render when there is a bubble to render into. While the
-            // checklist suppresses narration, currentMessage is an EMPTY jQuery
-            // and .html() is a no-op — but its argument was still evaluated, so
-            // the whole accumulated message was re-parsed (and its fenced code
-            // re-highlighted) on every delta for nothing.
-            if (context.currentMessage.length) {
-                context.currentMessage.find('.message-content').html(
-                    marked.parse(escapeMarkdownSource(context.currentMessageContent))
-                    .replace(/<a href=/g, '<a target="_blank" href=')
-                );
+    // Local ownership matters: recursive tool rounds and stale turns must not
+    // tear down another stream's preview. Always dispose before a tool handoff.
+    let thinkingPreview = null;
+    const clearThinking = () => {
+        thinkingPreview?.remove();
+        thinkingPreview = null;
+    };
+    try {
+        // Abort-aware iteration: puter.ai.chat ignores the signal option, so this
+        // race is what actually makes an abort take effect while the stream is
+        // silent (see the abortable-stream block above).
+        for await (const completion of abortableStream(stream, context.abortController && context.abortController.signal)) {
+            // Bail if the request was aborted OR the user has since switched chats —
+            // in either case nothing from this turn should render into the live chat.
+            if (isAborted(context.abortController) || isStaleTurn(context)) {
+                return;
             }
 
-            // Keep the thinking dots visible as a trailing indicator beneath the
-            // streaming bubble. Previously a text chunk REMOVED the dots
-            // (stopSpinnerStub), so once the model finished narrating and went
-            // quiet to reason about its next tool call there was no activity
-            // indicator at all — a "dead zone" that looked stuck even though the
-            // request was still in flight (esp. on follow-up turns that don't use
-            // a TodoWrite checklist). showSpinner() is idempotent — it reuses an
-            // existing spinner (no per-delta DOM churn, strictly less than the old
-            // per-delta .remove()) and self-suppresses while a checklist is active
-            // (hasActiveTodos), since the shimmering in-progress item is the
-            // indicator then. The dots are torn down the instant the whole turn's
-            // generation ends (recurser block below) and on abort/error/turn-reset,
-            // so they never linger past completion.
-            showSpinner();
+            // Liveness stamp for the background-freeze watchdog (see
+            // mobile-lifecycle-keepalive in app.js): a chunk arriving means the
+            // stream survived the freeze and must not be declared stalled. After
+            // the abort/stale check so a dying turn can't mask the live one.
+            window.noteTurnActivity?.();
 
-            autoScrollTrigger(context);
-        }
-        if (completion.type === "usage") {
-            recordUsageChunk(context, completion);
-        }
-        if (completion.type === "tool_use") {
-            startSpinnerStub();
+            if (completion.type === 'reasoning') {
+                if (typeof completion.reasoning === 'string' && completion.reasoning.length) {
+                    thinkingPreview ||= createThinkingPreview(context);
+                    thinkingPreview.append(completion.reasoning);
+                }
+                continue;
+            }
+            if (completion.type === "error") {
+                // The stream can deliver a TERMINAL error chunk instead of content —
+                // e.g. the request was rejected upstream (image too large, malformed
+                // request, provider outage). Previously the loop only acted on "text"
+                // and "tool_use" chunks, so an "error" chunk fell through and the turn
+                // ended with the spinner gone and NO message — a silent failure. Throw
+                // it so sendChatMessage's catch surfaces it in the chat and records it
+                // to history, exactly like an error thrown by puter.ai.chat itself.
+                throw normalizeStreamError(completion);
+            }
+            if (completion.type === "text") {
+                // Empty text chunks are sometimes keepalives, not an answer yet.
+                if (typeof completion.text !== 'string' || !completion.text) continue;
+                clearThinking();
+                if (!context.currentMessage) {
+                    // While the progress checklist has unfinished items, suppress
+                    // mid-turn narration from the UI. The text still goes into
+                    // chatHistory via saveCurrentMessage so the model's context is
+                    // intact; we just don't render a bubble for it. We use an
+                    // empty jQuery as the message handle so the .find/.attr calls
+                    // below silently no-op.
+                    context.currentMessage = hasActiveTodos() ? $() : appendMessage('', false);
+                }
+                context.currentMessageContent += completion.text;
 
-            // Save before and after a tool call incase the user quits
-            saveCurrentMessage(context);
-            const result = await handleToolCalls(completion, true, context);
-            saveCurrentMessage(context);
-            if (result.error || shouldStop) {
-                break;
+                // Only render when there is a bubble to render into. While the
+                // checklist suppresses narration, currentMessage is an EMPTY jQuery
+                // and .html() is a no-op — but its argument was still evaluated, so
+                // the whole accumulated message was re-parsed (and its fenced code
+                // re-highlighted) on every delta for nothing.
+                if (context.currentMessage.length) {
+                    context.currentMessage.find('.message-content').html(
+                        marked.parse(escapeMarkdownSource(context.currentMessageContent))
+                        .replace(/<a href=/g, '<a target="_blank" href=')
+                    );
+                }
+
+                // Keep the thinking dots visible as a trailing indicator beneath the
+                // streaming bubble. Previously a text chunk REMOVED the dots
+                // (stopSpinnerStub), so once the model finished narrating and went
+                // quiet to reason about its next tool call there was no activity
+                // indicator at all — a "dead zone" that looked stuck even though the
+                // request was still in flight (esp. on follow-up turns that don't use
+                // a TodoWrite checklist). showSpinner() is idempotent — it reuses an
+                // existing spinner (no per-delta DOM churn, strictly less than the old
+                // per-delta .remove()) and self-suppresses while a checklist is active
+                // (hasActiveTodos), since the shimmering in-progress item is the
+                // indicator then. The dots are torn down the instant the whole turn's
+                // generation ends (recurser block below) and on abort/error/turn-reset,
+                // so they never linger past completion.
+                showSpinner();
+
+                autoScrollTrigger(context);
+            }
+            if (completion.type === "usage") {
+                recordUsageChunk(context, completion);
+            }
+            if (completion.type === "tool_use") {
+                clearThinking();
+                startSpinnerStub();
+
+                // Save before and after a tool call incase the user quits
+                saveCurrentMessage(context);
+                const result = await handleToolCalls(completion, true, context);
+                saveCurrentMessage(context);
+                if (result.error || shouldStop) {
+                    break;
+                }
             }
         }
+    } finally {
+        // Includes stream errors, Stop, navigation, retries and reasoning-only
+        // responses, even when the stream never emits another chunk.
+        clearThinking();
     }
+    if (isAborted(context.abortController) || isStaleTurn(context)) return;
     if (recurser) {
         // The top-level stream has drained — the entire turn (every recursive
         // round via handleToolCalls) is done generating. Tear down the trailing

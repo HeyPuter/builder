@@ -1217,6 +1217,56 @@ a:hover {
 }
 
 
+.thinking-preview {
+    margin: 12px 10px 16px;
+    padding: 2px 0 2px 14px;
+    border-left: 2px solid var(--border, #dedee6);
+    color: var(--text-secondary, #62616e);
+    animation: thinking-preview-enter 180ms ease-out;
+}
+.thinking-preview-heading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 18px;
+    color: var(--text-secondary, #62616e);
+}
+.thinking-preview-orb {
+    width: 8px;
+    height: 8px;
+    flex: 0 0 8px;
+    border-radius: 50%;
+    background: #9181c4;
+    box-shadow: 0 0 0 3px rgba(145, 129, 196, 0.12);
+    animation: thinking-preview-pulse 1.8s ease-in-out infinite;
+}
+.thinking-preview-viewport {
+    max-height: 60px;
+    overflow: hidden;
+    font-size: 13px;
+    line-height: 20px;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+}
+.thinking-preview.has-overflow .thinking-preview-viewport {
+    mask-image: linear-gradient(to bottom, transparent, black 16px);
+}
+@keyframes thinking-preview-enter {
+    from { opacity: 0; transform: translateY(3px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+@keyframes thinking-preview-pulse {
+    0%, 100% { opacity: 0.55; }
+    50% { opacity: 1; box-shadow: 0 0 0 5px rgba(145, 129, 196, 0.08); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .thinking-preview,
+    .thinking-preview-orb { animation: none; }
+}
+
 @keyframes spin {
     0% {
         transform: rotate(0deg);
