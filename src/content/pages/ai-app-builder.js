@@ -2,7 +2,7 @@ import { buildLink, LINKS } from '../site.js';
 
 export default {
     slug: 'ai-app-builder',
-    updated: '2026-09-22',
+    updated: '2026-09-24',
     priority: 0.9,
     changefreq: 'weekly',
     navLabel: 'AI app builder',
@@ -17,33 +17,15 @@ export default {
         h1: 'AI app builder that hands you a working app',
         lead:
             'Build apps with AI without writing a line of code. Puter AI Builder turns your idea into a working app, complete with a backend.',
-        cta: { label: 'Start building', href: '/' },
-        secondary: { label: 'See what to build', href: '/what-to-build/' },
-        note: 'Free with a [Puter](' + LINKS.puter + ') account. Runs in any modern browser, including on a phone.',
-        demo: {
-            prompt: 'Build a CRM where I can drag deals through stages and see pipeline value',
-            app: {
-                name: 'dealboard.puter.site',
-                header: 'Pipeline',
-                blocks: [
-                    {
-                        kind: 'stats',
-                        items: [
-                            { value: '48k', label: 'Pipeline value' },
-                            { value: '7', label: 'Deals in play' },
-                            { value: '3', label: 'Closing this week' },
-                        ],
-                    },
-                    {
-                        kind: 'list',
-                        rows: [
-                            { title: 'Acme redesign', sub: 'Proposal · 12,400', tag: 'Warm' },
-                            { title: 'Bluebird site', sub: 'Contacted · 3,800', tag: 'New' },
-                            { title: 'Corvid app', sub: 'Negotiation · 21,000', tag: 'Hot' },
-                        ],
-                    },
-                ],
-            },
+        note: 'Free with a [Puter](' + LINKS.puter + ') account. Runs in any modern browser, including on a phone. Not sure where to start? [See what to build](/what-to-build/).',
+        composer: {
+            submit: 'Start building',
+            examples: [
+                'A CRM where I drag deals through stages.',
+                'A habit tracker with streaks and a weekly chart.',
+                'An invoice generator that saves my clients.',
+                'A booking app for my dog grooming business.',
+            ],
         },
     },
 
