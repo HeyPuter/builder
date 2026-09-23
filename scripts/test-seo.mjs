@@ -428,6 +428,34 @@ for (const v of verticals) {
 }
 check(`no copy is shared between verticals (${duplicated || 'none'})`, !duplicated);
 
+// The hero composer is a real form that must land the visitor in the builder
+// with their prompt in the chat box, JavaScript or not: a GET to the app root
+// with a `prompt` field is exactly the deep link applyPromptDeepLink() reads.
+for (const slug of ['ai-app-builder', 'ai-website-builder']) {
+    const page = bySlug.get(slug);
+    const html = rendered.get(slug);
+    const c = page.hero.composer;
+    check(`${slug}: hero carries a composer, not a demo`, !!c && !page.hero.demo);
+    check(`${slug}: composer spec is complete`,
+        Array.isArray(c.examples) && c.examples.length >= 3 &&
+        c.examples.every((e) => typeof e === 'string' && e.length > 20 && e.length <= 60 && /[.!?]$/.test(e)));
+    check(`${slug}: composer posts the prompt to the app root`,
+        /<form class="hero-composer" action="\/" method="get">/.test(html) &&
+        /<textarea id="hero-prompt" name="prompt"[^>]*required/.test(html) &&
+        html.includes('class="hero-composer-send" type="submit"'));
+    check(`${slug}: first example is the static placeholder and all ride along for the typewriter`,
+        html.includes(`placeholder="${escapeHtml(c.examples[0])}"`) &&
+        html.includes(`data-examples="${escapeHtml(JSON.stringify(c.examples))}"`));
+    check(`${slug}: hero is the centred single-column variant`,
+        html.includes('class="hero has-composer"') && !html.includes('class="demo"'));
+    check(`${slug}: composer script is inlined`, html.includes("querySelector('.hero-composer')"));
+}
+for (const page of PAGES) {
+    if (['ai-app-builder', 'ai-website-builder'].includes(page.slug)) continue;
+    check(`${page.slug}: no composer script without a composer`,
+        !!page.hero.composer || !rendered.get(page.slug).includes("querySelector('.hero-composer')"));
+}
+
 // The hero demos are tiny declarative mock apps; a malformed spec should fail
 // here, not at deploy time. Every demo needs the parts the animation assumes.
 for (const page of PAGES) {

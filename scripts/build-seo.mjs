@@ -205,6 +205,35 @@ function renderDemo(demo) {
 }
 
 /* ------------------------------------------------------------------ *
+ * The hero composer: a prompt box that hands off to the builder
+ *
+ * Pages can carry `hero.composer` instead of a demo. It renders as a plain
+ * GET form posting `prompt` to the app root, which is exactly the deep link
+ * buildLink() produces, so it works with JavaScript off: the visitor lands
+ * in the builder with their sentence already in the chat box (see
+ * applyPromptDeepLink in src/js/app.js). The placeholder is the first of
+ * the page's example prompts; COMPOSER_SCRIPT types the rest out and back
+ * letter by letter, and makes Enter send and the box grow with the text.
+ * ------------------------------------------------------------------ */
+
+const SEND_ICON =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" ' +
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
+
+function renderComposer(composer) {
+    const examples = composer.examples || [];
+    const label = composer.label || 'Describe what you want to build';
+    return `<form class="hero-composer" action="/" method="get">` +
+        `<label class="sr-only" for="hero-prompt">${escapeHtml(label)}</label>` +
+        `<textarea id="hero-prompt" name="prompt" rows="3" required maxlength="2000" autocomplete="off" ` +
+        `placeholder="${escapeHtml(examples[0] || label)}" data-examples="${escapeHtml(JSON.stringify(examples))}"></textarea>` +
+        `<div class="hero-composer-bar">` +
+        `<button class="hero-composer-send" type="submit" title="${escapeHtml(composer.submit || 'Start building')}" ` +
+        `aria-label="${escapeHtml(composer.submit || 'Start building')}">${SEND_ICON}</button>` +
+        `</div></form>`;
+}
+
+/* ------------------------------------------------------------------ *
  * Chrome: header, footer, breadcrumbs
  * ------------------------------------------------------------------ */
 
@@ -560,13 +589,14 @@ export function renderPage(page, { css = '', fontCss = '', fontUrl = '', bySlug 
         (hero.eyebrow ? `<p class="eyebrow">${escapeHtml(hero.eyebrow)}</p>` : '') +
         `<h1>${inline(hero.h1)}</h1>` +
         `<p class="lead">${inline(hero.lead)}</p>` +
+        (hero.composer ? renderComposer(hero.composer) : '') +
         (heroActions.length ? `<div class="hero-actions">${heroActions.join('')}</div>` : '') +
         (hero.note ? `<p class="hero-note">${inline(hero.note)}</p>` : '') +
         (metaBits.length ? `<p class="meta-line">${metaBits.join(' &middot; ')}</p>` : '') +
         `</div>`;
 
     const heroHtml =
-        `<div class="hero${trail ? ' has-crumbs' : ''}${hero.demo ? ' has-demo' : ''}"><div class="wrap">` +
+        `<div class="hero${trail ? ' has-crumbs' : ''}${hero.demo ? ' has-demo' : ''}${hero.composer ? ' has-composer' : ''}"><div class="wrap">` +
         renderCrumbs(trail) +
         `<div class="hero-inner">` +
         heroCopy +
@@ -626,6 +656,7 @@ ${renderRelated(page, bySlug)}
 </main>
 ${renderFooter()}
 ${hasFaq ? `<script>${FAQ_SCRIPT}</script>` : ''}
+${hero.composer ? `<script>${COMPOSER_SCRIPT}</script>` : ''}
 </body>
 </html>
 `;
@@ -663,6 +694,36 @@ const FAQ_SCRIPT =
     `else{d.open=true;var h2=b.offsetHeight;` +
     `var a2=b.animate([{height:'0px',opacity:0},{height:h2+'px',opacity:1}],{duration:260,easing:'ease'});` +
     `a2.onfinish=function(){d.classList.remove('is-animating');};}});});})();`;
+
+// Progressive enhancement for the hero composer. Enter sends only where a
+// physical keyboard is likely (pointer: fine); on a phone Enter inserts a
+// newline and the button sends, matching what the app's composer does. The
+// IME guard (isComposing / keyCode 229) keeps Enter from firing mid-conversion
+// for Japanese, Chinese, and Korean input.
+//
+// The placeholder is typed out letter by letter, held, deleted, and replaced
+// with the next example, cycling through data-examples. It pauses while the
+// box holds text (the placeholder is invisible then anyway) and holds the
+// full first sentence when the visitor prefers reduced motion.
+const COMPOSER_SCRIPT =
+    `(function(){var f=document.querySelector('.hero-composer');if(!f)return;` +
+    `var t=f.querySelector('textarea');if(!t)return;` +
+    `var fine=!!(window.matchMedia&&window.matchMedia('(pointer: fine)').matches);` +
+    `var still=!!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches);` +
+    `function grow(){t.style.height='auto';t.style.height=Math.min(t.scrollHeight,240)+'px';}` +
+    `t.addEventListener('input',grow);` +
+    `t.addEventListener('keydown',function(e){if(e.key!=='Enter'||e.shiftKey||e.isComposing||e.keyCode===229||!fine)return;` +
+    `e.preventDefault();if(t.value.trim())f.requestSubmit?f.requestSubmit():f.submit();});` +
+    `f.addEventListener('submit',function(e){t.value=t.value.trim();if(!t.value){e.preventDefault();t.focus();}});` +
+    `var ex=[];try{ex=JSON.parse(t.getAttribute('data-examples')||'[]');}catch(err){}` +
+    `if(still||ex.length<2)return;` +
+    `var i=0,n=0,del=false;` +
+    `function tick(){if(t.value){setTimeout(tick,600);return;}` +
+    `var s=ex[i],d;if(!del){n++;t.placeholder=s.slice(0,n);` +
+    `if(n>=s.length){del=true;d=2200;}else d=34+Math.random()*40;}` +
+    `else{n--;t.placeholder=s.slice(0,n);if(n<=0){del=false;i=(i+1)%ex.length;d=500;}else d=18;}` +
+    `setTimeout(tick,d);}` +
+    `setTimeout(tick,1600);})();`;
 
 const PLAUSIBLE_SCRIPT =
     `window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},` +

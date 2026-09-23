@@ -2,7 +2,7 @@ import { buildLink, LINKS } from '../site.js';
 
 export default {
     slug: 'ai-website-builder',
-    updated: '2026-09-22',
+    updated: '2026-09-24',
     priority: 0.9,
     changefreq: 'weekly',
     navLabel: 'AI website builder',
@@ -17,33 +17,15 @@ export default {
         h1: 'AI website builder that gives you a live website',
         lead:
             'Build a website with AI without writing a line of code. Puter AI Builder turns your idea into a live website, complete with free hosting.',
-        cta: { label: 'Start building', href: '/' },
-        secondary: { label: 'Read the walkthrough', href: '/guides/how-to-build-a-website-with-ai/' },
-        note: 'Free with a [Puter](' + LINKS.puter + ') account. Runs in any modern browser, including on a phone.',
-        demo: {
-            prompt: 'Build a site for my pottery studio with classes, a gallery, and signups',
-            app: {
-                name: 'kilnhouse.puter.site',
-                header: 'Kiln House Studio',
-                blocks: [
-                    {
-                        kind: 'stats',
-                        items: [
-                            { value: '6', label: 'Classes this week' },
-                            { value: '14', label: 'New signups' },
-                            { value: '2', label: 'Spots left Sat' },
-                        ],
-                    },
-                    {
-                        kind: 'list',
-                        rows: [
-                            { title: 'Intro to the wheel', sub: 'Tue 18:00 · 8 seats', tag: '3 left' },
-                            { title: 'Glaze workshop', sub: 'Sat 10:00 · 6 seats', tag: 'Full' },
-                            { title: 'Open studio', sub: 'Sun 12:00 · members', tag: 'Open' },
-                        ],
-                    },
-                ],
-            },
+        note: 'Free with a [Puter](' + LINKS.puter + ') account. Runs in any modern browser, including on a phone. New to this? [Read the walkthrough](/guides/how-to-build-a-website-with-ai/).',
+        composer: {
+            submit: 'Start building',
+            examples: [
+                'A site for my pottery studio with class signups.',
+                'A restaurant website with the menu and reservations.',
+                'A portfolio for a freelance designer.',
+                'A landing page for my newsletter.',
+            ],
         },
     },
 
