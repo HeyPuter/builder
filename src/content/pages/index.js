@@ -8,9 +8,23 @@
 //
 // Profession pages live under /for/ and are built by the verticalPage factory
 // (src/content/verticals.js): shared skeleton, fully individual copy.
+//
+// Use-case pages (ai-form-builder, ai-game-builder, ...) are top-level URLs
+// that nest under the /use-cases/ hub via `parent`, which gives them a
+// breadcrumb and routes their crawl path through the hub.
 
 import aiAppBuilder from './ai-app-builder.js';
 import aiWebsiteBuilder from './ai-website-builder.js';
+import useCases from './use-cases.js';
+import aiLandingPageBuilder from './ai-landing-page-builder.js';
+import aiFormBuilder from './ai-form-builder.js';
+import aiPortfolioBuilder from './ai-portfolio-builder.js';
+import aiUiBuilder from './ai-ui-builder.js';
+import aiPrototypeGenerator from './ai-prototype-generator.js';
+import aiSoftwareBuilder from './ai-software-builder.js';
+import aiSaasBuilder from './ai-saas-builder.js';
+import aiDeckBuilder from './ai-deck-builder.js';
+import aiGameBuilder from './ai-game-builder.js';
 import whatToBuild from './what-to-build.js';
 import features from './features.js';
 import vibeCoding from './vibe-coding.js';
@@ -36,6 +50,16 @@ import guideBuildPrompt from './guide-build-prompt.js';
 export const PAGES = [
     aiAppBuilder,
     aiWebsiteBuilder,
+    useCases,
+    aiLandingPageBuilder,
+    aiFormBuilder,
+    aiPortfolioBuilder,
+    aiUiBuilder,
+    aiPrototypeGenerator,
+    aiSoftwareBuilder,
+    aiSaasBuilder,
+    aiDeckBuilder,
+    aiGameBuilder,
     whatToBuild,
     features,
     vibeCoding,
