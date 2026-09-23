@@ -336,5 +336,5 @@ export default {
         },
     ],
 
-    related: ['ai-website-builder', 'for', 'what-to-build', 'guides/how-to-build-an-app-with-ai'],
+    related: ['ai-website-builder', 'use-cases', 'for', 'what-to-build', 'guides/how-to-build-an-app-with-ai'],
 };

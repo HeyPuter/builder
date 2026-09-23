@@ -1893,6 +1893,10 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
 .chat-copyright {
     flex-shrink: 0;
     padding: 24px 0 12px;
+    /* Reclaim the column's 20px side padding: the seven-link nav below needs
+       ~570px on one line, and the column's content box is 560px. */
+    margin-left: -20px;
+    margin-right: -20px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -1916,7 +1920,7 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
     justify-content: center;
     align-items: center;
     gap: 6px 16px;
-    max-width: 560px;
+    max-width: 600px;
 }
 
 .chat-footer-nav a {
@@ -4229,6 +4233,11 @@ body.preview-active.chat-hidden .chat {
         padding-left: 14px;
         padding-right: 14px;
     }
+    /* Keep the footer's reclaimed side padding in step with the column's. */
+    .chat-copyright {
+        margin-left: -14px;
+        margin-right: -14px;
+    }
 
     /* iOS Safari zooms the whole page when an input with font-size < 16px gets
        focus. Bump the interactive text fields to 16px to suppress that. */
@@ -4483,6 +4492,10 @@ body.preview-active.chat-hidden .chat {
     .chat {
         padding-left: 10px;
         padding-right: 10px;
+    }
+    .chat-copyright {
+        margin-left: -10px;
+        margin-right: -10px;
     }
     .chat-tagline { font-size: 1.2rem; }
     .chat-tagline-sub { font-size: 0.95rem; }

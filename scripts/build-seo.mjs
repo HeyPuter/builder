@@ -326,10 +326,11 @@ const RENDERERS = {
     personas(section) {
         const cards = section.items.map((item) => {
             const href = hrefFor(item);
+            const more = item.more || section.more || 'See what to build';
             return `<a class="persona-card" href="${escapeHtml(href)}">` +
                 `<span class="card-icon">${icon(item.icon)}</span>` +
                 `<h3>${inline(item.label)}</h3><p>${inline(item.body)}</p>` +
-                `<span class="persona-more">See what to build<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>` +
+                `<span class="persona-more">${escapeHtml(more)}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>` +
                 `</a>`;
         }).join('');
         const intro = section.intro ? `<p class="section-intro">${inline(section.intro)}</p>` : '';

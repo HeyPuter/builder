@@ -184,6 +184,7 @@ function renderSkeleton() {
                     for (const item of [
                         { href: '/ai-app-builder/', label: 'AI app builder' },
                         { href: '/ai-website-builder/', label: 'AI website builder' },
+                        { href: '/use-cases/', label: 'Use cases' },
                         { href: '/for/', label: "Who it's for" },
                         { href: '/what-to-build/', label: 'What to build' },
                         { href: '/features/', label: 'Features' },

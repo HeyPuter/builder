@@ -64,6 +64,7 @@ export const LINKS = {
 export const HEADER_NAV = [
     { label: 'App builder', slug: 'ai-app-builder' },
     { label: 'Website builder', slug: 'ai-website-builder' },
+    { label: 'Use cases', slug: 'use-cases' },
     { label: "Who it's for", slug: 'for' },
     { label: 'What to build', slug: 'what-to-build' },
     { label: 'Features', slug: 'features' },
@@ -80,6 +81,18 @@ export const FOOTER_NAV = [
             { label: 'AI website builder', slug: 'ai-website-builder' },
             { label: 'What to build', slug: 'what-to-build' },
             { label: 'Features', slug: 'features' },
+        ],
+    },
+    {
+        heading: 'Use cases',
+        links: [
+            { label: 'All use cases', slug: 'use-cases' },
+            { label: 'Landing pages', slug: 'ai-landing-page-builder' },
+            { label: 'Forms', slug: 'ai-form-builder' },
+            { label: 'Portfolios', slug: 'ai-portfolio-builder' },
+            { label: 'Prototypes', slug: 'ai-prototype-generator' },
+            { label: 'SaaS', slug: 'ai-saas-builder' },
+            { label: 'Games', slug: 'ai-game-builder' },
         ],
     },
     {
