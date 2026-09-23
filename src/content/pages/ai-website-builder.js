@@ -310,5 +310,5 @@ export default {
         },
     ],
 
-    related: ['ai-app-builder', 'for', 'guides/how-to-build-a-website-with-ai', 'what-to-build'],
+    related: ['ai-app-builder', 'use-cases', 'for', 'guides/how-to-build-a-website-with-ai', 'what-to-build'],
 };

@@ -212,5 +212,5 @@ export default {
         },
     ],
 
-    related: ['ai-app-builder', 'ai-website-builder', 'what-to-build', 'guides/how-to-write-a-build-prompt'],
+    related: ['ai-app-builder', 'ai-website-builder', 'use-cases', 'what-to-build', 'guides/how-to-write-a-build-prompt'],
 };
