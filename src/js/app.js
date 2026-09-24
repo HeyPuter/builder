@@ -636,39 +636,94 @@ function stripUtmParams(searchParams) {
 // matters: settleComposerDraftIdentity() only restores a stored draft into an
 // EMPTY composer, so filling it first means a fresh deep link wins over a stale
 // draft rather than being overwritten by it.
+// Set by applyPromptDeepLink when the URL carried `send=1`: the hero composer
+// on a marketing page was submitted, so this visit should pick up the files it
+// parked (src/js/handoff.js) and start the build — see consumeComposerHandoff.
+let _composerHandoffPending = false;
+
 function applyPromptDeepLink() {
     let prompt = null;
+    let send = false;
     try {
-        prompt = new URLSearchParams(window.location.search).get('prompt');
+        const params = new URLSearchParams(window.location.search);
+        prompt = params.get('prompt');
+        send = params.get('send') === '1';
     } catch (e) { return; }
-    // No prompt, or the URL is also restoring a project — in which case the
-    // composer belongs to that conversation and is about to be repopulated from
-    // its own draft.
-    if (!prompt || !prompt.trim() || readUrlChatId()) return;
+    // Nothing to apply, or the URL is also restoring a project — in which case
+    // the composer belongs to that conversation and is about to be repopulated
+    // from its own draft.
+    const hasPrompt = !!(prompt && prompt.trim());
+    if ((!hasPrompt && !send) || readUrlChatId()) return;
 
     const $input = $('.chat-input-message');
     if (!$input.length) return;
-    // A starter prompt is a few sentences. Anything past this is either junk or
-    // an attempt to stuff the box from a link, and truncating is friendlier than
-    // ignoring it outright.
-    $input.val(prompt.slice(0, 2000));
-    autoResizeTextarea($input[0]);
-    // .val() fires no 'input' event, so mirror it into the persisted draft the
-    // way the chip injector does — it should survive a reload like typed text.
-    window.saveComposerDraft?.();
-    if (!isProcessing) $('.send').prop('disabled', false);
-    // Focus only where a keyboard is already present: on a phone this would
-    // throw up the on-screen keyboard over the page the moment it loads.
-    if (window.matchMedia?.('(pointer: fine)').matches) $input.focus();
+    if (hasPrompt) {
+        // A starter prompt is a few sentences. Anything past this is either junk
+        // or an attempt to stuff the box from a link, and truncating is
+        // friendlier than ignoring it outright.
+        $input.val(prompt.slice(0, 2000));
+        autoResizeTextarea($input[0]);
+        // .val() fires no 'input' event, so mirror it into the persisted draft
+        // the way the chip injector does — it should survive a reload like
+        // typed text.
+        window.saveComposerDraft?.();
+        if (!isProcessing) $('.send').prop('disabled', false);
+        // Focus only where a keyboard is already present: on a phone this would
+        // throw up the on-screen keyboard over the page the moment it loads.
+        if (window.matchMedia?.('(pointer: fine)').matches) $input.focus();
+    }
+    _composerHandoffPending = send;
 
-    // Take the param back out of the address bar. It has done its job, and
-    // leaving it would replay on every refresh and ride along into the ?p=
-    // permalink the moment the project is saved.
+    // Take the params back out of the address bar. They have done their job,
+    // and leaving them would replay on every refresh (a `send=1` would start a
+    // second build) and ride along into the ?p= permalink the moment the
+    // project is saved.
     try {
         const url = new URL(window.location.href);
         url.searchParams.delete('prompt');
+        url.searchParams.delete('send');
         history.replaceState(history.state, '', url.pathname + url.search + url.hash);
     } catch (e) { /* cosmetic only */ }
+}
+
+// The second half of a marketing-page composer send (the first is the
+// COMPOSER_SCRIPT in scripts/build-seo.mjs). The text arrived in the URL and
+// is already in the composer (applyPromptDeepLink); the files were parked in
+// IndexedDB by src/js/handoff.js. Stage them through the same intake as a
+// drop, so every size, count and duplicate rule applies and is reported the
+// same way, then send — exactly what the visitor's press of the button would
+// have done on the landing screen.
+//
+// Runs after auth has settled. The marketing page signs a visitor in before
+// handing off, inside their click, because that is the only place a browser
+// lets the sign-in popup open; if that did not happen (puter.js blocked, or
+// the popup was) the visitor lands here signed out, and the send would only
+// hit the same popup block. So then everything stays staged, text and files,
+// and their own press of Send signs them in and goes.
+async function consumeComposerHandoff() {
+    if (!_composerHandoffPending) return;
+    _composerHandoffPending = false;
+    if (readUrlChatId()) return;
+
+    let files = [];
+    try {
+        files = await window.BuilderHandoff?.take() || [];
+    } catch (e) {
+        console.warn('Could not read the files handed off from the marketing page:', e);
+    }
+    if (files.length) {
+        try {
+            await handleDroppedFiles(files);
+        } catch (e) {
+            console.error('Could not stage the files handed off from the marketing page:', e);
+        }
+    }
+
+    if (!window.user || window.user.is_temp) return;
+    if (isProcessing || _sendSetupInFlight) return;
+    const hasText = ($('.chat-input-message').val() || '').trim().length > 0;
+    if (!hasText && attachedImages.length === 0) return;
+    await sendChatMessage();
 }
 
 function cleanLandingUtmParams() {
@@ -2232,7 +2287,8 @@ $(document).ready(async function(){
 
     // A "Build this" link from one of the marketing pages arrives as ?prompt=…;
     // fill the composer from it now, while the UI is still cloaked, so the first
-    // visible frame already has the text in the box.
+    // visible frame already has the text in the box. A hero composer send adds
+    // &send=1, picked up by consumeComposerHandoff once auth has settled.
     applyPromptDeepLink();
 
     // Fade the UI in once its fonts + logo are ready (runs concurrently with the
@@ -2303,6 +2359,11 @@ $(document).ready(async function(){
     // resolving wins over the store — but it was keyed to the pre-auth identity
     // ('anon'), so it's re-keyed under the identity auth just settled on.
     settleComposerDraftIdentity();
+
+    // A marketing-page composer send (?send=1): stage its parked files and,
+    // signed in, start the build. After the draft settle above so the text it
+    // sends is the text the visitor typed, not a stored draft.
+    await consumeComposerHandoff();
 
     // Skip on mobile: autofocusing here pops the on-screen keyboard up over
     // the landing page before the user has touched anything.
