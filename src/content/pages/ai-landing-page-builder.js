@@ -21,27 +21,9 @@ export default {
         cta: { label: 'Start building', href: '/' },
         secondary: { label: 'How to write the prompt', href: '/guides/how-to-write-a-build-prompt/' },
         note: 'Free with a [Puter](' + LINKS.puter + ') account. Runs in any modern browser, including on a phone.',
-        demo: {
-            prompt: 'Build a launch page for my newsletter with a waitlist form and one clear call to action',
-            app: {
-                name: 'launchlist.puter.site',
-                header: 'Waitlist',
-                blocks: [
-                    {
-                        kind: 'stats',
-                        items: [
-                            { value: '312', label: 'Signups' },
-                            { value: '41', label: 'This week' },
-                            { value: '88', label: 'Referred' },
-                        ],
-                    },
-                    {
-                        kind: 'bars',
-                        label: 'Signups per day',
-                        values: [4, 9, 6, 12, 8, 14, 11],
-                    },
-                ],
-            },
+        screenshot: {
+            src: '/screenshots/landing.webp',
+            alt: 'Build an event landing page with Puter AI Builder',
         },
     },
 

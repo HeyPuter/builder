@@ -21,30 +21,9 @@ export default {
         cta: { label: 'Start building', href: '/' },
         secondary: { label: 'How to write a build prompt', href: '/guides/how-to-write-a-build-prompt/' },
         note: 'Free with a [Puter](' + LINKS.puter + ') account. Runs in any modern browser, including on a phone.',
-        demo: {
-            prompt: 'Prototype a meal planning app with a weekly grid, a recipe library, and a grocery list',
-            app: {
-                name: 'mealgrid.puter.site',
-                header: 'This week',
-                blocks: [
-                    {
-                        kind: 'stats',
-                        items: [
-                            { value: '18', label: 'Meals planned' },
-                            { value: '3', label: 'Slots open' },
-                            { value: '24', label: 'Grocery items' },
-                        ],
-                    },
-                    {
-                        kind: 'list',
-                        rows: [
-                            { title: 'Lemon garlic pasta', sub: 'Tue dinner · 25 min', tag: 'Planned' },
-                            { title: 'Shakshuka', sub: 'Sat brunch · 30 min', tag: 'New' },
-                            { title: 'Thai green curry', sub: 'Sun dinner · 40 min', tag: 'Leftovers' },
-                        ],
-                    },
-                ],
-            },
+        screenshot: {
+            src: '/screenshots/prototype.webp',
+            alt: 'Build a travel booking prototype with Puter AI Builder',
         },
     },
 

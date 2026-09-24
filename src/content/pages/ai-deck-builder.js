@@ -23,27 +23,9 @@ export default {
         cta: { label: 'Build an online deck', href: buildLink(starterPrompt) },
         secondary: { label: 'How to write the prompt', href: '/guides/how-to-write-a-build-prompt/' },
         note: 'Free with a [Puter](' + LINKS.puter + ') account. Present online, print to PDF, or download web files. No PowerPoint or Google Slides export.',
-        demo: {
-            prompt: 'Build a 10-slide online pitch deck for my meal-kit startup, with browser navigation and a traction chart using my numbers',
-            app: {
-                name: 'seedround.puter.site',
-                header: 'Seed round deck',
-                blocks: [
-                    {
-                        kind: 'stats',
-                        items: [
-                            { value: '10', label: 'Slides' },
-                            { value: '18k', label: 'MRR' },
-                            { value: '41%', label: 'MoM growth' },
-                        ],
-                    },
-                    {
-                        kind: 'bars',
-                        label: 'Weekly signups',
-                        values: [3, 5, 4, 7, 9, 12, 16],
-                    },
-                ],
-            },
+        screenshot: {
+            src: '/screenshots/deck.webp',
+            alt: 'Build an online pitch deck with Puter AI Builder',
         },
     },
 
