@@ -12,5 +12,6 @@
 
 User-agent: *
 Allow: /
+Disallow: /?prompt=
 
 Sitemap: https://builder.puter.com/sitemap.xml
