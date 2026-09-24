@@ -6,18 +6,22 @@ import { COMPOSER_SCRIPT, PUTER_JS_SRC, FILE_ICON_URL } from './build-seo.mjs';
 // like the app's own chat box: type, attach files, press send, and the build
 // starts. Three pieces carry that across a full page navigation:
 //   * src/js/handoff.js — window.BuilderHandoff, an IndexedDB store the
-//     marketing page writes the files into and the app reads them out of.
-//     Shared by both sides byte-for-byte (bundled into the app, inlined into
-//     the pages) so the store cannot drift.
+//     marketing page writes the send (text + files) into under a fresh id,
+//     and the app reads it out of by that id. Shared by both sides
+//     byte-for-byte (bundled into the app, inlined into the pages) so the
+//     store cannot drift.
 //   * COMPOSER_SCRIPT (scripts/build-seo.mjs) — the page side: sign the
 //     visitor in inside their click (the only place a popup may open), park
-//     the files, navigate to /?prompt=…&send=1.
+//     the send, navigate to /?prompt=…&handoff=<id>.
 //   * applyPromptDeepLink + consumeComposerHandoff (src/js/app.js) — the app
-//     side: read the flag, stage the files through the drop intake, send.
+//     side: read the id, take its record, stage the files through the drop
+//     intake, put the text in the box, send. No record, no send: that is what
+//     keeps an outside link from starting a build (storage is same-origin, so
+//     only our page can have written one).
 // This test:
 //   * evaluates the REAL handoff helper against an in-memory IndexedDB and
-//     drives stash/take through overwrite, single consumption, staleness and
-//     the no-storage failure,
+//     drives stash/take through single consumption, unknown ids, two sends
+//     side by side, staleness, the sweep and the no-storage failure,
 //   * evaluates the REAL composer script against a small fake DOM and drives
 //     the attach/paste/dedup/remove tray, Enter, and every submit outcome
 //     (signed in, signs in, dismisses, popup blocked, storage failed, no
@@ -44,8 +48,10 @@ const BUILD = read('./build-seo.mjs');
 // =============================================================================
 
 // Just enough of the IndexedDB API for handoff.js: open with upgrade, one
-// object store, put/get/delete inside a transaction whose requests settle in
-// a microtask, and the completion/error callbacks the helper listens to.
+// object store, put/get/delete/getAll inside a transaction whose requests
+// settle in order in a microtask (each firing its own onsuccess, which may
+// queue more requests into the same transaction, as the sweep does), and the
+// completion/error callbacks the helper listens to.
 function fakeIndexedDB() {
     const dbs = new Map();
     const request = () => ({ result: undefined, error: null, onsuccess: null, onerror: null, onupgradeneeded: null, onblocked: null });
@@ -74,12 +80,13 @@ function fakeIndexedDB() {
                                 });
                                 return r;
                             },
-                            get(key) { const r = request(); ops.push(() => { r.result = table().get(key); }); return r; },
-                            delete(key) { const r = request(); ops.push(() => { table().delete(key); }); return r; },
+                            get(key) { const r = request(); ops.push(() => { r.result = table().get(key); r.onsuccess?.(); }); return r; },
+                            getAll() { const r = request(); ops.push(() => { r.result = [...table().values()]; r.onsuccess?.(); }); return r; },
+                            delete(key) { const r = request(); ops.push(() => { table().delete(key); r.onsuccess?.(); }); return r; },
                         };
                         tx.objectStore = () => store;
                         queueMicrotask(() => {
-                            try { for (const op of ops) op(); tx.oncomplete?.(); }
+                            try { for (let i = 0; i < ops.length; i++) ops[i](); tx.oncomplete?.(); }
                             catch (e) { tx.error = e; tx.onerror?.(); }
                         });
                         return tx;
@@ -108,49 +115,68 @@ const fileB = new File(['bbbb'], 'b.pdf', { type: 'application/pdf' });
     const h = loadHandoff({ indexedDB: idb });
     check('helper defines stash and take', typeof h.stash === 'function' && typeof h.take === 'function');
 
-    await h.stash([fileA, fileB]);
-    const got = await h.take();
-    check('take returns the stashed files, in order, as Files',
-        got.length === 2 && got[0] === fileA && got[1] === fileB && got.every((f) => f instanceof File));
-    check('take consumes: a second take is empty', (await h.take()).length === 0);
+    const id = await h.stash({ prompt: 'Build a CRM', files: [fileA, fileB] });
+    check('stash resolves with a usable id', typeof id === 'string' && /^[A-Za-z0-9-]{8,64}$/.test(id));
+    const got = await h.take(id);
+    check('take by id returns the text and the files, in order, as Files',
+        !!got && got.prompt === 'Build a CRM' && got.files.length === 2 && got.files[0] === fileA && got.files[1] === fileB &&
+        got.files.every((f) => f instanceof File));
+    check('take consumes: a second take of the same id is null', (await h.take(id)) === null);
 
-    await h.stash([fileA]);
-    await h.stash([fileB]);
-    const latest = await h.take();
-    check('a second stash replaces the first', latest.length === 1 && latest[0] === fileB);
+    check('an id nobody stashed (an outside link) finds nothing', (await h.take('made-up-id-0001')) === null);
+    check('a missing or malformed id finds nothing', (await h.take()) === null && (await h.take('')) === null && (await h.take(42)) === null);
 
-    await h.stash([fileA, 'not a file', null, { name: 'x' }]);
-    const filtered = await h.take();
-    check('take drops anything that is not a File', filtered.length === 1 && filtered[0] === fileA);
+    const idA = await h.stash({ prompt: 'tab A', files: [fileA] });
+    const idB = await h.stash({ prompt: 'tab B', files: [fileB] });
+    const tookA = await h.take(idA);
+    const tookB = await h.take(idB);
+    check('two sends side by side (two tabs) each get their own record',
+        idA !== idB && tookA.prompt === 'tab A' && tookA.files[0] === fileA && tookB.prompt === 'tab B' && tookB.files[0] === fileB);
 
-    await h.stash([fileA]);
+    const junk = await h.stash({ prompt: 'junk', files: [fileA, 'not a file', null, { name: 'x' }] });
+    const filtered = await h.take(junk);
+    check('take drops anything that is not a File', filtered.files.length === 1 && filtered.files[0] === fileA);
+
+    const textOnly = await h.stash({ prompt: 'just words', files: [] });
+    const words = await h.take(textOnly);
+    check('a text-only send parks with no files', words.prompt === 'just words' && words.files.length === 0);
+    const noPrompt = await h.stash({ files: [fileB] });
+    check('a file-only send parks with an empty prompt', (await h.take(noPrompt)).prompt === '');
+
+    const old = await h.stash({ prompt: 'abandoned', files: [fileA] });
     const realNow = Date.now;
     Date.now = () => realNow() + 11 * 60 * 1000;
     try {
-        check('a record older than ten minutes is treated as abandoned', (await h.take()).length === 0);
+        check('a record older than ten minutes is treated as abandoned', (await h.take(old)) === null);
+        const fresh = await h.stash({ prompt: 'fresh', files: [] });
+        const older = await h.stash({ prompt: 'also old', files: [] });
+        const table = [...idb._dbs.values()][0].stores.get('pending');
+        table.get(older).at = realNow() - 1;
+        await h.take(fresh);
+        check('a take sweeps abandoned records and keeps live ones', !table.has(older) && !table.has(fresh) && table.size === 0);
     } finally { Date.now = realNow; }
-
-    await h.stash([]);
-    check('an empty stash reads back empty', (await h.take()).length === 0);
-    check('take with nothing parked resolves empty rather than failing', (await h.take()).length === 0);
 }
 
 {
     const h = loadHandoff({});
     let stashErr = null, takeErr = null;
-    await h.stash([fileA]).catch((e) => { stashErr = e; });
-    await h.take().catch((e) => { takeErr = e; });
-    check('without IndexedDB stash rejects (the page then falls back)', !!stashErr);
-    check('without IndexedDB take rejects (the app then carries on)', !!takeErr);
+    await h.stash({ prompt: 'x', files: [fileA] }).catch((e) => { stashErr = e; });
+    await h.take('some-id-000000').catch((e) => { takeErr = e; });
+    check('without IndexedDB stash rejects (the page then falls back to a prefill)', !!stashErr);
+    check('without IndexedDB take rejects (the app then carries on as a prefill)', !!takeErr);
 }
 
 {
     const idb = fakeIndexedDB();
     const h = loadHandoff({ indexedDB: idb });
-    await h.stash([fileA]);
-    await h.take();
+    await h.take(await h.stash({ prompt: 'a', files: [fileA] }));
     const conns = [...idb._dbs.values()];
     check('the store is a single database with the pending store', conns.length === 1 && conns[0].stores.has('pending'));
+}
+
+{
+    const h = loadHandoff({ indexedDB: fakeIndexedDB(), crypto: { randomUUID: () => 'c0ffee00-0000-4000-8000-000000000001' } });
+    check('ids come from crypto.randomUUID where it exists', (await h.stash({ prompt: '', files: [] })) === 'c0ffee00-0000-4000-8000-000000000001');
 }
 
 // =============================================================================
@@ -227,10 +253,10 @@ function mount({ fine = true, puter = null, handoff = null } = {}) {
 }
 
 // Records the order of sign-in and stash calls across both fakes.
-function fakes({ signedIn = true, signIn = () => Promise.resolve({ success: true }), stash = () => Promise.resolve() } = {}) {
+function fakes({ signedIn = true, signIn = () => Promise.resolve({ success: true }), stash = () => Promise.resolve('id-abc-123') } = {}) {
     const calls = [];
     const puter = { auth: { isSignedIn: () => signedIn, signIn: () => { calls.push('signIn'); return signIn(); } } };
-    const handoff = { stash: (files) => { calls.push('stash'); handoff.stashed = files.slice(); return stash(); } };
+    const handoff = { stash: (send) => { calls.push('stash'); handoff.stashed = { prompt: send.prompt, files: send.files.slice() }; return stash(); } };
     return { calls, puter, handoff };
 }
 
@@ -326,9 +352,10 @@ function fakes({ signedIn = true, signIn = () => Promise.resolve({ success: true
     check('submit is taken over from the native GET', e.defaulted === true);
     check('the box is busy while the handoff runs', m.f.classes.has('is-busy') && m.send.disabled === true);
     await flush();
-    check('signed in: no sign-in prompt, files parked, then off to the app with the send flag',
-        calls.join(',') === 'stash' && handoff.stashed.length === 1 && handoff.stashed[0] === fileA &&
-        m.loc.href === '/?prompt=Build%20a%20%26%20b%3F&send=1');
+    check('signed in: no sign-in prompt, the send is parked, then off to the app with its id',
+        calls.join(',') === 'stash' && handoff.stashed.prompt === 'Build a & b?' &&
+        handoff.stashed.files.length === 1 && handoff.stashed.files[0] === fileA &&
+        m.loc.href === '/?prompt=Build%20a%20%26%20b%3F&handoff=id-abc-123');
 }
 {
     const { calls, puter, handoff } = fakes({ signedIn: true });
@@ -337,8 +364,9 @@ function fakes({ signedIn = true, signIn = () => Promise.resolve({ success: true
     m.t.dispatch('input');
     m.f.dispatch('submit');
     await flush();
-    check('text only: nothing to park, straight to the app with the send flag',
-        calls.length === 0 && m.loc.href === '/?prompt=Just%20text&send=1');
+    check('text only: parked too (the id is what lets the app send), then off with prompt and id',
+        calls.join(',') === 'stash' && handoff.stashed.prompt === 'Just text' && handoff.stashed.files.length === 0 &&
+        m.loc.href === '/?prompt=Just%20text&handoff=id-abc-123');
 }
 {
     const { calls, puter, handoff } = fakes({ signedIn: true });
@@ -347,8 +375,8 @@ function fakes({ signedIn = true, signIn = () => Promise.resolve({ success: true
     m.pick.dispatch('change');
     m.f.dispatch('submit');
     await flush();
-    check('file only: parked and sent with no prompt in the URL',
-        calls.join(',') === 'stash' && m.loc.href === '/?send=1');
+    check('file only: parked with an empty prompt and sent with only the id in the URL',
+        calls.join(',') === 'stash' && handoff.stashed.prompt === '' && m.loc.href === '/?handoff=id-abc-123');
 }
 {
     const { calls, puter, handoff } = fakes({ signedIn: false });
@@ -361,7 +389,7 @@ function fakes({ signedIn = true, signIn = () => Promise.resolve({ success: true
     check('signed out: the sign-in popup opens synchronously, inside the click', calls[0] === 'signIn');
     await flush();
     check('signed out: sign in, then park, then go',
-        calls.join(',') === 'signIn,stash' && m.loc.href === '/?prompt=Sign%20me%20in&send=1');
+        calls.join(',') === 'signIn,stash' && m.loc.href === '/?prompt=Sign%20me%20in&handoff=id-abc-123');
 }
 {
     const { calls, puter, handoff } = fakes({ signedIn: false, signIn: () => Promise.reject({ error: 'dismissed' }) });
@@ -384,7 +412,7 @@ function fakes({ signedIn = true, signIn = () => Promise.resolve({ success: true
     m.f.dispatch('submit');
     await flush();
     check('blocked popup: carries on to the app, whose own Send can open it',
-        calls.join(',') === 'signIn' && m.loc.href === '/?prompt=Blocked&send=1');
+        calls.join(',') === 'signIn,stash' && m.loc.href === '/?prompt=Blocked&handoff=id-abc-123');
 }
 {
     const { calls, puter, handoff } = fakes({ signedIn: true, stash: () => Promise.reject(new Error('quota')) });
@@ -395,7 +423,7 @@ function fakes({ signedIn = true, signIn = () => Promise.resolve({ success: true
     m.pick.dispatch('change');
     m.f.dispatch('submit');
     await flush();
-    check('parking failed: the text still goes, without the send flag, so the visitor can attach again',
+    check('parking failed: the text still goes as a plain prefill, so the visitor can attach again',
         calls.join(',') === 'stash' && m.loc.href === '/?prompt=No%20storage');
 }
 {
@@ -405,8 +433,17 @@ function fakes({ signedIn = true, signIn = () => Promise.resolve({ success: true
     m.t.dispatch('input');
     m.f.dispatch('submit');
     await flush();
-    check('puter.js never loaded: off to the app, which asks to sign in on its own Send',
-        m.loc.href === '/?prompt=No%20puter&send=1');
+    check('puter.js never loaded: parked and off to the app, which asks to sign in on its own Send',
+        m.loc.href === '/?prompt=No%20puter&handoff=id-abc-123');
+}
+{
+    const { puter } = fakes();
+    const m = mount({ puter, handoff: null });
+    m.t.value = 'No helper';
+    m.t.dispatch('input');
+    m.f.dispatch('submit');
+    await flush();
+    check('no handoff helper on the page: a plain prefill, never a send', m.loc.href === '/?prompt=No%20helper');
 }
 {
     const { puter, handoff } = fakes();
@@ -432,21 +469,28 @@ function fakes({ signedIn = true, signIn = () => Promise.resolve({ success: true
 // =============================================================================
 
 const deepLink = APP.slice(APP.indexOf('function applyPromptDeepLink()'), APP.indexOf('async function consumeComposerHandoff()'));
-check('applyPromptDeepLink reads the send flag', deepLink.includes("params.get('send') === '1'"));
-check('applyPromptDeepLink marks the handoff pending', deepLink.includes('_composerHandoffPending = send;'));
-check('applyPromptDeepLink strips the send flag so a refresh cannot resend',
-    deepLink.includes("url.searchParams.delete('prompt');") && deepLink.includes("url.searchParams.delete('send');"));
-check('a file-only handoff (send without prompt) still gets through', deepLink.includes('if ((!hasPrompt && !send) || readUrlChatId()) return;'));
+check('applyPromptDeepLink reads the handoff id', deepLink.includes("handoffId = params.get('handoff');"));
+check('the id is validated before it is used', deepLink.includes("if (!HANDOFF_ID_RE.test(handoffId || '')) handoffId = null;") &&
+    APP.includes('const HANDOFF_ID_RE = /^[A-Za-z0-9-]{8,64}$/;'));
+check('applyPromptDeepLink records the id for the consumer', deepLink.includes('_composerHandoffId = handoffId;'));
+check('applyPromptDeepLink strips prompt and id from the URL',
+    deepLink.includes("url.searchParams.delete('prompt');") && deepLink.includes("url.searchParams.delete('handoff');"));
+check('a file-only handoff (id without prompt) still gets through', deepLink.includes('if ((!hasPrompt && !handoffId) || readUrlChatId()) return;'));
+check('a bare URL flag can no longer start a build', !APP.includes("params.get('send')") && !APP.includes('_composerHandoffPending'));
 
 const consume = APP.slice(APP.indexOf('async function consumeComposerHandoff()'), APP.indexOf('function cleanLandingUtmParams()'));
-check('consumeComposerHandoff runs once per pending flag', consume.includes('if (!_composerHandoffPending) return;') && consume.includes('_composerHandoffPending = false;'));
-check('consumeComposerHandoff takes the parked files through the shared helper', consume.includes('window.BuilderHandoff?.take()'));
-check('parked files go through the drop intake (size, count, dedup rules)', consume.includes('await handleDroppedFiles(files);'));
+check('consumeComposerHandoff runs once per id', consume.includes('const id = _composerHandoffId;') && consume.includes('_composerHandoffId = null;'));
+check('consumeComposerHandoff takes the record by id through the shared helper', consume.includes('window.BuilderHandoff?.take(id)'));
+check('no record, no send: an outside link is a prefill', consume.includes('if (!record) return;') &&
+    consume.indexOf('if (!record) return;') < consume.indexOf('handleDroppedFiles'));
+check('parked files go through the drop intake (size, count, dedup rules)', consume.includes('await handleDroppedFiles(record.files);'));
 check('the drop intake is a global the app can reach', /^async function handleDroppedFiles\(/m.test(DRAGDROP));
+check("the record's text replaces whatever the draft restore put in the box, even when empty",
+    consume.includes("$input.val(record.prompt.slice(0, 2000));") && consume.indexOf('$input.val(') < consume.indexOf('await sendChatMessage();'));
 check('a signed-out visitor is left staged, not sent into a blocked popup', consume.includes('if (!window.user || window.user.is_temp) return;'));
 check('the send is the ordinary composer send', consume.includes('await sendChatMessage();') &&
     consume.indexOf('handleDroppedFiles') < consume.indexOf('await sendChatMessage();'));
-check('nothing to send, nothing sent', consume.includes('if (!hasText && attachedImages.length === 0) return;'));
+check('nothing to send, nothing sent', consume.includes("if (!record.prompt.trim() && attachedImages.length === 0) return;"));
 
 const ready = APP.slice(APP.indexOf('$(document).ready(async function(){'));
 check('boot fills the composer from the deep link before first paint', ready.indexOf('applyPromptDeepLink();') < ready.indexOf('revealWhenReady();'));

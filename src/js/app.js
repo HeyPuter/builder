@@ -636,24 +636,30 @@ function stripUtmParams(searchParams) {
 // matters: settleComposerDraftIdentity() only restores a stored draft into an
 // EMPTY composer, so filling it first means a fresh deep link wins over a stale
 // draft rather than being overwritten by it.
-// Set by applyPromptDeepLink when the URL carried `send=1`: the hero composer
-// on a marketing page was submitted, so this visit should pick up the files it
-// parked (src/js/handoff.js) and start the build — see consumeComposerHandoff.
-let _composerHandoffPending = false;
+// Set by applyPromptDeepLink when the URL carried `handoff=<id>`: the hero
+// composer on a marketing page was submitted and parked that send (text and
+// files) under this id in IndexedDB (src/js/handoff.js). consumeComposerHandoff
+// picks it up and starts the build. The id alone grants nothing: the send
+// only happens if a record with it exists, and storage is same-origin, so
+// only a page of ours could have written one. An outside link carrying a
+// made-up id gets a prefilled box and nothing more.
+let _composerHandoffId = null;
+const HANDOFF_ID_RE = /^[A-Za-z0-9-]{8,64}$/;
 
 function applyPromptDeepLink() {
     let prompt = null;
-    let send = false;
+    let handoffId = null;
     try {
         const params = new URLSearchParams(window.location.search);
         prompt = params.get('prompt');
-        send = params.get('send') === '1';
+        handoffId = params.get('handoff');
     } catch (e) { return; }
+    if (!HANDOFF_ID_RE.test(handoffId || '')) handoffId = null;
     // Nothing to apply, or the URL is also restoring a project — in which case
     // the composer belongs to that conversation and is about to be repopulated
     // from its own draft.
     const hasPrompt = !!(prompt && prompt.trim());
-    if ((!hasPrompt && !send) || readUrlChatId()) return;
+    if ((!hasPrompt && !handoffId) || readUrlChatId()) return;
 
     const $input = $('.chat-input-message');
     if (!$input.length) return;
@@ -672,27 +678,37 @@ function applyPromptDeepLink() {
         // throw up the on-screen keyboard over the page the moment it loads.
         if (window.matchMedia?.('(pointer: fine)').matches) $input.focus();
     }
-    _composerHandoffPending = send;
+    _composerHandoffId = handoffId;
 
     // Take the params back out of the address bar. They have done their job,
-    // and leaving them would replay on every refresh (a `send=1` would start a
-    // second build) and ride along into the ?p= permalink the moment the
-    // project is saved.
+    // and leaving them would replay on every refresh (harmless for the id, its
+    // record is consumed on first use, but pointless) and ride along into the
+    // ?p= permalink the moment the project is saved.
     try {
         const url = new URL(window.location.href);
         url.searchParams.delete('prompt');
-        url.searchParams.delete('send');
+        url.searchParams.delete('handoff');
         history.replaceState(history.state, '', url.pathname + url.search + url.hash);
     } catch (e) { /* cosmetic only */ }
 }
 
 // The second half of a marketing-page composer send (the first is the
-// COMPOSER_SCRIPT in scripts/build-seo.mjs). The text arrived in the URL and
-// is already in the composer (applyPromptDeepLink); the files were parked in
-// IndexedDB by src/js/handoff.js. Stage them through the same intake as a
-// drop, so every size, count and duplicate rule applies and is reported the
-// same way, then send — exactly what the visitor's press of the button would
-// have done on the landing screen.
+// COMPOSER_SCRIPT in scripts/build-seo.mjs). The send was parked in IndexedDB
+// by src/js/handoff.js under the id the URL carried; the same text also came
+// in the URL, so the box was full on the first frame (applyPromptDeepLink).
+// Take the record, stage its files through the same intake as a drop, so
+// every size, count and duplicate rule applies and is reported the same way,
+// put its text in the box, and send — exactly what the visitor's press of the
+// button would have done on the landing screen.
+//
+// No record, no send: the id was made up (an outside link), already used, or
+// abandoned long enough to be swept, and the visit is an ordinary prefill.
+//
+// The record's text goes in the box even when it is empty: the boot-time
+// draft restore that ran just before this can have put an old, unsent draft
+// in it, and a file-only send from the marketing page must not carry that
+// out unseen. (The marketing text replacing a stored draft is the same thing
+// a ?prompt= link already does.)
 //
 // Runs after auth has settled. The marketing page signs a visitor in before
 // handing off, inside their click, because that is the only place a browser
@@ -701,28 +717,35 @@ function applyPromptDeepLink() {
 // hit the same popup block. So then everything stays staged, text and files,
 // and their own press of Send signs them in and goes.
 async function consumeComposerHandoff() {
-    if (!_composerHandoffPending) return;
-    _composerHandoffPending = false;
-    if (readUrlChatId()) return;
+    const id = _composerHandoffId;
+    _composerHandoffId = null;
+    if (!id || readUrlChatId()) return;
 
-    let files = [];
+    let record = null;
     try {
-        files = await window.BuilderHandoff?.take() || [];
+        record = await window.BuilderHandoff?.take(id);
     } catch (e) {
-        console.warn('Could not read the files handed off from the marketing page:', e);
+        console.warn('Could not read the send handed off from the marketing page:', e);
     }
-    if (files.length) {
+    if (!record) return;
+
+    if (record.files.length) {
         try {
-            await handleDroppedFiles(files);
+            await handleDroppedFiles(record.files);
         } catch (e) {
             console.error('Could not stage the files handed off from the marketing page:', e);
         }
     }
 
+    const $input = $('.chat-input-message');
+    $input.val(record.prompt.slice(0, 2000));
+    autoResizeTextarea($input[0]);
+    window.saveComposerDraft?.();
+    if (!isProcessing) $('.send').prop('disabled', !record.prompt.trim() && attachedImages.length === 0);
+
     if (!window.user || window.user.is_temp) return;
     if (isProcessing || _sendSetupInFlight) return;
-    const hasText = ($('.chat-input-message').val() || '').trim().length > 0;
-    if (!hasText && attachedImages.length === 0) return;
+    if (!record.prompt.trim() && attachedImages.length === 0) return;
     await sendChatMessage();
 }
 
@@ -2288,7 +2311,7 @@ $(document).ready(async function(){
     // A "Build this" link from one of the marketing pages arrives as ?prompt=…;
     // fill the composer from it now, while the UI is still cloaked, so the first
     // visible frame already has the text in the box. A hero composer send adds
-    // &send=1, picked up by consumeComposerHandoff once auth has settled.
+    // &handoff=<id>, picked up by consumeComposerHandoff once auth has settled.
     applyPromptDeepLink();
 
     // Fade the UI in once its fonts + logo are ready (runs concurrently with the
@@ -2360,9 +2383,9 @@ $(document).ready(async function(){
     // ('anon'), so it's re-keyed under the identity auth just settled on.
     settleComposerDraftIdentity();
 
-    // A marketing-page composer send (?send=1): stage its parked files and,
-    // signed in, start the build. After the draft settle above so the text it
-    // sends is the text the visitor typed, not a stored draft.
+    // A marketing-page composer send (?handoff=<id>): stage its parked files
+    // and text and, signed in, start the build. After the draft settle above,
+    // which it overrides, so the text it sends is the text the visitor typed.
     await consumeComposerHandoff();
 
     // Skip on mobile: autofocusing here pops the on-screen keyboard up over

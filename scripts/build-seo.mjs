@@ -212,10 +212,11 @@ function renderDemo(demo) {
  * (picker, paste or drop), presses send, and the build starts. What the
  * builder does on that send, it does here: a signed-out visitor is asked to
  * sign in first, inside the click, and the sign-in popup is what carries on
- * to the app. The text travels in the URL (/?prompt=…&send=1) and the files
- * through IndexedDB (src/js/handoff.js, inlined below the composer script);
- * applyPromptDeepLink and consumeComposerHandoff in src/js/app.js pick both
- * up and send.
+ * to the app. The send itself (text and files) travels through IndexedDB
+ * (src/js/handoff.js, inlined above the composer script) and the URL carries
+ * its id plus the text (/?prompt=…&handoff=<id>, the text so the box is full
+ * on the first frame); applyPromptDeepLink and consumeComposerHandoff in
+ * src/js/app.js pick it up and send.
  *
  * Without JavaScript it is a plain GET form posting `prompt` to the app
  * root, which is exactly the deep link buildLink() produces: the visitor
@@ -745,11 +746,12 @@ const FAQ_SCRIPT =
 //     sign-in leaves everything in place, like the app's Send. puter.js is
 //     loaded on the first touch of the composer so it is ready by then; if it
 //     is not (blocked, slow), the app asks on its own Send instead.
-//   * Then the files are parked in IndexedDB (window.BuilderHandoff, from
-//     src/js/handoff.js inlined just above this script) and the page
-//     navigates to /?prompt=…&send=1. If parking fails the text still goes,
-//     without the send flag, so the visitor lands with it staged and can
-//     attach again.
+//   * Then the send (text and files) is parked in IndexedDB
+//     (window.BuilderHandoff, from src/js/handoff.js inlined just above this
+//     script) and the page navigates to /?prompt=…&handoff=<id>. The id is
+//     what the app sends on: only a page of ours can have written the record
+//     behind it. If parking fails the text still goes, as a plain prefill, so
+//     the visitor lands with it staged and can attach again.
 //
 // The placeholder is typed out letter by letter, held, deleted, and replaced
 // with the next example, cycling through data-examples. It pauses while the
@@ -800,9 +802,13 @@ export const COMPOSER_SCRIPT =
     `function signedIn(){var p=window.puter;if(!p||!p.auth||typeof p.auth.signIn!=='function')return Promise.resolve(true);` +
     `try{if(p.auth.isSignedIn())return Promise.resolve(true);}catch(err){return Promise.resolve(true);}` +
     `return p.auth.signIn().then(function(){return true;},function(err){return !!(err&&err.error==='popup_blocked');});}` +
-    `function go(text){var url='/?'+(text?'prompt='+encodeURIComponent(text)+'&':'')+'send=1';` +
-    `var h=window.BuilderHandoff;if(!files.length||!h){location.href=url;return;}` +
-    `h.stash(files).then(function(){location.href=url;},function(){location.href=text?'/?prompt='+encodeURIComponent(text):'/';});}` +
+    // Park the send and go. The URL carries the record's id, which is what lets
+    // the app send on arrival (see src/js/handoff.js); with no record to park
+    // into, the text alone goes and the app only prefills.
+    `function prefill(text){return text?'/?prompt='+encodeURIComponent(text):'/';}` +
+    `function go(text){var h=window.BuilderHandoff;if(!h){location.href=prefill(text);return;}` +
+    `h.stash({prompt:text,files:files}).then(function(id){location.href=prefill(text)+(text?'&':'?')+'handoff='+encodeURIComponent(id);},` +
+    `function(){location.href=prefill(text);});}` +
     `f.addEventListener('submit',function(e){e.preventDefault();if(busy)return;t.value=t.value.trim();var text=t.value;` +
     `if(!text&&!files.length){t.focus();return;}busy=true;f.classList.add('is-busy');sync();` +
     `signedIn().then(function(ok){if(ok){go(text);return;}busy=false;f.classList.remove('is-busy');sync();});});` +

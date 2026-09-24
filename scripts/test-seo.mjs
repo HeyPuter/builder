@@ -304,9 +304,10 @@ check('an empty prompt links to the bare app', buildLink('') === '/');
 check('the app reads the prompt deep link', appSrc.includes('applyPromptDeepLink') &&
     /new URLSearchParams\(window\.location\.search\);[\s\S]{0,80}\.get\('prompt'\)/.test(appSrc) &&
     /applyPromptDeepLink\(\);/.test(appSrc));
-// A bare ?prompt= (a "Build this" chip) only fills the box. Sending is opted
-// into by the hero composer's &send=1 and happens in consumeComposerHandoff,
-// after auth — see scripts/test-composer-handoff.mjs.
+// A bare ?prompt= (a "Build this" chip) only fills the box. Sending happens
+// in consumeComposerHandoff, after auth, and only against a record the hero
+// composer parked in same-origin storage under the URL's &handoff=<id> — so
+// no link from outside can start a build. See scripts/test-composer-handoff.mjs.
 check('the prompt deep link on its own never auto-sends',
     /function applyPromptDeepLink\(\)[\s\S]*?\n}/.exec(appSrc)[0].indexOf('sendChatMessage') === -1);
 check('the deep link is stripped from the URL',
@@ -490,11 +491,11 @@ for (const slug of ['ai-app-builder', 'ai-website-builder']) {
     check(`${slug}: handoff helper is inlined ahead of the composer script`,
         html.includes('window.BuilderHandoff = {') &&
         html.indexOf('window.BuilderHandoff = {') < html.indexOf("querySelector('.hero-composer')"));
-    check(`${slug}: composer hands off to the app with the send flag`,
-        html.includes("'send=1'") && html.includes('h.stash(files)'));
+    check(`${slug}: composer parks the send and hands its id to the app`,
+        html.includes('h.stash({prompt:text,files:files})') && html.includes("'handoff='+encodeURIComponent(id)"));
     check(`${slug}: composer loads puter.js on demand and signs in before handing off`,
         html.includes(JSON.stringify(PUTER_JS_SRC)) &&
-        html.indexOf('p.auth.signIn()') < html.indexOf('h.stash(files)'));
+        html.indexOf('p.auth.signIn()') < html.indexOf('h.stash({prompt:text,files:files})'));
 }
 for (const page of PAGES) {
     if (['ai-app-builder', 'ai-website-builder'].includes(page.slug)) continue;
