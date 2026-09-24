@@ -23,27 +23,9 @@ export default {
         cta: { label: 'Build my UI', href: buildLink(starterPrompt) },
         secondary: { label: 'How to write a good prompt', href: '/guides/how-to-write-a-build-prompt/' },
         note: 'Free with a [Puter](' + LINKS.puter + ') account. Build responsive web UI for desktop and mobile browsers.',
-        demo: {
-            prompt: 'Design a running app UI with weekly activity, a workout list, and layouts for desktop and phone screens',
-            app: {
-                name: 'stride.puter.site',
-                header: 'This week',
-                blocks: [
-                    {
-                        kind: 'stats',
-                        items: [
-                            { value: '42 km', label: 'Distance' },
-                            { value: '5', label: 'Workouts' },
-                            { value: '5:12', label: 'Avg pace' },
-                        ],
-                    },
-                    {
-                        kind: 'bars',
-                        label: 'Kilometers per day',
-                        values: [6, 0, 8, 5, 0, 12, 11],
-                    },
-                ],
-            },
+        screenshot: {
+            src: '/screenshots/ui.webp',
+            alt: 'Build an analytics dashboard UI with Puter AI Builder',
         },
     },
 

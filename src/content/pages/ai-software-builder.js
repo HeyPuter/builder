@@ -21,27 +21,9 @@ export default {
         cta: { label: 'Start building', href: '/' },
         secondary: { label: 'Browse use cases', href: '/use-cases/' },
         note: 'Free with a [Puter](' + LINKS.puter + ') account. Runs in any modern browser, nothing to install.',
-        demo: {
-            prompt: 'Build a helpdesk for our IT team with staff sign-in, ticket priorities, and a weekly volume chart',
-            app: {
-                name: 'helpdesk.puter.site',
-                header: 'Helpdesk',
-                blocks: [
-                    {
-                        kind: 'stats',
-                        items: [
-                            { value: '23', label: 'Open tickets' },
-                            { value: '2h', label: 'Median response' },
-                            { value: '61', label: 'Resolved this week' },
-                        ],
-                    },
-                    {
-                        kind: 'bars',
-                        label: 'Tickets per day',
-                        values: [9, 14, 11, 17, 8, 3, 2],
-                    },
-                ],
-            },
+        screenshot: {
+            src: '/screenshots/software.webp',
+            alt: 'Build expense tracker software with Puter AI Builder',
         },
     },
 

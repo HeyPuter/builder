@@ -316,9 +316,59 @@ code {
     align-items: center;
 }
 
+/* With a screenshot the hero stacks: centred eyebrow, title, a narrower
+   lead and the buttons, then the real product at the full content width
+   underneath. Same centred stage as the composer hero, so the use-case pages
+   and the app/website builder pages read as one family. The captures carry
+   their own window chrome and shadow on a transparent ground, so the image
+   sits bare with only a glow behind it; the overhang eats the shadow margin
+   baked into the file. */
+.hero.has-shot {
+    padding: 72px 0 40px;
+    background:
+        radial-gradient(56rem 30rem at 50% -16%, var(--accent-soft), transparent 64%),
+        var(--bg);
+}
+.hero.has-shot::before {
+    -webkit-mask-image: radial-gradient(48rem 30rem at 50% -8%, black, transparent 72%);
+    mask-image: radial-gradient(48rem 30rem at 50% -8%, black, transparent 72%);
+}
+.hero.has-shot .hero-inner { max-width: none; }
+.hero.has-shot .hero-copy { max-width: 48rem; margin: 0 auto; text-align: center; }
+.hero.has-shot .lead { margin-left: auto; margin-right: auto; max-width: 40rem; }
+.hero.has-shot .hero-actions { justify-content: center; }
+.hero.has-shot .hero-note { margin-top: 14px; }
+
+.hero-shot {
+    position: relative;
+    min-width: 0;
+    max-width: 62rem;
+    margin: 28px auto 0;
+}
+
+.hero-shot::before {
+    content: '';
+    position: absolute;
+    inset: 4% 8% 8%;
+    background: radial-gradient(60% 60% at 50% 40%, var(--accent-soft), transparent 72%);
+    pointer-events: none;
+}
+
+.hero-shot img {
+    position: relative;
+    display: block;
+    width: 106%;
+    max-width: none;
+    height: auto;
+    margin: 0 -3%;
+    animation: rise-in 0.7s cubic-bezier(0.2, 0.7, 0.3, 1) both 0.3s;
+}
+
 @media (max-width: 980px) {
     .hero.has-demo .hero-inner { grid-template-columns: 1fr; gap: 44px; }
     .hero.has-demo .demo { max-width: 560px; }
+    .hero.has-shot { padding-top: 56px; }
+    .hero-shot { margin-top: 20px; }
 }
 
 /* With a composer the hero is a single centred column: eyebrow, title, lead,

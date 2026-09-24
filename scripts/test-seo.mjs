@@ -545,6 +545,34 @@ check('a composer page cannot render without the handoff helper', (() => {
     } catch (e) { return /handoff/.test(String(e && e.message)); }
 })());
 
+// The hero screenshots are real captures of the builder shipped verbatim from
+// src/screenshots/ (vite.config.js copies the folder to the same path). A
+// reference to a file that is not there, or a picture without alt text, should
+// fail here, not as a broken image on a landing page.
+const USE_CASE_SHOTS = ['ai-deck-builder', 'ai-form-builder', 'ai-game-builder', 'ai-landing-page-builder',
+    'ai-portfolio-builder', 'ai-prototype-generator', 'ai-saas-builder', 'ai-software-builder', 'ai-ui-builder'];
+for (const slug of USE_CASE_SHOTS) {
+    const page = bySlug.get(slug);
+    check(`${slug}: hero carries a screenshot, not a demo`, !!(page && page.hero.screenshot) && !page.hero.demo);
+}
+for (const page of PAGES) {
+    const shot = page.hero && page.hero.screenshot;
+    if (!shot) continue;
+    const html = rendered.get(page.slug);
+    check(`${page.slug}: screenshot file exists under src/screenshots`,
+        typeof shot.src === 'string' && /^\/screenshots\/[\w-]+\.webp$/.test(shot.src) &&
+        fs.existsSync(new URL('../src' + shot.src, import.meta.url)));
+    check(`${page.slug}: screenshot has one-sentence alt text`,
+        typeof shot.alt === 'string' && shot.alt.length > 20 && shot.alt.length <= 80);
+    check(`${page.slug}: hero renders the screenshot as its stage`,
+        html.includes('class="hero has-crumbs has-shot"') &&
+        html.includes(`<div class="hero-shot"><img src="${escapeHtml(shot.src)}" alt="${escapeHtml(shot.alt)}"`) &&
+        /<img src="\/screenshots\/[^"]+"[^>]*\bwidth="\d+" height="\d+" fetchpriority="high"/.test(html) &&
+        !html.includes('class="demo"'));
+}
+check('vite ships src/screenshots verbatim for the hero captures',
+    /copyDir\(screenshotsSrc, path\.join\(OUT_DIR, 'screenshots'\)\)/.test(viteSrc));
+
 // The hero demos are tiny declarative mock apps; a malformed spec should fail
 // here, not at deploy time. Every demo needs the parts the animation assumes.
 for (const page of PAGES) {

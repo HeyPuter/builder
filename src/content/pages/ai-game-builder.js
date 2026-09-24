@@ -21,30 +21,9 @@ export default {
         cta: { label: 'Start building', href: '/' },
         secondary: { label: 'See what to build', href: '/what-to-build/' },
         note: 'Free with a [Puter](' + LINKS.puter + ') account. Runs in any modern browser, including on a phone.',
-        demo: {
-            prompt: 'Build an endless runner where a fox dodges obstacles, with a high score board',
-            app: {
-                name: 'foxdash.puter.site',
-                header: 'Fox Dash',
-                blocks: [
-                    {
-                        kind: 'stats',
-                        items: [
-                            { value: '1,240', label: 'Best run' },
-                            { value: '38', label: 'Players today' },
-                            { value: '312', label: 'Coins banked' },
-                        ],
-                    },
-                    {
-                        kind: 'list',
-                        rows: [
-                            { title: 'Maya', sub: 'Run 14 · 1,240 m', tag: 'Top' },
-                            { title: 'Jonah', sub: 'Run 6 · 980 m', tag: 'New' },
-                            { title: 'Priya', sub: 'Run 22 · 870 m', tag: '3rd' },
-                        ],
-                    },
-                ],
-            },
+        screenshot: {
+            src: '/screenshots/game.webp',
+            alt: 'Build a cookie clicker game with Puter AI Builder',
         },
     },
 
