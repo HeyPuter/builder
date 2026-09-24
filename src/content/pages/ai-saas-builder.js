@@ -21,27 +21,9 @@ export default {
         cta: { label: 'Start building', href: '/' },
         secondary: { label: 'See the use cases', href: '/use-cases/' },
         note: 'Free with a [Puter](' + LINKS.puter + ') account. Runs in any modern browser, including on a phone.',
-        demo: {
-            prompt: 'Build a SaaS for freelancers to track time and send invoices, with sign-in and a pricing page',
-            app: {
-                name: 'tallyhours.puter.site',
-                header: 'Tally',
-                blocks: [
-                    {
-                        kind: 'stats',
-                        items: [
-                            { value: '312', label: 'Active users' },
-                            { value: '1,204', label: 'Invoices this month' },
-                            { value: '92%', label: 'Paid on time' },
-                        ],
-                    },
-                    {
-                        kind: 'bars',
-                        label: 'Signups, last 7 days',
-                        values: [12, 18, 15, 24, 31, 27, 38],
-                    },
-                ],
-            },
+        screenshot: {
+            src: '/screenshots/saas.webp',
+            alt: 'Build an AI writing assistant SaaS with Puter AI Builder',
         },
     },
 

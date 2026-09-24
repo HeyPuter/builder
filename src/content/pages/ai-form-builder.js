@@ -21,30 +21,9 @@ export default {
         cta: { label: 'Start building', href: '/' },
         secondary: { label: 'How to write a build prompt', href: '/guides/how-to-write-a-build-prompt/' },
         note: 'Free with a [Puter](' + LINKS.puter + ') account. Runs in any modern browser, including on a phone.',
-        demo: {
-            prompt: 'Build a client intake form for my studio with a private page where I can read every submission',
-            app: {
-                name: 'intake.puter.site',
-                header: 'Submissions',
-                blocks: [
-                    {
-                        kind: 'stats',
-                        items: [
-                            { value: '23', label: 'This week' },
-                            { value: '91%', label: 'Completed' },
-                            { value: '4', label: 'Unread' },
-                        ],
-                    },
-                    {
-                        kind: 'list',
-                        rows: [
-                            { title: 'Maya Chen', sub: 'Brand refresh · Tue 09:14', tag: 'New' },
-                            { title: 'Tom Okafor', sub: 'Product photos · Mon 16:40', tag: 'Read' },
-                            { title: 'Lena Ruiz', sub: 'Event coverage · Mon 11:02', tag: 'Replied' },
-                        ],
-                    },
-                ],
-            },
+        screenshot: {
+            src: '/screenshots/form.webp',
+            alt: 'Build a customer feedback form with Puter AI Builder',
         },
     },
 

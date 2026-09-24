@@ -205,6 +205,22 @@ function renderDemo(demo) {
 }
 
 /* ------------------------------------------------------------------ *
+ * The hero screenshot: the real product, on a marketing page
+ *
+ * Pages can carry `hero.screenshot` instead of a demo: a capture of the
+ * builder with that page's kind of app open in the preview, shipped from
+ * src/screenshots/ at a stable path. The captures include their own window
+ * chrome and shadow on a transparent ground, so the markup is a bare
+ * image. It is the largest thing above the fold, so it is fetched eagerly
+ * and at high priority; width and height reserve its box before it lands.
+ * ------------------------------------------------------------------ */
+
+function renderShot(shot) {
+    return `<div class="hero-shot"><img src="${escapeHtml(shot.src)}" alt="${escapeHtml(shot.alt)}" ` +
+        `width="${shot.width || 3248}" height="${shot.height || 2004}" fetchpriority="high" decoding="async"></div>`;
+}
+
+/* ------------------------------------------------------------------ *
  * The hero composer: the app's chat box, on a marketing page
  *
  * Pages can carry `hero.composer` instead of a demo. It behaves like the
@@ -628,12 +644,18 @@ export function renderPage(page, { css = '', fontCss = '', fontUrl = '', handoff
         (metaBits.length ? `<p class="meta-line">${metaBits.join(' &middot; ')}</p>` : '') +
         `</div>`;
 
+    if ([hero.demo, hero.screenshot, hero.composer].filter(Boolean).length > 1) {
+        throw new Error(`[seo] ${page.slug}: a hero carries one of demo, screenshot, or composer`);
+    }
+
     const heroHtml =
-        `<div class="hero${trail ? ' has-crumbs' : ''}${hero.demo ? ' has-demo' : ''}${hero.composer ? ' has-composer' : ''}"><div class="wrap">` +
+        `<div class="hero${trail ? ' has-crumbs' : ''}${hero.demo ? ' has-demo' : ''}` +
+        `${hero.screenshot ? ' has-shot' : ''}${hero.composer ? ' has-composer' : ''}"><div class="wrap">` +
         renderCrumbs(trail) +
         `<div class="hero-inner">` +
         heroCopy +
         (hero.demo ? renderDemo(hero.demo) : '') +
+        (hero.screenshot ? renderShot(hero.screenshot) : '') +
         `</div></div></div>`;
 
     const hasFaq = (page.sections || []).some((s) => s.type === 'faq');

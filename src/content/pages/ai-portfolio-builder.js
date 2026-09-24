@@ -21,30 +21,9 @@ export default {
         cta: { label: 'Start building', href: '/' },
         secondary: { label: 'Built for photographers', href: '/for/photographers/' },
         note: 'Free with a [Puter](' + LINKS.puter + ') account. Runs in any modern browser, including on a phone.',
-        demo: {
-            prompt: 'Build a portfolio for my product design work with case studies and a contact form',
-            app: {
-                name: 'linokafor.puter.site',
-                header: 'Lin Okafor, Product Designer',
-                blocks: [
-                    {
-                        kind: 'stats',
-                        items: [
-                            { value: '12', label: 'Projects shown' },
-                            { value: '4', label: 'Case studies' },
-                            { value: '3', label: 'New messages' },
-                        ],
-                    },
-                    {
-                        kind: 'list',
-                        rows: [
-                            { title: 'Rebanking onboarding', sub: 'Case study · Fintech', tag: 'Featured' },
-                            { title: 'Atlas design system', sub: 'Case study · B2B SaaS', tag: '2026' },
-                            { title: 'Nightjar mobile app', sub: 'Case study · Consumer', tag: 'Shipped' },
-                        ],
-                    },
-                ],
-            },
+        screenshot: {
+            src: '/screenshots/portfolio.webp',
+            alt: 'Build a florist portfolio site with Puter AI Builder',
         },
     },
 
