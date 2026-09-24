@@ -34,6 +34,8 @@ import {
     plain,
     ogKey,
     ogUrl,
+    PUTER_JS_SRC,
+    FILE_ICON_URL,
 } from './build-seo.mjs';
 import { ORIGIN, HEADER_NAV, FOOTER_NAV, PLAUSIBLE_SRC, urlFor, pathFor, buildLink } from '../src/content/site.js';
 
@@ -44,6 +46,7 @@ const appSrc = read('../src/js/app.js');
 const robotsSrc = read('../src/robots.txt');
 const viteSrc = read('../vite.config.js');
 const cssSrc = read('../src/content/marketing.css');
+const handoffSrc = read('../src/js/handoff.js');
 
 let failures = 0;
 function check(name, cond) {
@@ -58,6 +61,7 @@ for (const page of PAGES) {
         css: cssSrc,
         fontCss: "@font-face{font-family:'Roboto';src:url(/fonts/x.woff2) format('woff2');}",
         fontUrl: '/fonts/x.woff2',
+        handoffJs: handoffSrc,
         bySlug,
     }));
 }
@@ -298,9 +302,13 @@ check('buildLink percent-encodes the prompt',
     buildLink('Build a & b?') === '/?prompt=Build%20a%20%26%20b%3F');
 check('an empty prompt links to the bare app', buildLink('') === '/');
 check('the app reads the prompt deep link', appSrc.includes('applyPromptDeepLink') &&
-    /new URLSearchParams\([\s\S]{0,60}\)\.get\('prompt'\)/.test(appSrc) &&
+    /new URLSearchParams\(window\.location\.search\);[\s\S]{0,80}\.get\('prompt'\)/.test(appSrc) &&
     /applyPromptDeepLink\(\);/.test(appSrc));
-check('the deep link never auto-sends',
+// A bare ?prompt= (a "Build this" chip) only fills the box. Sending happens
+// in consumeComposerHandoff, after auth, and only against a record the hero
+// composer parked in same-origin storage under the URL's &handoff=<id> — so
+// no link from outside can start a build. See scripts/test-composer-handoff.mjs.
+check('the prompt deep link on its own never auto-sends',
     /function applyPromptDeepLink\(\)[\s\S]*?\n}/.exec(appSrc)[0].indexOf('sendChatMessage') === -1);
 check('the deep link is stripped from the URL',
     /function applyPromptDeepLink\(\)[\s\S]*?\n}/.exec(appSrc)[0].includes("searchParams.delete('prompt')"));
@@ -428,9 +436,18 @@ for (const v of verticals) {
 }
 check(`no copy is shared between verticals (${duplicated || 'none'})`, !duplicated);
 
-// The hero composer is a real form that must land the visitor in the builder
-// with their prompt in the chat box, JavaScript or not: a GET to the app root
-// with a `prompt` field is exactly the deep link applyPromptDeepLink() reads.
+// The hero composer is the app's chat box on a marketing page: type, attach,
+// send, and the build starts (the flow itself is exercised by
+// scripts/test-composer-handoff.mjs). Without JavaScript it is still a real
+// form that lands the visitor in the builder with their prompt in the chat
+// box: a GET to the app root with a `prompt` field is exactly the deep link
+// applyPromptDeepLink() reads.
+const shellSendSvg = (indexHtml.match(/window\.send_svg = '([^']+)';/) || [])[1];
+const shellAttachSvg = (indexHtml.match(/window\.attachment_svg = `([^`]+)`/) || [])[1];
+const appFileIcon = (appSrc.match(/let NON_RENDERED_FILE_URL = "([^"]+)";/) || [])[1];
+const shellPuter = (indexHtml.match(/<script src="(https:\/\/js\.puter\.com\/[^"]+)"><\/script>/) || [])[1];
+check('the app shell loads puter.js from its CDN', !!shellPuter);
+check('the composer signs in through the same puter.js the app loads', shellPuter === PUTER_JS_SRC);
 for (const slug of ['ai-app-builder', 'ai-website-builder']) {
     const page = bySlug.get(slug);
     const html = rendered.get(slug);
@@ -441,20 +458,92 @@ for (const slug of ['ai-app-builder', 'ai-website-builder']) {
         c.examples.every((e) => typeof e === 'string' && e.length > 20 && e.length <= 60 && /[.!?]$/.test(e)));
     check(`${slug}: composer posts the prompt to the app root`,
         /<form class="hero-composer" action="\/" method="get">/.test(html) &&
-        /<textarea id="hero-prompt" name="prompt"[^>]*required/.test(html) &&
+        /<textarea class="hero-composer-message" id="hero-prompt" name="prompt"[^>]*required/.test(html) &&
         html.includes('class="hero-composer-send" type="submit"'));
+    // The box is the app's own: same structure, same icons, same file
+    // placeholder, so the visitor's first sight of the builder is the builder.
+    check(`${slug}: composer is laid out like the app's (tray above, box, actions row)`,
+        html.indexOf('<div class="hero-composer-files"') < html.indexOf('<div class="hero-composer-box">') &&
+        html.indexOf('<div class="hero-composer-box">') < html.indexOf('<div class="hero-composer-actions">') &&
+        html.indexOf('class="hero-composer-attach"') < html.indexOf('class="hero-composer-send"'));
+    check(`${slug}: send button carries the app's send icon`,
+        !!shellSendSvg && html.includes(`aria-label="${escapeHtml(c.submit || 'Start building')}">${shellSendSvg}</button>`));
+    check(`${slug}: attach button carries the app's attachment icon`,
+        !!shellAttachSvg && html.includes(`hidden>${shellAttachSvg}</button>`));
+    check(`${slug}: a non-image attachment shows the app's file icon`,
+        !!appFileIcon && appFileIcon === FILE_ICON_URL && html.includes(JSON.stringify(FILE_ICON_URL)));
+    // The attach button and the file input exist for the script alone: born
+    // hidden so the no-JS form shows nothing it cannot do, and the input has no
+    // name so a no-JS GET cannot leak filenames into the URL.
+    check(`${slug}: attach button is born hidden`,
+        /<button class="hero-composer-attach" type="button"[^>]*\bhidden>/.test(html));
+    check(`${slug}: file input is hidden and unnamed`,
+        /<input class="hero-composer-file-input" type="file" multiple[^>]*\bhidden>/.test(html) &&
+        !/<input class="hero-composer-file-input"[^>]*\bname=/.test(html));
+    check(`${slug}: attachment tray is present and empty`,
+        html.includes('<div class="hero-composer-files" aria-label="Attached files" hidden><div class="hero-composer-thumbs"></div></div>'));
     check(`${slug}: first example is the static placeholder and all ride along for the typewriter`,
         html.includes(`placeholder="${escapeHtml(c.examples[0])}"`) &&
         html.includes(`data-examples="${escapeHtml(JSON.stringify(c.examples))}"`));
     check(`${slug}: hero is the centred single-column variant`,
         html.includes('class="hero has-composer"') && !html.includes('class="demo"'));
     check(`${slug}: composer script is inlined`, html.includes("querySelector('.hero-composer')"));
+    check(`${slug}: handoff helper is inlined ahead of the composer script`,
+        html.includes('window.BuilderHandoff = {') &&
+        html.indexOf('window.BuilderHandoff = {') < html.indexOf("querySelector('.hero-composer')"));
+    check(`${slug}: composer parks the send and hands its id to the app`,
+        html.includes('h.stash({prompt:text,files:files})') && html.includes("'handoff='+encodeURIComponent(id)"));
+    check(`${slug}: composer loads puter.js on demand and signs in before handing off`,
+        html.includes(JSON.stringify(PUTER_JS_SRC)) &&
+        html.indexOf('p.auth.signIn()') < html.indexOf('h.stash({prompt:text,files:files})'));
 }
 for (const page of PAGES) {
     if (['ai-app-builder', 'ai-website-builder'].includes(page.slug)) continue;
-    check(`${page.slug}: no composer script without a composer`,
-        !!page.hero.composer || !rendered.get(page.slug).includes("querySelector('.hero-composer')"));
+    const html = rendered.get(page.slug);
+    check(`${page.slug}: no composer script or handoff helper without a composer`,
+        !!page.hero.composer ||
+        (!html.includes("querySelector('.hero-composer')") && !html.includes('BuilderHandoff') && !html.includes('js.puter.com')));
 }
+// marketing.css copies the app's composer rules value for value. Spot-check
+// the ones that define the look, against the app's stylesheet, so a change to
+// the app's box (a new radius, a new send plate) shows up here as a failure.
+const stylesSrc = read('../src/css/styles.css');
+const appRule = (sel) => (stylesSrc.match(new RegExp(`\n${sel.replace(/[.\-]/g, '\\$&')}\\s*\\{([^}]*)\\}`)) || [])[1] || '';
+const composerCss = cssSrc.slice(cssSrc.indexOf('.hero-composer {'), cssSrc.indexOf('.eyebrow {'));
+const decl = (block, prop) => ((block.match(new RegExp(`(?:^|[\\s;{])${prop}:\\s*([^;]+);`)) || [])[1] || '').trim();
+// A colour lives in a composer-local token (the third column) so dark mode
+// can swap it; the app's value must then end with the token's light value.
+for (const [appSel, prop, token] of [
+    ['.chat-input', 'border-radius'],
+    ['.chat-input', 'border', '--c-box-border'],
+    ['.chat-input-message', 'font-size'],
+    ['.chat-input-message', 'min-height'],
+    ['.chat-input-message', 'max-height'],
+    ['.chat-input-message', 'padding-left'],
+    ['.chat-input-message-actions', 'height'],
+    ['.send', 'width'],
+    ['.send', 'border-radius'],
+    ['.send', 'background-color', '--c-send-bg'],
+    ['.send', 'margin-right'],
+    ['.attachment-button', 'margin-left'],
+    ['.attachment-button', 'color', '--c-attach'],
+    ['.attachment-preview', 'border-radius'],
+    ['.attachment-preview', 'background', '--c-tray-bg'],
+    ['.attachment-thumbnail', 'width'],
+    ['.attachment-info', 'font-size'],
+]) {
+    const want = decl(appRule(appSel), prop);
+    const ok = token
+        ? !!want && want.endsWith(decl(composerCss, token))
+        : !!want && composerCss.includes(`${prop}: ${want};`) || (prop === 'padding-left' && composerCss.includes(`padding: ${want};`));
+    check(`composer copies the app's ${appSel} ${prop} (${want})`, ok);
+}
+check('a composer page cannot render without the handoff helper', (() => {
+    try {
+        renderPage(bySlug.get('ai-app-builder'), { css: '', fontCss: '', fontUrl: '', bySlug });
+        return false;
+    } catch (e) { return /handoff/.test(String(e && e.message)); }
+})());
 
 // The hero demos are tiny declarative mock apps; a malformed spec should fail
 // here, not at deploy time. Every demo needs the parts the animation assumes.

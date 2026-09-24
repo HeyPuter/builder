@@ -205,32 +205,60 @@ function renderDemo(demo) {
 }
 
 /* ------------------------------------------------------------------ *
- * The hero composer: a prompt box that hands off to the builder
+ * The hero composer: the app's chat box, on a marketing page
  *
- * Pages can carry `hero.composer` instead of a demo. It renders as a plain
- * GET form posting `prompt` to the app root, which is exactly the deep link
- * buildLink() produces, so it works with JavaScript off: the visitor lands
- * in the builder with their sentence already in the chat box (see
- * applyPromptDeepLink in src/js/app.js). The placeholder is the first of
- * the page's example prompts; COMPOSER_SCRIPT types the rest out and back
- * letter by letter, and makes Enter send and the box grow with the text.
+ * Pages can carry `hero.composer` instead of a demo. It behaves like the
+ * composer on the app's landing screen: the visitor types, attaches files
+ * (picker, paste or drop), presses send, and the build starts. What the
+ * builder does on that send, it does here: a signed-out visitor is asked to
+ * sign in first, inside the click, and the sign-in popup is what carries on
+ * to the app. The send itself (text and files) travels through IndexedDB
+ * (src/js/handoff.js, inlined above the composer script) and the URL carries
+ * its id plus the text (/?prompt=…&handoff=<id>, the text so the box is full
+ * on the first frame); applyPromptDeepLink and consumeComposerHandoff in
+ * src/js/app.js pick it up and send.
+ *
+ * Without JavaScript it is a plain GET form posting `prompt` to the app
+ * root, which is exactly the deep link buildLink() produces: the visitor
+ * lands in the builder with their sentence already in the chat box. The
+ * attach button is born hidden and only revealed by the script, so that
+ * fallback shows nothing it cannot do.
+ *
+ * The placeholder is the first of the page's example prompts; the script
+ * types the rest out and back letter by letter.
  * ------------------------------------------------------------------ */
 
-const SEND_ICON =
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" ' +
-    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
+// The app's own icons, byte for byte: window.send_svg and
+// window.attachment_svg in src/index.html, and NON_RENDERED_FILE_URL (the
+// thumbnail for a file that is not an image) in src/js/app.js. test-seo.mjs
+// asserts these three copies still match those.
+const SEND_SVG = '<svg style="width: 20px; height: 20px;" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="32px" height="32px" viewBox="0 0 32 32"><g transform="translate(0, 0)"><path d="M16.354,1.146a.5.5,0,0,0-.708,0l-10.5,10.5a.5.5,0,0,0,0,.708l2,2a.5.5,0,0,0,.708,0L14,8.207V30.5a.5.5,0,0,0,.5.5h3a.5.5,0,0,0,.5-.5V8.207l6.146,6.147a.5.5,0,0,0,.708,0l2-2a.5.5,0,0,0,0-.708Z" fill="#ffffff"></path></g></svg>';
+const ATTACHMENT_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.64 16.2a2 2 0 0 1-2.83-2.83l8.49-8.49"></path></svg>';
+export const FILE_ICON_URL = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGNsYXNzPSJsdWNpZGUgbHVjaWRlLWZpbGUtaWNvbiBsdWNpZGUtZmlsZSI+PHBhdGggZD0iTTE1IDJINmEyIDIgMCAwIDAtMiAydjE2YTIgMiAwIDAgMCAyIDJoMTJhMiAyIDAgMCAwIDItMlY3WiIvPjxwYXRoIGQ9Ik0xNCAydjRhMiAyIDAgMCAwIDIgMmg0Ii8+PC9zdmc+';
 
 function renderComposer(composer) {
     const examples = composer.examples || [];
     const label = composer.label || 'Describe what you want to build';
+    const submit = composer.submit || 'Start building';
+    // Same structure as the app's composer (renderSkeleton in src/js/ui.js,
+    // updateAttachmentDisplay in app.js): the attachment tray above the box,
+    // the textarea, then the actions row with attach on the left and send on
+    // the right. The class names differ so marketing.css stays self-contained;
+    // the styles are copied from css/styles.css rule for rule.
     return `<form class="hero-composer" action="/" method="get">` +
+        `<div class="hero-composer-files" aria-label="Attached files" hidden><div class="hero-composer-thumbs"></div></div>` +
+        `<div class="hero-composer-box">` +
         `<label class="sr-only" for="hero-prompt">${escapeHtml(label)}</label>` +
-        `<textarea id="hero-prompt" name="prompt" rows="3" required maxlength="2000" autocomplete="off" ` +
+        `<textarea class="hero-composer-message" id="hero-prompt" name="prompt" rows="3" required maxlength="2000" autocomplete="off" ` +
         `placeholder="${escapeHtml(examples[0] || label)}" data-examples="${escapeHtml(JSON.stringify(examples))}"></textarea>` +
-        `<div class="hero-composer-bar">` +
-        `<button class="hero-composer-send" type="submit" title="${escapeHtml(composer.submit || 'Start building')}" ` +
-        `aria-label="${escapeHtml(composer.submit || 'Start building')}">${SEND_ICON}</button>` +
-        `</div></form>`;
+        `<div class="hero-composer-actions">` +
+        // No `name` on the file input: with JavaScript off the form is a GET,
+        // and a named file field would leak the chosen filenames into the URL.
+        `<button class="hero-composer-attach" type="button" title="Attach files from your computer" aria-label="Attach files from your computer" hidden>${ATTACHMENT_SVG}</button>` +
+        `<input class="hero-composer-file-input" type="file" multiple tabindex="-1" aria-hidden="true" hidden>` +
+        `<button class="hero-composer-send" type="submit" title="${escapeHtml(submit)}" ` +
+        `aria-label="${escapeHtml(submit)}">${SEND_SVG}</button>` +
+        `</div></div></form>`;
 }
 
 /* ------------------------------------------------------------------ *
@@ -555,12 +583,17 @@ function buildGraph(page, { url, trail }) {
  * @param {string} opts.css       stylesheet text, inlined into <head>
  * @param {string} opts.fontCss   @font-face rules for the self-hosted font
  * @param {string} opts.fontUrl   the woff2 to preload (empty to skip)
+ * @param {string} opts.handoffJs src/js/handoff.js, inlined into pages that
+ *                                carry a composer (required for those)
  * @param {Map}    opts.bySlug    every page, for related links and breadcrumbs
  */
-export function renderPage(page, { css = '', fontCss = '', fontUrl = '', bySlug }) {
+export function renderPage(page, { css = '', fontCss = '', fontUrl = '', handoffJs = '', bySlug }) {
     const url = urlFor(page.slug);
     const trail = crumbTrail(page, bySlug);
     const hero = page.hero;
+    if (hero.composer && !handoffJs) {
+        throw new Error(`${page.slug}: the hero composer needs src/js/handoff.js (opts.handoffJs) to hand files to the app`);
+    }
 
     const preloadFont = fontUrl
         ? `<link rel="preload" href="${escapeHtml(fontUrl)}" as="font" type="font/woff2" crossorigin>`
@@ -656,7 +689,7 @@ ${renderRelated(page, bySlug)}
 </main>
 ${renderFooter()}
 ${hasFaq ? `<script>${FAQ_SCRIPT}</script>` : ''}
-${hero.composer ? `<script>${COMPOSER_SCRIPT}</script>` : ''}
+${hero.composer ? `<script>${handoffJs}\n${COMPOSER_SCRIPT}</script>` : ''}
 </body>
 </html>
 `;
@@ -695,26 +728,91 @@ const FAQ_SCRIPT =
     `var a2=b.animate([{height:'0px',opacity:0},{height:h2+'px',opacity:1}],{duration:260,easing:'ease'});` +
     `a2.onfinish=function(){d.classList.remove('is-animating');};}});});})();`;
 
-// Progressive enhancement for the hero composer. Enter sends only where a
-// physical keyboard is likely (pointer: fine); on a phone Enter inserts a
-// newline and the button sends, matching what the app's composer does. The
-// IME guard (isComposing / keyCode 229) keeps Enter from firing mid-conversion
-// for Japanese, Chinese, and Korean input.
+// The composer's behaviour, mirroring the app's chat box (src/js/ui.js,
+// app.js, dragdrop.js) so a visitor who starts here and continues there
+// meets the same rules:
+//   * Enter sends only where a physical keyboard is likely (pointer: fine);
+//     on a phone Enter inserts a newline and the button sends. The IME guard
+//     (isComposing / keyCode 229) keeps Enter from firing mid-conversion for
+//     Japanese, Chinese, and Korean input.
+//   * Send is disabled until there is text or a file, and a file-only send
+//     is allowed.
+//   * Files arrive from the attach button, a paste, or a drop onto the box,
+//     and are deduplicated by name + size, like the app's tray. Size and
+//     count limits are the app's to enforce: it runs every handed-off file
+//     through the same intake as a drop and reports what it skipped.
+//   * Send signs a signed-out visitor in first, from inside the click, which
+//     is the only place a browser lets the sign-in popup open. A dismissed
+//     sign-in leaves everything in place, like the app's Send. puter.js is
+//     loaded on the first touch of the composer so it is ready by then; if it
+//     is not (blocked, slow), the app asks on its own Send instead.
+//   * Then the send (text and files) is parked in IndexedDB
+//     (window.BuilderHandoff, from src/js/handoff.js inlined just above this
+//     script) and the page navigates to /?prompt=…&handoff=<id>. The id is
+//     what the app sends on: only a page of ours can have written the record
+//     behind it. If parking fails the text still goes, as a plain prefill, so
+//     the visitor lands with it staged and can attach again.
 //
 // The placeholder is typed out letter by letter, held, deleted, and replaced
 // with the next example, cycling through data-examples. It pauses while the
 // box holds text (the placeholder is invisible then anyway) and holds the
 // full first sentence when the visitor prefers reduced motion.
-const COMPOSER_SCRIPT =
+// The same CDN script the app shell loads (src/index.html); test-seo.mjs
+// asserts the two agree, or a sign-in here would not be one there.
+export const PUTER_JS_SRC = 'https://js.puter.com/v2/';
+
+export const COMPOSER_SCRIPT =
     `(function(){var f=document.querySelector('.hero-composer');if(!f)return;` +
-    `var t=f.querySelector('textarea');if(!t)return;` +
+    `var t=f.querySelector('textarea'),send=f.querySelector('.hero-composer-send'),` +
+    `attach=f.querySelector('.hero-composer-attach'),pick=f.querySelector('.hero-composer-file-input'),` +
+    `tray=f.querySelector('.hero-composer-files'),thumbs=f.querySelector('.hero-composer-thumbs');if(!t||!send)return;` +
     `var fine=!!(window.matchMedia&&window.matchMedia('(pointer: fine)').matches);` +
     `var still=!!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches);` +
+    `var files=[],busy=false,puterLoad=null;` +
+    // puter.js on demand: a reader who never touches the box never fetches it.
+    `function loadPuter(){if(puterLoad||window.puter)return;puterLoad=document.createElement('script');` +
+    `puterLoad.src=${JSON.stringify(PUTER_JS_SRC)};puterLoad.async=true;document.head.appendChild(puterLoad);}` +
+    `['focusin','pointerenter','touchstart'].forEach(function(ev){f.addEventListener(ev,loadPuter,{once:true,passive:true});});` +
     `function grow(){t.style.height='auto';t.style.height=Math.min(t.scrollHeight,240)+'px';}` +
-    `t.addEventListener('input',grow);` +
+    `function sync(){var has=!!t.value.trim()||files.length>0;send.disabled=busy||!has;t.required=files.length===0;}` +
+    // Tray: a 60px thumbnail per file (the image itself, or the app's file
+    // icon), the name along its bottom edge, a remove control in its corner.
+    `function url(x){if(x._url)return x._url;try{x._url=URL.createObjectURL(x);}catch(err){x._url='';}return x._url;}` +
+    `function drop(x){if(x._url){try{URL.revokeObjectURL(x._url);}catch(err){}x._url='';}}` +
+    `function render(){if(!tray||!thumbs)return;thumbs.textContent='';files.forEach(function(x,i){var d=document.createElement('div');` +
+    `d.className='hero-composer-thumb';d.title=x.name;var im=document.createElement('img');` +
+    `im.src=((x.type||'').indexOf('image/')===0&&url(x))||${JSON.stringify(FILE_ICON_URL)};im.alt=x.name;im.loading='lazy';im.decoding='async';` +
+    `var rm=document.createElement('button');rm.type='button';rm.className='hero-composer-file-remove';rm.title='Remove';rm.setAttribute('aria-label','Remove '+x.name);rm.textContent='\u00d7';` +
+    `rm.addEventListener('click',function(){drop(x);files.splice(i,1);render();sync();t.focus();});` +
+    `var n=document.createElement('div');n.className='hero-composer-file-name';n.textContent=x.name;` +
+    `d.appendChild(im);d.appendChild(rm);d.appendChild(n);thumbs.appendChild(d);});` +
+    `tray.hidden=files.length===0;}` +
+    `function add(list){var seen={};files.forEach(function(x){seen[x.name+'\\n'+x.size]=1;});` +
+    `Array.prototype.forEach.call(list||[],function(x){if(!x||!x.name)return;var k=x.name+'\\n'+x.size;if(seen[k])return;seen[k]=1;files.push(x);});render();sync();}` +
+    `t.addEventListener('input',function(){grow();sync();});` +
     `t.addEventListener('keydown',function(e){if(e.key!=='Enter'||e.shiftKey||e.isComposing||e.keyCode===229||!fine)return;` +
-    `e.preventDefault();if(t.value.trim())f.requestSubmit?f.requestSubmit():f.submit();});` +
-    `f.addEventListener('submit',function(e){t.value=t.value.trim();if(!t.value){e.preventDefault();t.focus();}});` +
+    `e.preventDefault();if(!send.disabled)f.requestSubmit?f.requestSubmit():f.submit();});` +
+    `if(attach&&pick){attach.hidden=false;attach.addEventListener('click',function(){loadPuter();pick.value='';pick.click();});` +
+    `pick.addEventListener('change',function(){add(pick.files);pick.value='';});}` +
+    `t.addEventListener('paste',function(e){var cd=e.clipboardData;if(!cd||!cd.files||!cd.files.length)return;e.preventDefault();add(cd.files);});` +
+    `['dragenter','dragover'].forEach(function(ev){f.addEventListener(ev,function(e){if(!e.dataTransfer)return;e.preventDefault();f.classList.add('is-dragover');});});` +
+    `f.addEventListener('dragleave',function(e){if(!f.contains(e.relatedTarget))f.classList.remove('is-dragover');});` +
+    `f.addEventListener('drop',function(e){f.classList.remove('is-dragover');if(!e.dataTransfer||!e.dataTransfer.files.length)return;e.preventDefault();add(e.dataTransfer.files);});` +
+    // Sign in like the app's Send does: resolve true to carry on, false to stay.
+    `function signedIn(){var p=window.puter;if(!p||!p.auth||typeof p.auth.signIn!=='function')return Promise.resolve(true);` +
+    `try{if(p.auth.isSignedIn())return Promise.resolve(true);}catch(err){return Promise.resolve(true);}` +
+    `return p.auth.signIn().then(function(){return true;},function(err){return !!(err&&err.error==='popup_blocked');});}` +
+    // Park the send and go. The URL carries the record's id, which is what lets
+    // the app send on arrival (see src/js/handoff.js); with no record to park
+    // into, the text alone goes and the app only prefills.
+    `function prefill(text){return text?'/?prompt='+encodeURIComponent(text):'/';}` +
+    `function go(text){var h=window.BuilderHandoff;if(!h){location.href=prefill(text);return;}` +
+    `h.stash({prompt:text,files:files}).then(function(id){location.href=prefill(text)+(text?'&':'?')+'handoff='+encodeURIComponent(id);},` +
+    `function(){location.href=prefill(text);});}` +
+    `f.addEventListener('submit',function(e){e.preventDefault();if(busy)return;t.value=t.value.trim();var text=t.value;` +
+    `if(!text&&!files.length){t.focus();return;}busy=true;f.classList.add('is-busy');sync();` +
+    `signedIn().then(function(ok){if(ok){go(text);return;}busy=false;f.classList.remove('is-busy');sync();});});` +
+    `sync();` +
     `var ex=[];try{ex=JSON.parse(t.getAttribute('data-examples')||'[]');}catch(err){}` +
     `if(still||ex.length<2)return;` +
     `var i=0,n=0,del=false;` +

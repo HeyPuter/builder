@@ -32,6 +32,9 @@ let OUT_DIR = path.resolve(__dirname, 'dist');
 // non-module script — see classicBundle() below.
 const SCRIPTS = [
   'js/helpers.js',
+  // Shared with the marketing pages (inlined there by seoPagesPlugin): the
+  // composer handoff store both sides read and write.
+  'js/handoff.js',
   'js/manifest.js',
   'js/publish-state.js',
   'js/publish-errors.js',
@@ -540,6 +543,13 @@ function seoPagesPlugin() {
   const homeUpdated = new Date().toISOString().slice(0, 10);
 
   const readCss = () => fs.readFileSync(path.join(CONTENT_DIR, 'marketing.css'), 'utf8');
+  // The composer handoff helper (src/js/handoff.js) is part of the app bundle
+  // AND inlined into every marketing page with a composer, so both sides share
+  // one definition of the store a handed-off file travels through.
+  const readHandoff = () => fs.readFileSync(path.join(SRC, 'js/handoff.js'), 'utf8');
+  const buildHandoff = async () => (await transform(readHandoff(), {
+    loader: 'js', minifyWhitespace: true, minifySyntax: true, legalComments: 'none', target: 'es2020',
+  })).code;
 
   // The stylesheet is inlined into every page, so its comments would ship
   // eleven times over. Minified for the build (no target set, so modern syntax
@@ -719,6 +729,7 @@ ${lines.map((line, i) =>
           css: readCss(),
           fontCss: fontFaceCss(entries),
           fontUrl: entries[0] ? entries[0].url : '',
+          handoffJs: readHandoff(),
           bySlug,
         }));
       });
@@ -752,6 +763,7 @@ ${lines.map((line, i) =>
 
         // 3. The pages themselves.
         const css = await buildCss();
+        const handoffJs = await buildHandoff();
         const fontCss = fontFaceCss(entries);
         const fontUrl = entries[0] ? entries[0].url : '';
         for (const page of SEO_PAGES) {
@@ -759,7 +771,7 @@ ${lines.map((line, i) =>
           fs.mkdirSync(dir, { recursive: true });
           fs.writeFileSync(
             path.join(dir, 'index.html'),
-            renderSeoPage(page, { css, fontCss, fontUrl, bySlug }),
+            renderSeoPage(page, { css, fontCss, fontUrl, handoffJs, bySlug }),
           );
         }
 
