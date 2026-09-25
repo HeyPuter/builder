@@ -109,10 +109,11 @@ await test('abort cancels an already-open response body even when fetch ignores 
     assert.equal(cancelled, true);
 });
 
-function fixture({ sse = false, failAuth = false, loop = false, toolError = false, hang = false, expireSession = false, toolList } = {}) {
+function fixture({ sse = false, failAuth = false, loop = false, toolError = false, hang = false, expireSession = false, poll = false, toolList } = {}) {
     let owner = 'alice';
     const data = new Map();
     const requests = [];
+    let pendingCall;
     const response = (id, result) => sse
         ? new Response(`event: message\ndata: ${JSON.stringify({ jsonrpc: '2.0', id, result })}\n\n`,
             { headers: { 'Content-Type': 'text/event-stream' } })
@@ -122,7 +123,13 @@ function fixture({ sse = false, failAuth = false, loop = false, toolError = fals
         origin: base.origin, isInternalHostname: () => false, timeoutMs: 1000,
         relayFetch: () => assert.fail('Must use native fetch'),
         browserFetch: async (_, init) => {
-            if (init.method === 'GET') return new Response(null, { status: 405 });
+            if (init.method === 'GET') {
+                const resume = new Headers(init.headers).get('Last-Event-ID');
+                if (!poll || !resume) return new Response(null, { status: 405 });
+                requests.push({ method: 'GET', resume });
+                return new Response(`id: ev-2\nevent: message\ndata: ${JSON.stringify({ jsonrpc: '2.0', id: pendingCall,
+                    result: { content: [{ type: 'text', text: 'Polled output' }] } })}\n\n`, { headers: { 'Content-Type': 'text/event-stream' } });
+            }
             assert.equal(new Headers(init.headers).get('Authorization'), 'Bearer private-token');
             if (init.method === 'DELETE') {
                 requests.push({ method: 'DELETE', session: new Headers(init.headers).get('Mcp-Session-Id'), aborted: init.signal.aborted });
@@ -148,6 +155,12 @@ function fixture({ sse = false, failAuth = false, loop = false, toolError = fals
             if (message.method === 'tools/call') {
                 if (expireSession) return new Response('Session not found', { status: 404 });
                 if (hang) return new Promise(() => {});
+                if (poll) {
+                    // SSE polling: prime the stream with an event ID, then close
+                    // it; the result is fetched later by resuming with GET.
+                    pendingCall = message.id;
+                    return new Response('id: ev-1\nretry: 5\ndata: \n\n', { headers: { 'Content-Type': 'text/event-stream' } });
+                }
                 return response(message.id, { content: [{ type: 'text', text: 'Fixture output' }], isError: toolError,
                     structuredContent: { selectedTool: message.params.name, args: message.params.arguments } });
             }
@@ -300,6 +313,16 @@ await test('disconnecting, removing, and failed discovery end the server session
     plain.manager.disconnect(plain.id);
     await settle();
     assert.equal(ended(plain.requests).length, 0);
+});
+
+await test('a result the server delivers by SSE polling arrives without re-sending the call', async () => {
+    const { manager, id, requests } = fixture({ poll: true });
+    await manager.connect(id, 'private-token');
+    const output = await manager.getTools()[0].exec({});
+    assert.equal(output.result.content[0].text, 'Polled output');
+    assert.equal(requests.filter(request => request.method === 'tools/call').length, 1);
+    assert.deepEqual(requests.filter(request => request.method === 'GET'), [{ method: 'GET', resume: 'ev-1' }]);
+    manager.reset();
 });
 
 await test('MCP errors remain errors and large results are bounded', async () => {

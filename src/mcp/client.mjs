@@ -167,8 +167,10 @@ export function createMcpManager({ getOwner, storage, browserFetch, relayFetch, 
             const transport = new StreamableHTTPClientTransport(new URL(record.url), {
                 fetch,
                 requestInit: { headers },
-                // A transport failure must not replay an external action.
-                reconnectionOptions: { maxRetries: 0 },
+                // The SDK's default reconnection is kept: it resumes a dropped
+                // SSE stream with GET + Last-Event-ID and never re-sends the
+                // POST, so it cannot replay an external action. Servers that
+                // use SSE polling (close after a priming event) depend on it.
             });
             await client.connect(transport, options);
             const definitions = [];
