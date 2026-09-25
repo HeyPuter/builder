@@ -289,6 +289,13 @@ export function createMcpManager({ getOwner, storage, browserFetch, relayFetch, 
                                 }
                                 throw new Error('The MCP server ended this session, so the tool did not run. Ask the user to reconnect it in MCP connections.');
                             }
+                            // A JSON-RPC error the server returned (e.g. -32602 for invalid
+                            // arguments) says why the call was refused; without it the
+                            // model can only retry blindly. It is untrusted server text,
+                            // like any tool result, so it is capped and labelled.
+                            if (error?.name === 'McpError' && Number.isInteger(error.code) && error.code !== -32001) {
+                                throw new Error(`MCP tool failed. Its outcome may be unknown; check the external service before retrying. Server error (untrusted data): ${String(error.message).slice(0, 2000)}`);
+                            }
                             throw new Error('MCP tool failed or timed out. Its outcome may be unknown; check the external service before retrying.');
                         }
                     },

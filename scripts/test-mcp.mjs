@@ -136,7 +136,7 @@ await test('the server\'s SSE stream outlives the request timeout, but its heade
     clearInterval(alive);
 });
 
-function fixture({ sse = false, failAuth = false, loop = false, toolError = false, hang = false, expireSession = false, poll = false, toolList } = {}) {
+function fixture({ sse = false, failAuth = false, loop = false, toolError = false, hang = false, expireSession = false, poll = false, rpcError = false, toolList } = {}) {
     let owner = 'alice';
     const data = new Map();
     const requests = [];
@@ -182,6 +182,7 @@ function fixture({ sse = false, failAuth = false, loop = false, toolError = fals
             if (message.method === 'tools/call') {
                 if (expireSession) return new Response('Session not found', { status: 404 });
                 if (hang) return new Promise(() => {});
+                if (rpcError) return json({ jsonrpc: '2.0', id: message.id, error: { code: -32602, message: 'Invalid arguments: "path" is required' } });
                 if (poll) {
                     // SSE polling: prime the stream with an event ID, then close
                     // it; the result is fetched later by resuming with GET.
@@ -408,6 +409,18 @@ await test('a result the server delivers by SSE polling arrives without re-sendi
     assert.equal(output.result.content[0].text, 'Polled output');
     assert.equal(requests.filter(request => request.method === 'tools/call').length, 1);
     assert.deepEqual(requests.filter(request => request.method === 'GET'), [{ method: 'GET', resume: 'ev-1' }]);
+    manager.reset();
+});
+
+await test('a JSON-RPC error tells the model why the call was refused', async () => {
+    const { manager, id } = fixture({ rpcError: true });
+    await manager.connect(id, 'private-token');
+    await assert.rejects(manager.getTools()[0].exec({}), error => {
+        assert.match(error.message, /outcome may be unknown/);
+        assert.match(error.message, /untrusted data\): MCP error -32602: Invalid arguments: "path" is required$/);
+        return true;
+    });
+    assert.equal(manager.list()[0].status, 'connected');
     manager.reset();
 });
 
