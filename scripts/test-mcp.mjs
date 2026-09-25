@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import { browserFirstFetch } from '../src/mcp/network.mjs';
-import { createMcpManager, validateEndpoint, toolResult } from '../src/mcp/client.mjs';
+import { createMcpManager, validateEndpoint, toolResult, modelSchema } from '../src/mcp/client.mjs';
 
 const endpoint = 'https://mcp.example.com/mcp';
 const json = value => new Response(JSON.stringify(value), { headers: { 'Content-Type': 'application/json' } });
@@ -261,6 +261,25 @@ await test('discovery limits explain the actual problem, not the URL or token', 
     assert.match(second.error, /Too many tools/);
     assert.equal(first.manager.getTools().length, 60);
     first.manager.reset();
+});
+
+await test('top-level schema unions, which the Claude API rejects, reach the model flattened', async () => {
+    const union = { type: 'object', properties: { id: { type: 'string' } }, required: ['id'], additionalProperties: false,
+        oneOf: [{ properties: { email: { type: 'string' } }, required: ['email'] }, { properties: { phone: { type: 'string' } }, required: ['phone'] }],
+        allOf: [{ properties: { note: { type: 'string' } }, required: ['note'] }] };
+    const plain = { type: 'object', properties: { path: { type: 'string' } } };
+    const { manager, id } = fixture({ toolList: [{ name: 'union', inputSchema: union }, { name: 'plain', inputSchema: plain }] });
+    await manager.connect(id, 'private-token');
+    const [flattened, untouched] = manager.getTools().map(tool => tool.function.parameters);
+    assert.deepEqual(flattened, { type: 'object', additionalProperties: false, required: ['id', 'note'],
+        properties: { id: { type: 'string' }, email: { type: 'string' }, phone: { type: 'string' }, note: { type: 'string' } } });
+    assert.deepEqual(untouched, plain);
+    // The input is not modified, and a schema without unions is passed through.
+    const copy = structuredClone(union);
+    modelSchema(union);
+    assert.deepEqual(union, copy);
+    assert.equal(modelSchema(plain), plain);
+    manager.reset();
 });
 
 await test('account changes discard live tools and isolate saved settings', async () => {
