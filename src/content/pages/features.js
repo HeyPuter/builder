@@ -252,11 +252,11 @@ export default {
         {
             type: 'cta',
             heading: 'The feature list is shorter than the thing it describes',
-            body: 'Two minutes with the builder tells you more than this page can.',
+            body: 'Two minutes with the builder tells you more than this page can. For what each feature is for and how to compare builders on them, read [the main features of an AI app builder](/guides/main-features-of-an-ai-app-builder/).',
             label: 'Open the builder',
             href: buildLink(''),
         },
     ],
 
-    related: ['ai-app-builder', 'ai-website-builder', 'what-to-build', 'guides'],
+    related: ['ai-app-builder', 'ai-website-builder', 'guides/main-features-of-an-ai-app-builder', 'what-to-build', 'guides'],
 };

@@ -2,7 +2,7 @@ import { buildLink, LINKS } from '../site.js';
 
 export default {
     slug: 'ai-app-builder',
-    updated: '2026-09-24',
+    updated: '2026-09-26',
     priority: 0.9,
     changefreq: 'weekly',
     navLabel: 'AI app builder',
@@ -199,7 +199,7 @@ export default {
                     a: [
                         'An AI app builder turns a plain-language description into a working app. You describe what the app should do, and the AI designs the screens, sets up the data, writes the logic, and wires it all together, then runs the result so you can try it right away.',
                         'You don\'t need to know how to code. Every step, from the first description to publishing, works in plain English, and you refine the app the same way, by asking for changes or pointing at what should be different. Hosting, accounts, and data storage are included, so there is nothing to set up or maintain yourself.',
-                        'Compared with traditional development, it turns weeks of work into minutes and moves your effort from writing code to deciding what the app should do. Compared with no-code tools, you end up owning source code you can read, edit, and take with you, rather than a project locked inside someone else\'s editor.',
+                        'Compared with traditional development, it turns weeks of work into minutes and moves your effort from writing code to deciding what the app should do. Compared with no-code tools, you end up owning source code you can read, edit, and take with you, rather than a project locked inside someone else\'s editor. The [full explainer](/guides/what-is-an-ai-app-builder/) covers how these tools work, what they generate, and where they fall short.',
                     ],
                 },
                 {
@@ -207,7 +207,7 @@ export default {
                     a: [
                         'A no-code app builder gives you a visual canvas and a fixed set of components. You assemble the app by hand, which gives you fine control but takes hours or days, means learning the platform, and leaves the finished app living inside the vendor\'s system, usually with no way to export it.',
                         'An AI app builder starts from a description and generates the whole app in minutes: interface, data, and logic. With Puter AI Builder you refine it by asking for changes or clicking the element you want changed, so you keep the precision of a visual editor without the setup. The result is real source code you own and can export, and the app can do anything a web page can do, so you are not limited to the components a vendor anticipated.',
-                        'The trade-off is that code you did not write is still code you are responsible for. For anything handling money, health information, or other people\'s personal data, read what was built and treat the AI as a fast first draft rather than a security review.',
+                        'The trade-off is that code you did not write is still code you are responsible for. For anything handling money, health information, or other people\'s personal data, read what was built and treat the AI as a fast first draft rather than a security review. For a feature-by-feature comparison of what to look for in a builder, see [the main features of an AI app builder](/guides/main-features-of-an-ai-app-builder/).',
                     ],
                 },
                 {
@@ -318,5 +318,5 @@ export default {
         },
     ],
 
-    related: ['ai-website-builder', 'use-cases', 'for', 'what-to-build', 'guides/how-to-build-an-app-with-ai'],
+    related: ['ai-website-builder', 'use-cases', 'for', 'what-to-build', 'guides/how-to-build-an-app-with-ai', 'guides/what-is-an-ai-app-builder'],
 };
