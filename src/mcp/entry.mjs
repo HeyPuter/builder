@@ -13,3 +13,7 @@ window.mcpManager = createMcpManager({
     onChange: () => window.dispatchEvent(new Event('mcp-connections-changed')),
 });
 window.addEventListener('pagehide', () => window.mcpManager.reset());
+// Show servers another tab added or removed (the manager merges them in).
+window.addEventListener('storage', event => {
+    if (event.key === null || event.key.startsWith('builder.mcp.v1:')) window.dispatchEvent(new Event('mcp-connections-changed'));
+});
