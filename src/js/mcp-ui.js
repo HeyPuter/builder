@@ -45,7 +45,7 @@
                 $row.find('h3').text(record.name);
                 $row.find('.mcp-url').text(record.url);
                 $row.find('.mcp-status').text(record.error || (record.status === 'connected'
-                    ? `Connected · ${record.tools.length} tools${record.viaRelay ? ' · using Puter after a browser CORS check' : ''}`
+                    ? `Connected · ${record.tools.length} ${record.tools.length === 1 ? 'tool' : 'tools'}${record.viaRelay ? ' · using Puter after a browser CORS check' : ''}`
                     : record.status === 'connecting' ? 'Connecting…' : 'Disconnected'));
                 const $actions = $row.find('.mcp-actions');
                 if (record.status === 'connected' || record.status === 'connecting') {
