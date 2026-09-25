@@ -84,7 +84,12 @@ export function createMcpManager({ getOwner, storage, browserFetch, relayFetch, 
         record.controller?.abort();
         const client = record.client;
         record.client = null;
-        client?.close().catch(() => {});
+        // Ask the server to end its session (the spec says clients SHOULD) so
+        // it can free what it holds for us, then close: close() aborts the
+        // transport's requests, the DELETE included.
+        const transport = client?.transport;
+        (transport?.sessionId ? transport.terminateSession() : Promise.resolve())
+            .catch(() => {}).finally(() => client?.close().catch(() => {}));
         record.controller = null;
         record.tools = [];
         record.status = 'disconnected';
@@ -238,9 +243,9 @@ export function createMcpManager({ getOwner, storage, browserFetch, relayFetch, 
                 if (record.client === client) { stop(record); emit(); }
             };
         } catch (error) {
-            const active = record.controller === controller;
-            await client?.close().catch(() => {});
-            if (active) {
+            // Whoever cancelled this attempt already stopped (and closed) its
+            // client; otherwise stop() ends the session and closes it here.
+            if (record.controller === controller) {
                 stop(record);
                 record.error = connectionError(error);
                 record.status = 'error';
