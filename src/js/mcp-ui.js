@@ -92,7 +92,11 @@
             closePanel = null;
         };
         $overlay.on('click', '.mcp-close', () => closePanel?.());
-        $overlay.on('click', e => { if (e.target === $overlay[0]) closePanel?.(); });
+        // Close only when the press also began on the backdrop: a text
+        // selection dragged out of a field ends in a click on the overlay.
+        let pressedBackdrop = false;
+        $overlay.on('pointerdown', e => { pressedBackdrop = e.target === $overlay[0]; });
+        $overlay.on('click', e => { if (pressedBackdrop && e.target === $overlay[0]) closePanel?.(); });
         $(document).on('keydown.mcpConnections', e => {
             if (e.key === 'Escape') { e.preventDefault(); closePanel?.(); }
         });
