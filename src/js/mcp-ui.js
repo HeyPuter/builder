@@ -51,8 +51,10 @@
             if (!connections.length) $('<p class="mcp-empty">No servers connected yet.</p>').appendTo($list);
             for (const record of connections) {
                 const $row = $('<article class="mcp-server"><h3></h3><p class="mcp-url"></p><p class="mcp-status"></p><div class="mcp-actions"></div></article>');
-                $row.data('id', record.id).attr('data-status', record.status);
-                $row.find('h3').text(record.name);
+                // Every row has the same controls, so name each one after its
+                // server: a screen reader otherwise lists "Remove, Remove, …".
+                $row.data('id', record.id).attr({ 'data-status': record.status, 'aria-labelledby': `mcp-name-${record.id}` });
+                $row.find('h3').attr('id', `mcp-name-${record.id}`).text(record.name);
                 $row.find('.mcp-url').text(record.url);
                 const status = record.error || (record.status === 'connected'
                     ? `Connected · ${record.tools.length} ${record.tools.length === 1 ? 'tool' : 'tools'}${record.viaRelay ? ' · using Puter after a browser CORS check' : ''}`
@@ -64,11 +66,13 @@
                 }
                 const $actions = $row.find('.mcp-actions');
                 if (record.status === 'connected' || record.status === 'connecting') {
-                    $('<button type="button"></button>').text(record.status === 'connecting' ? 'Cancel' : 'Disconnect')
+                    const verb = record.status === 'connecting' ? 'Cancel' : 'Disconnect';
+                    $('<button type="button"></button>').text(verb).attr('aria-label', `${verb} ${record.name}`)
                         .on('click', () => manager.disconnect(record.id)).appendTo($actions);
                 } else {
                     const $label = $('<label>Bearer token (optional)<input type="password" autocomplete="off" spellcheck="false" placeholder="Token for this connection"></label>');
-                    $label.find('input').val(drafts.get(record.id) || '');
+                    $label.find('input').val(drafts.get(record.id) || '')
+                        .attr('aria-label', `Bearer token for ${record.name} (optional)`);
                     $actions.append($label);
                     const connect = () => {
                         const token = $label.find('input').val();
@@ -79,9 +83,11 @@
                     $label.find('input').on('keydown', e => {
                         if (e.key === 'Enter' && !window.isComposingKeyEvent(e)) { e.preventDefault(); connect(); }
                     });
-                    $('<button type="button">Connect</button>').on('click', connect).appendTo($actions);
+                    $('<button type="button">Connect</button>').attr('aria-label', `Connect ${record.name}`)
+                        .on('click', connect).appendTo($actions);
                 }
-                $('<button type="button">Remove</button>').on('click', () => manager.remove(record.id)).appendTo($actions);
+                $('<button type="button">Remove</button>').attr('aria-label', `Remove ${record.name}`)
+                    .on('click', () => manager.remove(record.id)).appendTo($actions);
                 if (record.tools.length) {
                     const $details = $('<details><summary>Available tools</summary><ul></ul></details>');
                     record.tools.forEach(name => $('<li></li>').text(name).appendTo($details.find('ul')));
