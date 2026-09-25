@@ -124,6 +124,10 @@ function fixture({ sse = false, failAuth = false, loop = false, toolError = fals
         browserFetch: async (_, init) => {
             if (init.method === 'GET') return new Response(null, { status: 405 });
             assert.equal(new Headers(init.headers).get('Authorization'), 'Bearer private-token');
+            if (init.method === 'DELETE') {
+                requests.push({ method: 'DELETE', session: new Headers(init.headers).get('Mcp-Session-Id'), aborted: init.signal.aborted });
+                return new Response(null, { status: 200 });
+            }
             const message = JSON.parse(init.body);
             requests.push(message);
             if (failAuth) return new Response('SECRET SERVER ERROR private-token', { status: 401 });
@@ -272,6 +276,30 @@ await test('a session the server ended shows as ended instead of connected', asy
     assert.equal(manager.getTools().length, 0);
     assert.equal(requests.filter(request => request.method === 'tools/call').length, 1);
     manager.reset();
+});
+
+await test('disconnecting, removing, and failed discovery end the server session', async () => {
+    const ended = requests => requests.filter(request => request.method === 'DELETE');
+    const settle = () => new Promise(resolve => setTimeout(resolve, 10));
+    for (const action of ['disconnect', 'remove', 'reset']) {
+        const { manager, id, requests } = fixture({ expireSession: true });
+        await manager.connect(id, 'private-token');
+        manager[action](id);
+        await settle();
+        assert.deepEqual(ended(requests), [{ method: 'DELETE', session: 'session-1', aborted: false }], action);
+    }
+    const tool = name => ({ name, inputSchema: { type: 'object' } });
+    const { manager, id, requests } = fixture({ expireSession: true, toolList: [tool('same'), tool('same')] });
+    await manager.connect(id, 'private-token');
+    await settle();
+    assert.equal(manager.list()[0].status, 'error');
+    assert.equal(ended(requests).length, 1);
+    // No session was started, so there is nothing to end.
+    const plain = fixture();
+    await plain.manager.connect(plain.id, 'private-token');
+    plain.manager.disconnect(plain.id);
+    await settle();
+    assert.equal(ended(plain.requests).length, 0);
 });
 
 await test('MCP errors remain errors and large results are bounded', async () => {

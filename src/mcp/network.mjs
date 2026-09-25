@@ -45,7 +45,11 @@ export function browserFirstFetch({ url, browserFetch, relayFetch, origin, isInt
 
     async function send(fetcher, init) {
         const timeout = AbortSignal.timeout(timeoutMs);
-        const combined = AbortSignal.any([signal, init.signal, timeout].filter(Boolean));
+        // Ending the session (DELETE) runs after the connection's signal has
+        // been aborted, so only its own signal and the timeout bound it.
+        // keepalive lets it outlive a page that is being closed.
+        const ending = init.method === 'DELETE';
+        const combined = AbortSignal.any([ending ? null : signal, init.signal, timeout].filter(Boolean));
         combined.throwIfAborted();
         let listener;
         const aborted = new Promise((_, reject) => {
@@ -55,7 +59,7 @@ export function browserFirstFetch({ url, browserFetch, relayFetch, origin, isInt
         // Puter's fetch may ignore AbortSignal. Bound the wait locally too, and
         // release a response arriving after cancellation.
         const pending = Promise.resolve().then(() => fetcher(endpoint.href, {
-            ...init, credentials: 'omit', redirect: 'error', signal: combined,
+            ...init, credentials: 'omit', redirect: 'error', signal: combined, ...(ending && { keepalive: true }),
         })).then(response => {
             if (combined.aborted) {
                 response.body?.cancel().catch(() => {});
