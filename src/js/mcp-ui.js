@@ -31,10 +31,15 @@
             const active = document.activeElement;
             const activeId = $(active).closest('.mcp-server').data('id');
             const wasToken = active?.matches('input[type="password"]');
-            // Preserve an unfinished reconnect token while another row updates.
+            const wasSummary = active?.matches('summary');
+            // Preserve an unfinished reconnect token and an expanded tool list
+            // (with its scroll position) while another row updates.
             const drafts = new Map();
+            const expanded = new Map();
             $overlay.find('.mcp-server').each(function () {
                 drafts.set($(this).data('id'), $(this).find('input').val());
+                const details = $(this).find('details')[0];
+                if (details?.open) expanded.set($(this).data('id'), details.querySelector('ul').scrollTop);
             });
             const $list = $overlay.find('.mcp-list').empty();
             const connections = manager.list();
@@ -65,13 +70,16 @@
                 if (record.tools.length) {
                     const $details = $('<details><summary>Available tools</summary><ul></ul></details>');
                     record.tools.forEach(name => $('<li></li>').text(name).appendTo($details.find('ul')));
+                    $details.prop('open', expanded.has(record.id));
                     $row.append($details);
                 }
                 $list.append($row);
+                if (expanded.has(record.id)) $row.find('details ul').scrollTop(expanded.get(record.id));
             }
             if (activeId && !document.contains(active)) {
                 const $row = $list.find('.mcp-server').filter(function () { return $(this).data('id') === activeId; });
-                const $target = wasToken && $row.find('input').length ? $row.find('input') : $row.find('button').first();
+                const $target = wasToken && $row.find('input').length ? $row.find('input')
+                    : wasSummary && $row.find('summary').length ? $row.find('summary') : $row.find('button').first();
                 ($target.length ? $target : $overlay.find('section')).trigger('focus');
             }
         }
