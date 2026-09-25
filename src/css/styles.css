@@ -4685,6 +4685,11 @@ body.preview-active.chat-hidden .chat {
 .mcp-form-error { color: #b42318; font-size: 13px; }
 .mcp-form-error:empty { display: none; }
 .mcp-optional { font-weight: normal; color: #62676e; }
+/* Prevent iOS zoom-on-focus (mirrors the composer inputs). After the base
+   rule above, which would otherwise win on source order. */
+@media (max-width: 900px) {
+    .mcp-modal input { font-size: 16px; }
+}
 html[data-theme="dark"] .mcp-modal { color: var(--text); }
 html[data-theme="dark"] .mcp-modal input { background: var(--surface); border-color: var(--border); }
 html[data-theme="dark"] .mcp-modal button:not(.mcp-primary, .mcp-close) { background: var(--surface-hover); border-color: var(--border); }
