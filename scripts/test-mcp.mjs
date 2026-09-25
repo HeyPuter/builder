@@ -253,6 +253,21 @@ await test('MCP errors remain errors and large results are bounded', async () =>
     const big = toolResult({ content: [{ type: 'text', text: 'x'.repeat(100000) }] });
     assert.equal(big.truncated, true);
     assert.equal(big.text.length, 64000);
+    const media = toolResult({ content: [
+        { type: 'text', text: 'Screenshot taken' },
+        { type: 'image', mimeType: 'image/png', data: 'A'.repeat(200000) },
+        { type: 'audio', mimeType: 'audio/wav', data: 'B'.repeat(4096) },
+        { type: 'resource', resource: { uri: 'file:///a.bin', mimeType: 'application/octet-stream', blob: 'C'.repeat(8192) } },
+        { type: 'resource', resource: { uri: 'file:///a.txt', text: 'kept' } },
+    ], structuredContent: { ok: true } });
+    assert.equal(media.truncated, undefined);
+    assert.ok(!/AAAA|BBBB|CCCC/.test(JSON.stringify(media)));
+    assert.deepEqual(media.result.content[1], { type: 'image', mimeType: 'image/png', omitted: 'image data omitted (147 KB)' });
+    assert.equal(media.result.content[2].omitted, 'audio data omitted (3 KB)');
+    assert.equal(media.result.content[3].resource.uri, 'file:///a.bin');
+    assert.equal(media.result.content[3].resource.omitted, 'Binary resource data omitted (6 KB)');
+    assert.equal(media.result.content[4].resource.text, 'kept');
+    assert.deepEqual(media.result.structuredContent, { ok: true });
     manager.reset();
 });
 
