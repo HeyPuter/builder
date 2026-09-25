@@ -4686,7 +4686,9 @@ body.preview-active.chat-hidden .chat {
 .mcp-optional { font-weight: normal; color: #62676e; }
 html[data-theme="dark"] .mcp-modal { color: var(--text); }
 html[data-theme="dark"] .mcp-modal input { background: var(--surface); border-color: var(--border); }
-html[data-theme="dark"] .mcp-modal button:not(.mcp-primary) { background: var(--surface-hover); border-color: var(--border); }
+html[data-theme="dark"] .mcp-modal button:not(.mcp-primary, .mcp-close) { background: var(--surface-hover); border-color: var(--border); }
+html[data-theme="dark"] .mcp-modal button:not(.mcp-primary, .mcp-close):hover { background: var(--surface-active); }
+html[data-theme="dark"] .mcp-modal .mcp-close:hover { background: var(--surface-hover); }
 html[data-theme="dark"] .mcp-intro, html[data-theme="dark"] .mcp-note, html[data-theme="dark"] .mcp-empty,
 html[data-theme="dark"] .mcp-url, html[data-theme="dark"] .mcp-optional { color: var(--text-secondary); }
 html[data-theme="dark"] .mcp-server, html[data-theme="dark"] .mcp-add { border-color: var(--border); }
