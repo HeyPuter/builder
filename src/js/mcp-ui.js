@@ -41,7 +41,7 @@
             if (!connections.length) $('<p class="mcp-empty">No servers connected yet.</p>').appendTo($list);
             for (const record of connections) {
                 const $row = $('<article class="mcp-server"><h3></h3><p class="mcp-url"></p><p class="mcp-status"></p><div class="mcp-actions"></div></article>');
-                $row.data('id', record.id);
+                $row.data('id', record.id).attr('data-status', record.status);
                 $row.find('h3').text(record.name);
                 $row.find('.mcp-url').text(record.url);
                 $row.find('.mcp-status').text(record.error || (record.status === 'connected'
