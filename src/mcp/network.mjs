@@ -65,8 +65,13 @@ export function browserFirstFetch({ url, browserFetch, relayFetch, origin, isInt
         });
         // Puter's fetch may ignore AbortSignal. Bound the wait locally too, and
         // release a response arriving after cancellation.
+        // Browsers reject a no-cors request whose redirect mode is not
+        // "follow" before sending it, so the opaque reachability probe must
+        // follow. It carries no credentials, headers or body, and its opaque
+        // response is never read.
+        const redirect = init.mode === 'no-cors' ? 'follow' : 'error';
         const pending = Promise.resolve().then(() => fetcher(endpoint.href, {
-            ...init, credentials: 'omit', redirect: 'error', signal: combined, ...(ending && { keepalive: true }),
+            ...init, credentials: 'omit', redirect, signal: combined, ...(ending && { keepalive: true }),
         })).then(response => {
             if (combined.aborted) {
                 response.body?.cancel().catch(() => {});

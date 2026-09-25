@@ -37,7 +37,13 @@ await test('CORS-compatible reachability check permits discovery fallback only a
     const calls = [];
     const fetch = browserFirstFetch({ ...base, browserFetch: async (_, init) => {
         calls.push('browser:' + init.method);
-        if (init.mode === 'no-cors') { assert.equal(init.headers, undefined); return { type: 'opaque' }; }
+        if (init.mode === 'no-cors') {
+            // Browsers throw "Failed to fetch" for no-cors with any redirect mode but "follow".
+            if (init.redirect !== 'follow') throw new TypeError('Failed to fetch');
+            assert.equal(init.headers, undefined); assert.equal(init.credentials, 'omit');
+            return { type: 'opaque' };
+        }
+        assert.equal(init.redirect, 'error');
         throw new TypeError('Failed to fetch');
     }, relayFetch: async (_, init) => {
         calls.push('relay:' + JSON.parse(init.body).method);
