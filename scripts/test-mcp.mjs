@@ -224,6 +224,14 @@ await test('account changes discard live tools and isolate saved settings', asyn
     assert.equal(manager.getTools().length, 0);
 });
 
+await test('one invalid saved connection does not drop the others', () => {
+    const saved = [['1', 'https://a.example.com/mcp'], ['2', 'http://b.example.com/mcp'], ['3', 'https://c.example.com/mcp']]
+        .map(([n, url]) => ({ id: n.repeat(32), name: `Server ${n}`, url }));
+    const manager = createMcpManager({ getOwner: () => 'alice',
+        storage: { getItem: () => JSON.stringify(saved), setItem() {} } });
+    assert.deepEqual(manager.list().map(record => record.name), ['Server 1', 'Server 3']);
+});
+
 await test('disconnect during initialization cannot register late tools', async () => {
     const { manager, id } = fixture();
     const connecting = manager.connect(id, 'private-token');
