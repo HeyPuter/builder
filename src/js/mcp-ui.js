@@ -13,7 +13,8 @@
                 <section class="properties-modal mcp-modal" role="dialog" aria-modal="true" aria-labelledby="mcp-title" tabindex="-1">
                     <div class="mcp-heading"><h2 id="mcp-title">MCP connections</h2><button type="button" class="mcp-close" aria-label="Close connections">×</button></div>
                     <p class="mcp-intro">Connect tools your AI can use across your projects. Only connect servers you trust to receive tool inputs and perform actions.</p>
-                    <div class="mcp-list" aria-live="polite"></div>
+                    <div class="mcp-list"></div>
+                    <p class="mcp-announce" role="status"></p>
                     <form class="mcp-add">
                         <h3>Add a server</h3>
                         <label>Name <input name="serverName" maxlength="80" placeholder="My service" autocomplete="off"></label>
@@ -27,7 +28,11 @@
             </div>`);
         $('body').append($overlay);
         const releaseFocus = trapDialogFocus($overlay);
+        // The list is rebuilt on every change, so it is not a live region (that
+        // re-read every row). Only a row whose status changed is announced.
+        const announced = new Map();
         function render() {
+            const changes = [];
             const active = document.activeElement;
             const activeId = $(active).closest('.mcp-server').data('id');
             const wasToken = active?.matches('input[type="password"]');
@@ -49,9 +54,14 @@
                 $row.data('id', record.id).attr('data-status', record.status);
                 $row.find('h3').text(record.name);
                 $row.find('.mcp-url').text(record.url);
-                $row.find('.mcp-status').text(record.error || (record.status === 'connected'
+                const status = record.error || (record.status === 'connected'
                     ? `Connected · ${record.tools.length} ${record.tools.length === 1 ? 'tool' : 'tools'}${record.viaRelay ? ' · using Puter after a browser CORS check' : ''}`
-                    : record.status === 'connecting' ? 'Connecting…' : 'Disconnected'));
+                    : record.status === 'connecting' ? 'Connecting…' : 'Disconnected');
+                $row.find('.mcp-status').text(status);
+                if (announced.get(record.id) !== status) {
+                    if (announced.has(record.id)) changes.push(`${record.name}: ${status}`);
+                    announced.set(record.id, status);
+                }
                 const $actions = $row.find('.mcp-actions');
                 if (record.status === 'connected' || record.status === 'connecting') {
                     $('<button type="button"></button>').text(record.status === 'connecting' ? 'Cancel' : 'Disconnect')
@@ -81,6 +91,7 @@
                 $list.append($row);
                 if (expanded.has(record.id)) $row.find('details ul').scrollTop(expanded.get(record.id));
             }
+            if (changes.length) $overlay.find('.mcp-announce').text(changes.join('. '));
             if (activeId && !document.contains(active)) {
                 const $row = $list.find('.mcp-server').filter(function () { return $(this).data('id') === activeId; });
                 const $target = wasToken && $row.find('input').length ? $row.find('input')
