@@ -112,7 +112,44 @@ export function createMcpManager({ getOwner, storage, browserFetch, relayFetch, 
         if (!owner) return;
         try {
             storage?.setItem(key(), JSON.stringify(records.map(({ id, name, url }) => ({ id, name, url }))));
+            records.forEach(record => { record.saved = true; });
         } catch { /* connections still work when local storage is unavailable */ }
+    }
+    // The saved list, or null when it cannot be read.
+    function readSaved() {
+        try {
+            const saved = JSON.parse(storage?.getItem(key()) || '[]');
+            if (!Array.isArray(saved)) return null;
+            const ids = new Set();
+            const items = [];
+            for (const item of saved.slice(0, 10)) {
+                if (!/^[a-f0-9]{32}$/.test(item?.id) || ids.has(item.id) || typeof item.name !== 'string') continue;
+                // Skip just this entry: one bad URL must not drop the rest.
+                let url;
+                try { url = validateEndpoint(item.url); } catch { continue; }
+                ids.add(item.id);
+                items.push({ id: item.id, name: item.name.slice(0, 80), url });
+            }
+            return items;
+        } catch { return null; /* ignore malformed local settings */ }
+    }
+    // Another tab may have added or removed a server since this one read the
+    // list. Pick that up before showing or changing it, or this tab's next
+    // save would silently undo the other's change. A removed server stays
+    // here only while it is live, and an unsaved one is never dropped.
+    function merge() {
+        const saved = readSaved();
+        if (!saved) return;
+        const ids = new Set(saved.map(item => item.id));
+        records = records.filter(record => ids.has(record.id) || !record.saved
+            || record.status === 'connected' || record.status === 'connecting');
+        for (const item of saved) {
+            const record = records.find(record => record.id === item.id);
+            if (record) record.saved = true;
+            else if (!records.some(record => record.url === item.url)) {
+                records.push({ ...item, status: 'disconnected', tools: [], error: '', saved: true });
+            }
+        }
     }
     function stop(record) {
         record.controller?.abort();
@@ -135,25 +172,11 @@ export function createMcpManager({ getOwner, storage, browserFetch, relayFetch, 
         records.forEach(stop);
         owner = next;
         records = [];
-        if (!owner) return;
-        try {
-            const saved = JSON.parse(storage?.getItem(key()) || '[]');
-            if (Array.isArray(saved)) {
-                const ids = new Set();
-                for (const item of saved.slice(0, 10)) {
-                    if (!/^[a-f0-9]{32}$/.test(item?.id) || ids.has(item.id) || typeof item.name !== 'string') continue;
-                    // Skip just this entry: one bad URL must not drop the rest.
-                    let url;
-                    try { url = validateEndpoint(item.url); } catch { continue; }
-                    ids.add(item.id);
-                    records.push({ id: item.id, name: item.name.slice(0, 80), url,
-                        status: 'disconnected', tools: [], error: '' });
-                }
-            }
-        } catch { /* ignore malformed local settings */ }
+        if (owner) merge();
     }
     function list() {
         syncOwner();
+        merge();
         return records.map(({ id, name, url, status, error, viaRelay, tools }) => ({
             id, name, url, status, error, viaRelay, tools: tools.map(tool => tool.label),
         }));
@@ -161,6 +184,7 @@ export function createMcpManager({ getOwner, storage, browserFetch, relayFetch, 
     function add({ name, url }) {
         syncOwner();
         if (!owner) throw new Error('Sign in to Puter before adding connections.');
+        merge();
         if (records.length >= 10) throw new Error('You can add up to 10 MCP connections.');
         url = validateEndpoint(url);
         if (records.some(record => record.url === url)) throw new Error('This server is already in your connections.');
@@ -293,7 +317,7 @@ export function createMcpManager({ getOwner, storage, browserFetch, relayFetch, 
         emit();
     }
     function disconnect(id) { stop(find(id)); emit(); }
-    function remove(id) { disconnect(id); records = records.filter(record => record.id !== id); save(); emit(); }
+    function remove(id) { disconnect(id); merge(); records = records.filter(record => record.id !== id); save(); emit(); }
     function reset() { records.forEach(stop); records = []; owner = undefined; emit(); }
     function getTools() { syncOwner(); return records.flatMap(record => record.status === 'connected' ? record.tools : []); }
     return { list, add, connect, disconnect, remove, reset, getTools };

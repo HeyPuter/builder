@@ -302,6 +302,39 @@ await test('one invalid saved connection does not drop the others', () => {
     assert.deepEqual(manager.list().map(record => record.name), ['Server 1', 'Server 3']);
 });
 
+await test('servers added or removed in another tab are kept, not overwritten', () => {
+    const data = new Map();
+    const storage = { setItem: (key, value) => data.set(key, value), getItem: key => data.get(key) };
+    const tab = () => createMcpManager({ getOwner: () => 'alice', storage });
+    const [first, second] = [tab(), tab()];
+    assert.deepEqual([first.list(), second.list()], [[], []]);
+    first.add({ name: 'X', url: 'https://x.example.com/mcp' });
+    const y = second.add({ name: 'Y', url: 'https://y.example.com/mcp' });
+    const names = manager => manager.list().map(record => record.name);
+    assert.deepEqual(names(second), ['X', 'Y']);
+    assert.deepEqual(names(first), ['X', 'Y']);
+    first.remove(y);
+    assert.deepEqual(names(second), ['X']);
+    second.add({ name: 'Z', url: 'https://z.example.com/mcp' });
+    assert.deepEqual(names(tab()), ['X', 'Z']);
+    // A server that could not be saved is never dropped as "removed elsewhere".
+    const unsaved = createMcpManager({ getOwner: () => 'alice', storage: { getItem: () => null, setItem() { throw new Error('quota'); } } });
+    unsaved.add({ name: 'Local', url: 'https://local.example.com/mcp' });
+    assert.deepEqual(names(unsaved), ['Local']);
+});
+
+await test('a live connection removed in another tab stays usable here', async () => {
+    const { manager, id, data } = fixture();
+    await manager.connect(id, 'private-token');
+    const other = createMcpManager({ getOwner: () => 'alice',
+        storage: { setItem: (key, value) => data.set(key, value), getItem: key => data.get(key) } });
+    other.remove(id);
+    assert.equal(manager.list()[0].status, 'connected');
+    assert.equal(manager.getTools().length, 2);
+    manager.disconnect(id);
+    assert.equal(manager.list().length, 0);
+});
+
 await test('disconnect during initialization cannot register late tools', async () => {
     const { manager, id } = fixture();
     const connecting = manager.connect(id, 'private-token');
