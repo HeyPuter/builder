@@ -109,7 +109,7 @@ await test('abort cancels an already-open response body even when fetch ignores 
     assert.equal(cancelled, true);
 });
 
-function fixture({ sse = false, failAuth = false, loop = false, toolError = false, hang = false } = {}) {
+function fixture({ sse = false, failAuth = false, loop = false, toolError = false, hang = false, toolList } = {}) {
     let owner = 'alice';
     const data = new Map();
     const requests = [];
@@ -131,6 +131,7 @@ function fixture({ sse = false, failAuth = false, loop = false, toolError = fals
                 return response(message.id, { protocolVersion: '2025-11-25', capabilities: { tools: {} }, serverInfo: { name: 'fixture', version: '1' } });
             }
             if (message.method === 'tools/list') {
+                if (toolList) return response(message.id, { tools: toolList });
                 return response(message.id, { tools: [{ name: message.params?.cursor ? 'write' : 'read',
                     description: 'A fixture tool', inputSchema: { type: 'object', properties: { path: { type: 'string' } } } }],
                     ...(!message.params?.cursor || loop ? { nextCursor: 'page-two' } : {}) });
@@ -180,6 +181,35 @@ await test('auth errors are sanitized and repeated cursors fail closed', async (
         assert.ok(!manager.list()[0].error.includes('private-token'));
         manager.reset();
     }
+});
+
+await test('discovery limits explain the actual problem, not the URL or token', async () => {
+    const tool = name => ({ name, inputSchema: { type: 'object' } });
+    const cases = [
+        [Array.from({ length: 65 }, (_, i) => tool(`t${i}`)), /Too many tools/],
+        [[tool('same'), tool('same')], /invalid or duplicate tool definition/],
+        [[{ ...tool('big'), description: 'x'.repeat(130000) }], /too large/],
+    ];
+    for (const [toolList, expected] of cases) {
+        const { manager, id } = fixture({ toolList });
+        await manager.connect(id, 'private-token');
+        assert.equal(manager.list()[0].status, 'error');
+        assert.match(manager.list()[0].error, expected);
+        assert.equal(manager.getTools().length, 0);
+        manager.reset();
+    }
+    // The limit spans every connection, so a second server that would exceed it
+    // says so rather than suggesting its URL or token is wrong.
+    const first = fixture({ toolList: Array.from({ length: 60 }, (_, i) => tool(`a${i}`)) });
+    await first.manager.connect(first.id, 'private-token');
+    assert.equal(first.manager.list()[0].status, 'connected');
+    const secondId = first.manager.add({ name: 'Second', url: 'https://other.example.com/mcp' });
+    await first.manager.connect(secondId, 'private-token');
+    const second = first.manager.list().find(record => record.id === secondId);
+    assert.equal(second.status, 'error');
+    assert.match(second.error, /Too many tools/);
+    assert.equal(first.manager.getTools().length, 60);
+    first.manager.reset();
 });
 
 await test('account changes discard live tools and isolate saved settings', async () => {

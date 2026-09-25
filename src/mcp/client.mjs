@@ -4,6 +4,7 @@ import { browserFirstFetch } from './network.mjs';
 
 const MAX_TOOLS = 64;
 const REQUEST_TIMEOUT = 60000;
+const TOO_MANY_TOOLS = `Too many tools: connections can offer up to ${MAX_TOOLS} tools in total. Disconnect another server or reduce this server's tools.`;
 
 export function validateEndpoint(value) {
     let url;
@@ -14,7 +15,12 @@ export function validateEndpoint(value) {
     return url.href;
 }
 
+// A discovery problem we detected ourselves. Its message is fixed, contains no
+// server output, and tells the user what actually went wrong.
+class SetupError extends Error {}
+
 export function connectionError(error) {
+    if (error instanceof SetupError) return error.message;
     if (error?.code === 401 || error?.code === 403) return 'Access denied. Check the bearer token and server permissions.';
     if (error?.name === 'AbortError') return 'Connection cancelled.';
     if (error?.name === 'TimeoutError' || error?.code === -32001) return 'The server timed out. Try connecting again.';
@@ -132,19 +138,18 @@ export function createMcpManager({ getOwner, storage, browserFetch, relayFetch, 
             do {
                 const page = await client.listTools(cursor ? { cursor } : {}, options);
                 definitions.push(...page.tools);
-                if (definitions.length > MAX_TOOLS) throw new Error('Too many tools.');
+                if (definitions.length > MAX_TOOLS) throw new SetupError(TOO_MANY_TOOLS);
                 cursor = page.nextCursor;
-                if (cursor && (cursors.has(cursor) || cursors.size >= MAX_TOOLS)) throw new Error('Invalid tool pagination.');
+                if (cursor && (cursors.has(cursor) || cursors.size >= MAX_TOOLS)) throw new SetupError('The server returned an invalid tool list.');
                 cursors.add(cursor);
             } while (cursor);
             controller.signal.throwIfAborted();
             if (getOwner() !== connectionOwner) throw new Error('Account changed.');
-            if (definitions.length + getTools().length > MAX_TOOLS || JSON.stringify(definitions).length > 128000) {
-                throw new Error('Too many tools or oversized schemas.');
-            }
+            if (definitions.length + getTools().length > MAX_TOOLS) throw new SetupError(TOO_MANY_TOOLS);
+            if (JSON.stringify(definitions).length > 128000) throw new SetupError('The server\'s tool definitions are too large to use.');
             const names = new Set();
             const tools = await Promise.all(definitions.map(async definition => {
-                if (names.has(definition.name) || definition.inputSchema?.type !== 'object') throw new Error('Invalid tool schema.');
+                if (names.has(definition.name) || definition.inputSchema?.type !== 'object') throw new SetupError('The server returned an invalid or duplicate tool definition.');
                 names.add(definition.name);
                 const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(definition.name));
                 const suffix = Array.from(new Uint8Array(digest).slice(0, 8), b => b.toString(16).padStart(2, '0')).join('');
@@ -175,7 +180,8 @@ export function createMcpManager({ getOwner, storage, browserFetch, relayFetch, 
                 };
             }));
             controller.signal.throwIfAborted();
-            if (getOwner() !== connectionOwner || definitions.length + getTools().length > MAX_TOOLS) throw new Error('Connection changed.');
+            if (getOwner() !== connectionOwner) throw new Error('Connection changed.');
+            if (definitions.length + getTools().length > MAX_TOOLS) throw new SetupError(TOO_MANY_TOOLS);
             fetch.finishDiscovery();
             record.tools = tools;
             record.status = 'connected';
