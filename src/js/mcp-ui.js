@@ -98,6 +98,7 @@
         $overlay.on('pointerdown', e => { pressedBackdrop = e.target === $overlay[0]; });
         $overlay.on('click', e => { if (pressedBackdrop && e.target === $overlay[0]) closePanel?.(); });
         $(document).on('keydown.mcpConnections', e => {
+            if (window.isComposingKeyEvent(e)) return; // Escape cancels the IME, not the dialog
             if (e.key === 'Escape') { e.preventDefault(); closePanel?.(); }
         });
         $overlay.find('form').on('submit', function (e) {
