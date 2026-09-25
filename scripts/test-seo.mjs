@@ -294,7 +294,15 @@ for (const page of PAGES) {
 
 check('robots.txt points at the sitemap',
     robotsSrc.includes(`Sitemap: ${ORIGIN}/sitemap.xml`) && /User-agent:\s*\*/.test(robotsSrc));
-check('robots.txt disallows nothing', !/^\s*Disallow:\s*\S/m.test(robotsSrc));
+// Prompt links only prefill the app; keep public pages crawlable while avoiding
+// crawling each starter prompt as a separate URL. Parse one line at a time so
+// an empty directive cannot consume the following line's value.
+const disallowedPaths = robotsSrc.split(/\r?\n/)
+    .map((line) => line.replace(/#.*/, '').match(/^[ \t]*Disallow:[ \t]*(.*)$/i)?.[1].trim())
+    .filter(Boolean);
+check('robots.txt blocks prompt links', disallowedPaths.includes('/?prompt='));
+check('robots.txt leaves public pages crawlable',
+    disallowedPaths.every((path) => path === '/?prompt='));
 
 // --- 6. Prompt deep links ---------------------------------------------------
 
