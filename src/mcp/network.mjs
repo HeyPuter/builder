@@ -44,12 +44,19 @@ export function browserFirstFetch({ url, browserFetch, relayFetch, origin, isInt
     }
 
     async function send(fetcher, init) {
-        const timeout = AbortSignal.timeout(timeoutMs);
         // Ending the session (DELETE) runs after the connection's signal has
         // been aborted, so only its own signal and the timeout bound it.
         // keepalive lets it outlive a page that is being closed.
         const ending = init.method === 'DELETE';
-        const combined = AbortSignal.any([ending ? null : signal, init.signal, timeout].filter(Boolean));
+        // A GET is the server's SSE stream, which stays open for as long as the
+        // connection does. The timeout bounds only the wait for its headers;
+        // bounding the whole stream cut it (and reopened it) every timeout.
+        const streaming = init.method === 'GET';
+        const timeout = AbortSignal.timeout(timeoutMs);
+        const expiry = new AbortController();
+        const expire = () => expiry.abort(timeout.reason);
+        timeout.addEventListener('abort', expire, { once: true });
+        const combined = AbortSignal.any([ending ? null : signal, init.signal, expiry.signal].filter(Boolean));
         combined.throwIfAborted();
         let listener;
         const aborted = new Promise((_, reject) => {
@@ -65,6 +72,7 @@ export function browserFirstFetch({ url, browserFetch, relayFetch, origin, isInt
                 response.body?.cancel().catch(() => {});
                 throw combined.reason;
             }
+            if (streaming) timeout.removeEventListener('abort', expire);
             // Keep cancellation and the byte cap active while reading JSON/SSE,
             // even when Puter's implementation ignores the request signal.
             return boundedResponse(response, combined);
