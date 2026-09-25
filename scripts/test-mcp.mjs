@@ -355,6 +355,16 @@ await test('MCP errors remain errors and large results are bounded', async () =>
     assert.equal(media.result.content[3].resource.omitted, 'Binary resource data omitted (6 KB)');
     assert.equal(media.result.content[4].resource.text, 'kept');
     assert.deepEqual(media.result.structuredContent, { ok: true });
+    // The spec's backwards-compatible text copy of structuredContent is dropped;
+    // text that differs from it is kept.
+    const structured = { items: [{ id: 1, title: 'A "quoted" title' }], total: 1 };
+    const deduped = toolResult({ structuredContent: structured, content: [
+        { type: 'text', text: JSON.stringify(structured, null, 2) },
+        { type: 'text', text: '{"items":[],"total":0}' },
+        { type: 'text', text: 'Found 1 item' },
+    ] });
+    assert.deepEqual(deduped.result.content.map(block => block.text), ['{"items":[],"total":0}', 'Found 1 item']);
+    assert.deepEqual(deduped.result.structuredContent, structured);
     manager.reset();
 });
 
