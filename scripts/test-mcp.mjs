@@ -269,6 +269,10 @@ await test('Builder dispatch uses the turn snapshot and propagates MCP error sta
     const app = fs.readFileSync(new URL('../src/js/app.js', import.meta.url), 'utf8');
     assert.ok(app.includes('tools: turnTools'));
     assert.ok(fs.readFileSync(new URL('../src/index.html', import.meta.url), 'utf8').includes('/mcp/entry.mjs'));
+    // The SDK stays out of the start-up bundle: only a dynamic import may load it.
+    const client = fs.readFileSync(new URL('../src/mcp/client.mjs', import.meta.url), 'utf8');
+    assert.ok(!/^\s*import\s[^(]*@modelcontextprotocol/m.test(client));
+    assert.ok(client.includes("import('@modelcontextprotocol/sdk/client/index.js')"));
 });
 
 console.log(`\n${checks} MCP checks passed.`);
