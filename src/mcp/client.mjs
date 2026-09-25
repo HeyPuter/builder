@@ -103,8 +103,11 @@ export function createMcpManager({ getOwner, storage, browserFetch, relayFetch, 
                 const ids = new Set();
                 for (const item of saved.slice(0, 10)) {
                     if (!/^[a-f0-9]{32}$/.test(item?.id) || ids.has(item.id) || typeof item.name !== 'string') continue;
+                    // Skip just this entry: one bad URL must not drop the rest.
+                    let url;
+                    try { url = validateEndpoint(item.url); } catch { continue; }
                     ids.add(item.id);
-                    records.push({ id: item.id, name: item.name.slice(0, 80), url: validateEndpoint(item.url),
+                    records.push({ id: item.id, name: item.name.slice(0, 80), url,
                         status: 'disconnected', tools: [], error: '' });
                 }
             }
