@@ -4656,6 +4656,37 @@ body.preview-active.chat-hidden .chat {
 .confirm-modal-overlay.open .properties-modal {
     transform: translateY(0) scale(1);
 }
+.mcp-modal { width: 560px; color: #202124; }
+.mcp-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.mcp-heading h2 { font-size: 19px; margin: 0; }
+.mcp-modal h3 { font-size: 14px; margin: 0 0 8px; overflow-wrap: anywhere; }
+.mcp-intro, .mcp-note, .mcp-empty { font-size: 13px; line-height: 1.5; color: #62676e; }
+.mcp-modal label { display: block; font-size: 13px; margin: 10px 0; }
+.mcp-modal input { display: block; width: 100%; box-sizing: border-box; border: 1px solid #d7d9dd; border-radius: 7px; padding: 9px 10px; margin-top: 5px; background: #fff; color: inherit; font-size: 14px; }
+.mcp-modal button { border: 1px solid #d7d9dd; border-radius: 7px; background: #f7f8fa; color: inherit; padding: 7px 11px; cursor: pointer; font-size: 13px; }
+.mcp-modal button:hover { background: #eceef2; }
+.mcp-modal .mcp-close { border: none; background: transparent; font-size: 24px; padding: 0 6px; }
+.mcp-modal .mcp-primary { background: #2563eb; color: #fff; border-color: transparent; }
+.mcp-modal .mcp-primary:hover { background: #1d4ed8; }
+.mcp-server, .mcp-add { padding: 16px 0 4px; border-top: 1px solid #e3e5e8; margin-top: 16px; }
+.mcp-url { font-size: 12px; color: #62676e; overflow-wrap: anywhere; margin: 4px 0; }
+.mcp-status { font-size: 13px; line-height: 1.5; margin: 6px 0 10px; }
+.mcp-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.mcp-actions label { flex-basis: 100%; margin-top: 0; }
+.mcp-server details { margin-top: 12px; font-size: 12px; }
+.mcp-server summary { cursor: pointer; }
+.mcp-server ul { max-height: 150px; overflow-y: auto; padding-left: 20px; overflow-wrap: anywhere; }
+.mcp-form-error { color: #b42318; font-size: 13px; }
+.mcp-form-error:empty { display: none; }
+.mcp-optional { font-weight: normal; color: #62676e; }
+html[data-theme="dark"] .mcp-modal { color: var(--text); }
+html[data-theme="dark"] .mcp-modal input { background: var(--surface); border-color: var(--border); }
+html[data-theme="dark"] .mcp-modal button:not(.mcp-primary) { background: var(--surface-hover); border-color: var(--border); }
+html[data-theme="dark"] .mcp-intro, html[data-theme="dark"] .mcp-note, html[data-theme="dark"] .mcp-empty,
+html[data-theme="dark"] .mcp-url, html[data-theme="dark"] .mcp-optional { color: var(--text-secondary); }
+html[data-theme="dark"] .mcp-server, html[data-theme="dark"] .mcp-add { border-color: var(--border); }
+html[data-theme="dark"] .mcp-form-error { color: var(--danger); }
+
 .properties-modal-header {
     display: flex;
     align-items: flex-start;
@@ -6073,4 +6104,3 @@ html[data-theme="dark"] .feed-card:hover .feed-thumb {
     border-color: var(--border-strong);
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
 }
-
