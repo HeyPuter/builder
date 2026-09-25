@@ -195,6 +195,13 @@ for (const sse of [false, true]) {
     });
 }
 
+await test('a token pasted with its "Bearer" scheme is sent once', async () => {
+    const { manager, id } = fixture();
+    await manager.connect(id, '  Bearer private-token ');
+    assert.equal(manager.list()[0].status, 'connected');
+    manager.reset();
+});
+
 await test('auth errors are sanitized and repeated cursors fail closed', async () => {
     for (const options of [{ failAuth: true }, { loop: true }]) {
         const { manager, id } = fixture(options);

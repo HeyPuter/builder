@@ -152,7 +152,10 @@ export function createMcpManager({ getOwner, storage, browserFetch, relayFetch, 
         record.error = '';
         record.viaRelay = false;
         emit();
-        const headers = token.trim() ? { Authorization: `Bearer ${token.trim()}` } : {};
+        // Tokens are often copied along with the scheme ("Bearer abc…");
+        // sending "Bearer Bearer abc…" would only fail as access denied.
+        token = token.trim().replace(/^bearer\s+/i, '');
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
         token = ''; // never stored in settings, chat, or a record
         const options = { signal: controller.signal, timeout: timeoutMs, maxTotalTimeout: timeoutMs };
         let client;
