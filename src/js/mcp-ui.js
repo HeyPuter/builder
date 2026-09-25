@@ -60,11 +60,16 @@
                     const $label = $('<label>Bearer token (optional)<input type="password" autocomplete="off" spellcheck="false" placeholder="Token for this connection"></label>');
                     $label.find('input').val(drafts.get(record.id) || '');
                     $actions.append($label);
-                    $('<button type="button">Connect</button>').on('click', () => {
+                    const connect = () => {
                         const token = $label.find('input').val();
                         $label.find('input').val('');
                         void manager.connect(record.id, token);
-                    }).appendTo($actions);
+                    };
+                    // Enter connects, as it adds a server in the form below.
+                    $label.find('input').on('keydown', e => {
+                        if (e.key === 'Enter' && !window.isComposingKeyEvent(e)) { e.preventDefault(); connect(); }
+                    });
+                    $('<button type="button">Connect</button>').on('click', connect).appendTo($actions);
                 }
                 $('<button type="button">Remove</button>').on('click', () => manager.remove(record.id)).appendTo($actions);
                 if (record.tools.length) {
