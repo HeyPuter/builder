@@ -4403,6 +4403,10 @@ function openUserPanel() {
                     '<span class="user-theme-label" id="user-theme-label">Theme</span>' +
                     `<div class="user-theme-seg" role="radiogroup" aria-labelledby="user-theme-label">${THEME_CHOICES.map(seg).join('')}</div>` +
                 '</div>' +
+                '<button class="user-panel-item user-panel-mcp">' +
+                    '<span class="user-item-icon" aria-hidden="true">' + window.link_svg + '</span>' +
+                    '<span class="user-item-label">MCP connections</span>' +
+                '</button>' +
                 '<button class="user-panel-item user-panel-account">' +
                     `<span class="user-item-icon">${panel_account_svg}</span>` +
                     '<span class="user-item-label">Account settings</span>' +
@@ -4494,6 +4498,7 @@ $(document).on('click', '.user-panel-feedback', function(e) {
 // shows the default hero immediately (no personalised flash before auth
 // re-resolves to signed-out).
 $(document).on('click', '.user-panel-logout', function() {
+    window.mcpManager?.reset();
     try { localStorage.removeItem('homeGreetingName'); } catch (e) {}
     puter.auth.signOut();
     location.reload();
