@@ -12,12 +12,16 @@ const showError = (placeholderMessage, errorText) => {
 window.tools = [];
 
 
-window.findTool = function(name) {
-    return window.tools.find(tool => tool.function.name === name);
+window.getTurnTools = function() {
+    return [...window.tools, ...(window.mcpManager?.getTools() || [])];
+};
+
+window.findTool = function(name, state) {
+    return (state?.tools || window.getTurnTools()).find(tool => tool.function.name === name);
 }
 
 window.executeFunction = async function(functionName, args, state) {
-    const tool = window.findTool(functionName);
+    const tool = window.findTool(functionName, state);
     if (!tool) {
         throw new Error(`Unknown function: ${functionName}`);
     }
@@ -108,7 +112,8 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
             // breaks the tool_use/tool_result adjacency the API enforces —
             // every later request in the chat was rejected, for good.
             if (!hasToolResultFor(c.chatHistory, toolCall.id)) {
-                addToolResultToHistory(c.chatHistory, toolCall.id, toolResponse);
+                addToolResultToHistory(c.chatHistory, toolCall.id, toolResponse,
+                    toolCall.name.startsWith('mcp_') && toolResponse?.isError === true);
             }
         } catch (error) {
             // Extract error message
@@ -178,7 +183,7 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
     // raced against the signal locally or an abort can't unstick a dead open.
     const stream = await abortableAwait(puter.ai.chat(prepareHistoryForAI(c.chatHistory), {
         model: MODEL,
-        tools: window.tools,
+        tools: c.tools || window.tools,
         stream: true,
         reasoning_effort: 'high',
         signal: c.abortController.signal

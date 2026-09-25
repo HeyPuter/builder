@@ -42,6 +42,7 @@ const SCRIPTS = [
   'js/worker-ownership.js',
   'js/tools.js',
   'js/ui.js',
+  'js/mcp-ui.js',
   'js/featured.js',
   'tools/fs/stat.js',
   'tools/fs/mkdir.js',
