@@ -783,35 +783,11 @@ ${lines.map((line, i) =>
   };
 }
 
-// Browsers resolve *.localhost to loopback, but the OS resolver used by Node
-// may not. Bind to loopback and advertise the browser-friendly hostname instead.
-function localDevUrl() {
-  return {
-    name: 'local-dev-url',
-    configureServer(server) {
-      for (const method of ['printUrls', 'openBrowser']) {
-        const original = server[method].bind(server);
-        server[method] = () => {
-          if (server.resolvedUrls) {
-            server.resolvedUrls.local = server.resolvedUrls.local.map((value) => {
-              const url = new URL(value);
-              url.hostname = 'builder.puter.localhost';
-              return url.href;
-            });
-          }
-          return original();
-        };
-      }
-    },
-  };
-}
-
 export default defineConfig({
   root: 'src',
   publicDir: false,
-  plugins: [localDevUrl(), classicBundle(), featuredFeedPlugin(), pwaPlugin(), seoPagesPlugin()],
+  plugins: [classicBundle(), featuredFeedPlugin(), pwaPlugin(), seoPagesPlugin()],
   server: {
-    host: '127.0.0.1',
     port: 8080,
     open: true,
   },
