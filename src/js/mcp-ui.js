@@ -70,7 +70,7 @@
                     $('<button type="button"></button>').text(verb).attr('aria-label', `${verb} ${record.name}`)
                         .on('click', () => manager.disconnect(record.id)).appendTo($actions);
                 } else {
-                    const $label = $('<label>Bearer token (optional)<input type="password" autocomplete="off" spellcheck="false" placeholder="Token for this connection"></label>');
+                    const $label = $('<label>Bearer token <span class="mcp-optional">(optional)</span><input type="password" autocomplete="off" spellcheck="false" placeholder="Token for this connection"></label>');
                     $label.find('input').val(drafts.get(record.id) || '')
                         .attr('aria-label', `Bearer token for ${record.name} (optional)`);
                     $actions.append($label);
