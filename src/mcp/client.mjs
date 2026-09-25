@@ -208,6 +208,19 @@ export function createMcpManager({ getOwner, storage, browserFetch, relayFetch, 
                             return toolResult(result);
                         } catch (error) {
                             if (signal.aborted) throw new DOMException('MCP call cancelled.', 'AbortError');
+                            // Streamable HTTP answers 404 to a request carrying a session ID
+                            // once the server has ended that session (e.g. it restarted). The
+                            // call never ran and no later call can succeed, so stop showing
+                            // the connection as live.
+                            if (error?.code === 404 && client.transport?.sessionId) {
+                                if (record.client === client) {
+                                    stop(record);
+                                    record.status = 'error';
+                                    record.error = 'The server ended the session. Reconnect to continue.';
+                                    emit();
+                                }
+                                throw new Error('The MCP server ended this session, so the tool did not run. Ask the user to reconnect it in MCP connections.');
+                            }
                             throw new Error('MCP tool failed or timed out. Its outcome may be unknown; check the external service before retrying.');
                         }
                     },

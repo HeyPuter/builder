@@ -109,7 +109,7 @@ await test('abort cancels an already-open response body even when fetch ignores 
     assert.equal(cancelled, true);
 });
 
-function fixture({ sse = false, failAuth = false, loop = false, toolError = false, hang = false, toolList } = {}) {
+function fixture({ sse = false, failAuth = false, loop = false, toolError = false, hang = false, expireSession = false, toolList } = {}) {
     let owner = 'alice';
     const data = new Map();
     const requests = [];
@@ -127,6 +127,11 @@ function fixture({ sse = false, failAuth = false, loop = false, toolError = fals
             const message = JSON.parse(init.body);
             requests.push(message);
             if (failAuth) return new Response('SECRET SERVER ERROR private-token', { status: 401 });
+            if (message.method === 'initialize' && expireSession) {
+                return new Response(JSON.stringify({ jsonrpc: '2.0', id: message.id, result: { protocolVersion: '2025-11-25',
+                    capabilities: { tools: {} }, serverInfo: { name: 'fixture', version: '1' } } }),
+                { headers: { 'Content-Type': 'application/json', 'Mcp-Session-Id': 'session-1' } });
+            }
             if (message.method === 'initialize') {
                 return response(message.id, { protocolVersion: '2025-11-25', capabilities: { tools: {} }, serverInfo: { name: 'fixture', version: '1' } });
             }
@@ -137,6 +142,7 @@ function fixture({ sse = false, failAuth = false, loop = false, toolError = fals
                     ...(!message.params?.cursor || loop ? { nextCursor: 'page-two' } : {}) });
             }
             if (message.method === 'tools/call') {
+                if (expireSession) return new Response('Session not found', { status: 404 });
                 if (hang) return new Promise(() => {});
                 return response(message.id, { content: [{ type: 'text', text: 'Fixture output' }], isError: toolError,
                     structuredContent: { selectedTool: message.params.name, args: message.params.arguments } });
@@ -249,6 +255,21 @@ await test('cancelled tool calls settle promptly and are not replayed', async ()
     await new Promise(resolve => setTimeout(resolve, 10));
     controller.abort();
     await assert.rejects(call, { name: 'AbortError' });
+    assert.equal(requests.filter(request => request.method === 'tools/call').length, 1);
+    manager.reset();
+});
+
+await test('a session the server ended shows as ended instead of connected', async () => {
+    const { manager, id, requests } = fixture({ expireSession: true });
+    await manager.connect(id, 'private-token');
+    assert.equal(manager.list()[0].status, 'connected');
+    const [tool] = manager.getTools();
+    // The server rejected the session, so the call never ran: say so rather
+    // than "outcome may be unknown", and stop offering the dead connection.
+    await assert.rejects(tool.exec({}), /ended this session.*did not run/);
+    assert.equal(manager.list()[0].status, 'error');
+    assert.match(manager.list()[0].error, /ended the session/);
+    assert.equal(manager.getTools().length, 0);
     assert.equal(requests.filter(request => request.method === 'tools/call').length, 1);
     manager.reset();
 });
