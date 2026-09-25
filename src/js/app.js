@@ -4012,6 +4012,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // the work already in chatHistory so completed rounds/file-writes are never
         // redone. `context` is declared out here so the catch below can clean up a
         // partial bubble. See the MAX_TURN_RETRIES / isTransientTurnError block.
+        const turnTools = window.getTurnTools();
         let context = null;
         while (true) {
             // A fresh AbortController per attempt. This is also the guard for a chat
@@ -4036,7 +4037,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                 // abort couldn't unstick a connection that dies mid-open.
                 const stream = await abortableAwait(puter.ai.chat(prepareHistoryForAI(turnSaveContext.chatHistory), {
                     model: MODEL,
-                    tools: window.tools,
+                    tools: turnTools,
                     stream: true,
                     reasoning_effort: 'high',
                     signal: abortController.signal
@@ -4052,7 +4053,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                 // (handleToolCalls) keep the chat flagged in-progress until the
                 // end-of-turn save clears it — this is what makes a refresh during a
                 // long multi-round build resumable.
-                context = {abortController, chatHistory: turnSaveContext.chatHistory, currentMessage: null, currentMessageContent: '', currentChatId: turnChatId, appDir: turnAppDir, interrupted: true};
+                context = {abortController, tools: turnTools, chatHistory: turnSaveContext.chatHistory, currentMessage: null, currentMessageContent: '', currentChatId: turnChatId, appDir: turnAppDir, interrupted: true};
                 await handleMessageStream(stream, context);
                 if (abortController === attemptController) _turnAwaitingStream = false;
                 break; // stream drained (completed, or aborted/switched — handled below)
