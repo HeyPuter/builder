@@ -1,5 +1,3 @@
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { browserFirstFetch } from './network.mjs';
 
 const MAX_TOOLS = 64;
@@ -13,6 +11,18 @@ export function validateEndpoint(value) {
         throw new Error('Use an HTTPS URL without embedded credentials or a fragment.');
     }
     return url.href;
+}
+
+// The SDK is only needed once a connection starts, so it is split out of the
+// start-up bundle and fetched on first connect (and retried if that fails).
+let sdk;
+function loadSdk() {
+    sdk ??= Promise.all([
+        import('@modelcontextprotocol/sdk/client/index.js'),
+        import('@modelcontextprotocol/sdk/client/streamableHttp.js'),
+    ]).then(([{ Client }, { StreamableHTTPClientTransport }]) => ({ Client, StreamableHTTPClientTransport }))
+        .catch(error => { sdk = null; throw error; });
+    return sdk;
 }
 
 // A discovery problem we detected ourselves. Its message is fixed, contains no
@@ -117,20 +127,24 @@ export function createMcpManager({ getOwner, storage, browserFetch, relayFetch, 
         record.error = '';
         record.viaRelay = false;
         emit();
-        const client = new Client({ name: 'puter-builder', version: '1.0.0' }, { capabilities: {} });
-        record.client = client;
-        const fetch = browserFirstFetch({ url: record.url, browserFetch, relayFetch, origin, online, isInternalHostname,
-            signal: controller.signal, timeoutMs,
-            onRelay: () => { record.viaRelay = true; emit(); } });
-        const transport = new StreamableHTTPClientTransport(new URL(record.url), {
-            fetch,
-            requestInit: { headers: token.trim() ? { Authorization: `Bearer ${token.trim()}` } : {} },
-            // A transport failure must not replay an external action.
-            reconnectionOptions: { maxRetries: 0 },
-        });
+        const headers = token.trim() ? { Authorization: `Bearer ${token.trim()}` } : {};
         token = ''; // never stored in settings, chat, or a record
         const options = { signal: controller.signal, timeout: timeoutMs, maxTotalTimeout: timeoutMs };
+        let client;
         try {
+            const { Client, StreamableHTTPClientTransport } = await loadSdk();
+            controller.signal.throwIfAborted();
+            client = new Client({ name: 'puter-builder', version: '1.0.0' }, { capabilities: {} });
+            record.client = client;
+            const fetch = browserFirstFetch({ url: record.url, browserFetch, relayFetch, origin, online, isInternalHostname,
+                signal: controller.signal, timeoutMs,
+                onRelay: () => { record.viaRelay = true; emit(); } });
+            const transport = new StreamableHTTPClientTransport(new URL(record.url), {
+                fetch,
+                requestInit: { headers },
+                // A transport failure must not replay an external action.
+                reconnectionOptions: { maxRetries: 0 },
+            });
             await client.connect(transport, options);
             const definitions = [];
             const cursors = new Set();
@@ -192,7 +206,7 @@ export function createMcpManager({ getOwner, storage, browserFetch, relayFetch, 
             };
         } catch (error) {
             const active = record.controller === controller;
-            await client.close().catch(() => {});
+            await client?.close().catch(() => {});
             if (active) {
                 stop(record);
                 record.error = connectionError(error);
