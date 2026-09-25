@@ -109,6 +109,27 @@ await test('abort cancels an already-open response body even when fetch ignores 
     assert.equal(cancelled, true);
 });
 
+await test('the server\'s SSE stream outlives the request timeout, but its headers do not', async () => {
+    let cancelled = false;
+    // Node does not stay alive for AbortSignal.timeout alone.
+    const alive = setInterval(() => {}, 1000);
+    const fetch = browserFirstFetch({ ...base, timeoutMs: 50, relayFetch: () => assert.fail('Must not relay'),
+        browserFetch: async (_, init) => init.headers?.hang ? new Promise(() => {})
+            : new Response(new ReadableStream({ cancel() { cancelled = true; } }), { headers: { 'Content-Type': 'text/event-stream' } }) });
+    const stream = (await fetch(endpoint, { method: 'GET' })).body.getReader();
+    const reading = stream.read();
+    const outcome = await Promise.race([reading.then(() => 'ended', () => 'errored'),
+        new Promise(resolve => setTimeout(() => resolve('open'), 200))]);
+    assert.equal(outcome, 'open');
+    assert.equal(cancelled, false);
+    stream.cancel();
+    await assert.rejects(fetch(endpoint, { method: 'GET', headers: { hang: '1' } }), { name: 'TimeoutError' });
+    // A POST response (a tool call's SSE stream) is still bounded as a whole.
+    const post = await fetch(endpoint, request('tools/call'));
+    await assert.rejects(post.text(), { name: 'TimeoutError' });
+    clearInterval(alive);
+});
+
 function fixture({ sse = false, failAuth = false, loop = false, toolError = false, hang = false, expireSession = false, poll = false, toolList } = {}) {
     let owner = 'alice';
     const data = new Map();
