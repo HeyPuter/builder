@@ -4657,6 +4657,10 @@ body.preview-active.chat-hidden .chat {
     transform: translateY(0) scale(1);
 }
 .mcp-modal { width: 560px; color: #202124; }
+/* The dialog takes focus on open (for Escape + tab order); it's not a
+   control, so it should never paint a focus ring. */
+.mcp-modal:focus,
+.mcp-modal:focus-visible { outline: none; }
 .mcp-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .mcp-heading h2 { font-size: 19px; margin: 0; }
 .mcp-modal h3 { font-size: 14px; margin: 0 0 8px; overflow-wrap: anywhere; }
