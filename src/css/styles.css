@@ -4681,6 +4681,7 @@ body.preview-active.chat-hidden .chat {
 .mcp-server details { margin-top: 12px; font-size: 12px; }
 .mcp-server summary { cursor: pointer; }
 .mcp-server ul { max-height: 150px; overflow-y: auto; padding-left: 20px; overflow-wrap: anywhere; }
+.mcp-announce { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .mcp-form-error { color: #b42318; font-size: 13px; }
 .mcp-form-error:empty { display: none; }
 .mcp-optional { font-weight: normal; color: #62676e; }
