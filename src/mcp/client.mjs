@@ -39,6 +39,27 @@ export function connectionError(error) {
     return 'Could not connect. Check the URL, token, network, and Streamable HTTP support.';
 }
 
+// The Claude API rejects a tool whose input_schema has oneOf/anyOf/allOf at the
+// top level, and one such tool fails every request it is sent with. Servers
+// generate these from union types, so merge the variants' properties into the
+// root instead (only allOf's required fields always apply). The server still
+// validates the arguments it receives.
+export function modelSchema(schema) {
+    const { anyOf, oneOf, allOf, ...root } = schema;
+    if (!anyOf && !oneOf && !allOf) return schema;
+    const properties = { ...root.properties };
+    const required = new Set(Array.isArray(root.required) ? root.required : []);
+    for (const [variants, always] of [[anyOf, false], [oneOf, false], [allOf, true]]) {
+        for (const variant of Array.isArray(variants) ? variants : []) {
+            if (!variant || typeof variant !== 'object') continue;
+            for (const [name, property] of Object.entries(variant.properties || {})) properties[name] ??= property;
+            if (always && Array.isArray(variant.required)) variant.required.forEach(name => required.add(name));
+        }
+    }
+    delete root.required;
+    return { ...root, properties, ...(required.size ? { required: [...required] } : {}) };
+}
+
 // Base64 image/audio/blob payloads are useless to the model as text and, cut
 // at the cap below, not even decodable. Keep the block's metadata and say
 // what was left out instead of spending the whole budget on them.
@@ -216,7 +237,7 @@ export function createMcpManager({ getOwner, storage, browserFetch, relayFetch, 
                     function: {
                         name: `mcp_${record.id}_${suffix}`,
                         description: `External tool from ${record.name}: ${definition.name}. ${definition.description || ''}`.slice(0, 4000),
-                        parameters: definition.inputSchema,
+                        parameters: modelSchema(definition.inputSchema),
                     },
                     exec: async (args, state) => {
                         syncOwner();
