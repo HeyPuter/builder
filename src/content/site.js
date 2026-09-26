@@ -112,6 +112,8 @@ export const FOOTER_NAV = [
             { label: 'Guides', slug: 'guides' },
             { label: 'How to build an app with AI', slug: 'guides/how-to-build-an-app-with-ai' },
             { label: 'How to write a build prompt', slug: 'guides/how-to-write-a-build-prompt' },
+            { label: 'What is an AI app builder?', slug: 'guides/what-is-an-ai-app-builder' },
+            { label: 'How does an AI website builder work?', slug: 'guides/how-does-an-ai-website-builder-work' },
             { label: 'What is vibe coding?', slug: 'vibe-coding' },
         ],
     },

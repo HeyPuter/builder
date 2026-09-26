@@ -185,5 +185,5 @@ export default {
         },
     ],
 
-    related: ['ai-app-builder', 'guides/how-to-write-a-build-prompt', 'guides/how-to-build-an-app-with-ai', 'what-to-build'],
+    related: ['ai-app-builder', 'guides/what-is-an-ai-app-builder', 'guides/how-to-write-a-build-prompt', 'guides/how-to-build-an-app-with-ai', 'what-to-build'],
 };

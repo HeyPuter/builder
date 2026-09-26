@@ -2,7 +2,7 @@ import { buildLink, LINKS } from '../site.js';
 
 export default {
     slug: 'ai-website-builder',
-    updated: '2026-09-24',
+    updated: '2026-09-26',
     priority: 0.9,
     changefreq: 'weekly',
     navLabel: 'AI website builder',
@@ -188,7 +188,7 @@ export default {
                     a: [
                         'An AI website builder turns a plain-language description into a complete website. You say what the site is for, who it is for, and the look you want, and the AI generates the pages, the layout, the copy, and the design, from colors and fonts to images, in minutes rather than weeks.',
                         'Unlike a template builder, it does not start from someone else\'s layout and ask you to bend it. The site is designed around your description, works on phones and desktops from the start, and comes with the basics a search engine needs already in place.',
-                        'You don\'t need to know how to code. Once the first version is in front of you, you refine it the same way you started, by asking for changes or clicking the part you want changed, then publish it in one click. The one thing worth doing yourself is reading the copy, since the AI writes a first draft of your business rather than the final word.',
+                        'You don\'t need to know how to code. Once the first version is in front of you, you refine it the same way you started, by asking for changes or clicking the part you want changed, then publish it in one click. The one thing worth doing yourself is reading the copy, since the AI writes a first draft of your business rather than the final word. [How an AI website builder works](/guides/how-does-an-ai-website-builder-work/) explains what happens at each step.',
                     ],
                 },
                 {
@@ -201,7 +201,7 @@ export default {
                 {
                     q: 'How do I generate a website with AI?',
                     a: [
-                        'Describe the site in a sentence or two, watch Puter AI Builder design and build it in the live preview, make it yours by asking for changes or pointing at what should be different, then press Publish. The four steps above walk through each one.',
+                        'Describe the site in a sentence or two, watch Puter AI Builder design and build it in the live preview, make it yours by asking for changes or pointing at what should be different, then press Publish. The four steps above walk through each one, and [how an AI website builder works](/guides/how-does-an-ai-website-builder-work/) explains what the AI is doing inside each step.',
                     ],
                 },
                 {
@@ -292,5 +292,5 @@ export default {
         },
     ],
 
-    related: ['ai-app-builder', 'use-cases', 'for', 'guides/how-to-build-a-website-with-ai', 'what-to-build'],
+    related: ['ai-app-builder', 'use-cases', 'for', 'guides/how-to-build-a-website-with-ai', 'guides/how-does-an-ai-website-builder-work', 'what-to-build'],
 };

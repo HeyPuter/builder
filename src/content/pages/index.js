@@ -46,6 +46,9 @@ import guides from './guides.js';
 import guideBuildAnApp from './guide-build-an-app.js';
 import guideBuildAWebsite from './guide-build-a-website.js';
 import guideBuildPrompt from './guide-build-prompt.js';
+import guideHowAiWebsiteBuilderWorks from './guide-how-ai-website-builder-works.js';
+import guideWhatIsAiAppBuilder from './guide-what-is-ai-app-builder.js';
+import guideAiAppBuilderFeatures from './guide-ai-app-builder-features.js';
 
 export const PAGES = [
     aiAppBuilder,
@@ -81,6 +84,9 @@ export const PAGES = [
     guideBuildAnApp,
     guideBuildAWebsite,
     guideBuildPrompt,
+    guideHowAiWebsiteBuilderWorks,
+    guideWhatIsAiAppBuilder,
+    guideAiAppBuilderFeatures,
 ];
 
 export const BY_SLUG = new Map(PAGES.map((p) => [p.slug, p]));

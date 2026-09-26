@@ -1,13 +1,13 @@
 export default {
     slug: 'guides',
-    updated: '2026-08-15',
+    updated: '2026-09-26',
     priority: 0.6,
     changefreq: 'monthly',
     navLabel: 'Guides',
 
     title: 'Guides: Building Apps and Sites With AI | Puter',
     description:
-        'Practical guides to building with an AI builder: full walkthroughs from prompt to published app and site, plus how to write a prompt that gets what you meant.',
+        'Practical guides to building with an AI builder: walkthroughs from prompt to published app, how to write a prompt, and plain explanations of how these tools work.',
     ogTagline: 'Practical, specific, no filler',
 
     hero: {
@@ -43,6 +43,27 @@ export default {
                     slug: 'guides/how-to-write-a-build-prompt',
                     body:
                         'The difference between a prompt that produces a demo and one that produces something you can use, with before-and-after examples and the six patterns that account for most of the gap.',
+                },
+                {
+                    icon: 'search',
+                    label: 'What is an AI app builder?',
+                    slug: 'guides/what-is-an-ai-app-builder',
+                    body:
+                        'The definition, the six steps from description to published app, how it differs from no-code tools and coding assistants, and the question that sorts prototype tools from production ones.',
+                },
+                {
+                    icon: 'sliders',
+                    label: 'Main features of an AI app builder',
+                    slug: 'guides/main-features-of-an-ai-app-builder',
+                    body:
+                        'Ten features explained by what they do for you, four that sound bigger than they are, and a checklist for comparing builders from the product rather than the landing page.',
+                },
+                {
+                    icon: 'globe',
+                    label: 'How does an AI website builder work?',
+                    slug: 'guides/how-does-an-ai-website-builder-work',
+                    body:
+                        'The seven steps from a description to a live site, how AI assistance and visual editing work together, how layouts adapt to phones and desktops, and what to review before publishing.',
                 },
                 {
                     icon: 'sparkles',
