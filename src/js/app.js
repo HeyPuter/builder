@@ -38,9 +38,9 @@ let currentChatId = generateChatId();
 let chatHistorySidebarOpen = false;
 // True once we've established a trustworthy view of the on-disk chat index
 // (either parsed chat-list.json, rebuilt it from the per-chat files, or
-// confirmed there genuinely is no history yet). Until this is true we must NOT
-// write chat-list.json — doing so could clobber a populated index with an empty
-// or partial in-memory list after a transient read failure. See loadSavedChats.
+// confirmed there genuinely is no history yet). Each save independently reads
+// the latest index under the lock, so a transient boot failure never permits a
+// blind overwrite and does not prevent a later save from retrying.
 let chatListLoaded = false;
 
 // Chat state management functions
@@ -71,153 +71,171 @@ function isNotFoundError(error) {
     return msg.includes('not found') || msg.includes('does not exist') || msg.includes('no such');
 }
 
-async function loadSavedChats() {
-    let raw;
-    try {
-        raw = await puter.fs.read('chat-history/chat-list.json').then(data => data.text());
-    } catch (error) {
-        if (isNotFoundError(error)) {
-            // Genuinely no history yet — safe to start empty and to persist.
-            savedChats = [];
-            chatListLoaded = true;
-            return;
-        }
-        // A real read failure. Do NOT assume "no history" — that would let the
-        // next save overwrite a populated index with an empty list. Try to
-        // rebuild from the individual chat files instead.
-        console.error('Failed to read chat-list.json:', error);
-        await recoverChatListFromFiles();
-        return;
-    }
+const CHAT_LIST_PATH = 'chat-history/chat-list.json';
+const CHAT_ID_RE = /^[A-Za-z0-9_-]{1,128}$/;
+// The last list this tab read or successfully wrote. Only changes relative to
+// this snapshot belong to this tab; the rest may already be stale elsewhere.
+let _chatListSnapshot = [];
+let _chatListSavePending = null;
+const copyChatList = (chats) => JSON.parse(JSON.stringify(chats));
 
+async function readChatList() {
+    const raw = await puter.fs.read(CHAT_LIST_PATH).then(data => data.text());
     try {
         const parsed = JSON.parse(raw);
         if (!Array.isArray(parsed)) throw new Error('chat-list.json is not an array');
-        savedChats = parsed;
-        chatListLoaded = true;
-    } catch (parseError) {
-        // The index exists but is corrupt (e.g. a truncated/interleaved write).
-        // Rebuild it from the individual chat files rather than treating the
-        // user as having no history and then clobbering it on the next save.
-        console.error('chat-list.json is corrupt, rebuilding from chat files:', parseError);
-        await recoverChatListFromFiles();
+        return parsed;
+    } catch (error) {
+        error.invalidChatList = true;
+        throw error;
     }
 }
 
-// Reconstruct the chat index by scanning the individual chat-history/<id>.json
-// files. Used when chat-list.json is missing-but-files-exist, unreadable, or
-// corrupt. Only marks the index as loaded (and writable) if the directory scan
-// succeeds; if even that fails we leave savedChats untouched and keep writes
-// blocked so a degraded session can never destroy the on-disk history.
-async function recoverChatListFromFiles() {
-    let entries;
+async function loadSavedChats() {
     try {
-        entries = await puter.fs.readdir('chat-history');
+        savedChats = await readChatList();
+        _chatListSnapshot = copyChatList(savedChats);
+        chatListLoaded = true;
     } catch (error) {
-        console.error('Chat-list recovery failed (could not list chat-history); leaving index untouched and blocking overwrites:', error);
+        console.warn('Could not read chat-list.json; looking for saved projects:', error);
         chatListLoaded = false;
-        return;
     }
+    // Even valid JSON can omit projects after an older tab overwrote the list.
+    // List filenames once and read ONLY the missing conversations, not every
+    // (potentially large) history on every boot.
+    const needsRebuild = !chatListLoaded;
+    const recovered = await recoverChatListFromFiles();
+    if (chatListLoaded && (needsRebuild || recovered)) await saveChatList();
+}
 
-    const rebuilt = [];
+async function recoverChatListFromFiles() {
+    try {
+        const recovered = await readUnindexedChatFiles(savedChats);
+        const known = new Set(savedChats.map(c => c.id));
+        savedChats = [...recovered.filter(c => !known.has(c.id) && !_deletedChatIds.has(c.id)), ...savedChats];
+        chatListLoaded = true;
+        return recovered.length;
+    } catch (error) {
+        // A usable index is still usable if the extra recovery scan fails. If
+        // BOTH reads failed, keep writes blocked and preserve the local list.
+        console.warn('Could not scan saved project files:', error);
+        return 0;
+    }
+}
+
+function chatListEntry(chat) {
+    return {
+        id: chat.id,
+        title: chat.title || generateChatTitle(chat.history || []),
+        customTitle: !!chat.customTitle,
+        aiTitled: !!chat.aiTitled,
+        timestamp: chat.timestamp || chat.lastModified || null,
+        lastModified: chat.lastModified || chat.timestamp || null,
+        previewUrl: chat.previewUrl || null,
+        publishedUrl: chat.publishedUrl || null,
+        pinned: !!chat.pinned
+    };
+}
+
+async function readUnindexedChatFiles(knownChats = []) {
+    const entries = await puter.fs.readdir('chat-history');
+    const known = new Set(knownChats.map(c => `${c.id}.json`));
+    const recovered = [];
     for (const entry of entries) {
         const name = entry?.name || entry;
-        if (typeof name !== 'string' || !name.endsWith('.json') || name === 'chat-list.json') continue;
+        if (typeof name !== 'string' || entry?.is_dir || !name.endsWith('.json') ||
+            name === 'chat-list.json' || known.has(name) || name.includes('/')) continue;
         try {
-            const text = await puter.fs.read(`chat-history/${name}`).then(d => d.text());
-            const chat = JSON.parse(text);
-            if (!chat || !chat.id) continue;
-            rebuilt.push({
-                id: chat.id,
-                title: chat.title || generateChatTitle(chat.history || []),
-                customTitle: !!chat.customTitle,
-                aiTitled: !!chat.aiTitled,
-                timestamp: chat.timestamp || chat.lastModified || null,
-                lastModified: chat.lastModified || chat.timestamp || null,
-                previewUrl: chat.previewUrl || null,
-                // The sidebar renders its "open app" link from the list entry's
-                // publishedUrl (updateChatHistorySidebar) — carry it over or a
-                // rebuilt index shows every published project as unpublished
-                // until each one happens to be re-saved.
-                publishedUrl: chat.publishedUrl || null,
-                pinned: !!chat.pinned
-            });
-        } catch (e) {
-            console.warn(`Skipping unreadable chat file ${name}:`, e);
+            const chat = JSON.parse(await puter.fs.read(`chat-history/${name}`).then(d => d.text()));
+            if (!chat || typeof chat.id !== 'string' || !CHAT_ID_RE.test(chat.id) ||
+                `${chat.id}.json` !== name || !Array.isArray(chat.history)) continue;
+            recovered.push(chatListEntry(chat));
+        } catch (error) {
+            console.warn(`Skipping unreadable chat file ${name}:`, error);
         }
     }
-
-    // Newest first, matching the unshift ordering used on save.
-    rebuilt.sort((a, b) => String(b.lastModified || '').localeCompare(String(a.lastModified || '')));
-    savedChats = rebuilt;
-    chatListLoaded = true;
-    console.log(`Recovered ${rebuilt.length} chat(s) from individual files.`);
-    // Persist the repaired index so future loads are fast and the recovered
-    // files stay reachable. Safe now that chatListLoaded is true.
-    await saveChatList();
+    recovered.sort((a, b) => String(b.lastModified || '').localeCompare(String(a.lastModified || '')));
+    return recovered;
 }
 
-// chat-list.json is the sidebar index, and every writer of it — create,
-// duplicate, rename, pin, delete — rewrites the whole array. Two of those
-// overlapping raced: each serialized the array as it stood when its own write
-// started, so an older write that finished last put its older array back on
-// disk. Memory still held the new project, so nothing looked wrong until a
-// reload, when it was gone from the sidebar — and a valid-but-stale index never
-// triggers the rebuild-from-files recovery. The per-chat file locks don't cover
-// this separate path, so route it through the same window.withFileLock.
-const CHAT_LIST_PATH = 'chat-history/chat-list.json';
+// Apply this tab's additions, removals and changed fields to the latest list.
+// Copying whole local entries would undo another tab's rename/pin/publish;
+// unioning whole lists would resurrect projects another tab deleted.
+function mergeChatLists(remote, baseline, local) {
+    const before = new Map(baseline.map(c => [c.id, c]));
+    const after = new Map(local.map(c => [c.id, c]));
+    const merged = new Map(remote.map(c => [c.id, { ...c }]));
+    for (const id of before.keys()) {
+        if (!after.has(id)) merged.delete(id);
+    }
+    const additions = [];
+    for (const entry of local) {
+        const previous = before.get(entry.id);
+        if (!previous) {
+            // IDs are unique. An entry discovered during recovery may already
+            // have been repaired/updated by another tab; keep its newer copy.
+            if (!merged.has(entry.id)) additions.push({ ...entry });
+            continue;
+        }
+        const target = merged.get(entry.id);
+        if (!target) continue; // deleted remotely, never revive a stale entry
+        for (const key of new Set([...Object.keys(previous), ...Object.keys(entry)])) {
+            if (JSON.stringify(previous[key]) === JSON.stringify(entry[key])) continue;
+            if (Object.hasOwn(entry, key)) target[key] = entry[key];
+            else delete target[key];
+        }
+    }
+    return [...additions, ...merged.values()];
+}
+
 function withChatListLock(fn) {
-    return typeof window.withFileLock === 'function' ? window.withFileLock(CHAT_LIST_PATH, fn) : fn();
+    const run = () => {
+        // Web Locks coordinate tabs on this origin. Keep the in-tab queue too,
+        // for coalescing and environments without the browser lock API. Recovery
+        // from per-project files remains available across devices/older clients.
+        if (typeof navigator !== 'undefined' && navigator.locks?.request) {
+            const identity = JSON.stringify([window.user?.uuid || window.user?.username, puter.appID]);
+            return navigator.locks.request(`builder:chat-list:${identity}`, fn);
+        }
+        return fn();
+    };
+    return typeof window.withFileLock === 'function'
+        ? window.withFileLock(CHAT_LIST_PATH, run) : Promise.resolve().then(run);
 }
-
-// A save already waiting its turn will serialize the same in-memory array this
-// call would — or a newer one — so there is never a reason to queue a second.
-// Callers still get a promise that resolves when their state is on disk.
-let _chatListSavePending = null;
 
 async function saveChatList() {
-    if (!chatListLoaded) {
-        // Boot never established a trustworthy view of the on-disk index (the
-        // read failed AND the chat-file scan failed), so it can't be overwritten
-        // blindly. This used to skip every write for the rest of the session
-        // with only a console warning: each project created meanwhile was saved
-        // as a file and unshifted into the in-memory list — visible in the
-        // sidebar — but the index was never written, so a reload lost them all
-        // from the sidebar (their files orphaned). Connectivity is usually back
-        // by the time there is something to save, so try to load the index
-        // again now, then merge in what this session created before writing.
-        const inMemory = savedChats;
-        try { await loadSavedChats(); } catch (e) { /* leaves chatListLoaded false */ }
-        if (!chatListLoaded) {
-            savedChats = inMemory; // keep showing what this session knows
-            console.warn('Skipping chat-list.json write: history index not loaded; avoiding clobbering existing history.');
-            window.showToast?.("Couldn't save your project list — new projects may be missing from the sidebar after a reload. Check your connection.",
-                { type: 'warning', key: 'persist-failed', throttleMs: 15000 });
-            return;
-        }
-        const onDisk = new Set(savedChats.map(c => c && c.id));
-        const missing = inMemory.filter(c => c && c.id && !onDisk.has(c.id) && !_deletedChatIds.has(c.id));
-        if (missing.length) savedChats = [...missing, ...savedChats];
-        updateChatHistorySidebar();
-    }
     if (_chatListSavePending) return _chatListSavePending;
     const pending = withChatListLock(async () => {
-        // Our turn: later callers must queue a save of their own from here on.
         _chatListSavePending = null;
         try {
-            // Serialized INSIDE the lock, so this write always describes the
-            // list as it stands now rather than as it stood when the call was
-            // made — a save that waited behind a slow one still lands the newest
-            // state, and never an older one on top of it.
-            await puter.fs.write(CHAT_LIST_PATH, JSON.stringify(savedChats));
+            let remote;
+            try { remote = await readChatList(); }
+            catch (error) {
+                // A missing/corrupt index is reconstructible. A network or
+                // permission error is not permission to overwrite unseen data.
+                if (!isNotFoundError(error) && !error.invalidChatList) throw error;
+                remote = await readUnindexedChatFiles();
+            }
+            const local = copyChatList(savedChats);
+            const merged = mergeChatLists(remote, _chatListSnapshot, local);
+            await puter.fs.write(CHAT_LIST_PATH, JSON.stringify(merged));
+            _chatListSnapshot = copyChatList(merged);
+            chatListLoaded = true;
+            // An edit may have happened while the write awaited the network.
+            // Rebase those edits onto the merged result for the next queued save.
+            savedChats = mergeChatLists(merged, local, savedChats);
+            updateChatHistorySidebar();
         } catch (error) {
             console.error('Error saving chat list:', error);
-            // Don't fail silently: the user believes their history is saved. One
-            // throttled toast covers a connectivity blip (shared key with the
-            // chat-file save below so an outage surfaces once, not twice).
             window.showToast?.("Couldn't save your changes — they may be lost if you reload. Check your connection.",
                 { type: 'warning', key: 'persist-failed', throttleMs: 15000 });
         }
+    }).catch(error => {
+        // Lock acquisition can fail too (e.g. browser storage restrictions).
+        _chatListSavePending = null;
+        console.error('Could not lock the project list:', error);
+        window.showToast?.("Couldn't save your project list — check your connection.",
+            { type: 'warning', key: 'persist-failed', throttleMs: 15000 });
     });
     _chatListSavePending = pending;
     return pending;
@@ -780,11 +798,11 @@ window.addEventListener('popstate', async () => {
     // the one unguarded way out. A history navigation can't be vetoed, but it
     // can be undone: ask, and on "no" push the open chat's URL back so the
     // address bar and the still-running turn agree again. Only asked when the
-    // navigation would actually switch chats — a ?p for an unknown project (or
-    // a scroll-only popstate) never loads anything, so it never interrupts.
+    // navigation targets a different chat. A project missing from this tab's
+    // list may still exist on disk (e.g. it was created in another tab).
     const hasConversation = Array.isArray(chatHistory) && chatHistory.some(m => m.role !== 'system');
     const wouldSwitch = targetId
-        ? (targetId !== currentChatId && savedChats.some(c => c.id === targetId))
+        ? targetId !== currentChatId
         : !!(currentChatId && hasConversation);
     if (wouldSwitch && isProcessing) {
         if (!await confirmLeaveActiveChat()) {
@@ -793,7 +811,7 @@ window.addEventListener('popstate', async () => {
         }
     }
     if (targetId) {
-        if (targetId !== currentChatId && savedChats.some(c => c.id === targetId)) {
+        if (targetId !== currentChatId) {
             // Failure is surfaced inside loadChat (toast); don't also reject.
             await loadChat(targetId, { urlMode: 'none' }).catch(() => {});
         }
@@ -876,18 +894,14 @@ async function loadChat(chatId, { urlMode = 'push' } = {}) {
     const sidebarEntry = savedChats.find(c => c.id === chatId);
     window.showProjectLoading?.(sidebarEntry?.title, { hasPreview: !!(sidebarEntry && sidebarEntry.previewUrl) });
     try {
-        // Terminate any in-flight turn before switching chats, so the request
-        // we leave behind can't stream its response into the chat we're loading.
-        // Done before currentChatId is reassigned below: the abort targets the
-        // old turn's controller, and the reassignment then makes that turn stale.
-        // resetChatUIForSwitch() clears the processing flags so the loaded chat
-        // is sendable; the loaded chat's own todos are re-rendered by the rebuild
-        // below.
-        terminateActiveTurn();
-        resetChatUIForSwitch();
-
+        // Deep links no longer need an index entry; still restrict reads to a
+        // single project filename, never a path supplied through the URL.
+        if (typeof chatId !== 'string' || !CHAT_ID_RE.test(chatId)) {
+            throw new Error('Invalid project id');
+        }
         const chatData = await puter.fs.read(`chat-history/${chatId}.json`).then(data => data.text());
         const chat = JSON.parse(chatData);
+        if (chat.id !== chatId || !Array.isArray(chat.history)) throw new Error('Invalid saved project');
         // Rapid sidebar clicks (or New chat) start a newer load while this one
         // is still reading; only the LATEST may install its state. Before this
         // check the slower load finishing last won: the user clicked B, ended up
@@ -900,6 +914,17 @@ async function loadChat(chatId, { urlMode = 'push' } = {}) {
             return true;
         };
         if (superseded()) return chat;
+        // A link is usable even if the index omitted it. Repair that entry from
+        // the user's own saved file, including when directory recovery failed.
+        if (!savedChats.some(c => c.id === chatId)) {
+            savedChats.unshift(chatListEntry(chat));
+            await saveChatList();
+            if (superseded()) return chat;
+        }
+        // Only switch after a valid file was read: an invalid/deleted link
+        // must not terminate the conversation the user was already working in.
+        terminateActiveTurn();
+        resetChatUIForSwitch();
         // This load's own view of the history; the global below is reassigned
         // by any later load, so the render loop must not read it back.
         const history = chat.history;
@@ -2226,18 +2251,13 @@ async function initAuthenticatedState() {
     // it. urlMode:'replace' normalises the entry — a legacy hash link is
     // rewritten to ?p= and we don't leave a duplicate history entry behind.
     const deepLinkChatId = readUrlChatId();
-    if (deepLinkChatId && savedChats.some(c => c.id === deepLinkChatId)) {
+    if (deepLinkChatId) {
         // Failure is already surfaced inside loadChat (skeleton torn down,
         // error toast); swallow the rethrow so boot continues — the greeting
         // below and the rest of document.ready must still run.
         await loadChat(deepLinkChatId, { urlMode: 'replace' }).catch(() => {});
-    } else if (deepLinkChatId) {
-        // Deep link to a project that doesn't exist (deleted, or another
-        // user's id): drop the boot-time skeleton and fall back to the
-        // landing page.
-            window.hideProjectLoading?.();
-        }
-        window._authInitDone = true;
+    }
+    window._authInitDone = true;
 }
 
 // Reveal the cloaked UI only once the fonts it paints with and the tagline logo
