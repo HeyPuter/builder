@@ -101,21 +101,36 @@ async function loadSavedChats() {
         console.warn('Could not read chat-list.json; looking for saved projects:', error);
         chatListLoaded = false;
     }
+    if (!chatListLoaded) {
+        // No usable index: the per-project files are the only source, so the
+        // sidebar has to wait for them.
+        await recoverChatListFromFiles();
+        if (chatListLoaded) await saveChatList();
+        return;
+    }
     // Even valid JSON can omit projects after an older tab overwrote the list.
     // List filenames once and read ONLY the missing conversations, not every
-    // (potentially large) history on every boot.
-    const needsRebuild = !chatListLoaded;
-    const recovered = await recoverChatListFromFiles();
-    if (chatListLoaded && (needsRebuild || recovered)) await saveChatList();
+    // (potentially large) history on every boot. The index is already usable,
+    // so this runs in the background instead of delaying the sidebar and a
+    // deep-linked project on every boot.
+    _chatListRecovery = recoverChatListFromFiles().then(recovered => {
+        if (!recovered) return;
+        updateChatHistorySidebar();
+        if (typeof applyHomeGreeting === 'function') applyHomeGreeting();
+        return saveChatList();
+    });
 }
+// The background scan started by the last loadSavedChats (tests await it).
+let _chatListRecovery = Promise.resolve();
 
 async function recoverChatListFromFiles() {
     try {
         const recovered = await readUnindexedChatFiles(savedChats);
         const known = new Set(savedChats.map(c => c.id));
-        savedChats = [...recovered.filter(c => !known.has(c.id) && !_deletedChatIds.has(c.id)), ...savedChats];
+        const added = recovered.filter(c => !known.has(c.id) && !_deletedChatIds.has(c.id));
+        savedChats = [...added, ...savedChats];
         chatListLoaded = true;
-        return recovered.length;
+        return added.length;
     } catch (error) {
         // A usable index is still usable if the extra recovery scan fails. If
         // BOTH reads failed, keep writes blocked and preserve the local list.

@@ -88,7 +88,8 @@ function environment(initial = []) {
             confirmLeaveActiveChat: async () => true,
         });
         vm.runInContext(code, context);
-        return Object.assign(context, { events, toasts, urls });
+        const recovery = () => vm.runInContext('_chatListRecovery', context);
+        return Object.assign(context, { events, toasts, urls, recovery });
     }
     function add(t, id) {
         disk.set(pathFor(id), JSON.stringify(record(id)));
@@ -176,7 +177,7 @@ for (const initialIndex of ['[]', null, '{broken']) {
         publishedUrl: 'https://example.puter.site/', pinned: true, customTitle: true,
     })));
     e.disk.set(pathFor('unreadable'), '{broken');
-    const t = e.tab(); await t.loadSavedChats();
+    const t = e.tab(); await t.loadSavedChats(); await t.recovery();
     assert.deepEqual(e.ids(), ['orphan']);
     assert.equal(t.savedChats[0].publishedUrl, 'https://example.puter.site/');
     assert.equal(t.savedChats[0].pinned, true);
@@ -187,7 +188,7 @@ console.log('ok - missing projects are recovered from valid, missing, and corrup
 // Recovery scans filenames, but does not re-download already indexed histories.
 {
     const e = environment([{ id: 'existing', title: 'Existing' }]);
-    await e.tab().loadSavedChats();
+    const t = e.tab(); await t.loadSavedChats(); await t.recovery();
     assert.deepEqual(e.io.reads, [INDEX]);
     assert.equal(e.io.writes.length, 0);
     console.log('ok - ordinary boot reads no indexed conversation files and does not rewrite the list');
@@ -354,6 +355,24 @@ console.log('ok - query/hash links and Back/Forward open unindexed project files
     await w.initAuthenticatedState();
     assert.equal(w.toasts.length, 0); assert.ok(!e.io.reads.some(p => p.includes('top')));
     console.log('ok - dead or non-project links are explained and keep the URL honest');
+}
+
+// With a usable index, the orphan scan must not hold up the sidebar or a
+// deep link: it finishes in the background and then repairs the list.
+{
+    const e = environment([{ id: 'existing', title: 'Existing' }]);
+    e.disk.set(pathFor('orphan'), JSON.stringify(record('orphan')));
+    const gate = deferred(); let scans = 0;
+    const t = e.tab();
+    const realReaddir = t.puter.fs.readdir;
+    t.puter = { ...t.puter, fs: { ...t.puter.fs, readdir: async () => { scans++; await gate.promise; return realReaddir(); } } };
+    await t.loadSavedChats();
+    assert.equal(scans, 1);
+    assert.deepEqual(Array.from(t.savedChats, c => c.id), ['existing'], 'boot returns with the index');
+    gate.resolve(); await t.recovery();
+    assert.deepEqual(Array.from(t.savedChats, c => c.id), ['orphan', 'existing']);
+    assert.deepEqual(e.ids(), ['existing', 'orphan']);
+    console.log('ok - orphan recovery runs in the background when the index is usable');
 }
 
 console.log('All multi-tab project persistence checks passed.');
