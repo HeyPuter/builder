@@ -250,12 +250,12 @@ for (const location of [{ search: '?p=orphan', hash: '' }, { search: '', hash: '
     e.disk.set(pathFor('orphan'), JSON.stringify(record('orphan')));
     e.io.scanError = new Error('directory unavailable');
     const t = e.tab(); t.window.location = location;
-    await t.initAuthenticatedState();
+    await t.initAuthenticatedState(); await tick();
     assert.equal(t.currentChatId, 'orphan'); assert.deepEqual(e.ids(), ['orphan']);
     assert.equal(t.urls[0][1].replace, true);
     e.disk.set(pathFor('another'), JSON.stringify(record('another')));
     t.window.location = { search: '?p=another', hash: '' };
-    await t.events.popstate();
+    await t.events.popstate(); await tick();
     assert.equal(t.currentChatId, 'another'); assert.deepEqual(e.ids(), ['another', 'orphan']);
 }
 console.log('ok - query/hash links and Back/Forward open unindexed project files');
@@ -266,26 +266,42 @@ console.log('ok - query/hash links and Back/Forward open unindexed project files
     e.io.readHook = async p => { if (p === INDEX) throw new Error('index unavailable'); };
     e.io.scanError = new Error('directory unavailable');
     const t = e.tab(); t.window.location.search = '?p=orphan';
-    await t.initAuthenticatedState();
+    await t.initAuthenticatedState(); await tick();
     assert.equal(t.currentChatId, 'orphan');
     assert.equal(e.io.writes.length, 0, 'opening a file does not justify overwriting an unreadable index');
     console.log('ok - direct project loading survives an unavailable index and directory');
 }
 
-// Recovery introduces an await before a switch. A slower link must not take
-// over after the user has selected another project during that await.
+// Repairing a missing index entry must not hold up opening the project: the
+// index write can be slow or queued behind another tab's save.
+{
+    const e = environment(); const t = e.tab(); await t.loadSavedChats();
+    e.disk.set(pathFor('A'), JSON.stringify(record('A')));
+    const gate = deferred();
+    e.io.writeHook = async () => { await gate.promise; };
+    await t.loadChat('A');
+    assert.equal(t.currentChatId, 'A', 'opened before the index write settled');
+    assert.ok(t.savedChats.some(c => c.id === 'A'));
+    assert.deepEqual(e.ids(), []);
+    gate.resolve(); await tick();
+    assert.deepEqual(e.ids(), ['A']);
+    console.log('ok - opening an unindexed project does not wait for the index write');
+}
+
+// A slower link must not take over after the user has selected another
+// project while it was still reading.
 {
     const e = environment(); const t = e.tab(); await t.loadSavedChats();
     e.disk.set(pathFor('A'), JSON.stringify(record('A')));
     e.disk.set(pathFor('B'), JSON.stringify(record('B')));
-    const gate = deferred(); let once = true;
-    e.io.writeHook = async () => { if (once) { once = false; await gate.promise; } };
+    const gate = deferred();
+    e.io.readHook = async p => { if (p === pathFor('A')) await gate.promise; };
     const first = t.loadChat('A'); await tick();
     const second = t.loadChat('B'); await tick();
-    gate.resolve(); await Promise.all([first, second]);
+    gate.resolve(); await Promise.all([first, second]); await tick();
     assert.equal(t.currentChatId, 'B'); assert.equal(t.aborts, 1);
     assert.deepEqual(Array.from(t.urls, u => u[0]), ['B']);
-    console.log('ok - a slow link recovery cannot supersede newer navigation');
+    console.log('ok - a slow link cannot supersede newer navigation');
 }
 
 // Invalid paths/files and nonexistent projects leave the current turn alone.

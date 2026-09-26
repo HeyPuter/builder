@@ -916,10 +916,12 @@ async function loadChat(chatId, { urlMode = 'push' } = {}) {
         if (superseded()) return chat;
         // A link is usable even if the index omitted it. Repair that entry from
         // the user's own saved file, including when directory recovery failed.
+        // Not awaited: the index read/merge/write (possibly queued behind
+        // another tab's save) must not delay opening the project. saveChatList
+        // never rejects and surfaces its own failures.
         if (!savedChats.some(c => c.id === chatId)) {
             savedChats.unshift(chatListEntry(chat));
-            await saveChatList();
-            if (superseded()) return chat;
+            saveChatList();
         }
         // Only switch after a valid file was read: an invalid/deleted link
         // must not terminate the conversation the user was already working in.
