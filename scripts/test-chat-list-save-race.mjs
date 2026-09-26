@@ -40,7 +40,7 @@ const CODE = [
 const LIST_PATH = 'chat-history/chat-list.json';
 
 function makeSandbox() {
-    const disk = new Map();
+    const disk = new Map([[LIST_PATH, '[]']]);
     const writes = [];
     let releaseFirst = null;
     const sandbox = {
@@ -53,6 +53,7 @@ function makeSandbox() {
         window: { showToast() {} },
         puter: {
             fs: {
+                read: async path => ({ text: async () => disk.get(path) }),
                 write: async (path, data) => {
                     const n = writes.length;
                     writes.push(data);
@@ -117,7 +118,7 @@ const tick = async (n = 5) => { for (let i = 0; i < n; i++) await new Promise(se
 
 // ---- A failing write must not stall every later save ------------------------
 {
-    const disk = new Map();
+    const disk = new Map([[LIST_PATH, '[]']]);
     let calls = 0;
     const sandbox = {
         savedChats: [{ id: 'A' }],
@@ -129,6 +130,7 @@ const tick = async (n = 5) => { for (let i = 0; i < n; i++) await new Promise(se
         window: { showToast() {} },
         puter: {
             fs: {
+                read: async path => ({ text: async () => disk.get(path) }),
                 write: async (path, data) => {
                     if (++calls === 1) throw new Error('network down');
                     disk.set(path, data);
