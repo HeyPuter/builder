@@ -73,6 +73,7 @@ function isNotFoundError(error) {
 
 const CHAT_LIST_PATH = 'chat-history/chat-list.json';
 const CHAT_ID_RE = /^[A-Za-z0-9_-]{1,128}$/;
+const isValidChatId = (id) => typeof id === 'string' && CHAT_ID_RE.test(id);
 // The last list this tab read or successfully wrote. Only changes relative to
 // this snapshot belong to this tab; the rest may already be stale elsewhere.
 let _chatListSnapshot = [];
@@ -801,8 +802,9 @@ window.addEventListener('popstate', async () => {
     // navigation targets a different chat. A project missing from this tab's
     // list may still exist on disk (e.g. it was created in another tab).
     const hasConversation = Array.isArray(chatHistory) && chatHistory.some(m => m.role !== 'system');
+    // An id that can't name a project file never loads, so it never asks.
     const wouldSwitch = targetId
-        ? targetId !== currentChatId
+        ? targetId !== currentChatId && isValidChatId(targetId)
         : !!(currentChatId && hasConversation);
     if (wouldSwitch && isProcessing) {
         if (!await confirmLeaveActiveChat()) {
@@ -811,9 +813,16 @@ window.addEventListener('popstate', async () => {
         }
     }
     if (targetId) {
-        if (targetId !== currentChatId) {
+        if (wouldSwitch) {
             // Failure is surfaced inside loadChat (toast); don't also reject.
-            await loadChat(targetId, { urlMode: 'none' }).catch(() => {});
+            // The open chat stays on screen, so point the address bar back at
+            // it — unless a newer navigation has already moved on.
+            const seq = _loadChatSeq + 1;
+            await loadChat(targetId, { urlMode: 'none' }).catch(() => {
+                if (seq === _loadChatSeq && readUrlChatId() === targetId) {
+                    setUrlChat(savedChats.some(c => c.id === currentChatId) ? currentChatId : null, { replace: true });
+                }
+            });
         }
     } else if (currentChatId && chatHistory.some(m => m.role !== 'system')) {
         new_chat({ updateUrl: false });
@@ -896,12 +905,14 @@ async function loadChat(chatId, { urlMode = 'push' } = {}) {
     try {
         // Deep links no longer need an index entry; still restrict reads to a
         // single project filename, never a path supplied through the URL.
-        if (typeof chatId !== 'string' || !CHAT_ID_RE.test(chatId)) {
-            throw new Error('Invalid project id');
+        if (!isValidChatId(chatId)) {
+            throw Object.assign(new Error('Invalid project id'), { projectUnavailable: true });
         }
         const chatData = await puter.fs.read(`chat-history/${chatId}.json`).then(data => data.text());
         const chat = JSON.parse(chatData);
-        if (chat.id !== chatId || !Array.isArray(chat.history)) throw new Error('Invalid saved project');
+        if (chat?.id !== chatId || !Array.isArray(chat.history)) {
+            throw Object.assign(new Error('Invalid saved project'), { projectUnavailable: true });
+        }
         // Rapid sidebar clicks (or New chat) start a newer load while this one
         // is still reading; only the LATEST may install its state. Before this
         // check the slower load finishing last won: the user clicked B, ended up
@@ -1200,9 +1211,14 @@ async function loadChat(chatId, { urlMode = 'push' } = {}) {
         // Surface the failure (previously a silent unhandled rejection): drop
         // the skeleton and tell the user — but only if no newer load has taken
         // over the overlay in the meantime.
+        // A stale link (deleted project, mistyped or foreign id) is not a
+        // connectivity problem; don't send the user off to check their network.
+        if (isNotFoundError(error)) error.projectUnavailable = true;
         if (seq === _loadChatSeq) {
             window.hideProjectLoading?.();
-            window.showToast?.("Couldn't open the project — check your connection and try again.", { type: 'error' });
+            window.showToast?.(error.projectUnavailable
+                ? "That project isn't available — it may have been deleted."
+                : "Couldn't open the project — check your connection and try again.", { type: 'error' });
         }
         throw error;
     }
@@ -2253,11 +2269,20 @@ async function initAuthenticatedState() {
     // it. urlMode:'replace' normalises the entry — a legacy hash link is
     // rewritten to ?p= and we don't leave a duplicate history entry behind.
     const deepLinkChatId = readUrlChatId();
-    if (deepLinkChatId) {
+    if (isValidChatId(deepLinkChatId)) {
         // Failure is already surfaced inside loadChat (skeleton torn down,
         // error toast); swallow the rethrow so boot continues — the greeting
         // below and the rest of document.ready must still run.
-        await loadChat(deepLinkChatId, { urlMode: 'replace' }).catch(() => {});
+        // A link that can never open is dropped so the address bar matches the
+        // landing page and a reload doesn't repeat the error; a transient
+        // failure keeps it so a reload can retry.
+        await loadChat(deepLinkChatId, { urlMode: 'replace' }).catch(error => {
+            if (error?.projectUnavailable && readUrlChatId() === deepLinkChatId) setUrlChat(null, { replace: true });
+        });
+    } else if (deepLinkChatId) {
+        // Not a project id at all (e.g. an unrelated #fragment): nothing to
+        // open, so just drop the boot-time skeleton.
+        window.hideProjectLoading?.();
     }
     window._authInitDone = true;
 }

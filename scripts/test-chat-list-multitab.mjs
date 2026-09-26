@@ -320,4 +320,40 @@ console.log('ok - query/hash links and Back/Forward open unindexed project files
     console.log('ok - invalid or missing links do not read arbitrary paths or stop the active turn');
 }
 
+// A link that can never open says so (not "check your connection"), and
+// leaves the address bar describing what is actually on screen.
+{
+    const e = environment([{ id: 'current', title: 'Current' }]);
+    const t = e.tab(); t.window.location = { search: '?p=gone', hash: '' };
+    await t.initAuthenticatedState();
+    assert.match(t.toasts.at(-1), /isn't available/);
+    assert.equal(JSON.stringify(t.urls.at(-1)), '[null,{"replace":true}]', 'dead boot link is dropped');
+
+    // A transient failure keeps the link so a reload can retry it.
+    const f = environment(); f.disk.set(pathFor('flaky'), JSON.stringify(record('flaky')));
+    f.io.readHook = async p => { if (p === pathFor('flaky')) throw new Error('offline'); };
+    const u = f.tab(); u.window.location = { search: '?p=flaky', hash: '' };
+    await u.initAuthenticatedState();
+    assert.match(u.toasts.at(-1), /connection/);
+    assert.equal(u.urls.length, 0);
+
+    // Back/Forward to a dead entry restores the open chat's URL.
+    t.window.location = { search: '?p=gone', hash: '' };
+    t.urls.length = 0;
+    await t.events.popstate();
+    assert.equal(t.currentChatId, 'current');
+    assert.equal(JSON.stringify(t.urls), '[["current",{"replace":true}]]');
+
+    // A fragment that isn't a project id never prompts, loads, or toasts.
+    let asked = 0; t.confirmLeaveActiveChat = async () => { asked++; return true; };
+    t.isProcessing = true; t.toasts.length = 0; t.urls.length = 0;
+    t.window.location = { search: '', hash: '#not/a-project' };
+    await t.events.popstate();
+    assert.equal(asked, 0); assert.equal(t.toasts.length, 0); assert.equal(t.aborts, 0);
+    const w = e.tab(); w.window.location = { search: '', hash: '#top=1' };
+    await w.initAuthenticatedState();
+    assert.equal(w.toasts.length, 0); assert.ok(!e.io.reads.some(p => p.includes('top')));
+    console.log('ok - dead or non-project links are explained and keep the URL honest');
+}
+
 console.log('All multi-tab project persistence checks passed.');
