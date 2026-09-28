@@ -5769,6 +5769,7 @@ body.project-loading .chat-tagline,
 body.project-loading .chat-tagline-sub,
 body.project-loading .chat-starter-heading,
 body.project-loading .chat-starter-prompts,
+body.project-loading .home-feed,
 body.project-loading .chat-copyright {
     display: none;
 }
