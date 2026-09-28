@@ -476,9 +476,18 @@ function templatesPlugin() {
     configureServer(server) {
       const imageCache = new Map(); // `${slug}${suffix}@${mtime}` -> Buffer
       server.middlewares.use((req, res, next) => {
-        const urlPath = decodeURIComponent((req.url || '').split('?')[0]);
-        if (urlPath !== '/templates.json' && !urlPath.startsWith('/template-files/') && !urlPath.startsWith('/template-thumbs/')) {
+        const rawPath = (req.url || '').split('?')[0];
+        if (rawPath !== '/templates.json' && !rawPath.startsWith('/template-files/') && !rawPath.startsWith('/template-thumbs/')) {
           return next();
+        }
+        // Decoded only once the path is ours: a malformed escape anywhere else
+        // is Vite's to handle, and here it is a bad request, not a crash.
+        let urlPath;
+        try {
+          urlPath = decodeURIComponent(rawPath);
+        } catch (e) {
+          res.statusCode = 400;
+          return res.end('malformed path');
         }
         let built;
         try {
