@@ -413,8 +413,12 @@
         return $thumb;
     }
 
+    // A real link to the template's page, so it can be opened in a new tab,
+    // copied or crawled like any link. A plain click opens the dialog instead
+    // (see initTemplates).
     function buildCard(template) {
-        const $card = $('<button type="button" class="feed-card template-card"></button>')
+        const $card = $('<a class="feed-card template-card"></a>')
+            .attr('href', `/templates/${template.slug}/`)
             .attr('data-template', template.slug)
             .attr('aria-label', `${template.name} template${template.description ? ': ' + template.description : ''}`);
         $card.append(buildThumb(template));
@@ -540,7 +544,11 @@
             if (list.length && JSON.stringify(list) !== JSON.stringify(cached)) renderTemplatesSection(list);
         });
 
-        $(document).off('click.templates').on('click.templates', '.template-card', async function () {
+        $(document).off('click.templates').on('click.templates', '.template-card', async function (e) {
+            // Modified and middle clicks keep their link meaning (new tab,
+            // new window, download): only a plain click opens the dialog.
+            if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+            e.preventDefault();
             const slug = this.getAttribute('data-template');
             const template = await findTemplate(slug);
             if (template) openTemplateDialog(template, { source: 'landing' });
