@@ -38,6 +38,15 @@ export function buildLink(prompt) {
     return prompt ? `/?prompt=${encodeURIComponent(prompt)}` : '/';
 }
 
+// Link into the builder that offers to copy an official template into a new
+// project (captureTemplateDeepLink / consumeTemplateDeepLink in
+// src/js/templates.js). On its own it opens the template dialog; a template
+// page's button also parks a handoff record first, which lets the app start
+// the copy without asking again (TEMPLATE_SCRIPT in scripts/build-seo.mjs).
+export function templateLink(slug) {
+    return `/?template=${encodeURIComponent(slug)}`;
+}
+
 // Privacy-friendly analytics. This is the same Plausible script the app shell
 // loads (src/index.html) — the ids MUST stay identical or the marketing pages
 // and the app report as two different sites. test-seo.mjs asserts they match.
@@ -80,6 +89,7 @@ export const FOOTER_NAV = [
             { label: 'AI app builder', slug: 'ai-app-builder' },
             { label: 'AI website builder', slug: 'ai-website-builder' },
             { label: 'Open source', slug: 'open-source-ai-app-builder' },
+            { label: 'Templates', slug: 'templates' },
             { label: 'Features', slug: 'features' },
         ],
     },

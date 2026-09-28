@@ -148,6 +148,15 @@ function renderSkeleton() {
         h += `<div class="chat-starter-heading"><a href="/what-to-build/">Looking for an idea?</a></div>`;
         h += `<div class="chat-starter-prompts"></div>`;
         h += `</div>`; // /.home-hero
+        // "Start from a template" — the official project templates. Populated
+        // and revealed by initTemplates() (js/templates.js) once the template
+        // index is available; stays hidden (and harmless) otherwise. It shares
+        // the feed's grid and card styles (the .home-feed class), and the
+        // scrolling landing layout either of them switches on. Omitted
+        // entirely when FEATURE_FLAGS.templates is off.
+        if (window.FEATURE_FLAGS?.templates) {
+            h += `<section class="home-feed home-templates" aria-label="Project templates" hidden></section>`;
+        }
         // "From the community" — the daily-curated feed of featured apps.
         // Populated and revealed by initFeaturedFeed() (js/featured.js) once
         // featured.json is available; stays hidden (and harmless) otherwise.
@@ -184,6 +193,7 @@ function renderSkeleton() {
                         { href: '/ai-website-builder/', label: 'AI website builder' },
                         { href: '/open-source-ai-app-builder/', label: 'Open source' },
                         { href: '/use-cases/', label: 'Use cases' },
+                        { href: '/templates/', label: 'Templates' },
                         { href: '/for/', label: "Who it's for" },
                         { href: '/features/', label: 'Features' },
                         { href: '/guides/', label: 'Guides' },

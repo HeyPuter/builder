@@ -74,15 +74,18 @@
     }
 
     window.BuilderHandoff = {
-        // Park one send: {prompt, files}. Resolves with the record's id once
-        // the write has committed, so the caller can put it in the URL and
-        // navigate the moment it settles.
+        // Park one send: {prompt, files}, or {template} for a template page's
+        // "Use this template" button (the slug of the template to copy; see
+        // consumeTemplateDeepLink in src/js/templates.js). Resolves with the
+        // record's id once the write has committed, so the caller can put it
+        // in the URL and navigate the moment it settles.
         stash: function (send) {
             var id = newId();
             var record = {
                 id: id,
                 prompt: typeof (send && send.prompt) === 'string' ? send.prompt : '',
                 files: Array.prototype.slice.call((send && send.files) || []),
+                template: typeof (send && send.template) === 'string' ? send.template : '',
                 at: Date.now(),
             };
             return withStore('readwrite', function (store) {
@@ -92,8 +95,8 @@
         },
 
         // Read and delete the record with this id in one transaction, sweeping
-        // abandoned records on the way. Resolves with {prompt, files} or null
-        // when there is no such record (or it had gone stale).
+        // abandoned records on the way. Resolves with {prompt, files, template}
+        // or null when there is no such record (or it had gone stale).
         take: function (id) {
             if (typeof id !== 'string' || !id) return Promise.resolve(null);
             return withStore('readwrite', function (store) {
@@ -111,6 +114,7 @@
                 return {
                     prompt: typeof record.prompt === 'string' ? record.prompt : '',
                     files: record.files.filter(function (f) { return f instanceof File; }),
+                    template: typeof record.template === 'string' ? record.template : '',
                 };
             });
         },

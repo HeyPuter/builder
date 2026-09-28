@@ -313,7 +313,11 @@ async function saveCurrentChatUnlocked(context) {
     // has been swapped (loadChat) or reset (new_chat), which would otherwise
     // make this guard wrongly skip a save whose own history has real messages.
     const hasNonSystemMessages = context.chatHistory.some(msg => msg.role !== 'system');
-    if (!hasNonSystemMessages) {
+    // A project forked from a template is saved from birth with only its
+    // system prompt (createFork in templates.js), and a publish or an address
+    // change before its first message must still persist — so a chat already
+    // in the project list always saves.
+    if (!hasNonSystemMessages && !savedChats.some(c => c.id === context.currentChatId)) {
         return;
     }
     
@@ -900,7 +904,9 @@ window.addEventListener('popstate', async () => {
                 setUrlChat(openIsListed ? currentChatId : null, { replace: true });
             }
         }
-    } else if (currentChatId && chatHistory.some(m => m.role !== 'system')) {
+    } else if (currentChatId && (chatHistory.some(m => m.role !== 'system') || savedChats.some(c => c.id === currentChatId))) {
+        // The second test covers a project with no messages yet (a fresh fork
+        // of a template): Back from it must still return to the landing.
         new_chat({ updateUrl: false });
     }
 });
@@ -1095,6 +1101,13 @@ async function loadChat(chatId, { urlMode = 'push' } = {}) {
             if (r.error) throw r.error;
             return r.url;
         };
+
+        // A project forked from a template opens with a note saying so above
+        // its conversation (which starts out empty). The origin rides on the
+        // system message, see createFork in templates.js.
+        if (history[0] && history[0].role === 'system' && history[0].templateOrigin) {
+            window.renderTemplateOriginNote?.(history[0].templateOrigin);
+        }
 
         // Rebuild the chat display
         // Skip all system prompts at the start
@@ -2606,6 +2619,9 @@ $(document).ready(async function(){
     // (we're still pre-reveal, so returning visitors get no layout shift),
     // then revalidate against featured.json in the background.
     initFeaturedFeed();
+    // "Start from a template": the same cached-then-revalidated paint, for the
+    // official templates row (js/templates.js).
+    window.initTemplates?.();
 
     // A deep link (?p=<id>, or a legacy #<id>) is about to restore a project:
     // put the loading skeleton up NOW, before the cloak reveal, so the first
@@ -2627,6 +2643,10 @@ $(document).ready(async function(){
     // fill the composer from it now, while the UI is still cloaked, so the first
     // visible frame already has the text in the box. A hero composer send adds
     // &handoff=<id>, picked up by consumeComposerHandoff once auth has settled.
+    // A template page's "Use this template" arrives as ?template=<slug>, also
+    // with a handoff id of its own; it is captured (and taken out of the URL)
+    // first, so the composer handoff never sees that id.
+    window.captureTemplateDeepLink?.();
     applyPromptDeepLink();
 
     // Fade the UI in once its fonts + logo are ready (runs concurrently with the
@@ -2702,6 +2722,12 @@ $(document).ready(async function(){
     // and text and, signed in, start the build. After the draft settle above,
     // which it overrides, so the text it sends is the text the visitor typed.
     await consumeComposerHandoff();
+
+    // A template link (?template=<slug>): copy the template into a new project
+    // straight away when the visitor's own click on a template page is behind
+    // it, otherwise show the template dialog. Not awaited: a fork takes a few
+    // seconds and reports its own outcome, and nothing below depends on it.
+    window.consumeTemplateDeepLink?.();
 
     // Skip on mobile: autofocusing here pops the on-screen keyboard up over
     // the landing page before the user has touched anything.
