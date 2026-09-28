@@ -6131,9 +6131,9 @@ html[data-theme="dark"] .feed-card:hover .feed-thumb {
 /* ========================== Templates ==========================
    "Start from a template" (js/templates.js): a row under the landing hero that
    reuses the community feed's section, grid and card styles (.home-feed,
-   .feed-card) — the rules below only adapt them to a card that is a <button>
-   opening a dialog instead of a link opening a tab. Then the template dialog
-   and the note a forked project opens with. */
+   .feed-card) — each card is a link to the template's page whose plain click
+   opens a dialog instead. Then the template dialog and the note a forked
+   project opens with. */
 
 .home-templates + .home-feed { margin-top: 36px; }
 
@@ -6141,15 +6141,6 @@ html[data-theme="dark"] .feed-card:hover .feed-thumb {
 a.home-templates-all { text-decoration: none; }
 a.home-templates-all:hover { text-decoration: underline; text-underline-offset: 2px; }
 
-.template-card {
-    width: 100%;
-    padding: 0;
-    border: 0;
-    background: none;
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-}
 .template-card:focus-visible { outline: none; }
 .template-card:focus-visible .feed-thumb {
     outline: 2px solid #2563eb;
