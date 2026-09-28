@@ -200,7 +200,9 @@ const APP_DIR = '/nj/AppData/app-uid/chat_abc';
     check('wiring: the rewritten history is what gets persisted', dupBody.includes('history: finalHistory'));
 
     const redeployStart = APP.indexOf('async function redeployWorkersForCopy');
-    const redeployBody = APP.slice(redeployStart, APP.indexOf('async function', redeployStart + 1));
+    // Through deployWorkerPlans, which carries out the plans (shared with the
+    // template fork's "Deploy backend", see templates.js).
+    const redeployBody = APP.slice(redeployStart, APP.indexOf('async function discardCopyAttempt', redeployStart));
     check('wiring: redeploy plans from the account worker list', redeployBody.includes('WorkerOwnership.planCopies(allWorkers'));
     check('wiring: copy workers deploy under their NEW name', redeployBody.includes('puter.workers.create(plan.newName, plan.newFilePath, { sandbox: true })'));
 

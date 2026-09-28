@@ -40,6 +40,7 @@ const SCRIPTS = [
   'js/publish-errors.js',
   'js/issues-core.js',
   'js/worker-ownership.js',
+  'js/template-core.js',
   'js/tools.js',
   'js/ui.js',
   'js/mcp-ui.js',
@@ -74,6 +75,7 @@ const SCRIPTS = [
   'js/app.js',
   'js/versions.js',
   'js/issues.js',
+  'js/templates.js',
   // PWA runtime (SW registration + update/install UX). Last so window.showToast
   // and the rest of the app are already defined; runs its work after `load`.
   'js/pwa.js',

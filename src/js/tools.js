@@ -13,6 +13,10 @@ window.tools = [];
 
 
 window.getTurnTools = function() {
+    // A project forked from a template leaves its MCP connections out until the
+    // user turns them on for it: its AI reads files a stranger wrote, and those
+    // tools act on the user's other services (see templates.js).
+    if (window.mcpBlockedForOpenProject?.()) return [...window.tools];
     return [...window.tools, ...(window.mcpManager?.getTools() || [])];
 };
 

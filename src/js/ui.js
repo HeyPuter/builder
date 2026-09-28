@@ -2999,6 +2999,11 @@ function scheduleAutoFix(delayMs, fire) {
     entry.timer = setTimeout(function () {
         _pendingAutoFixTimers.delete(entry);
         if (chatId !== currentChatId) return; // the user has moved on
+        // A project forked from a template runs someone else's code, and its
+        // error reports would start a turn on text that code chose. Nothing is
+        // sent on its behalf until the user has sent a message of their own
+        // (see autoFixBlockedForOpenProject in templates.js).
+        if (window.autoFixBlockedForOpenProject?.()) return;
         fire();
     }, delayMs);
     _pendingAutoFixTimers.add(entry);
@@ -4065,6 +4070,8 @@ async function showChatProperties(chatId) {
     $published.on('click', '.properties-rename-site', () => beginAddressEdit('rename'));
     $published.on('click', '.properties-publish-site', () => beginAddressEdit('publish'));
     renderPublishedCell();
+    // "Started from" / "Template" rows, for forks and shared templates.
+    window.appendTemplatePropertiesRows?.($overlay.find('.properties-rows'), chatId, saved.forkedFrom || listEntry.forkedFrom);
 
     let settled = false;
     let releaseFocus = null;
@@ -4250,6 +4257,14 @@ $(document).on('click', '.chat-menu-btn', function(e) {
                     setTimeout(() => { duplicateChat(chatId); }, 0);
                 }
             },
+            ...(window.FEATURE_FLAGS.templates ? [{
+                label: 'Share as template',
+                action: function() {
+                    // Deferred so puter's context-menu dismissal (capture-phase
+                    // pointerdown) fully settles before the modal opens.
+                    setTimeout(() => { window.openShareTemplateDialog?.(chatId); }, 0);
+                }
+            }] : []),
             {
                 label: 'Settings',
                 action: function() {

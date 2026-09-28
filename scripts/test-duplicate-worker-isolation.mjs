@@ -37,6 +37,7 @@ const CODE = [
     extract(appSource, 'async function rewriteWorkerUrlsInDir(dir, renames, changed = new Set()) {'),
     extract(appSource, 'async function discardCopyAttempt(newAppDir, renames) {'),
     extract(appSource, 'async function redeployWorkersForCopy(oldAppDir, newAppDir) {'),
+    extract(appSource, 'async function deployWorkerPlans(plans, newAppDir) {'),
     extract(appSource, 'async function duplicateChat(chatId) {'),
 ].join('\n\n');
 

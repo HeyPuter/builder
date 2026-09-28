@@ -4861,6 +4861,144 @@ html[data-theme="dark"] .mcp-server[data-status="error"] .mcp-status::before { b
 }
 .properties-modal-close:hover { background: #e5e5e5; }
 
+/* ---- Templates (see js/templates.js) ----
+   The share dialog, the template card a ?template= link opens, and the
+   backend review. All reuse .confirm-modal-overlay + .properties-modal. */
+.tpl-modal { width: 480px; color: #1a1a1a; }
+.tpl-modal:focus,
+.tpl-modal:focus-visible { outline: none; }
+.tpl-review-modal { width: 640px; }
+.tpl-body { font-size: 14px; line-height: 1.5; }
+.tpl-intro { margin: 0 0 14px; color: #555; }
+.tpl-status { margin: 8px 0 0; color: #6f6f6f; font-size: 13px; }
+.tpl-status:empty { display: none; }
+.tpl-muted { margin: 4px 0 10px; color: #6f6f6f; font-size: 13px; }
+.tpl-error { margin: 10px 0 0; color: #b42318; font-size: 13px; }
+.tpl-error:empty { display: none; }
+.tpl-field { display: block; font-size: 13px; font-weight: 500; color: #333; margin: 12px 0 0; }
+.tpl-optional { font-weight: normal; color: #6f6f6f; }
+.tpl-field input,
+.tpl-field textarea,
+.tpl-link {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 5px;
+    padding: 9px 10px;
+    border: 1px solid #d7d9dd;
+    border-radius: 7px;
+    background: #fff;
+    color: inherit;
+    font: inherit;
+    font-size: 14px;
+    font-weight: normal;
+}
+.tpl-field textarea { resize: vertical; min-height: 64px; }
+.tpl-link-row { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
+.tpl-link { margin-top: 0; flex: 1; min-width: 0; font-size: 13px; background: #f7f8fa; }
+.tpl-section-title { margin: 16px 0 4px; font-size: 13px; font-weight: 600; color: #333; }
+.tpl-list { margin: 0 0 8px; padding-left: 20px; color: #444; font-size: 13.5px; }
+.tpl-list li { margin: 3px 0; }
+.tpl-check { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0; font-size: 13px; color: #444; cursor: pointer; }
+.tpl-check input { margin-top: 3px; flex: none; }
+.tpl-warning {
+    margin: 12px 0 0;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: #fff4e5;
+    border: 1px solid #f5c98a;
+    font-size: 13px;
+    color: #5c3d00;
+}
+.tpl-warning-title { font-weight: 600; margin-bottom: 6px; }
+.tpl-warning p { margin: 6px 0; }
+.tpl-hits { margin: 0; padding-left: 18px; font-family: 'Roboto Mono', monospace; font-size: 12px; overflow-wrap: anywhere; }
+.tpl-actions { display: flex; align-items: center; gap: 10px; margin-top: 20px; }
+.tpl-spacer { flex: 1; }
+.tpl-secondary { background: #f0f0f0; color: #333; }
+.tpl-secondary:hover:not(:disabled) { background: #e5e5e5; }
+.tpl-primary { background: #2563eb; color: #fff; }
+.tpl-primary:hover:not(:disabled) { background: #1d4ed8; }
+.tpl-danger { background: transparent; color: #c0392b; padding-left: 4px; padding-right: 4px; }
+.tpl-danger:hover:not(:disabled) { text-decoration: underline; }
+.tpl-modal .confirm-modal-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.tpl-card-head { display: flex; gap: 14px; align-items: center; margin-bottom: 12px; }
+.tpl-tile {
+    flex: none;
+    width: 56px;
+    height: 56px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #6b7280;
+    color: #fff;
+    font-size: 24px;
+    font-weight: 700;
+}
+.tpl-card-meta { min-width: 0; }
+.tpl-card-meta .tpl-muted { margin: 2px 0 0; }
+.tpl-card-host { font-family: 'Roboto Mono', monospace; font-size: 13px; color: #333; overflow-wrap: anywhere; }
+.tpl-description { margin: 0 0 12px; white-space: pre-wrap; overflow-wrap: anywhere; color: #333; }
+.tpl-review-files { display: flex; flex-direction: column; gap: 10px; }
+.tpl-review-file summary { cursor: pointer; font-family: 'Roboto Mono', monospace; font-size: 13px; font-weight: 500; }
+.tpl-code {
+    margin: 6px 0 0;
+    max-height: 320px;
+    overflow: auto;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: #f6f7f9;
+    font-family: 'Roboto Mono', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre;
+}
+@media (max-width: 900px) {
+    /* Prevent iOS zoom-on-focus (mirrors the composer inputs). */
+    .tpl-field input, .tpl-field textarea, .tpl-link { font-size: 16px; }
+}
+
+/* Note atop a forked project's conversation. */
+.template-origin-note {
+    margin: 0 auto 16px;
+    max-width: 760px;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid #e3e5e8;
+    background: #f7f8fa;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: #444;
+}
+.template-origin-note a { color: #2563eb; text-decoration: none; font-weight: 500; }
+.template-origin-note a:hover { text-decoration: underline; }
+.tpl-note-host { color: #6f6f6f; overflow-wrap: anywhere; }
+.tpl-note-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #e3e5e8;
+}
+.tpl-note-row span { flex: 1 1 240px; }
+.tpl-note-btn {
+    flex: none;
+    border: 1px solid #d7d9dd;
+    border-radius: 7px;
+    background: #fff;
+    color: #1a1a1a;
+    padding: 5px 10px;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+.tpl-note-btn:hover { background: #eceef2; }
+
 /* =========================================================================
    DARK THEME
    Everything below is gated by html[data-theme="dark"] (set before first paint
@@ -5614,6 +5752,34 @@ html[data-theme="dark"] .properties-published-none { color: var(--text-secondary
 html[data-theme="dark"] .properties-site-btn { color: var(--accent); }
 html[data-theme="dark"] .properties-address-edit { background: var(--surface-subtle); }
 html[data-theme="dark"] .properties-address-fix { color: var(--text-muted); }
+
+/* ---- Templates ---- */
+html[data-theme="dark"] .tpl-modal { color: var(--text); }
+html[data-theme="dark"] .tpl-intro,
+html[data-theme="dark"] .tpl-list,
+html[data-theme="dark"] .tpl-check,
+html[data-theme="dark"] .tpl-description,
+html[data-theme="dark"] .tpl-card-host,
+html[data-theme="dark"] .tpl-field,
+html[data-theme="dark"] .tpl-section-title { color: var(--text-secondary); }
+html[data-theme="dark"] .tpl-status,
+html[data-theme="dark"] .tpl-muted,
+html[data-theme="dark"] .tpl-optional,
+html[data-theme="dark"] .tpl-note-host { color: var(--text-muted); }
+html[data-theme="dark"] .tpl-error { color: var(--danger); }
+html[data-theme="dark"] .tpl-field input,
+html[data-theme="dark"] .tpl-field textarea { background: var(--surface); border-color: var(--border); color: var(--text); }
+html[data-theme="dark"] .tpl-link { background: var(--surface-subtle); border-color: var(--border); color: var(--text); }
+html[data-theme="dark"] .tpl-secondary { background: var(--surface-hover); color: var(--text); }
+html[data-theme="dark"] .tpl-secondary:hover:not(:disabled) { background: var(--surface-active); }
+html[data-theme="dark"] .tpl-danger { color: var(--danger); }
+html[data-theme="dark"] .tpl-warning { background: rgba(245, 158, 11, 0.12); border-color: rgba(245, 158, 11, 0.4); color: #fcd9a0; }
+html[data-theme="dark"] .tpl-code { background: var(--surface-subtle); color: var(--text); }
+html[data-theme="dark"] .template-origin-note { background: var(--surface-subtle); border-color: var(--border); color: var(--text-secondary); }
+html[data-theme="dark"] .template-origin-note a { color: var(--accent); }
+html[data-theme="dark"] .tpl-note-row { border-top-color: var(--border); }
+html[data-theme="dark"] .tpl-note-btn { background: var(--surface-hover); border-color: var(--border); color: var(--text); }
+html[data-theme="dark"] .tpl-note-btn:hover { background: var(--surface-active); }
 html[data-theme="dark"] .properties-address-input { color: var(--text); }
 html[data-theme="dark"] .properties-address-save,
 html[data-theme="dark"] .properties-address-cancel { color: var(--text-secondary); }

@@ -21,6 +21,11 @@ window.FEATURE_FLAGS = {
     // time). Disabled for now; the version-history panel still offers Restore.
     // Re-enable by setting true.
     undoRedo: false,
+    // Project templates: "Share as template" in a project's menu publishes a
+    // frozen snapshot anyone can fork into their own account from a
+    // /?template=<subdomain> link (see templates.js / template-core.js). When
+    // false, the menu item, the link card and the Settings rows are all gone.
+    templates: true,
     // "Share draft" toolbar popover: surfaces the live preview URL (the
     // per-project preview-<uuid>.puter.site draft that re-syncs every turn) so
     // users can hand out a work-in-progress link without publishing. When false,

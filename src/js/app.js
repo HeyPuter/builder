@@ -140,7 +140,10 @@ async function recoverChatListFromFiles() {
                 // rebuilt index shows every published project as unpublished
                 // until each one happens to be re-saved.
                 publishedUrl: chat.publishedUrl || null,
-                pinned: !!chat.pinned
+                pinned: !!chat.pinned,
+                // Where a template fork came from (see templates.js) — carried
+                // like the pin, or a rebuilt index forgets it.
+                forkedFrom: chat.forkedFrom || null
             });
         } catch (e) {
             console.warn(`Skipping unreadable chat file ${name}:`, e);
@@ -371,7 +374,10 @@ async function saveCurrentChatUnlocked(context) {
         // from) and is mirrored here so it survives a chat-list rebuild. saveCurrentChat
         // rebuilds the entry from scratch, so carry the prior value forward rather
         // than dropping it — togglePinChat is the only thing that flips it.
-        pinned: !!(existing && existing.pinned)
+        pinned: !!(existing && existing.pinned),
+        // The template a fork was started from (see templates.js). Set once,
+        // when the fork is created, and carried forward like the pin flag.
+        forkedFrom: (existing && existing.forkedFrom) || null
     };
 
     try {
@@ -408,7 +414,9 @@ async function saveCurrentChatUnlocked(context) {
             publishedUrl: publishedUrl,
             // Carry the pin flag forward — this rebuild replaces the entry, so
             // omitting it would silently unpin the project on the next save.
-            pinned: !!(live && live.pinned)
+            pinned: !!(live && live.pinned),
+            // Same for a fork's template origin (see templates.js).
+            forkedFrom: (live && live.forkedFrom) || null
         };
         if (liveIndex >= 0) {
             savedChats[liveIndex] = entry;
@@ -951,6 +959,10 @@ async function loadChat(chatId, { urlMode = 'push' } = {}) {
         window.closeIssuesPanel?.();
         window.closeDevicePanel?.();
 
+        // A project forked from a template opens with a note naming where it
+        // came from (see templates.js).
+        window.renderTemplateOriginNote?.(chat.forkedFrom || (sidebarEntry && sidebarEntry.forkedFrom));
+
         // Rebuild the chat display
         // Skip all system prompts at the start
         let startIndex = 0;
@@ -1259,6 +1271,12 @@ async function deleteChat(chatId) {
         // Remove the published copy (the separate dir the public subdomain served)
         await cleanup('the published copy', () => puter.fs.delete(publishedDir, { recursive: true }));
 
+        // Stop sharing the project as a template: its public site serves a copy
+        // of the project's source, so it must not outlive the project.
+        if (typeof window.deleteChatTemplate === 'function') {
+            await cleanup('the shared template', () => window.deleteChatTemplate(chatId));
+        }
+
         // Remove the project's version-history snapshots and its issues list.
         // Both are private storage behind their own best-effort deletes: a
         // leftover costs space, never a live endpoint, so neither blocks the
@@ -1383,6 +1401,15 @@ async function redeployWorkersForCopy(oldAppDir, newAppDir) {
     const takenNames = (Array.isArray(allWorkers) ? allWorkers : []).map(w => w && w.name);
     const plans = window.WorkerOwnership.planCopies(allWorkers, takenNames, oldAppDir, newAppDir,
         () => Math.random().toString(36).slice(2, 8));
+    return deployWorkerPlans(plans, newAppDir);
+}
+
+// Deploy the copy-side workers `plans` describes (WorkerOwnership.planCopies
+// records whose sources already sit in newAppDir) and point the copy's files
+// at them. Shared by duplicateChat (via redeployWorkersForCopy) and a template
+// fork (templates.js), whose sources arrive by download rather than by copy.
+// Returns { renames, failed } — see redeployWorkersForCopy.
+async function deployWorkerPlans(plans, newAppDir) {
     const renames = [], failed = [];
     for (const plan of plans) {
         try {
@@ -1397,7 +1424,7 @@ async function redeployWorkersForCopy(oldAppDir, newAppDir) {
             }
             renames.push({ ...plan, newUrl: created.url });
         } catch (e) {
-            console.warn('Duplicate: could not redeploy worker for the copy:', plan.oldName, e);
+            console.warn('Copy: could not redeploy worker for the copy:', plan.oldName, e);
             failed.push(plan.oldName);
             // Put the copied file back under its original name so the copy's
             // (un-rewritten) history still matches its disk, for the cleanup.
@@ -1418,7 +1445,7 @@ async function redeployWorkersForCopy(oldAppDir, newAppDir) {
                 } catch (e) {
                     // The deployed worker is now running code that still calls
                     // the ORIGINAL's other workers — the same leak, one level in.
-                    console.warn('Duplicate: could not refresh worker after URL rewrite:', rename.newName, e);
+                    console.warn('Copy: could not refresh worker after URL rewrite:', rename.newName, e);
                     failed.push(rename.oldName);
                 }
             }
@@ -1586,6 +1613,7 @@ async function duplicateChat(chatId) {
         // generator nor the AI auto-namer overwrites it (the copy shares the
         // original's first user message): the copy keeps its "… copy" name until
         // the user renames it. See the title-precedence rules in saveCurrentChat.
+        const forkedFrom = source.forkedFrom || savedChats.find(c => c.id === chatId)?.forkedFrom || null;
         const chatData = {
             id: newId,
             title: newTitle,
@@ -1607,7 +1635,9 @@ async function duplicateChat(chatId) {
             publishedAt: null,
             // Carry the source's follow-up chips so the copy isn't bare on open.
             suggestions: Array.isArray(source.suggestions) ? source.suggestions : [],
-            interrupted: false
+            interrupted: false,
+            // A copy of a template fork still started from that template.
+            forkedFrom: forkedFrom
         };
         await puter.fs.write(`chat-history/${newId}.json`, JSON.stringify(chatData));
 
@@ -1620,7 +1650,8 @@ async function duplicateChat(chatId) {
             aiTitled: false,
             timestamp: now,
             lastModified: now,
-            previewUrl: newPreviewUrl
+            previewUrl: newPreviewUrl,
+            forkedFrom: forkedFrom
         });
         await saveChatList();
         updateChatHistorySidebar();
@@ -2387,6 +2418,10 @@ $(document).ready(async function(){
     // and text and, signed in, start the build. After the draft settle above,
     // which it overrides, so the text it sends is the text the visitor typed.
     await consumeComposerHandoff();
+
+    // A template link (?template=<subdomain>): show its card, from which the
+    // visitor can copy it into their own account (see templates.js).
+    window.openTemplateFromUrl?.();
 
     // Skip on mobile: autofocusing here pops the on-screen keyboard up over
     // the landing page before the user has touched anything.
