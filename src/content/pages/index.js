@@ -12,6 +12,10 @@
 // Use-case pages (ai-form-builder, ai-game-builder, ...) are top-level URLs
 // that nest under the /use-cases/ hub via `parent`, which gives them a
 // breadcrumb and routes their crawl path through the hub.
+//
+// Template pages live under /templates/ and are built from the template
+// registry (src/templates/index.js) by the templatePage factory
+// (src/content/templates.js): adding a template adds its page.
 
 import aiAppBuilder from './ai-app-builder.js';
 import aiWebsiteBuilder from './ai-website-builder.js';
@@ -26,6 +30,8 @@ import aiSaasBuilder from './ai-saas-builder.js';
 import aiDeckBuilder from './ai-deck-builder.js';
 import aiGameBuilder from './ai-game-builder.js';
 import whatToBuild from './what-to-build.js';
+import templatesHub from './templates.js';
+import { TEMPLATE_PAGES } from '../templates.js';
 import features from './features.js';
 import vibeCoding from './vibe-coding.js';
 import forHub from './for.js';
@@ -64,6 +70,8 @@ export const PAGES = [
     aiDeckBuilder,
     aiGameBuilder,
     whatToBuild,
+    templatesHub,
+    ...TEMPLATE_PAGES,
     features,
     vibeCoding,
     forHub,

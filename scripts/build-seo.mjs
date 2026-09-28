@@ -215,9 +215,22 @@ function renderDemo(demo) {
  * and at high priority; width and height reserve its box before it lands.
  * ------------------------------------------------------------------ */
 
+// `framed` is for a bare app capture (the template pages): it has no chrome
+// of its own, so it gets a plain window frame drawn around it in CSS.
 function renderShot(shot) {
-    return `<div class="hero-shot"><img src="${escapeHtml(shot.src)}" alt="${escapeHtml(shot.alt)}" ` +
-        `width="${shot.width || 3248}" height="${shot.height || 2004}" fetchpriority="high" decoding="async"></div>`;
+    const img = `<img src="${escapeHtml(shot.src)}" alt="${escapeHtml(shot.alt)}" ` +
+        `width="${shot.width || 3248}" height="${shot.height || 2004}" fetchpriority="high" decoding="async">`;
+    if (shot.framed) {
+        return `<div class="hero-shot is-framed"><div class="shot-frame">` +
+            `<div class="shot-bar" aria-hidden="true"><i></i><i></i><i></i></div>${img}</div></div>`;
+    }
+    return `<div class="hero-shot">${img}</div>`;
+}
+
+// A "Use this template" button: a real link into the builder (works with
+// JavaScript off), which TEMPLATE_SCRIPT upgrades via data-use-template.
+function templateAttr(slug) {
+    return slug ? ` data-use-template="${escapeHtml(slug)}"` : '';
 }
 
 /* ------------------------------------------------------------------ *
@@ -468,8 +481,24 @@ const RENDERERS = {
         const href = section.href || '/';
         return `<section class="cta-band"><div class="wrap">${heading(section)}` +
             `<p>${inline(section.body)}</p>` +
-            `<a class="btn btn-primary" href="${escapeHtml(href)}">${escapeHtml(section.label || 'Start building')}</a>` +
+            `<a class="btn btn-primary" href="${escapeHtml(href)}"${templateAttr(section.template)}>${escapeHtml(section.label || 'Start building')}</a>` +
             `</div></section>`;
+    },
+
+    // The templates hub: one card per template, screenshot first.
+    templates(section) {
+        const cards = section.items.map((item) =>
+            `<a class="template-card" href="${escapeHtml(pathFor(item.slug))}">` +
+            `<span class="template-card-thumb"><img src="${escapeHtml(item.image)}" alt="" width="756" height="391" loading="lazy" decoding="async"></span>` +
+            // A div, not a span: it holds a heading and a paragraph, which
+            // phrasing content may not. (The link itself may hold both.)
+            `<div class="template-card-body">` +
+            (item.category ? `<span class="template-card-cat">${escapeHtml(item.category)}</span>` : '') +
+            `<h3>${inline(item.label)}</h3><p>${inline(item.body)}</p></div></a>`,
+        ).join('');
+        const intro = section.intro ? `<p class="section-intro">${inline(section.intro)}</p>` : '';
+        return `<section><div class="wrap">${heading(section)}${intro}` +
+            `<div class="template-grid">${cards}</div></div></section>`;
     },
 };
 
@@ -610,6 +639,11 @@ export function renderPage(page, { css = '', fontCss = '', fontUrl = '', handoff
     if (hero.composer && !handoffJs) {
         throw new Error(`${page.slug}: the hero composer needs src/js/handoff.js (opts.handoffJs) to hand files to the app`);
     }
+    const usesTemplate = !!(hero.cta && hero.cta.template) ||
+        (page.sections || []).some((s) => s.type === 'cta' && s.template);
+    if (usesTemplate && !handoffJs) {
+        throw new Error(`${page.slug}: a "Use this template" button needs src/js/handoff.js (opts.handoffJs) to hand the template to the app`);
+    }
 
     const preloadFont = fontUrl
         ? `<link rel="preload" href="${escapeHtml(fontUrl)}" as="font" type="font/woff2" crossorigin>`
@@ -618,7 +652,7 @@ export function renderPage(page, { css = '', fontCss = '', fontUrl = '', handoff
     const heroActions = [];
     if (hero.cta) {
         heroActions.push(
-            `<a class="btn btn-primary" href="${escapeHtml(hero.cta.href)}">${escapeHtml(hero.cta.label)}</a>`,
+            `<a class="btn btn-primary" href="${escapeHtml(hero.cta.href)}"${templateAttr(hero.cta.template)}>${escapeHtml(hero.cta.label)}</a>`,
         );
     }
     if (hero.secondary) {
@@ -712,6 +746,7 @@ ${renderRelated(page, bySlug)}
 ${renderFooter()}
 ${hasFaq ? `<script>${FAQ_SCRIPT}</script>` : ''}
 ${hero.composer ? `<script>${handoffJs}\n${COMPOSER_SCRIPT}</script>` : ''}
+${usesTemplate ? `<script>${hero.composer ? '' : handoffJs + '\n'}${TEMPLATE_SCRIPT}</script>` : ''}
 </body>
 </html>
 `;
@@ -844,6 +879,39 @@ export const COMPOSER_SCRIPT =
     `else{n--;t.placeholder=s.slice(0,n);if(n<=0){del=false;i=(i+1)%ex.length;d=500;}else d=18;}` +
     `setTimeout(tick,d);}` +
     `setTimeout(tick,1600);})();`;
+
+// "Use this template" (the template pages, see src/content/templates.js). The
+// same hand-over the composer does, carrying a template instead of a prompt:
+//   * sign a signed-out visitor in from inside the click, the only place the
+//     popup may open; a dismissed sign-in leaves them on the page. puter.js is
+//     loaded on the first touch of a button so it is ready by then; if it is
+//     not (blocked, slow), the app asks on its own button instead;
+//   * a page restored from the back/forward cache (Back from the app) is
+//     un-busied, or its buttons would stay dimmed and dead;
+//   * park {template: slug} in IndexedDB (window.BuilderHandoff, inlined just
+//     above) and go to /?template=<slug>&handoff=<id>. A record for that slug
+//     is what lets the app copy the template without asking again, and only a
+//     page of ours can have written one. If parking fails the visitor still
+//     goes, to the plain link, where the app shows its dialog.
+export const TEMPLATE_SCRIPT =
+    `(function(){var bs=document.querySelectorAll('[data-use-template]');if(!bs.length)return;` +
+    `var busy=false,puterLoad=null;` +
+    `function loadPuter(){if(puterLoad||window.puter)return;puterLoad=document.createElement('script');` +
+    `puterLoad.src=${JSON.stringify(PUTER_JS_SRC)};puterLoad.async=true;document.head.appendChild(puterLoad);}` +
+    `function signedIn(){var p=window.puter;if(!p||!p.auth||typeof p.auth.signIn!=='function')return Promise.resolve(true);` +
+    `try{if(p.auth.isSignedIn())return Promise.resolve(true);}catch(err){return Promise.resolve(true);}` +
+    `return p.auth.signIn().then(function(){return true;},function(err){return !!(err&&err.error==='popup_blocked');});}` +
+    `function go(slug){var base='/?template='+encodeURIComponent(slug),h=window.BuilderHandoff;if(!h){location.href=base;return;}` +
+    `h.stash({template:slug}).then(function(id){location.href=base+'&handoff='+encodeURIComponent(id);},function(){location.href=base;});}` +
+    `Array.prototype.forEach.call(bs,function(b){` +
+    `['pointerenter','focusin','touchstart'].forEach(function(ev){b.addEventListener(ev,loadPuter,{once:true,passive:true});});` +
+    `b.addEventListener('click',function(e){var slug=b.getAttribute('data-use-template');if(!slug)return;e.preventDefault();if(busy)return;` +
+    `busy=true;b.setAttribute('aria-busy','true');` +
+    `signedIn().then(function(ok){if(ok){go(slug);return;}busy=false;b.removeAttribute('aria-busy');});});});` +
+    // Back from the app restores this page from the back/forward cache exactly
+    // as it was left: mid hand-over, every button busy and ignoring clicks.
+    `window.addEventListener('pageshow',function(e){if(!e.persisted)return;busy=false;` +
+    `Array.prototype.forEach.call(bs,function(b){b.removeAttribute('aria-busy');});});})();`;
 
 const PLAUSIBLE_SCRIPT =
     `window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},` +
