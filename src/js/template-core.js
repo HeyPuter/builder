@@ -95,7 +95,9 @@ window.TemplateCore = (function () {
                 version,
                 description: str(raw.description, 200),
                 category: str(raw.category, 40),
-                thumbnail: typeof raw.thumbnail === 'string' && /^\/[A-Za-z0-9/._-]+$/.test(raw.thumbnail) ? raw.thumbnail : '',
+                // Same-origin paths only: a second leading slash would make it
+                // a protocol-relative URL on another host.
+                thumbnail: typeof raw.thumbnail === 'string' && /^\/(?![/\\])[A-Za-z0-9/._-]+$/.test(raw.thumbnail) ? raw.thumbnail : '',
                 files,
                 workers: workers.slice(),
                 suggestions,

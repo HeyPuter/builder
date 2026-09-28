@@ -87,7 +87,8 @@ const one = (patch) => core.sanitizeIndex({ templates: [{ ...VALID, ...patch }] 
         check(`the app rejects ${label}`, one(patch).length === 0);
     }
     check('a thumbnail that is not a root path is dropped, the entry kept',
-        one({ thumbnail: 'javascript:alert(1)' })[0].thumbnail === '' && one({ thumbnail: 'https://evil.example/x.png' })[0].thumbnail === '');
+        one({ thumbnail: 'javascript:alert(1)' })[0].thumbnail === '' && one({ thumbnail: 'https://evil.example/x.png' })[0].thumbnail === '' &&
+        one({ thumbnail: '//evil.example/x.png' })[0].thumbnail === '' && one({ thumbnail: '/template-thumbs/notes.webp' })[0].thumbnail === '/template-thumbs/notes.webp');
     check('two entries with one slug keep only the first',
         core.sanitizeIndex({ templates: [VALID, { ...VALID, name: 'Other' }] }).map((t) => t.name).join() === 'Notes');
     const sugg = one({ suggestions: [...Array(8)].map((_, i) => ({ label: 'L' + i, prompt: 'P' + i })).concat([{ label: '', prompt: 'x' }, null]) })[0].suggestions;
