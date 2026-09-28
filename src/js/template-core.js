@@ -49,6 +49,14 @@ window.TemplateCore = (function () {
         return (typeof v === 'string' ? v : '').trim().slice(0, max);
     }
 
+    // A chip prompt ending in a colon ("...match my brand: ") is a sentence
+    // the user finishes in the composer, which receives it verbatim. Trimming
+    // it like any other string would run their first word into the colon.
+    function chipPrompt(v) {
+        const p = str(v, 600);
+        return /:$/.test(p) ? p + ' ' : p;
+    }
+
     function workerPlaceholder(name) {
         return '{{WORKER_URL:' + name + '}}';
     }
@@ -85,7 +93,7 @@ window.TemplateCore = (function () {
             // Every worker a template declares must ship its source.
             if (!workers.every(w => files.indexOf('workers/' + w + '.js') !== -1)) continue;
             const suggestions = (Array.isArray(raw.suggestions) ? raw.suggestions : [])
-                .map(s => (s && typeof s === 'object') ? { label: str(s.label, 60), prompt: str(s.prompt, 600) } : null)
+                .map(s => (s && typeof s === 'object') ? { label: str(s.label, 60), prompt: chipPrompt(s.prompt) } : null)
                 .filter(s => s && s.label && s.prompt)
                 .slice(0, MAX_SUGGESTIONS);
             seen.add(slug);

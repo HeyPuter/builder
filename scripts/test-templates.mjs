@@ -93,6 +93,9 @@ const one = (patch) => core.sanitizeIndex({ templates: [{ ...VALID, ...patch }] 
         core.sanitizeIndex({ templates: [VALID, { ...VALID, name: 'Other' }] }).map((t) => t.name).join() === 'Notes');
     const sugg = one({ suggestions: [...Array(8)].map((_, i) => ({ label: 'L' + i, prompt: 'P' + i })).concat([{ label: '', prompt: 'x' }, null]) })[0].suggestions;
     check('suggestions are capped at five and blanks are dropped', sugg.length === 5 && sugg.every((s) => s.label && s.prompt));
+    const colon = one({ suggestions: [{ label: 'Brand', prompt: '  Match my brand:   ' }, { label: 'Plain', prompt: ' Add tags.  ' }] })[0].suggestions;
+    check('a prompt the user finishes keeps one space after its colon; others are trimmed',
+        colon[0].prompt === 'Match my brand: ' && colon[1].prompt === 'Add tags.');
 }
 
 check('fileUrl addresses the versioned build path',
