@@ -490,9 +490,11 @@ const RENDERERS = {
         const cards = section.items.map((item) =>
             `<a class="template-card" href="${escapeHtml(pathFor(item.slug))}">` +
             `<span class="template-card-thumb"><img src="${escapeHtml(item.image)}" alt="" width="756" height="391" loading="lazy" decoding="async"></span>` +
-            `<span class="template-card-body">` +
+            // A div, not a span: it holds a heading and a paragraph, which
+            // phrasing content may not. (The link itself may hold both.)
+            `<div class="template-card-body">` +
             (item.category ? `<span class="template-card-cat">${escapeHtml(item.category)}</span>` : '') +
-            `<h3>${inline(item.label)}</h3><p>${inline(item.body)}</p></span></a>`,
+            `<h3>${inline(item.label)}</h3><p>${inline(item.body)}</p></div></a>`,
         ).join('');
         const intro = section.intro ? `<p class="section-intro">${inline(section.intro)}</p>` : '';
         return `<section><div class="wrap">${heading(section)}${intro}` +
