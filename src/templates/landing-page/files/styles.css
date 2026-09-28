@@ -1,0 +1,7 @@
+html { scroll-behavior: smooth; }
+
+summary::-webkit-details-marker { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+}

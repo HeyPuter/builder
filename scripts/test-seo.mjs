@@ -37,7 +37,8 @@ import {
     PUTER_JS_SRC,
     FILE_ICON_URL,
 } from './build-seo.mjs';
-import { ORIGIN, HEADER_NAV, FOOTER_NAV, PLAUSIBLE_SRC, urlFor, pathFor, buildLink } from '../src/content/site.js';
+import { ORIGIN, HEADER_NAV, FOOTER_NAV, PLAUSIBLE_SRC, urlFor, pathFor, buildLink, templateLink } from '../src/content/site.js';
+import { TEMPLATES } from '../src/templates/index.js';
 
 const read = (rel) => fs.readFileSync(new URL(rel, import.meta.url), 'utf8');
 const indexHtml = read('../src/index.html');
@@ -301,8 +302,11 @@ const disallowedPaths = robotsSrc.split(/\r?\n/)
     .map((line) => line.replace(/#.*/, '').match(/^[ \t]*Disallow:[ \t]*(.*)$/i)?.[1].trim())
     .filter(Boolean);
 check('robots.txt blocks prompt links', disallowedPaths.includes('/?prompt='));
+// Template links (/?template=<slug>) only open the app's template dialog; the
+// template pages themselves (/templates/…) must stay crawlable.
+check('robots.txt blocks template links', disallowedPaths.includes('/?template='));
 check('robots.txt leaves public pages crawlable',
-    disallowedPaths.every((path) => path === '/?prompt='));
+    disallowedPaths.every((path) => path === '/?prompt=' || path === '/?template='));
 
 // --- 6. Prompt deep links ---------------------------------------------------
 
@@ -505,12 +509,17 @@ for (const slug of ['ai-app-builder', 'ai-website-builder']) {
         html.includes(JSON.stringify(PUTER_JS_SRC)) &&
         html.indexOf('p.auth.signIn()') < html.indexOf('h.stash({prompt:text,files:files})'));
 }
+// A "Use this template" button (the template pages) is the one other thing
+// that hands over through BuilderHandoff; see the template checks below.
+const usesTemplate = (page) => !!(page.hero.cta && page.hero.cta.template) ||
+    (page.sections || []).some((s) => s.type === 'cta' && s.template);
 for (const page of PAGES) {
     if (['ai-app-builder', 'ai-website-builder'].includes(page.slug)) continue;
     const html = rendered.get(page.slug);
     check(`${page.slug}: no composer script or handoff helper without a composer`,
         !!page.hero.composer ||
-        (!html.includes("querySelector('.hero-composer')") && !html.includes('BuilderHandoff') && !html.includes('js.puter.com')));
+        (!html.includes("querySelector('.hero-composer')") &&
+            (usesTemplate(page) || (!html.includes('BuilderHandoff') && !html.includes('js.puter.com')))));
 }
 // marketing.css copies the app's composer rules value for value. Spot-check
 // the ones that define the look, against the app's stylesheet, so a change to
@@ -565,7 +574,8 @@ for (const slug of USE_CASE_SHOTS) {
 }
 for (const page of PAGES) {
     const shot = page.hero && page.hero.screenshot;
-    if (!shot) continue;
+    // Framed shots are app captures of the templates, checked below.
+    if (!shot || shot.framed) continue;
     const html = rendered.get(page.slug);
     check(`${page.slug}: screenshot file exists under src/screenshots`,
         typeof shot.src === 'string' && /^\/screenshots\/[\w-]+\.webp$/.test(shot.src) &&
@@ -578,6 +588,60 @@ for (const page of PAGES) {
         /<img src="\/screenshots\/[^"]+"[^>]*\bwidth="\d+" height="\d+" fetchpriority="high"/.test(html) &&
         !html.includes('class="demo"'));
 }
+// Template pages frame a capture of the template itself, which the build
+// derives from src/templates/<slug>/screenshot.png (templatesPlugin).
+for (const page of PAGES) {
+    const shot = page.hero && page.hero.screenshot;
+    if (!shot || !shot.framed) continue;
+    const html = rendered.get(page.slug);
+    const slug = page.slug.replace(/^templates\//, '');
+    check(`${page.slug}: framed screenshot comes from its template's capture`,
+        page.parent === 'templates' && shot.src === `/template-thumbs/${slug}-large.webp` &&
+        fs.existsSync(new URL(`../src/templates/${slug}/screenshot.png`, import.meta.url)));
+    check(`${page.slug}: framed screenshot has one-sentence alt text`,
+        typeof shot.alt === 'string' && shot.alt.length > 20 && shot.alt.length <= 80);
+    check(`${page.slug}: hero renders the framed screenshot as its stage`,
+        html.includes('class="hero has-crumbs has-shot"') &&
+        html.includes(`<div class="hero-shot is-framed"><div class="shot-frame">`) &&
+        html.includes(`<img src="${escapeHtml(shot.src)}" alt="${escapeHtml(shot.alt)}" width="1280" height="800" fetchpriority="high"`));
+}
+
+// --- Templates --------------------------------------------------------------
+// The hub lists every template page, and every template page hands its
+// template to the app through the same same-origin handoff the composer uses:
+// sign in inside the click, park {template}, then /?template=<slug>&handoff=.
+
+const templatesHub = bySlug.get('templates');
+const templatePages = PAGES.filter((p) => p.parent === 'templates');
+check('the templates hub exists and every template has a page',
+    !!templatesHub && templatePages.length === TEMPLATES.length &&
+    TEMPLATES.every((t) => bySlug.has(`templates/${t.slug}`)));
+check('the hub links every template page',
+    templatePages.every((p) => rendered.get('templates').includes(`href="${pathFor(p.slug)}"`)));
+check('the hub shows each template\'s card image',
+    TEMPLATES.every((t) => rendered.get('templates').includes(`src="/template-thumbs/${t.slug}.webp"`)));
+for (const page of templatePages) {
+    const html = rendered.get(page.slug);
+    const slug = page.slug.replace(/^templates\//, '');
+    const buttons = html.match(new RegExp(`href="/\\?template=${slug}" data-use-template="${slug}"`, 'g')) || [];
+    check(`${page.slug}: hero and closing band both offer the template`, buttons.length === 2);
+    check(`${page.slug}: handoff helper is inlined ahead of the template script`,
+        html.includes('window.BuilderHandoff = {') &&
+        html.indexOf('window.BuilderHandoff = {') < html.indexOf("querySelectorAll('[data-use-template]')"));
+    check(`${page.slug}: signs in before parking the template`,
+        html.includes(JSON.stringify(PUTER_JS_SRC)) &&
+        html.indexOf('p.auth.signIn()') < html.indexOf('h.stash({template:slug})') &&
+        html.includes("'&handoff='+encodeURIComponent(id)"));
+    check(`${page.slug}: links back to the hub`, (page.related || []).includes('templates'));
+}
+check('templateLink percent-encodes the slug', templateLink('a b') === '/?template=a%20b');
+check('a template page cannot render without the handoff helper', (() => {
+    try {
+        renderPage(templatePages[0], { css: '', fontCss: '', fontUrl: '', bySlug });
+        return false;
+    } catch (e) { return /handoff/.test(String(e && e.message)); }
+})());
+
 check('vite ships src/screenshots verbatim for the hero captures',
     /copyDir\(screenshotsSrc, path\.join\(OUT_DIR, 'screenshots'\)\)/.test(viteSrc));
 

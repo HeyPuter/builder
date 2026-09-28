@@ -6126,3 +6126,142 @@ html[data-theme="dark"] .feed-card:hover .feed-thumb {
     border-color: var(--border-strong);
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
 }
+
+/* ========================== Templates ==========================
+   "Start from a template" (js/templates.js): a row under the landing hero that
+   reuses the community feed's section, grid and card styles (.home-feed,
+   .feed-card) — the rules below only adapt them to a card that is a <button>
+   opening a dialog instead of a link opening a tab. Then the template dialog
+   and the note a forked project opens with. */
+
+.home-templates + .home-feed { margin-top: 36px; }
+
+/* "All templates" sits where the feed's muted subtitle does. */
+a.home-templates-all { text-decoration: none; }
+a.home-templates-all:hover { text-decoration: underline; text-underline-offset: 2px; }
+
+.template-card {
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+.template-card:focus-visible { outline: none; }
+.template-card:focus-visible .feed-thumb {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+}
+
+/* Dialog — reuses .confirm-modal-overlay for the backdrop. */
+.template-modal {
+    width: 560px;
+    max-width: 100%;
+    max-height: 100%;
+    overflow-y: auto;
+    box-sizing: border-box;
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 12px 44px rgba(0, 0, 0, 0.24);
+    text-align: left;
+    transform: translateY(8px) scale(0.98);
+    transition: transform 0.15s ease;
+}
+.confirm-modal-overlay.open .template-modal { transform: translateY(0) scale(1); }
+.template-modal-thumb { padding: 14px 14px 0; }
+.template-modal-thumb .feed-thumb { border-radius: 9px; }
+.template-modal-content { padding: 16px 22px 20px; }
+.template-modal-eyebrow {
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #2563eb;
+}
+.template-modal-title {
+    margin: 4px 0 6px;
+    font-size: 19px;
+    font-weight: 600;
+    color: #1a1a1a;
+}
+.template-modal-body {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #555;
+}
+.template-modal-note {
+    margin: 8px 0 0;
+    font-size: 13px;
+    line-height: 1.45;
+    color: #6f6f6f;
+}
+.template-modal-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 20px;
+}
+.template-modal-details {
+    margin-right: auto;
+    font-size: 13.5px;
+    color: #2563eb;
+    text-decoration: none;
+}
+.template-modal-details:hover { text-decoration: underline; }
+.template-modal-use {
+    background: #2563eb;
+    color: #fff;
+}
+.template-modal-use:hover:not(:disabled) { background: #1d4ed8; }
+.template-modal-use:disabled { opacity: 0.65; cursor: progress; }
+
+@media (max-width: 480px) {
+    .template-modal-actions { flex-wrap: wrap; }
+    .template-modal-details { flex-basis: 100%; margin-bottom: 4px; }
+    .template-modal-actions .confirm-modal-btn { flex: 1; }
+}
+
+/* The note a forked project opens with, above its (empty) conversation. */
+.template-origin {
+    margin: 8px auto 4px;
+    padding: 14px 16px;
+    max-width: 520px;
+    border: 1px solid #e3e3e3;
+    border-radius: 10px;
+    background: #fafafa;
+    text-align: center;
+}
+.template-origin-line {
+    margin: 0;
+    font-size: 14px;
+    color: #333;
+}
+.template-origin-line a,
+.template-origin-line strong { font-weight: 600; }
+.template-origin-sub {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: #6f6f6f;
+}
+
+html[data-theme="dark"] .template-card:focus-visible .feed-thumb { outline-color: var(--accent); }
+html[data-theme="dark"] .template-modal {
+    background: var(--surface-raised);
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
+}
+html[data-theme="dark"] .template-modal-eyebrow,
+html[data-theme="dark"] .template-modal-details { color: var(--accent); }
+html[data-theme="dark"] .template-modal-title { color: var(--text); }
+html[data-theme="dark"] .template-modal-body { color: var(--text-secondary); }
+html[data-theme="dark"] .template-modal-note { color: var(--text-muted); }
+html[data-theme="dark"] .template-modal-use { background: var(--accent); color: #101720; }
+html[data-theme="dark"] .template-modal-use:hover:not(:disabled) { background: #8cc2f8; }
+html[data-theme="dark"] .template-origin {
+    border-color: var(--border);
+    background: var(--surface-subtle);
+}
+html[data-theme="dark"] .template-origin-line { color: var(--text); }
+html[data-theme="dark"] .template-origin-sub { color: var(--text-muted); }
