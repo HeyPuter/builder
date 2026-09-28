@@ -646,6 +646,8 @@ for (const page of templatePages) {
         html.indexOf('p.auth.signIn()') < html.indexOf('h.stash({template:slug})') &&
         html.includes("'&handoff='+encodeURIComponent(id)"));
     check(`${page.slug}: links back to the hub`, (page.related || []).includes('templates'));
+    check(`${page.slug}: a page restored by Back is usable again`,
+        /addEventListener\('pageshow',function\(e\)\{if\(!e\.persisted\)return;busy=false;/.test(html));
 }
 check('templateLink percent-encodes the slug', templateLink('a b') === '/?template=a%20b');
 check('a template page cannot render without the handoff helper', (() => {

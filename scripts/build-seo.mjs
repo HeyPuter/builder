@@ -953,6 +953,8 @@ export const COMPOSER_SCRIPT =
 //     popup may open; a dismissed sign-in leaves them on the page. puter.js is
 //     loaded on the first touch of a button so it is ready by then; if it is
 //     not (blocked, slow), the app asks on its own button instead;
+//   * a page restored from the back/forward cache (Back from the app) is
+//     un-busied, or its buttons would stay dimmed and dead;
 //   * park {template: slug} in IndexedDB (window.BuilderHandoff, inlined just
 //     above) and go to /?template=<slug>&handoff=<id>. A record for that slug
 //     is what lets the app copy the template without asking again, and only a
@@ -972,7 +974,11 @@ export const TEMPLATE_SCRIPT =
     `['pointerenter','focusin','touchstart'].forEach(function(ev){b.addEventListener(ev,loadPuter,{once:true,passive:true});});` +
     `b.addEventListener('click',function(e){var slug=b.getAttribute('data-use-template');if(!slug)return;e.preventDefault();if(busy)return;` +
     `busy=true;b.setAttribute('aria-busy','true');` +
-    `signedIn().then(function(ok){if(ok){go(slug);return;}busy=false;b.removeAttribute('aria-busy');});});});})();`;
+    `signedIn().then(function(ok){if(ok){go(slug);return;}busy=false;b.removeAttribute('aria-busy');});});});` +
+    // Back from the app restores this page from the back/forward cache exactly
+    // as it was left: mid hand-over, every button busy and ignoring clicks.
+    `window.addEventListener('pageshow',function(e){if(!e.persisted)return;busy=false;` +
+    `Array.prototype.forEach.call(bs,function(b){b.removeAttribute('aria-busy');});});})();`;
 
 const PLAUSIBLE_SCRIPT =
     `window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},` +
