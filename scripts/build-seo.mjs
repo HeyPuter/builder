@@ -109,6 +109,35 @@ function isExternal(href) {
     return /^https?:\/\//i.test(href) && !href.startsWith(ORIGIN);
 }
 
+// Comparison articles link to competing builders and, sometimes, sources in
+// inline copy. Apply the editorial link policy to the rendered article body so
+// it covers both inline links and review visit buttons without changing the
+// sitewide header/footer or other pages.
+const COMPARISON_ARTICLES = new Set(['best-ai-app-builder', 'best-ai-website-builder']);
+
+function nofollowArticleLinks(html) {
+    return html.replace(/<a\b[^>]*>/g, (tag) => {
+        const href = /\bhref="([^"]*)"/.exec(tag)?.[1];
+        if (!href || !/^https?:\/\//i.test(href)) return tag;
+
+        let hostname;
+        try {
+            hostname = new URL(href).hostname.toLowerCase();
+        } catch {
+            return tag;
+        }
+        if (hostname === 'puter.com' || hostname.endsWith('.puter.com') ||
+            hostname === 'puter.site' || hostname.endsWith('.puter.site')) return tag;
+
+        const existingRel = /\brel="([^"]*)"/.exec(tag);
+        const rel = new Set(existingRel?.[1].split(/\s+/).filter(Boolean) || []);
+        rel.add('noopener');
+        rel.add('nofollow');
+        const attr = `rel="${[...rel].join(' ')}"`;
+        return existingRel ? tag.replace(existingRel[0], attr) : tag.slice(0, -1) + ` ${attr}>`;
+    });
+}
+
 function link(entry, extraAttrs = '') {
     const href = hrefFor(entry);
     const rel = isExternal(href) ? ' rel="noopener"' : '';
@@ -369,6 +398,27 @@ const RENDERERS = {
             `${afterBlock(section.after)}</div></section>`;
     },
 
+    review(section) {
+        if (!section.id || !section.heading || !section.screenshot?.src || !section.screenshot?.alt ||
+            !section.screenshot?.width || !section.screenshot?.height) {
+            throw new Error('[seo] a review needs an id, heading, and screenshot with src, alt, width, and height');
+        }
+        const shot = section.screenshot;
+        const width = Math.max(1, Math.round(Number(shot.width) || 1));
+        const height = Math.max(1, Math.round(Number(shot.height) || 1));
+        const bestFor = section.bestFor
+            ? `<p class="review-best-for"><strong>Best for</strong> ${inline(section.bestFor)}</p>`
+            : '';
+        const visit = section.link && SAFE_HREF.test(hrefFor(section.link))
+            ? `<p class="review-visit">${link(section.link, ' class="review-link"')}</p>`
+            : '';
+        return `<section class="review-section"><div class="wrap">${heading(section)}` +
+            `<figure class="review-figure"><img src="${escapeHtml(shot.src)}" alt="${escapeHtml(shot.alt)}" ` +
+            `width="${width}" height="${height}" loading="lazy" decoding="async"></figure>` +
+            `<div class="review-copy">${bestFor}${paragraphs(section.body)}${bulletList(section.points)}${visit}</div>` +
+            `</div></section>`;
+    },
+
     grid(section) {
         const cards = section.items.map((item) =>
             `<article class="card">` +
@@ -490,6 +540,17 @@ function renderRelated(page, bySlug) {
     return `<section class="related"><div class="wrap"><h2>Keep reading</h2><ul>${items}</ul></div></section>`;
 }
 
+function renderArticleToc(page) {
+    if (page.type !== 'article') return '';
+    const reviews = (page.sections || []).filter((section) => section.type === 'review');
+    if (!reviews.length) return '';
+    const items = reviews.map((section) =>
+        `<li><a href="#${escapeHtml(section.id)}">${escapeHtml(plain(section.heading))}</a></li>`,
+    ).join('');
+    return `<nav class="article-toc" aria-label="On this page"><div class="wrap">` +
+        `<p class="article-toc-title">In this article</p><ol>${items}</ol></div></nav>`;
+}
+
 /* ------------------------------------------------------------------ *
  * Structured data
  * ------------------------------------------------------------------ */
@@ -538,7 +599,7 @@ function breadcrumbNode(trail, url) {
 }
 
 function buildGraph(page, { url, trail }) {
-    const isArticle = page.type === 'guide';
+    const isArticle = page.type === 'guide' || page.type === 'article';
     const faq = faqNodes(page);
     const howTo = howToNode(page, url);
     const crumbs = breadcrumbNode(trail, url);
@@ -569,7 +630,9 @@ function buildGraph(page, { url, trail }) {
         datePublished: page.published || page.updated,
         dateModified: page.updated,
         primaryImageOfPage: { '@type': 'ImageObject', url: ogUrl(page.slug), width: 1200, height: 630 },
-        about: { '@id': SOFTWARE_APPLICATION['@id'] },
+        about: page.type === 'article'
+            ? { '@type': 'Thing', name: page.about || plain(page.hero.h1) }
+            : { '@id': SOFTWARE_APPLICATION['@id'] },
     };
     if (isArticle) {
         pageNode.image = ogUrl(page.slug);
@@ -628,7 +691,7 @@ export function renderPage(page, { css = '', fontCss = '', fontUrl = '', handoff
     }
 
     const metaBits = [];
-    if (page.type === 'guide') {
+    if (page.type === 'guide' || page.type === 'article') {
         metaBits.push(`Updated ${formatDate(page.updated)}`);
         if (page.readingTime) metaBits.push(escapeHtml(page.readingTime));
     }
@@ -660,7 +723,10 @@ export function renderPage(page, { css = '', fontCss = '', fontUrl = '', handoff
 
     const hasFaq = (page.sections || []).some((s) => s.type === 'faq');
 
-    const body = (page.sections || []).map(renderSection).join('');
+    const renderedBody = (page.sections || []).map(renderSection).join('');
+    const body = COMPARISON_ARTICLES.has(page.slug)
+        ? nofollowArticleLinks(renderedBody)
+        : renderedBody;
     const graph = buildGraph(page, { url, trail });
 
     return `<!DOCTYPE html>
@@ -673,7 +739,7 @@ export function renderPage(page, { css = '', fontCss = '', fontUrl = '', handoff
 <link rel="canonical" href="${url}">
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
 <meta name="author" content="Puter">
-<meta property="og:type" content="${page.type === 'guide' ? 'article' : 'website'}">
+<meta property="og:type" content="${page.type === 'guide' || page.type === 'article' ? 'article' : 'website'}">
 <meta property="og:site_name" content="${escapeHtml(BRAND)}">
 <meta property="og:title" content="${escapeHtml(page.title)}">
 <meta property="og:description" content="${escapeHtml(page.description)}">
@@ -704,9 +770,10 @@ ${preloadFont}
 <body>
 <a class="skip" href="#main">Skip to content</a>
 ${renderHeader(page)}
-<main id="main">
+<main id="main"${page.type === 'article' ? ' class="article-page"' : ''}>
 ${heroHtml}
-${body}
+${renderArticleToc(page)}
+${page.type === 'article' ? `<div class="article-body">${body}</div>` : body}
 ${renderRelated(page, bySlug)}
 </main>
 ${renderFooter()}

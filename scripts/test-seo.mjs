@@ -581,6 +581,101 @@ for (const page of PAGES) {
 check('vite ships src/screenshots verbatim for the hero captures',
     /copyDir\(screenshotsSrc, path\.join\(OUT_DIR, 'screenshots'\)\)/.test(viteSrc));
 
+// Each comparison article needs a real public-site capture for every review.
+// Check its structure and assets without freezing the editorial copy.
+for (const [slug, expectedCount, topic] of [
+    ['best-ai-app-builder', 8, 'AI app builders'],
+    ['best-ai-website-builder', 10, 'AI website builders'],
+]) {
+    const comparison = bySlug.get(slug);
+    const comparisonHtml = rendered.get(slug) || '';
+    const reviews = (comparison?.sections || []).filter((s) => s.type === 'review');
+    const reviewIds = reviews.map((review) => review.id);
+    check(`${slug}: registered as an article`, comparison?.type === 'article');
+    check(`${slug}: has ${expectedCount} reviews with Puter first and unique anchor ids`,
+        reviews.length === expectedCount && reviews[0]?.id === 'puter' &&
+        reviewIds.every((id) => typeof id === 'string' && /^[a-z][a-z0-9-]*$/.test(id)) &&
+        new Set(reviewIds).size === reviews.length);
+
+    const comparisonGraph = graphOf(comparisonHtml);
+    const comparisonArticle = comparisonGraph && comparisonGraph['@graph'].find((node) =>
+        node['@type'] === 'Article' || (Array.isArray(node['@type']) && node['@type'].includes('Article')));
+    check(`${slug}: article OG and structured data include dates, author, and topic`,
+        comparisonHtml.includes('<meta property="og:type" content="article">') &&
+        comparisonArticle && comparisonArticle.datePublished === (comparison.published || comparison.updated) &&
+        comparisonArticle.dateModified === comparison.updated && comparisonArticle.author &&
+        comparisonArticle.about?.name === topic);
+    check(`${slug}: visible update date and reading time`,
+        /<p class="meta-line">Updated \d{1,2} [A-Z][a-z]+ \d{4} &middot; [^<]+<\/p>/.test(comparisonHtml) &&
+        typeof comparison?.readingTime === 'string' &&
+        comparisonHtml.includes(escapeHtml(comparison.readingTime)));
+
+    const reviewBlocks = [...comparisonHtml.matchAll(/<section class="review-section">[\s\S]*?<\/section>/g)]
+        .map((match) => match[0]);
+    check(`${slug}: rendered one review section per builder`, reviewBlocks.length === reviews.length);
+    for (const [index, review] of reviews.entries()) {
+        const shot = review.screenshot;
+        const block = reviewBlocks[index] || '';
+        const validPath = typeof shot?.src === 'string' &&
+            /^\/screenshots\/(?:[a-z0-9_-]+\/)*[a-z0-9_-]+\.(?:webp|png|jpe?g)$/i.test(shot.src);
+        check(`${slug}/${review.id}: public-site screenshot exists under src/screenshots`,
+            validPath && fs.existsSync(new URL('../src' + shot.src, import.meta.url)));
+        check(`${slug}/${review.id}: screenshot has alt text and positive dimensions`,
+            typeof shot?.alt === 'string' && shot.alt.trim().length > 0 &&
+            Number.isInteger(shot.width) && shot.width > 0 &&
+            Number.isInteger(shot.height) && shot.height > 0);
+
+        const headingAt = block.indexOf(`<h2 id="${escapeHtml(review.id)}">`);
+        const figureAt = block.indexOf('<figure class="review-figure">');
+        const imageAt = block.indexOf(`<img src="${escapeHtml(shot?.src || '')}"`);
+        const copyAt = block.indexOf('<div class="review-copy">');
+        check(`${slug}/${review.id}: renders heading, public-site image, then review copy`,
+            headingAt >= 0 && figureAt > headingAt && imageAt > figureAt && copyAt > imageAt &&
+            block.includes(`alt="${escapeHtml(shot?.alt || '')}"`) &&
+            block.includes(`width="${shot?.width}" height="${shot?.height}"`) &&
+            block.includes('loading="lazy"'));
+    }
+
+    const toc = comparisonHtml.match(/<nav class="article-toc"[^>]*>[\s\S]*?<\/nav>/)?.[0] || '';
+    const tocIds = [...toc.matchAll(/<a href="#([^"]+)">/g)].map((match) => match[1]);
+    check(`${slug}: table of contents links match review anchors in order`,
+        toc.includes('aria-label="On this page"') &&
+        JSON.stringify(tocIds) === JSON.stringify(reviewIds));
+
+    // The policy applies to links in comparison copy and review buttons, not
+    // shared navigation. Inspect the whole article body so inline links remain
+    // covered when editorial copy changes.
+    const articleBody = comparisonHtml.match(
+        /<div class="article-body">([\s\S]*?)<\/div>\s*(?:<section class="related">|<\/main>)/,
+    )?.[1] || '';
+    const articleAnchors = [...articleBody.matchAll(/<a\b[^>]*>/g)].map((match) => match[0]);
+    const outboundAnchors = articleAnchors.filter((tag) => {
+        const href = /\bhref="([^"]*)"/.exec(tag)?.[1];
+        if (!href || !/^https?:\/\//i.test(href)) return false;
+        const host = new URL(href).hostname.toLowerCase();
+        return host !== 'puter.com' && !host.endsWith('.puter.com') &&
+            host !== 'puter.site' && !host.endsWith('.puter.site');
+    });
+    check(`${slug}: all non-Puter outbound article links carry nofollow`,
+        articleBody.length > 0 && outboundAnchors.length >= expectedCount - 1 &&
+        outboundAnchors.every((tag) => /\brel="[^"]*\bnofollow\b[^"]*"/.test(tag)));
+    const puterVisitLink = reviewBlocks[0]?.match(/<a\b[^>]*class="review-link"[^>]*>/)?.[0] || '';
+    check(`${slug}: Puter review link remains followable`,
+        /\bhref="\/"/.test(puterVisitLink) && !/\bnofollow\b/.test(puterVisitLink));
+
+    // Exercise the domain exception inside article copy even when the current
+    // editorial text has no absolute Puter URL.
+    const withPuterDocs = renderPage({
+        ...comparison,
+        sections: [...comparison.sections, {
+            type: 'prose',
+            body: ['[Puter docs](https://docs.puter.com/)'],
+        }],
+    }, { bySlug });
+    check(`${slug}: Puter-owned absolute links remain followable`,
+        withPuterDocs.includes('<a href="https://docs.puter.com/" rel="noopener">Puter docs</a>'));
+}
+
 // The hero demos are tiny declarative mock apps; a malformed spec should fail
 // here, not at deploy time. Every demo needs the parts the animation assumes.
 for (const page of PAGES) {

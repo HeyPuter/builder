@@ -292,5 +292,5 @@ export default {
         },
     ],
 
-    related: ['ai-app-builder', 'use-cases', 'for', 'guides/how-to-build-a-website-with-ai', 'guides/how-does-an-ai-website-builder-work', 'what-to-build'],
+    related: ['best-ai-website-builder', 'ai-app-builder', 'use-cases', 'for', 'guides/how-to-build-a-website-with-ai', 'guides/how-does-an-ai-website-builder-work', 'what-to-build'],
 };
