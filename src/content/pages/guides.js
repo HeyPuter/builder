@@ -24,6 +24,20 @@ export default {
             heading: 'All guides',
             items: [
                 {
+                    icon: 'sparkles',
+                    label: 'Best AI app builders',
+                    slug: 'best-ai-app-builder',
+                    body:
+                        'Eight established builders compared, with a public-site screenshot for each and a practical guide to choosing the right one for your app.',
+                },
+                {
+                    icon: 'layout',
+                    label: 'Best AI website builders',
+                    slug: 'best-ai-website-builder',
+                    body:
+                        'Established AI website builders compared, with a screenshot for each and guidance on choosing one for your site.',
+                },
+                {
                     icon: 'wand',
                     label: 'How to build an app with AI',
                     slug: 'guides/how-to-build-an-app-with-ai',

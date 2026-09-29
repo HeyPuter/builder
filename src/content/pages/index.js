@@ -49,6 +49,8 @@ import guideBuildPrompt from './guide-build-prompt.js';
 import guideHowAiWebsiteBuilderWorks from './guide-how-ai-website-builder-works.js';
 import guideWhatIsAiAppBuilder from './guide-what-is-ai-app-builder.js';
 import guideAiAppBuilderFeatures from './guide-ai-app-builder-features.js';
+import bestAiAppBuilder from './best-ai-app-builder.js';
+import bestAiWebsiteBuilder from './best-ai-website-builder.js';
 
 export const PAGES = [
     aiAppBuilder,
@@ -81,6 +83,8 @@ export const PAGES = [
     forMusicians,
     forEventPlanners,
     guides,
+    bestAiAppBuilder,
+    bestAiWebsiteBuilder,
     guideBuildAnApp,
     guideBuildAWebsite,
     guideBuildPrompt,

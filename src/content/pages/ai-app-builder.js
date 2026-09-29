@@ -318,5 +318,5 @@ export default {
         },
     ],
 
-    related: ['ai-website-builder', 'use-cases', 'for', 'what-to-build', 'guides/how-to-build-an-app-with-ai', 'guides/what-is-an-ai-app-builder'],
+    related: ['best-ai-app-builder', 'ai-website-builder', 'use-cases', 'for', 'what-to-build', 'guides/how-to-build-an-app-with-ai', 'guides/what-is-an-ai-app-builder'],
 };
