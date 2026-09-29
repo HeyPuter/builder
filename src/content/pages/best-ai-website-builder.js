@@ -24,8 +24,6 @@ export default {
         h1: 'The best AI website builders in 2026',
         lead:
             'A website builder should help you make a site you can keep updating, not just a convincing first draft. Here are ten established options, how they work, and what to check before choosing one.',
-        note:
-            'Disclosure: Puter AI Builder is our product, and we have placed it first. The others were chosen from names recurring in current Google comparison results, with an established website platform also included. See our selection method below.',
     },
 
     sections: [
@@ -34,8 +32,8 @@ export default {
             id: 'what-matters',
             heading: 'What matters after the first draft',
             body: [
-                'These tools use AI in different ways. Some start with a written prompt and generate a site; others guide you through business details, pages, and style choices before opening a visual editor. The better fit depends on how much design control you want, whether you need commerce or bookings, and how you expect to maintain the site.',
-                'Try the same small site in your top two choices: a home page, an about page, a contact form, and one change to the mobile layout. Check what the published URL looks like, how you connect a domain, how forms are handled, and whether you can take your content or files with you. The screenshots below show each builder\'s public site, captured in September 2026; interfaces may change.',
+                'These tools use AI in different ways. Some start with a written prompt and generate a site. Others guide you through business details, pages, and style choices before opening a visual editor. The better fit depends on how much design control you want, whether you need commerce or bookings, and how you expect to maintain the site.',
+                'Try the same small site in your top two choices: a home page, an about page, a contact form, and one change to the mobile layout. Check what the published URL looks like, how you connect a domain, how forms are handled, and whether you can take your content or files with you. The screenshots below show each builder\'s public site, captured in September 2026. Interfaces may change.',
             ],
         },
 
@@ -52,7 +50,7 @@ export default {
             },
             body: [
                 'Describe the site and Puter AI Builder creates its pages, layout, and copy in a live browser preview. You can keep refining it through chat or click an element and say exactly what should change. Earlier versions remain available if an edit goes in the wrong direction. Publishing gives the site a public address with hosting included.',
-                'Puter can also give a site working forms, sign-in, storage, and AI features through its built-in backend. You can download the project as ordinary web files when you want to host it elsewhere. It is a good choice when you want a custom site and portable files; compare a specialist commerce platform if a built-in store and retail operations are the main requirement. See the [website builder overview](/ai-website-builder/) for details.',
+                'Puter can also give a site working forms, sign-in, storage, and AI features through its built-in backend. You can download the project as ordinary web files, keep editing them in a code editor, or host them elsewhere. See the [website builder overview](/ai-website-builder/) for details.',
             ],
             link: { label: 'Try Puter AI Builder', href: '/' },
         },
@@ -88,7 +86,7 @@ export default {
             },
             body: [
                 'Hostinger places its [AI website builder](https://www.hostinger.com/ai-website-builder) alongside hosting and domain services. You can generate a starting site with AI and continue editing its pages and design. Hostinger now describes both manual and agentic ways to use its AI Builder, so you can choose how much of the setup to hand to the assistant.',
-                'It is worth a look if you want the builder and the hosting relationship in one account. Compare the actual renewal terms, domain setup, and editing experience for the site you need; those details matter more than how quickly the first draft appears.',
+                'It is worth a look if you want the builder and the hosting relationship in one account. Compare the actual renewal terms, domain setup, and editing experience for the site you need. Those details matter more than how quickly the first draft appears.',
             ],
             link: { label: 'Visit Hostinger', href: 'https://www.hostinger.com/' },
         },
@@ -106,7 +104,7 @@ export default {
             },
             body: [
                 'Squarespace uses [Blueprint AI](https://www.squarespace.com/websites/ai-website-builder) to help assemble a website from your goals, content, and design preferences. You then work in Squarespace\'s visual editor, with its established tools for pages, commerce, appointments, and marketing available as the site grows.',
-                'Choose it when the visual finish and ongoing editorial workflow matter as much as the initial generation. The guided approach gives you a structured way to make design decisions; try adding the exact page types and integrations your project needs before committing.',
+                'Choose it when the visual finish and ongoing editorial workflow matter as much as the initial generation. The guided approach gives you a structured way to make design decisions. Try adding the exact page types and integrations your project needs before committing.',
             ],
             link: { label: 'Visit Squarespace', href: 'https://www.squarespace.com/' },
         },
@@ -224,7 +222,7 @@ export default {
             id: 'how-to-choose',
             heading: 'How to choose one',
             body: [
-                'If you want a custom site from a description, quick publication, and ordinary files you can take elsewhere, try Puter. For an all-in-one small-business setup, compare Wix, Hostinger, GoDaddy, Durable, and Jimdo against the specific tools you will use each week. Squarespace gives you a guided route to a carefully styled site. Choose 10Web when WordPress is part of the plan; try Framer or Webflow when detailed visual design and an ongoing content workflow are central.',
+                'If you want a custom site from a description, quick publication, and ordinary files you can take elsewhere, try Puter. For an all-in-one small-business setup, compare Wix, Hostinger, GoDaddy, Durable, and Jimdo against the specific tools you will use each week. Squarespace gives you a guided route to a carefully styled site. Choose 10Web when WordPress is part of the plan. Try Framer or Webflow when detailed visual design and an ongoing content workflow are central.',
                 'Build a small real site in your two favorites. Change a page after publishing, submit a test contact form, check the mobile view, and inspect the domain and export options. The tool you can maintain a month later is usually the better choice.',
             ],
         },
@@ -232,20 +230,12 @@ export default {
         {
             type: 'prose',
             id: 'selection-method',
-            heading: 'How we selected these builders',
+            heading: 'How we compared these builders',
             body: [
-                'On September 29, 2026, we reviewed five comparison articles visible in Google results for “best ai website builder” in Jakarta. We counted brands in each article\'s main ranked list, then checked current descriptions on the vendors\' own sites. This measures recurring coverage in those results; it is not a hands-on quality score.',
-                'Wix appeared in three of the five lists. Hostinger, Squarespace, GoDaddy, 10Web, Durable, Framer, and Jimdo appeared in two each. Webflow appeared in one; we included it because it is an established website platform with a current AI Site Builder. Replit also appeared in two, but we cover its app-building workspace in our [AI app builder comparison](/best-ai-app-builder/). Puter is first because it is our product, as disclosed above.',
-            ],
-            list: [
-                '[Titan](https://titan.email/best-ai-website-builders/)',
-                '[Shipper](https://shipper.now/ai-website-builders/)',
-                '[Base44](https://base44.com/blog/best-ai-website-builders)',
-                '[beehiiv](https://www.beehiiv.com/blog/ai-website-builder)',
-                '[Jotform](https://www.jotform.com/ai/best-ai-website-builder/)',
+                'We compared popular AI website builders and checked each product\'s current offering on its own site. We focused on how a site gets created, what you can change afterward, and the tools available for publishing and maintaining it.',
             ],
             after: [
-                'Builder features and homepages change. For what our own builder does today, see the [Puter AI website builder](/ai-website-builder/) and [Puter.js documentation](' + LINKS.docs + ').',
+                '[Puter](' + LINKS.puter + ') makes Puter AI Builder and publishes this guide. For more about the product, see the [Puter AI website builder](/ai-website-builder/) and [Puter.js documentation](' + LINKS.docs + ').',
             ],
         },
     ],

@@ -641,6 +641,39 @@ for (const [slug, expectedCount, topic] of [
     check(`${slug}: table of contents links match review anchors in order`,
         toc.includes('aria-label="On this page"') &&
         JSON.stringify(tocIds) === JSON.stringify(reviewIds));
+
+    // The policy applies to links in comparison copy and review buttons, not
+    // shared navigation. Inspect the whole article body so inline links remain
+    // covered when editorial copy changes.
+    const articleBody = comparisonHtml.match(
+        /<div class="article-body">([\s\S]*?)<\/div>\s*(?:<section class="related">|<\/main>)/,
+    )?.[1] || '';
+    const articleAnchors = [...articleBody.matchAll(/<a\b[^>]*>/g)].map((match) => match[0]);
+    const outboundAnchors = articleAnchors.filter((tag) => {
+        const href = /\bhref="([^"]*)"/.exec(tag)?.[1];
+        if (!href || !/^https?:\/\//i.test(href)) return false;
+        const host = new URL(href).hostname.toLowerCase();
+        return host !== 'puter.com' && !host.endsWith('.puter.com') &&
+            host !== 'puter.site' && !host.endsWith('.puter.site');
+    });
+    check(`${slug}: all non-Puter outbound article links carry nofollow`,
+        articleBody.length > 0 && outboundAnchors.length >= expectedCount - 1 &&
+        outboundAnchors.every((tag) => /\brel="[^"]*\bnofollow\b[^"]*"/.test(tag)));
+    const puterVisitLink = reviewBlocks[0]?.match(/<a\b[^>]*class="review-link"[^>]*>/)?.[0] || '';
+    check(`${slug}: Puter review link remains followable`,
+        /\bhref="\/"/.test(puterVisitLink) && !/\bnofollow\b/.test(puterVisitLink));
+
+    // Exercise the domain exception inside article copy even when the current
+    // editorial text has no absolute Puter URL.
+    const withPuterDocs = renderPage({
+        ...comparison,
+        sections: [...comparison.sections, {
+            type: 'prose',
+            body: ['[Puter docs](https://docs.puter.com/)'],
+        }],
+    }, { bySlug });
+    check(`${slug}: Puter-owned absolute links remain followable`,
+        withPuterDocs.includes('<a href="https://docs.puter.com/" rel="noopener">Puter docs</a>'));
 }
 
 // The hero demos are tiny declarative mock apps; a malformed spec should fail

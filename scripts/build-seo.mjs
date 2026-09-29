@@ -109,6 +109,35 @@ function isExternal(href) {
     return /^https?:\/\//i.test(href) && !href.startsWith(ORIGIN);
 }
 
+// Comparison articles link to competing builders and, sometimes, sources in
+// inline copy. Apply the editorial link policy to the rendered article body so
+// it covers both inline links and review visit buttons without changing the
+// sitewide header/footer or other pages.
+const COMPARISON_ARTICLES = new Set(['best-ai-app-builder', 'best-ai-website-builder']);
+
+function nofollowArticleLinks(html) {
+    return html.replace(/<a\b[^>]*>/g, (tag) => {
+        const href = /\bhref="([^"]*)"/.exec(tag)?.[1];
+        if (!href || !/^https?:\/\//i.test(href)) return tag;
+
+        let hostname;
+        try {
+            hostname = new URL(href).hostname.toLowerCase();
+        } catch {
+            return tag;
+        }
+        if (hostname === 'puter.com' || hostname.endsWith('.puter.com') ||
+            hostname === 'puter.site' || hostname.endsWith('.puter.site')) return tag;
+
+        const existingRel = /\brel="([^"]*)"/.exec(tag);
+        const rel = new Set(existingRel?.[1].split(/\s+/).filter(Boolean) || []);
+        rel.add('noopener');
+        rel.add('nofollow');
+        const attr = `rel="${[...rel].join(' ')}"`;
+        return existingRel ? tag.replace(existingRel[0], attr) : tag.slice(0, -1) + ` ${attr}>`;
+    });
+}
+
 function link(entry, extraAttrs = '') {
     const href = hrefFor(entry);
     const rel = isExternal(href) ? ' rel="noopener"' : '';
@@ -694,7 +723,10 @@ export function renderPage(page, { css = '', fontCss = '', fontUrl = '', handoff
 
     const hasFaq = (page.sections || []).some((s) => s.type === 'faq');
 
-    const body = (page.sections || []).map(renderSection).join('');
+    const renderedBody = (page.sections || []).map(renderSection).join('');
+    const body = COMPARISON_ARTICLES.has(page.slug)
+        ? nofollowArticleLinks(renderedBody)
+        : renderedBody;
     const graph = buildGraph(page, { url, trail });
 
     return `<!DOCTYPE html>
