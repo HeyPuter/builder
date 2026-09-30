@@ -337,10 +337,13 @@ async function handleMessageStream(stream, context) {
         // an awaited (up to 8s) end-of-turn save, which would otherwise leave the
         // dots spinning long after the model stopped. stopSpinnerStub removes only
         // the floating dots — the checklist stays and is re-rendered (un-animated)
-        // by the reset.
-        stopSpinnerStub();
+        // by the reset. A suppressed final reply is revealed FIRST so it lands
+        // above the dots (appendMessage re-seats a live spinner below the new
+        // bubble) — revealed after the fade began, it was appended beneath the
+        // departing dots and jumped up when they were removed.
         saveCurrentMessage(context);
         revealFinalReply(context, historyStart);
+        stopSpinnerStub();
         // Fold the whole turn's accumulated AI cost + token usage onto its last
         // assistant message so it's persisted by the end-of-turn save in
         // sendChatMessage.

@@ -171,3 +171,18 @@ for (const end of ['abort', 'stale']) {
     assert.equal(h.rendered.length, 0, 'isError entry skipped');
     console.log('ok   - error entries are skipped');
 }
+
+// 9. The reveal lands ABOVE the thinking dots: it must run before the dots
+// start fading out (appendMessage only re-seats a live spinner), or the reply
+// is appended beneath the departing dots and jumps when they're removed.
+{
+    const h = setup();
+    const order = [];
+    const append = h.env.appendMessage;
+    h.env.appendMessage = (...a) => { order.push('reveal'); return append(...a); };
+    h.env.stopSpinnerStub = () => order.push('stopSpinner');
+    const c = h.context([{ role: 'user', content: 'continue' }]);
+    await h.env.handleMessageStream(chunks({ type: 'text', text: 'Reply' }), c);
+    assert.deepEqual(order, ['reveal', 'stopSpinner'], 'reveal precedes the dots teardown');
+    console.log('ok   - reply is revealed before the dots fade out');
+}
