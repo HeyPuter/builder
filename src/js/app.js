@@ -4039,7 +4039,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                     model: MODEL,
                     tools: turnTools,
                     stream: true,
-                    reasoning_effort: 'high',
+                    reasoning_effort: 'medium',
                     signal: abortController.signal
                 }), abortController.signal);
 
