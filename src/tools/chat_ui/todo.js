@@ -7,8 +7,7 @@ const TODO_UNCHECKED_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="12" h
 // payload. Shared by updateTodoDisplay below (remove + append at the bottom of
 // the chat) and restoreTodosForResume in app.js, which swaps the fresh markup
 // into the already-rendered checklist node so resuming a build doesn't move
-// the list. Returns { html, unfinishedCount } — the count drives the caller's
-// floating-spinner bookkeeping — or null when there's nothing renderable.
+// the list. Returns { html }, or null when there's nothing renderable.
 //
 // Be defensive about the shape of `todos`. This runs during loadChat's
 // history replay, where it's fed a *persisted* TodoWrite payload — and a
@@ -57,7 +56,7 @@ function buildTodoListHTML(todos, animate) {
 
     html += '</ul></div></div>';
 
-    return { html, unfinishedCount: unfinishedTodos.length };
+    return { html };
 }
 window.buildTodoListHTML = buildTodoListHTML;
 
@@ -89,11 +88,11 @@ function updateTodoDisplay(todos, animate = isProcessing) {
 
     chatBox.append(built.html);
 
-    // Re-add the floating spinner after the todo list only if every item is
-    // done. While the checklist still has unfinished items, it serves as the
-    // activity indicator, so the thinking dots are dropped to avoid redundancy.
+    // Re-add the floating spinner after the todo list unless an item is now
+    // shimmering in progress — that serves as the activity indicator, so the
+    // thinking dots are dropped to avoid redundancy (see hasRunningTodo).
     if (floatingSpinner.length) {
-        if (built.unfinishedCount === 0) {
+        if (!hasRunningTodo()) {
             const todoList = chatBox.find('.todo-list').last();
             todoList.after(floatingSpinner);
         } else {

@@ -4649,9 +4649,9 @@ function startSpinnerStub() {
     // teardown) is created by showSpinner(), which fades it in.
     const existing = $('.floating-spinner');
     if (existing.length) {
-        // Honor the checklist-is-the-indicator rule: no dots while a progress
-        // checklist is active.
-        if (hasActiveTodos()) { fadeOutSpinner(); return null; }
+        // Honor the checklist-is-the-indicator rule: no dots while a checklist
+        // item is shimmering in progress.
+        if (hasRunningTodo()) { fadeOutSpinner(); return null; }
         const lastMessage = $('.chat-box .message').last();
         if (lastMessage.length) lastMessage.after(existing);
         else $('.chat-box').append(existing);
