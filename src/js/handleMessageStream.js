@@ -21,6 +21,27 @@ function saveCurrentMessage(context) {
     }
 }
 
+// While the progress checklist has unfinished items, text bubbles are
+// suppressed so mid-turn narration doesn't clutter the chat (see the "text"
+// branch below and handleToolCalls). But a turn that ENDS on text isn't
+// narration — it's the model's reply to the user: a question, a "here's what
+// I did" summary written before the last item was checked off, or its answer
+// to "continue" after a build stopped mid-checklist. Suppressing that left the
+// chat looking frozen: every "continue" got a reply that only showed up after
+// a reload. Called once the whole turn has drained; renders the final message
+// if it never got a bubble. `fromIndex` limits it to this attempt's messages.
+function revealFinalReply(context, fromIndex) {
+    const hist = context.chatHistory;
+    if (!Array.isArray(hist) || hist.length === 0 || hist.length - 1 < fromIndex) return;
+    const last = hist[hist.length - 1];
+    if (!last || last.role !== 'assistant' || last.isError) return;
+    if (typeof last.content !== 'string' || !last.content.trim()) return;
+    // Already on screen — streamed normally, or re-rendered by a chat reload.
+    const id = last.messageId && String(last.messageId).replace(/["\\]/g, '\\$&');
+    if (id && $(`.chat-box .message[data-message-id="${id}"]`).length) return;
+    appendMessage(last.content, false, false, false, false, last.messageId);
+}
+
 // The stream emits a terminal {type:"usage", usage:{ usd_cents, input_tokens,
 // output_tokens, ... }} chunk per model call. Accumulate the reported cost and
 // token counts on the turn's shared context — one accumulator spans every round
@@ -197,7 +218,10 @@ async function handleMessageStream(stream, context) {
         recurser = true;
         context.recursed = true;
     }
-    
+    // Where this attempt's messages begin — bounds revealFinalReply below to
+    // text this stream produced, never an earlier turn's.
+    const historyStart = Array.isArray(context.chatHistory) ? context.chatHistory.length : 0;
+
     // Local ownership matters: recursive tool rounds and stale turns must not
     // tear down another stream's preview. Always dispose before a tool handoff.
     let thinkingPreview = null;
@@ -316,6 +340,7 @@ async function handleMessageStream(stream, context) {
         // by the reset.
         stopSpinnerStub();
         saveCurrentMessage(context);
+        revealFinalReply(context, historyStart);
         // Fold the whole turn's accumulated AI cost + token usage onto its last
         // assistant message so it's persisted by the end-of-turn save in
         // sendChatMessage.
