@@ -185,7 +185,7 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
         model: MODEL,
         tools: c.tools || window.tools,
         stream: true,
-        reasoning_effort: 'high',
+        reasoning_effort: 'medium',
         signal: c.abortController.signal
     }), c.abortController.signal);
     // Round handoff = liveness for the background-freeze watchdog (see
