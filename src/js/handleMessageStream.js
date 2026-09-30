@@ -21,6 +21,27 @@ function saveCurrentMessage(context) {
     }
 }
 
+// While the progress checklist has unfinished items, text bubbles are
+// suppressed so mid-turn narration doesn't clutter the chat (see the "text"
+// branch below and handleToolCalls). But a turn that ENDS on text isn't
+// narration — it's the model's reply to the user: a question, a "here's what
+// I did" summary written before the last item was checked off, or its answer
+// to "continue" after a build stopped mid-checklist. Suppressing that left the
+// chat looking frozen: every "continue" got a reply that only showed up after
+// a reload. Called once the whole turn has drained; renders the final message
+// if it never got a bubble. `fromIndex` limits it to this attempt's messages.
+function revealFinalReply(context, fromIndex) {
+    const hist = context.chatHistory;
+    if (!Array.isArray(hist) || hist.length === 0 || hist.length - 1 < fromIndex) return;
+    const last = hist[hist.length - 1];
+    if (!last || last.role !== 'assistant' || last.isError) return;
+    if (typeof last.content !== 'string' || !last.content.trim()) return;
+    // Already on screen — streamed normally, or re-rendered by a chat reload.
+    const id = last.messageId && String(last.messageId).replace(/["\\]/g, '\\$&');
+    if (id && $(`.chat-box .message[data-message-id="${id}"]`).length) return;
+    appendMessage(last.content, false, false, false, false, last.messageId);
+}
+
 // The stream emits a terminal {type:"usage", usage:{ usd_cents, input_tokens,
 // output_tokens, ... }} chunk per model call. Accumulate the reported cost and
 // token counts on the turn's shared context — one accumulator spans every round
@@ -197,7 +218,10 @@ async function handleMessageStream(stream, context) {
         recurser = true;
         context.recursed = true;
     }
-    
+    // Where this attempt's messages begin — bounds revealFinalReply below to
+    // text this stream produced, never an earlier turn's.
+    const historyStart = Array.isArray(context.chatHistory) ? context.chatHistory.length : 0;
+
     // Local ownership matters: recursive tool rounds and stale turns must not
     // tear down another stream's preview. Always dispose before a tool handoff.
     let thinkingPreview = null;
@@ -274,9 +298,9 @@ async function handleMessageStream(stream, context) {
                 // request was still in flight (esp. on follow-up turns that don't use
                 // a TodoWrite checklist). showSpinner() is idempotent — it reuses an
                 // existing spinner (no per-delta DOM churn, strictly less than the old
-                // per-delta .remove()) and self-suppresses while a checklist is active
-                // (hasActiveTodos), since the shimmering in-progress item is the
-                // indicator then. The dots are torn down the instant the whole turn's
+                // per-delta .remove()) and self-suppresses while a checklist item is
+                // in progress (hasRunningTodo), since its shimmer is the indicator
+                // then. The dots are torn down the instant the whole turn's
                 // generation ends (recurser block below) and on abort/error/turn-reset,
                 // so they never linger past completion.
                 showSpinner();
@@ -313,9 +337,13 @@ async function handleMessageStream(stream, context) {
         // an awaited (up to 8s) end-of-turn save, which would otherwise leave the
         // dots spinning long after the model stopped. stopSpinnerStub removes only
         // the floating dots — the checklist stays and is re-rendered (un-animated)
-        // by the reset.
-        stopSpinnerStub();
+        // by the reset. A suppressed final reply is revealed FIRST so it lands
+        // above the dots (appendMessage re-seats a live spinner below the new
+        // bubble) — revealed after the fade began, it was appended beneath the
+        // departing dots and jumped up when they were removed.
         saveCurrentMessage(context);
+        revealFinalReply(context, historyStart);
+        stopSpinnerStub();
         // Fold the whole turn's accumulated AI cost + token usage onto its last
         // assistant message so it's persisted by the end-of-turn save in
         // sendChatMessage.
