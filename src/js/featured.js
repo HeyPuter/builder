@@ -58,10 +58,14 @@ function sanitizeFeaturedItems(data) {
         // Image URLs may be absolute (curator overrides) or root-relative
         // (the /featured-thumbs/ snapshots, built or dev-proxied — see
         // featuredFeedPlugin in vite.config.js), so resolve against this
-        // origin before insisting on http(s).
+        // origin before insisting on http(s). An absent value resolves to the
+        // origin itself (`new URL('', origin)` is a valid URL), which would
+        // turn "no screenshot" into a real <img> pointing at the site root, so
+        // empty is rejected before it is ever parsed.
         const httpUrl = (v) => {
+            if (!v) return '';
             try {
-                const u = new URL(String(v || ''), window.location.origin);
+                const u = new URL(String(v), window.location.origin);
                 if (u.protocol === 'http:' || u.protocol === 'https:') return u.href;
             } catch (e) { /* fall through */ }
             return '';
