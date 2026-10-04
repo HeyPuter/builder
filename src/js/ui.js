@@ -3682,22 +3682,33 @@ async function confirmLeaveActiveChat() {
 // and the project Settings) are aria-modal, so the page behind them must not
 // be reachable by keyboard while they are up — but without a trap Tab walked
 // the whole app under the backdrop. Returns a release function for close().
+//
+// Listens on the document (capture), not the overlay: a listener on the overlay
+// never heard a key once focus had left it, and focus left easily — the dialogs
+// open with focus on their own container (tabindex -1, not a Tab stop), from
+// which Shift+Tab is the browser's to take straight to the page behind, and a
+// re-render that removes the focused control drops focus to <body>. Focus
+// parked like that is stepped to the dialog's first/last control instead.
+// Focus elsewhere on the page (a Puter alert opened over the dialog) is left
+// alone.
 function trapDialogFocus($overlay) {
     const opener = document.activeElement;
-    const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])';
     const onKeydown = (e) => {
-        if (e.key !== 'Tab') return;
+        if (e.key !== 'Tab' || e.defaultPrevented) return;
+        const active = document.activeElement;
+        const inside = $overlay[0].contains(active);
+        if (!inside && active && active !== document.body) return;
         const items = $overlay.find(FOCUSABLE).filter(':visible').toArray();
         if (!items.length) { e.preventDefault(); return; }
         const first = items[0], last = items[items.length - 1];
-        const active = document.activeElement;
-        const inside = $overlay[0].contains(active);
-        if (e.shiftKey && (active === first || !inside)) { e.preventDefault(); last.focus(); }
-        else if (!e.shiftKey && (active === last || !inside)) { e.preventDefault(); first.focus(); }
+        const parked = !inside || !$(active).is(FOCUSABLE);
+        if (e.shiftKey && (active === first || parked)) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && (active === last || parked)) { e.preventDefault(); first.focus(); }
     };
-    $overlay.on('keydown', onKeydown);
+    document.addEventListener('keydown', onKeydown, true);
     return function release() {
-        $overlay.off('keydown', onKeydown);
+        document.removeEventListener('keydown', onKeydown, true);
         // Back to the control that opened the dialog (if it is still there and
         // nothing else has since taken focus inside the page).
         const active = document.activeElement;
@@ -3936,6 +3947,10 @@ async function showChatProperties(chatId) {
     // Render the row from `pub`: either the live link + a Rename button, or a
     // "Not published" note + a Publish button.
     function renderPublishedCell() {
+        // Called from the address editor (Cancel, Escape, a finished rename) it
+        // removes the control that has focus, which fell to <body> under the
+        // dialog. Hand focus to the row's new action button instead.
+        const hadFocus = $published[0].contains(document.activeElement);
         $published.empty().removeClass('is-editing');
         if (pub.url) {
             $('<a class="properties-published-link" target="_blank" rel="noopener"></a>')
@@ -3949,6 +3964,7 @@ async function showChatProperties(chatId) {
             $('<button type="button" class="properties-site-btn properties-publish-site">Publish</button>')
                 .appendTo($published);
         }
+        if (hadFocus) $published.find('.properties-site-btn').trigger('focus');
     }
 
     // Swap the row for an inline address editor. mode: 'rename' (re-point the
