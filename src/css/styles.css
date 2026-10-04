@@ -4240,11 +4240,17 @@ body.preview-active.chat-hidden .chat {
     }
 
     /* iOS Safari zooms the whole page when an input with font-size < 16px gets
-       focus. Bump the interactive text fields to 16px to suppress that. */
+       focus, and stays zoomed after it blurs. Bump the text fields to 16px to
+       suppress that — including the project rename box, which the app focuses
+       for the user. (Fields whose base rule comes later in this file get their
+       16px right after it instead — the "type delete" confirmation, the
+       Settings address editor, the MCP dialog — or the base would win.) */
     .chat-input-message,
     .chat-search-input,
     .publish-name-input,
-    .publish-address-input {
+    .publish-address-input,
+    .chat-title-input,
+    .clarify-custom-input {
         font-size: 16px;
     }
     /* Keep the https:// / .puter.site affixes the same size as the (now 16px)
@@ -4607,6 +4613,12 @@ body.preview-active.chat-hidden .chat {
 .confirm-modal-input:focus-visible {
     outline: none;
 }
+/* Prevent iOS zoom-on-focus: the dialog focuses this field itself, so the page
+   zoomed in the moment it opened. After the base rule, which would otherwise
+   win on source order. */
+@media (max-width: 900px) {
+    .confirm-modal-input { font-size: 16px; }
+}
 
 .confirm-modal-actions {
     display: flex;
@@ -4849,6 +4861,13 @@ html[data-theme="dark"] .mcp-server[data-status="error"] .mcp-status::before { b
 .properties-address-cancel:hover { color: #c0392b; }
 .properties-address-save:disabled,
 .properties-address-input:disabled { opacity: 0.5; cursor: default; }
+/* Prevent iOS zoom-on-focus (mirrors the publish popover's address row: the
+   affixes match the field so the row stays one cohesive address). After the
+   base rules, which would otherwise win on source order. */
+@media (max-width: 900px) {
+    .properties-address-input,
+    .properties-address-fix { font-size: 16px; }
+}
 
 .properties-modal-actions {
     display: flex;
