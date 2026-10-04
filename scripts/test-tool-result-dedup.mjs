@@ -95,5 +95,28 @@ check('tools.js: the error push is gated the same way',
 check('helpers.js: prepareHistoryForAI dedupes before setting the cache breakpoint',
     helpers.indexOf('dropDuplicateToolResults(copy)') < helpers.indexOf("cache_control = { type: \"ephemeral\" }"));
 
+// --- No half characters reach the model API ------------------------------------
+// Text clipped by UTF-16 index (a click-to-edit snippet, an error report) can
+// end half-way through an emoji. The lone surrogate left behind made the API
+// reject the request as invalid JSON — and, being persisted, every later one.
+{
+    const half = '🍅'.slice(0, 1);  // a lone high surrogate
+    const h = [
+        { role: 'system', content: 's' },
+        { role: 'user', content: [{ type: 'text', text: 'fix this' }, { type: 'text-hidden', text: 'Visible text: Pomodoro ' + half + '…' }] },
+        toolUse('t1'),
+        toolResult('t1', 'tail ' + '🍅'.slice(1)),  // a lone low surrogate
+        assistant('Done 🍅✨ — your timer works.'),
+    ];
+    const before = JSON.stringify(h);
+    const out = prepareHistoryForAI(h);
+    const wire = JSON.stringify(out);
+    check('surrogates: the request carries no lone surrogate', !/\\ud[89ab][0-9a-f]{2}(?!\\udc|\\udd|\\ude|\\udf)/i.test(wire) && !/[\uD800-\uDFFF]/.test(wire.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '')), wire);
+    check('surrogates: a lone high surrogate becomes U+FFFD', out[1].content[1].text === 'Visible text: Pomodoro �…', JSON.stringify(out[1].content[1].text));
+    check('surrogates: a lone low surrogate inside a tool result becomes U+FFFD', out[3].content.content === 'tail �');
+    check('surrogates: real emoji are left intact', out[4].content === 'Done 🍅✨ — your timer works.');
+    check('surrogates: the persisted history itself is not modified', JSON.stringify(h) === before);
+}
+
 if (failures) { console.error(`\n${failures} tool-result dedup check(s) failed.`); process.exit(1); }
 console.log('\nAll tool-result dedup checks passed.');
