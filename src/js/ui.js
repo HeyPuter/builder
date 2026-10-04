@@ -3728,6 +3728,20 @@ async function confirmLeaveActiveChat() {
     return await puterConfirm('A chat is still in progress. Leaving this project will stop it. Continue?');
 }
 
+// Whether a key event is this dialog's to act on: aimed inside it, or at
+// nothing in particular (focus parked on the page). A key aimed anywhere else
+// belongs to whatever is above the dialog — a Puter alert or sign-in dialog
+// (standalone, those are native modal <dialog>s in this page). The dialogs'
+// document-wide handlers used to take it anyway: Escape on a Puter alert
+// closed Settings underneath it, and the preventDefault cancelled the alert's
+// own Escape, leaving it up with its caller waiting; Enter there (aimed at the
+// alert's host element, not a button) could confirm a typed-word delete.
+function keyIsForDialog(e, overlay) {
+    const t = e.target;
+    return !t || t === document || t === document.body || t === document.documentElement || overlay.contains(t);
+}
+window.keyIsForDialog = keyIsForDialog;
+
 // Keep Tab / Shift+Tab inside an open dialog, and hand focus back to whatever
 // had it when the dialog closes. Both in-app dialogs (the typed-word confirm
 // and the project Settings) are aria-modal, so the page behind them must not
@@ -3832,7 +3846,7 @@ function confirmByTyping({ title, body, confirmWord, confirmLabel = 'Delete' }) 
             else if (e.key === 'Escape') { e.preventDefault(); close(false); }
         });
         $(document).on('keydown.confirmModal', (e) => {
-            if (window.isComposingKeyEvent(e)) return;
+            if (window.isComposingKeyEvent(e) || !keyIsForDialog(e, $overlay[0])) return;
             if (e.key === 'Escape') { e.preventDefault(); close(false); }
             // Enter confirms only when it is not aimed at a button. Focus can
             // sit on Cancel (it is the first Tab stop after the input), and
@@ -4210,6 +4224,7 @@ async function showChatProperties(chatId) {
     $overlay.on('click', (e) => e.stopPropagation());
     $overlay.on('mousedown', (e) => { if (e.target === $overlay[0]) close(); });
     $(document).on('keydown.propertiesModal', (e) => {
+        if (window.isComposingKeyEvent(e) || !keyIsForDialog(e, $overlay[0])) return;
         if (e.key === 'Escape') { e.preventDefault(); close(); }
     });
 

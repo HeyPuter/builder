@@ -84,5 +84,32 @@ check('the Delete button still resolves true only on a match', /\$confirm\.on\('
     check('focus trap: closing the dialog removes its listener', listeners.length === 0);
 }
 
+// ---- A key aimed at a dialog above this one is not this dialog's ------------
+// Standalone, a Puter alert or sign-in prompt is a native modal <dialog> in
+// this page. The dialogs' document-wide handlers took its keys anyway: Escape
+// on a Puter alert closed Settings underneath it (and the preventDefault
+// cancelled the alert's own Escape, leaving it up), and Enter there — aimed at
+// the alert's host element, not a button — could confirm a typed-word delete.
+{
+    const a = ui.indexOf('function keyIsForDialog(e, overlay) {');
+    const b = ui.indexOf('\n}\n', a);
+    check('keyIsForDialog is present in ui.js', a >= 0);
+    const body = { tag: 'body' }, html = { tag: 'html' }, doc = { body, documentElement: html };
+    const inside = { tag: 'input' }, alertHost = { tag: 'puter-alert' };
+    const overlay = { contains: (x) => x === inside };
+    const isFor = new Function('document', ui.slice(a, b + 2) + '\nreturn keyIsForDialog;')(doc);
+    check('a key aimed inside the dialog is its own', isFor({ target: inside }, overlay) === true);
+    check('a key with focus parked on the page is its own (Escape still closes)', isFor({ target: body }, overlay) && isFor({ target: html }, overlay));
+    check('a key aimed at a Puter alert above it is not', isFor({ target: alertHost }, overlay) === false);
+    const props = ui.slice(ui.indexOf("$(document).on('keydown.propertiesModal'"));
+    check('Settings: its Escape ignores keys aimed elsewhere (and IME composition)',
+        /keydown\.propertiesModal', \(e\) => \{\s*if \(window\.isComposingKeyEvent\(e\) \|\| !keyIsForDialog\(e, \$overlay\[0\]\)\) return;\s*if \(e\.key === 'Escape'\)/.test(props));
+    check('typed-word confirm: its Escape/Enter ignore keys aimed elsewhere',
+        /keydown\.confirmModal', \(e\) => \{\s*if \(window\.isComposingKeyEvent\(e\) \|\| !keyIsForDialog\(e, \$overlay\[0\]\)\) return;/.test(handler));
+    const mcp = fs.readFileSync(new URL('../src/js/mcp-ui.js', import.meta.url), 'utf8');
+    check('MCP connections: its Escape ignores keys aimed elsewhere',
+        /if \(!window\.keyIsForDialog\(e, \$overlay\[0\]\)\) return;[^\n]*\n\s*if \(e\.key === 'Escape'\)/.test(mcp));
+}
+
 if (failures) { console.error(`\n${failures} confirm-modal check(s) failed.`); process.exit(1); }
 console.log('\nAll confirm-modal key checks passed.');

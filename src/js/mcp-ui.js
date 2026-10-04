@@ -121,6 +121,7 @@
         $overlay.on('click', e => { if (pressedBackdrop && e.target === $overlay[0]) closePanel?.(); });
         $(document).on('keydown.mcpConnections', e => {
             if (window.isComposingKeyEvent(e)) return; // Escape cancels the IME, not the dialog
+            if (!window.keyIsForDialog(e, $overlay[0])) return; // e.g. a Puter dialog above this one
             if (e.key === 'Escape') { e.preventDefault(); closePanel?.(); }
         });
         $overlay.find('form').on('submit', function (e) {
