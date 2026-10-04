@@ -269,10 +269,14 @@
                     if (el) el.setSelectionRange(el.value.length, el.value.length);
                 } else {
                     // Keep keyboard focus on the card so arrow/number/Enter work
-                    // immediately (without stealing it from a composer the user
-                    // clicked into).
-                    if (!$.contains($card[0], document.activeElement) &&
-                        !$(document.activeElement).hasClass('chat-input-message')) {
+                    // immediately — but only take it when nothing else holds it
+                    // (the composer is disabled during the turn, so focus is
+                    // usually on <body> here). Pulling it from whatever the user
+                    // was in — renaming a project (whose blur cancelled the
+                    // rename and lost the typed name), searching the sidebar, a
+                    // Settings or MCP dialog — was worse than a click away.
+                    const active = document.activeElement;
+                    if (!active || active === document.body || active === document.documentElement) {
                         $card[0].focus({ preventScroll: true });
                     }
                 }
@@ -300,6 +304,16 @@
             // in the composer or the custom input (so those keep normal behavior).
             $(document).on('keydown.clarify', function (e) {
                 const t = e.target;
+                // Only keys meant for the card: pressed with focus in it, or
+                // with nothing focused. Anything else belongs to whatever has
+                // focus — Escape closing a popover or the sidebar, Enter on a
+                // Puter alert's button (its dialog lives in a shadow root, so
+                // here the target is the <puter-alert> host), arrows in the
+                // version list — and used to skip or answer the questions
+                // behind the user's back. A key another handler already
+                // consumed is never ours either.
+                if (e.isDefaultPrevented()) return;
+                if (t && t !== document.body && t !== document.documentElement && !$card[0].contains(t)) return;
                 if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
                 // Enter aimed at a focused button or link must activate THAT
                 // control. The card's options, Skip, the ×, and Previous/Next
