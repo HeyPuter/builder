@@ -114,9 +114,15 @@ const read = (p) => fs.readFileSync(new URL(p, import.meta.url), 'utf8');
     check('the end-of-turn snapshot is skipped once superseded in this chat or after a restore began',
         /if \(!supersededSameChat && !restoredSince && window\._filesChangedThisTurn > 0\)/.test(send));
     check('the end-of-turn save is skipped once a newer turn owns this chat',
-        /if \(!supersededSameChat\) \{\s*try \{\s*await Promise\.race\(\[\s*scheduleSaveCurrentChat\(turnSaveContext\)/.test(send));
+        /if \(!supersededSameChat\) \{[\s\S]{0,1200}?try \{\s*await Promise\.race\(\[\s*scheduleSaveCurrentChat\(turnSaveContext\)/.test(send));
     check('the issues report carries the turn id', /notifyIssuesTurnFinished\?\.\(\{ chatId: turnChatId, succeeded: turnSucceeded, turnSeq \}\)/.test(send));
     check('callers can learn which turn carries them', /opts\.onTurnStart\(turnSeq\)/.test(send));
+    // A finished turn's tool-suggested chips go out with that save (cached
+    // first), instead of a second full chat-file write once they render.
+    check('the end-of-turn save carries the tool-suggested chips',
+        /_suggestionsByChat\.set\(turnChatId, \{ suggestions: toolChips \}\);\s*chipsSavedWithTurn = true;\s*\}\s*try \{\s*await Promise\.race/.test(send));
+    check('…so showing them saves again only if that save went without them',
+        /renderContinueSuggestions\(toolSuggestions\);[\s\S]{0,400}?if \(!chipsSavedWithTurn\) scheduleSaveCurrentChat\(turnSaveContext\);/.test(send));
 }
 
 // ---- tools.js: no touching another turn's spinner -------------------------------
