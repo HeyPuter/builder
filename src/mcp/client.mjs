@@ -114,9 +114,12 @@ export function createMcpManager({ getOwner, storage, browserFetch, relayFetch, 
     // vanish from the panel the moment it was added.
     function save() {
         if (!owner || !storage) return;
+        // A server another tab removed is kept here only while it is live
+        // (see merge); writing it back would undo that removal for good.
+        const kept = records.filter(record => !record.removedElsewhere);
         try {
-            storage.setItem(key(), JSON.stringify(records.map(({ id, name, url }) => ({ id, name, url }))));
-            records.forEach(record => { record.saved = true; });
+            storage.setItem(key(), JSON.stringify(kept.map(({ id, name, url }) => ({ id, name, url }))));
+            kept.forEach(record => { record.saved = true; });
         } catch { /* connections still work when local storage is unavailable */ }
     }
     // The saved list, or null when it cannot be read.
@@ -148,9 +151,12 @@ export function createMcpManager({ getOwner, storage, browserFetch, relayFetch, 
         const ids = new Set(saved.map(item => item.id));
         records = records.filter(record => ids.has(record.id) || !record.saved
             || record.status === 'connected' || record.status === 'connecting');
+        for (const record of records) {
+            if (record.saved && !ids.has(record.id)) record.removedElsewhere = true;
+        }
         for (const item of saved) {
             const record = records.find(record => record.id === item.id);
-            if (record) record.saved = true;
+            if (record) { record.saved = true; record.removedElsewhere = false; }
             else if (!records.some(record => record.url === item.url)) {
                 records.push({ ...item, status: 'disconnected', tools: [], error: '', saved: true });
             }

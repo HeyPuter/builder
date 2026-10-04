@@ -356,6 +356,23 @@ await test('a live connection removed in another tab stays usable here', async (
     assert.equal(manager.list().length, 0);
 });
 
+await test('a server removed in another tab is not written back by a later save here', async () => {
+    // merge() keeps a live server another tab removed, but save() wrote every
+    // record — so any later save from this tab (adding or removing some other
+    // server) put the removed one back, for every tab, for good.
+    const { manager, id, data } = fixture();
+    await manager.connect(id, 'private-token');
+    const storage = { setItem: (key, value) => data.set(key, value), getItem: key => data.get(key) };
+    createMcpManager({ getOwner: () => 'alice', storage }).remove(id);
+    manager.add({ name: 'Other', url: 'https://other.example.com/mcp' });
+    assert.equal(manager.list().find(record => record.id === id).status, 'connected');
+    const fresh = () => createMcpManager({ getOwner: () => 'alice', storage }).list().map(record => record.name);
+    assert.deepEqual(fresh(), ['Other']);
+    manager.disconnect(id);
+    assert.deepEqual(manager.list().map(record => record.name), ['Other']);
+    assert.deepEqual(fresh(), ['Other']);
+});
+
 await test('disconnect during initialization cannot register late tools', async () => {
     const { manager, id } = fixture();
     const connecting = manager.connect(id, 'private-token');
