@@ -602,14 +602,21 @@ async function buildProbeTargets(baseUrl, dir, changedPaths) {
     }
     rels.sort((a, b) => _extPriority(a) - _extPriority(b));
 
+    // Read the candidates a batch at a time, in priority order: as many as
+    // there are slots left, in parallel (they were read one after another,
+    // a round trip each, on every preview update). A file that can't be read
+    // (deleted / unreadable / binary) frees its slot for the next candidate.
     const targets = [];
-    for (const rel of rels) {
-        if (targets.length >= CAP) break;
-        let expected;
-        try { expected = await puter.fs.read(dir + '/' + rel).then(b => b.text()); }
-        catch (e) { continue; } // deleted / unreadable / binary
-        const url = baseUrl + rel.split('/').map(encodeURIComponent).join('/');
-        targets.push({ url, expected: (expected || '').trim() });
+    for (let i = 0; i < rels.length && targets.length < CAP;) {
+        const batch = rels.slice(i, i + (CAP - targets.length));
+        i += batch.length;
+        const read = await Promise.all(batch.map(rel =>
+            puter.fs.read(dir + '/' + rel).then(b => b.text()).then(text => ({ rel, text }), () => null)));
+        for (const r of read) {
+            if (!r) continue;
+            const url = baseUrl + r.rel.split('/').map(encodeURIComponent).join('/');
+            targets.push({ url, expected: (r.text || '').trim() });
+        }
     }
     return targets;
 }
@@ -894,6 +901,10 @@ async function runPreviewRefresh($frame, baseUrl, ownerChatId, seq) {
         try { await puter.hosting.update(sub, dir); } catch (e) { /* best effort */ }
         if (seq !== _previewRefreshSeq) return; // superseded while re-syncing
     }
+    // The propagation floor below is measured from the re-sync (see there).
+    // It started only after the probe targets had been read, so those reads
+    // added to every update instead of overlapping the wait.
+    const waitStart = Date.now();
 
     const changedPaths = Array.from(_changedPreviewPaths);
     const canProbe = typeof fetch === 'function';
@@ -909,10 +920,9 @@ async function runPreviewRefresh($frame, baseUrl, ownerChatId, seq) {
     // all). puter.site only serves freshly-synced files from the edge after its
     // cache cycle turns over, so a probe that reports "fresh" early — or the
     // no-probe path — must not let us reload before the change has reliably
-    // propagated. Measured from here, just after the re-sync, so it is a true
-    // post-sync settling window.
+    // propagated. Measured from just after the re-sync (waitStart, above), so
+    // it is a true post-sync settling window.
     const MIN_PROPAGATION_DELAY_MS = 10000;
-    const waitStart = Date.now();
 
     if (canProbe && targets.length > 0) {
         // The origin was just re-synced, but puter.site caches each file for ~20s
