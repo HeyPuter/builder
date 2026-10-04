@@ -516,6 +516,37 @@
 
     // ----- restore -----------------------------------------------------------
 
+    // A restore rewrites the project's files, but a serverless worker keeps
+    // running the code it was last DEPLOYED with — so the restored frontend
+    // kept talking to the newer backend: undoing a bad backend change left it
+    // running, and an endpoint the newer version had changed broke the app the
+    // user had just rolled back to. Redeploy each of the project's own deployed
+    // workers from its (now restored) source file. One whose source this
+    // version doesn't have is left as it is, and the published site's workers
+    // (deployed from outside the project directory) are never touched. In the
+    // background and best effort: a failure is reported, never undoes the
+    // restore.
+    async function redeployProjectWorkers(appDir) {
+        const WO = window.WorkerOwnership;
+        if (!WO || !puter.workers || typeof puter.workers.list !== 'function' || typeof puter.workers.create !== 'function') return;
+        let owned;
+        try { owned = WO.ownedWorkers(await puter.workers.list(), appDir); }
+        catch (e) { return; }
+        let failed = 0;
+        for (const worker of owned) {
+            try { await puter.fs.stat(worker.file_path); }
+            catch (e) { continue; } // not part of the restored version
+            try {
+                const res = await puter.workers.create(worker.name, worker.file_path, { sandbox: true });
+                if (!res || res.success === false) failed++;
+            } catch (e) { failed++; }
+        }
+        if (failed) {
+            window.showToast?.(`The project's files were restored, but ${failed === 1 ? 'its backend' : failed + ' of its backends'} couldn't be redeployed to match — ${failed === 1 ? 'it' : 'they'} may still be running newer code.`,
+                { type: 'warning', key: 'restore-workers', throttleMs: 5000 });
+        }
+    }
+
     // Recursively make curDir an exact copy of snapDir. For each snapshot entry:
     // copy files in (overwriting), recurse into directories, and — if a same-name
     // entry exists with a DIFFERENT type (file<->dir changed between versions) —
@@ -813,6 +844,8 @@
             }
             // The working dir now exactly matches versionId's snapshot.
             clearDirty(chatId);
+            // …and its backend should run that version's code too.
+            redeployProjectWorkers(appDir).catch(() => {});
 
             // Only touch UI/conversation state if we're still on the chat we
             // restored — a mid-restore chat switch must not redirect the preview
