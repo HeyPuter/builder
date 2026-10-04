@@ -2217,7 +2217,7 @@ function updateChatHistorySidebar() {
                     <div class="chat-item-content">
                         <div class="chat-title"></div>
                     </div>
-                    <button class="chat-menu-btn" title="Options">⋮</button>
+                    <button class="chat-menu-btn" title="Options" aria-haspopup="true" aria-expanded="false">⋮</button>
                 </div>
             </div>
         `);
@@ -2266,7 +2266,7 @@ function updateChatHistorySidebar() {
 
         // Put the rename editor back where its title would be (see above).
         if (chat.id === editingId) chatItem.find('.chat-title').replaceWith($editing);
-        if (chat.id === menuOpenId) chatItem.addClass('menu-open');
+        if (chat.id === menuOpenId) chatItem.addClass('menu-open').find('.chat-menu-btn').attr('aria-expanded', 'true');
 
         // Only the PUBLISHED public URL gets a sidebar link. The draft preview
         // URL is an internal working URL (and a duplicate seeds its own), so

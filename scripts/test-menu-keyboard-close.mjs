@@ -87,11 +87,25 @@ const openMenu = () => { const m = new EventTarget(); menus = [m]; return m; };
     const chatMenu = ui.slice(ui.indexOf("$(document).on('click', '.chat-menu-btn', function(e) {"));
     const chatMenuBody = chatMenu.slice(0, chatMenu.indexOf('\n});\n'));
     check('the ⋮ menu clears its held highlight and toggle flag on a keyboard close',
-        /onContextMenuKeyboardClose\(\(\) => \{\s*\$\('\.chat-item'\)\.removeClass\('menu-open'\);\s*openChatMenuBtn = null;\s*\}\);/.test(chatMenuBody));
+        /onContextMenuKeyboardClose\(\(\) => \{\s*setChatMenuOpenItem\(null\);\s*openChatMenuBtn = null;\s*\}\);/.test(chatMenuBody));
     const overflow = ui.slice(ui.indexOf("$(document).on('click', '.preview-overflow', function(e) {"));
     const overflowBody = overflow.slice(0, overflow.indexOf('\n});\n'));
     check('the "…" menu clears aria-expanded and its flag on a keyboard close',
         /onContextMenuKeyboardClose\(\(\) => \{\s*overflowMenuOpen = false;\s*\$\(trigger\)\.attr\('aria-expanded', 'false'\);\s*\}\);/.test(overflowBody));
+}
+
+// The ⋮ had no expanded state at all; it now mirrors the "…" button.
+{
+    const app = fs.readFileSync(new URL('../src/js/app.js', import.meta.url), 'utf8');
+    check('the ⋮ announces that it opens a menu, collapsed to begin with',
+        /<button class="chat-menu-btn" title="Options" aria-haspopup="true" aria-expanded="false">/.test(app));
+    const a = ui.indexOf('function setChatMenuOpenItem($item) {');
+    check('its held-open state and aria-expanded change together (setChatMenuOpenItem)', a >= 0
+        && /removeClass\('menu-open'\)\.find\('\.chat-menu-btn'\)\.attr\('aria-expanded', 'false'\)/.test(ui.slice(a, a + 600))
+        && /addClass\('menu-open'\)\.find\('\.chat-menu-btn'\)\.attr\('aria-expanded', 'true'\)/.test(ui.slice(a, a + 600)));
+    check('…everywhere it changes (no bare class toggles left)', !/\$\('\.chat-item'\)\.removeClass\('menu-open'\);/.test(ui) && !/addClass\('menu-open'\);/.test(ui));
+    check('…and a rebuild with the menu open keeps it expanded',
+        /if \(chat\.id === menuOpenId\) chatItem\.addClass\('menu-open'\)\.find\('\.chat-menu-btn'\)\.attr\('aria-expanded', 'true'\);/.test(app));
 }
 
 if (failures) { console.error(`\n${failures} check(s) FAILED`); process.exit(1); }
