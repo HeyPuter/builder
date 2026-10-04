@@ -62,5 +62,9 @@ const ui = read('../src/js/ui.js');
     check('…and the field no longer cancels on its own blur', !/\$input\.on\('blur', cancel\)/.test(rename));
 }
 
+// The open project was marked by its .active highlight alone — invisible to a
+// screen reader browsing the list.
+check('the open project\'s entry is aria-current', /if \(isActive\) chatItem\.find\('\.chat-item-link'\)\.attr\('aria-current', 'page'\);/.test(app));
+
 if (failures) { console.error(`\n${failures} check(s) FAILED`); process.exit(1); }
 console.log('\nAll sidebar focus checks passed.');
