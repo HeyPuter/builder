@@ -4461,6 +4461,15 @@ window.animateChatItemRemoval = function(chatId) {
 // second click on the same button toggles it closed.
 let openChatMenuBtn = null;
 
+// Hold an entry's ⋮ menu open — or, with no item, none — in the sidebar: its
+// highlight (.menu-open) and its button's aria-expanded, which a screen reader
+// reads as "expanded"/"collapsed" (the "…" overflow button already did).
+function setChatMenuOpenItem($item) {
+    $('.chat-item').removeClass('menu-open').find('.chat-menu-btn').attr('aria-expanded', 'false');
+    if ($item && $item.length) $item.addClass('menu-open').find('.chat-menu-btn').attr('aria-expanded', 'true');
+}
+window.setChatMenuOpenItem = setChatMenuOpenItem;
+
 // When the menu is dismissed by clicking elsewhere, puter's own capture-phase
 // pointerdown handler removes the menu; sync our state to match. Skip clicks on
 // a menu button itself so the click handler below can handle the toggle.
@@ -4473,7 +4482,7 @@ $(document).on('pointerdown', function(e) {
     // (e.g. selecting Delete). Suppress the close that the resulting click would
     // otherwise trigger so the sidebar stays open.
     suppressSidebarClose = true;
-    $('.chat-item').removeClass('menu-open');
+    setChatMenuOpenItem(null);
     openChatMenuBtn = null;
 });
 
@@ -4485,14 +4494,14 @@ $(document).on('click', '.chat-menu-btn', function(e) {
     // capture-phase pointerdown handler has already removed the menu element
     // by now, so we only sync our own state and bail.
     const wasOpenForThis = openChatMenuBtn === this;
-    $('.chat-item').removeClass('menu-open');
+    setChatMenuOpenItem(null);
     openChatMenuBtn = null;
     if (wasOpenForThis) return;
     const chatId = $(this).data('chat-id');
     if (!chatId) return;
     // Keep the item highlighted and the menu button visible while the
     // context menu is open (otherwise losing :hover reverts both).
-    $(this).closest('.chat-item').addClass('menu-open');
+    setChatMenuOpenItem($(this).closest('.chat-item'));
     openChatMenuBtn = this;
     // Current pin state, to pick the Pin/Unpin label below.
     const isPinned = !!savedChats.find(c => c.id === chatId)?.pinned;
@@ -4617,7 +4626,7 @@ $(document).on('click', '.chat-menu-btn', function(e) {
     // Only one chat menu is ever open, so a keyboard close clears the state
     // the same way the pointerdown handler above does for a pointer one.
     onContextMenuKeyboardClose(() => {
-        $('.chat-item').removeClass('menu-open');
+        setChatMenuOpenItem(null);
         openChatMenuBtn = null;
     });
 });
