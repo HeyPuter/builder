@@ -98,6 +98,7 @@ async function loadSavedChats() {
         const parsed = JSON.parse(raw);
         if (!Array.isArray(parsed)) throw new Error('chat-list.json is not an array');
         savedChats = parsed;
+        noteChatListSynced(savedChats);
         chatListLoaded = true;
     } catch (parseError) {
         // The index exists but is corrupt (e.g. a truncated/interleaved write).
@@ -179,6 +180,43 @@ function withChatListLock(fn) {
 // Callers still get a promise that resolves when their state is on disk.
 let _chatListSavePending = null;
 
+// The index is shared by every open tab of the account, and each tab used to
+// write its own in-memory copy over it — read once at boot. A project created
+// in tab B vanished at tab A's next save (its file orphaned: the list was
+// valid, so recovery never ran, and ?p= refuses unlisted ids); a project
+// deleted in one tab was written back by the other; a rename or pin made
+// elsewhere was reverted. So each write first merges the list as it is on
+// disk now. What this tab last read or wrote is remembered per entry, which
+// tells its own changes from another tab's without any timestamps:
+//   * an entry this tab changed since then keeps this tab's version;
+//   * an entry this tab didn't touch takes the version on disk now;
+//   * an untouched entry that is gone from disk was deleted elsewhere;
+//   * an entry on disk this tab never knew was created elsewhere (it goes
+//     first, where a new project lands), unless this tab deleted it.
+let _chatListSynced = new Map(); // chatId -> JSON of the entry as last read/written
+function noteChatListSynced(list) {
+    _chatListSynced = new Map((list || []).filter(c => c && c.id).map(c => [c.id, JSON.stringify(c)]));
+}
+function mergeChatLists(mine, disk, synced, deleted) {
+    const onDisk = new Map((disk || []).filter(c => c && c.id).map(c => [c.id, c]));
+    const untouched = (c) => synced.has(c.id) && synced.get(c.id) === JSON.stringify(c);
+    const merged = [];
+    const seen = new Set();
+    for (const c of mine || []) {
+        if (!c || !c.id || seen.has(c.id)) continue;
+        seen.add(c.id);
+        const theirs = onDisk.get(c.id);
+        if (theirs) merged.push(untouched(c) ? theirs : c);
+        else if (!untouched(c)) merged.push(c);
+    }
+    const added = [];
+    for (const c of onDisk.values()) {
+        if (seen.has(c.id) || synced.has(c.id) || deleted.has(c.id)) continue;
+        added.push(c);
+    }
+    return added.concat(merged);
+}
+
 async function saveChatList() {
     if (!chatListLoaded) {
         // Boot never established a trustworthy view of the on-disk index (the
@@ -209,11 +247,25 @@ async function saveChatList() {
         // Our turn: later callers must queue a save of their own from here on.
         _chatListSavePending = null;
         try {
+            // Fold in what other tabs wrote since this tab last synced (see
+            // mergeChatLists). An unreadable or missing file merges nothing.
+            let disk = null;
+            try {
+                const parsed = JSON.parse(await puter.fs.read(CHAT_LIST_PATH).then(d => d.text()));
+                if (Array.isArray(parsed)) disk = parsed;
+            } catch (e) { /* write this tab's list as before */ }
+            if (disk) {
+                const merged = mergeChatLists(savedChats, disk, _chatListSynced, _deletedChatIds);
+                const changed = JSON.stringify(merged) !== JSON.stringify(savedChats);
+                savedChats = merged;
+                if (changed) updateChatHistorySidebar();
+            }
             // Serialized INSIDE the lock, so this write always describes the
             // list as it stands now rather than as it stood when the call was
             // made — a save that waited behind a slow one still lands the newest
             // state, and never an older one on top of it.
             await puter.fs.write(CHAT_LIST_PATH, JSON.stringify(savedChats));
+            noteChatListSynced(savedChats);
         } catch (error) {
             console.error('Error saving chat list:', error);
             // Don't fail silently: the user believes their history is saved. One
