@@ -126,6 +126,8 @@ const read = (p) => fs.readFileSync(new URL(p, import.meta.url), 'utf8');
     const bail = body.indexOf("if (isAborted(c.abortController) || isStaleTurn(c)) {\n        return { error: 'Aborted', history: c.chatHistory };\n    }\n    spinner = showSpinner();");
     check('a stopped/stale round bails before showSpinner() can hand it another turn\'s dots', bail > 0);
     check('…and never removes a spinner on that path', !/spinner\.remove\(\)/.test(body.slice(0, body.indexOf('await abortableAwait(puter.ai.chat('))));
+    check('a stopped/stale round skips its mid-turn checkpoint save (the turn\'s own end-of-turn save covers it)',
+        /if \(toolCalls\.length > 0 && !isAborted\(c\.abortController\) && !isStaleTurn\(c\)\) \{\s*scheduleSaveCurrentChat\(c\);/.test(body));
 }
 
 // ---- issues.js: a batch is settled only by the turn that carries it -----------

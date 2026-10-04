@@ -167,7 +167,13 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
     // crash-safety net for a long multi-round turn: if the next round throws, or
     // the user refreshes while the AI is still working, the completed rounds are
     // already on disk rather than waiting for an end-of-turn save that never runs.
-    if (toolCalls.length > 0) {
+    // Not for a turn that was stopped or left while its tool ran: its save —
+    // interrupted:true, and possibly an older copy of the history if the chat
+    // was reloaded meanwhile — could land after a newer turn's final save,
+    // bringing back a Resume banner on a finished build or rolling back newer
+    // messages. The turn's own end-of-turn save (which knows when a newer turn
+    // owns the chat) persists what this round added.
+    if (toolCalls.length > 0 && !isAborted(c.abortController) && !isStaleTurn(c)) {
         scheduleSaveCurrentChat(c);
     }
 
