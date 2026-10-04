@@ -165,16 +165,15 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
         scheduleSaveCurrentChat(c);
     }
 
-    spinner = showSpinner();
-
-    // Check for abort/chat-switch after showing spinner (clean it up if so)
+    // Bail BEFORE touching the spinner. showSpinner() hands back whatever dots
+    // are already on screen, and by now those can belong to another turn: a
+    // Stopped turn whose tool only just returned may be running under a newer
+    // turn in this chat (or after a switch, in the chat now open) — removing
+    // "its" spinner took the live turn's activity indicator away.
     if (isAborted(c.abortController) || isStaleTurn(c)) {
-        if (spinner) {
-            spinner.remove();
-            spinner = null;
-        }
         return { error: 'Aborted', history: c.chatHistory };
     }
+    spinner = showSpinner();
     // Only create a new AbortController if one doesn't already exist
     // (it's created in sendChatMessage for top-level calls, and we don't want to overwrite it)
     if (!c.abortController) {
