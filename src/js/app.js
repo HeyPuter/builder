@@ -3185,6 +3185,7 @@ function showResumeBanner(message) {
     if (window.shouldAutoScroll) {
         $chatBox.scrollTop($chatBox[0].scrollHeight);
     }
+    window.announce?.((message || 'The response was interrupted.') + ' You can resume it from the end of the chat.');
 }
 window.showResumeBanner = showResumeBanner;
 
@@ -3287,6 +3288,7 @@ function showRetryStatus(n, max, customText) {
     const text = customText || `The AI service is busy — reconnecting… (${n}/${max})`;
     $chatBox.append(`<div class="message retry-status-message"><div class="resume-banner">${icon}<span class="resume-banner-text">${htmlEscape(text)}</span></div></div>`);
     if (window.shouldAutoScroll) $chatBox.scrollTop($chatBox[0].scrollHeight);
+    window.announce?.(text);
 }
 function clearRetryStatus() {
     $('.retry-status-message').remove();
@@ -4510,6 +4512,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             turnErrored = true;
             if(error.error?.delegate === "usage-limited-chat"){
                 appendMessage('You have reached the current tier\'s usage limit. Please upgrade your Puter account to continue. <button class="upgrade-button">Upgrade</button>', false, false, false, true);
+                window.announce?.('You have reached the current tier\'s usage limit. Upgrade your Puter account to continue.', { assertive: true });
             }else{
                 // Translate the raw provider/API error into a concise, actionable
                 // sentence and show it as a styled error card (not a plain bubble
@@ -4517,6 +4520,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                 // isError marker so a chat reload re-renders the same card.
                 const friendlyError = friendlyErrorMessage(extractErrorText(error));
                 appendErrorMessage(friendlyError);
+                window.announce?.('Error: ' + friendlyError, { assertive: true });
                 turnSaveContext.chatHistory.push({ role: "assistant", content: friendlyError, isError: true });
             }
 
