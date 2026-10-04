@@ -77,8 +77,20 @@ check('digits still pick an option', lines.some(l => /\^\[1-9\]\$/.test(l)));
 }
 
 // ---- The card doesn't pull focus out of other controls ------------------------
-check('render() only focuses the card when nothing else has focus',
-    /if \(!active \|\| active === document\.body \|\| active === document\.documentElement\) \{\s*\$card\[0\]\.focus/.test(src));
+check('render() only takes focus when nothing else has it (or it is already in the card)',
+    /if \(!active \|\| active === document\.body \|\| active === document\.documentElement \|\| \$card\[0\]\.contains\(active\)\) \{/.test(src));
+
+// ---- Screen readers can follow the card ----------------------------------------
+// Focus sat on the unnamed card (tabindex=-1, no role or label) while the arrow
+// keys moved a bare .active class: nothing was announced — not the option, not
+// the next question, not "1 of 2". Focus now goes to the highlighted option,
+// inside a group named by the question and its count.
+check('focus goes to the highlighted option (the card only as a fallback)',
+    /\(\$card\.find\('\.clarify-option\.active'\)\[0\] \|\| \$card\[0\]\)\.focus\(\{ preventScroll: true \}\)/.test(src));
+check('the options are a group named by the question and its "n of N"',
+    /class="clarify-options" role="group" aria-labelledby="\$\{uid\}-q\$\{total > 1 \? ` \$\{uid\}-n` : ''\}"/.test(src)
+    && /class="clarify-question" id="\$\{uid\}-q"/.test(src) && /class="clarify-count" id="\$\{uid\}-n"/.test(src));
+check('…with ids unique per card', /const uid = 'clarify-' \+ \(\+\+clarifyCardSeq\);/.test(src));
 
 if (failures) { console.error(`\n${failures} clarify key check(s) failed.`); process.exit(1); }
 console.log('\nAll clarify key checks passed.');

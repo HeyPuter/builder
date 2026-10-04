@@ -89,8 +89,12 @@
     // Renders the card, wires keyboard + click handling, and returns a Promise that
     // resolves with the persisted result once the user finishes (answers / direct
     // reply / dismiss) or the turn is aborted.
+    // Distinct ids per card, for the question/count labels below.
+    let clarifyCardSeq = 0;
+
     function runClarification(questions, context) {
         return new Promise((resolve) => {
+            const uid = 'clarify-' + (++clarifyCardSeq);
             // One question visible at a time. answers[i] is undefined until the user
             // resolves question i, then one of:
             //   { type:'option', value, optionIndex } | { type:'custom', value } | { type:'skip' }
@@ -219,11 +223,11 @@
 
                 let h = '';
                 h += '<div class="clarify-header">';
-                h += `<div class="clarify-question">${htmlEscape(q.question)}</div>`;
+                h += `<div class="clarify-question" id="${uid}-q">${htmlEscape(q.question)}</div>`;
                 h += '<div class="clarify-nav">';
                 if (total > 1) {
                     h += `<button class="clarify-prev" title="Previous"${qIndex === 0 ? ' disabled' : ''}>${chevronLeft}</button>`;
-                    h += `<span class="clarify-count">${qIndex + 1} of ${total}</span>`;
+                    h += `<span class="clarify-count" id="${uid}-n">${qIndex + 1} of ${total}</span>`;
                     h += `<button class="clarify-next" title="Next"${qIndex === total - 1 ? ' disabled' : ''}>${chevronRight}</button>`;
                 }
                 h += `<button class="clarify-close" title="Skip these questions">${closeX}</button>`;
@@ -235,7 +239,9 @@
                 const finishesOnAnswer = !answers.some((a, idx) => idx !== qIndex && a === undefined);
                 const actionHint = finishesOnAnswer ? enterKey : arrowRight;
 
-                h += '<div class="clarify-options">';
+                // Named by the question (and "2 of 3"), so a screen reader
+                // announces it as focus enters each question's options.
+                h += `<div class="clarify-options" role="group" aria-labelledby="${uid}-q${total > 1 ? ` ${uid}-n` : ''}">`;
                 opts.forEach((opt, i) => {
                     const isActive = i === activeOption && !customOpen;
                     const chosen = answers[qIndex] && answers[qIndex].type === 'option' && answers[qIndex].optionIndex === i;
@@ -268,16 +274,21 @@
                     const el = $inp[0];
                     if (el) el.setSelectionRange(el.value.length, el.value.length);
                 } else {
-                    // Keep keyboard focus on the card so arrow/number/Enter work
-                    // immediately — but only take it when nothing else holds it
-                    // (the composer is disabled during the turn, so focus is
-                    // usually on <body> here). Pulling it from whatever the user
-                    // was in — renaming a project (whose blur cancelled the
-                    // rename and lost the typed name), searching the sidebar, a
-                    // Settings or MCP dialog — was worse than a click away.
+                    // Keep keyboard focus in the card so arrow/number/Enter work
+                    // immediately — on the highlighted option itself, so a
+                    // screen reader follows the arrow keys option by option
+                    // (and hears each new question as focus enters its group);
+                    // focus used to sit on the unnamed card while the highlight
+                    // moved as a bare CSS class. Only taken when nothing else
+                    // holds focus (the composer is disabled during the turn, so
+                    // it is usually on <body> here) or it is already in the
+                    // card: pulling it from whatever the user was in — renaming
+                    // a project (whose blur cancelled the rename and lost the
+                    // typed name), searching the sidebar, a Settings or MCP
+                    // dialog — was worse than a click away.
                     const active = document.activeElement;
-                    if (!active || active === document.body || active === document.documentElement) {
-                        $card[0].focus({ preventScroll: true });
+                    if (!active || active === document.body || active === document.documentElement || $card[0].contains(active)) {
+                        ($card.find('.clarify-option.active')[0] || $card[0]).focus({ preventScroll: true });
                     }
                 }
             }
