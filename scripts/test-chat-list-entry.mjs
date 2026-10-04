@@ -39,14 +39,14 @@ function sandbox({ savedChats, currentChatId, onWrite }) {
     const factory = new Function(
         '_deletedChatIds', 'savedChats', '_aiProjectTitles', 'generateChatTitle', 'chatFilePath', 'puter',
         'currentChatId', 'window', '_suggestionsByChat', 'setUrlChat', 'saveChatList',
-        'updateChatHistorySidebar', 'updateDocumentTitle', 'console',
+        'updateChatHistorySidebar', 'updateDocumentTitle', 'console', '_chatListWrittenAt',
         body + '\n; return saveCurrentChatUnlocked;',
     );
     const fn = factory(
         deleted, savedChats, new Map(), () => 'Generated title', (id) => `chat-history/${id}.json`, puter,
         currentChatId, { currentPreviewUrl: 'https://y.puter.site/' }, new Map(),
         (id) => calls.url.push(id), async () => { calls.saveChatList++; },
-        () => { calls.sidebar++; }, () => {}, { error: () => {}, warn: () => {} },
+        () => { calls.sidebar++; }, () => {}, { error: () => {}, warn: () => {} }, new Map(),
     );
     return { fn, written, calls, deleted };
 }
@@ -128,6 +128,39 @@ const entry = (id, extra) => Object.assign({ id, title: 'T ' + id, customTitle: 
     check('new project: unshifted to the top', list[0].id === 'c9' && list.length === 2);
     check('new project: URL reflects it', s.calls.url.includes('c9'));
     check('new project: not pinned', list[0].pinned === false);
+}
+
+// === Checkpoint saves don't rewrite the whole list for a timestamp ===========
+// A running build saves after every tool round; nearly all of those differ from
+// the stored list entry only in lastModified, and each used to read, merge and
+// rewrite the whole chat-list.json. Mid-turn checkpoints now write it at most
+// every 30 s per project unless something it shows changed; the end-of-turn
+// save always writes.
+{
+    const realNow = Date.now;
+    let now = 1_000_000;
+    Date.now = () => now;
+    try {
+        const list = [entry('c1')];
+        const s = sandbox({ savedChats: list, currentChatId: 'c1' });
+        const checkpoint = () => s.fn({ currentChatId: 'c1', chatHistory: history, interrupted: true });
+        await checkpoint();
+        check('checkpoint: the first save writes the list', s.calls.saveChatList === 1, String(s.calls.saveChatList));
+        now += 3000; await checkpoint();
+        now += 3000; await checkpoint();
+        check('checkpoint: later rounds with only the time changed skip the list write', s.calls.saveChatList === 1, String(s.calls.saveChatList));
+        check('…but the chat file itself is still written every time', s.written.filter(([p]) => p === 'chat-history/c1.json').length === 3);
+        now += 30000; await checkpoint();
+        check('checkpoint: after 30 s the list is refreshed', s.calls.saveChatList === 2, String(s.calls.saveChatList));
+        // The stored entry still has an older draft address; this save carries
+        // the current one — something the sidebar shows (its thumbnail).
+        now += 1000; list[0].previewUrl = 'https://older.puter.site/'; await checkpoint();
+        check('checkpoint: a visible change (the preview address) writes at once', s.calls.saveChatList === 3, String(s.calls.saveChatList));
+        now += 1000; await s.fn({ currentChatId: 'c1', chatHistory: history, interrupted: false });
+        check('the end-of-turn save always writes', s.calls.saveChatList === 4, String(s.calls.saveChatList));
+    } finally {
+        Date.now = realNow;
+    }
 }
 
 if (failures) { console.error(`\n${failures} chat-list entry check(s) failed.`); process.exit(1); }

@@ -38,6 +38,9 @@ let FOLDER_URL = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5v
 
 // Chat state management
 let savedChats = [];
+// When this tab last wrote chat-list.json from a save of each chat (see the
+// checkpoint throttle in saveCurrentChatUnlocked).
+const _chatListWrittenAt = new Map();
 let currentChatId = generateChatId();
 let chatHistorySidebarOpen = false;
 // True once we've established a trustworthy view of the on-disk chat index
@@ -484,8 +487,26 @@ async function saveCurrentChatUnlocked(context) {
             }
         }
         
-        // Save updated chat list
-        await saveChatList();
+        // Save updated chat list — unless nothing it records but the time
+        // changed. A running build saves after every tool round, and nearly all
+        // of those differ from the stored entry only in lastModified; rewriting
+        // the whole list each time (read, merge, write: ~125 KB at 500 projects)
+        // was waste. Such a mid-turn checkpoint updates it at most every 30 s per
+        // project; any visible change (title, addresses, pin, a new entry) and
+        // the end-of-turn save always write. Nothing orders by the list's
+        // lastModified (rebuilds from the chat files sort by THEIR timestamps,
+        // which every save still writes); it is a label, stale by seconds at most.
+        const sameAsStored = !!live && (live.title || '') === (entry.title || '')
+            && !!live.customTitle === !!entry.customTitle && !!live.aiTitled === !!entry.aiTitled
+            && (live.timestamp || null) === (entry.timestamp || null)
+            && (live.previewUrl || null) === (entry.previewUrl || null)
+            && (live.publishedUrl || null) === (entry.publishedUrl || null)
+            && !!live.pinned === !!entry.pinned;
+        const listWrittenAt = _chatListWrittenAt.get(chatId) || 0;
+        if (!(sameAsStored && interrupted && Date.now() - listWrittenAt < 30000)) {
+            await saveChatList();
+            _chatListWrittenAt.set(chatId, Date.now());
+        }
         
         // Update sidebar
         updateChatHistorySidebar();
