@@ -4816,18 +4816,24 @@ $(document).on('keydown', '.user-theme-opt', function(e) {
 // Account row: open the Puter dashboard. Synchronous window.open (no
 // setTimeout): it must stay inside the click gesture or popup blockers swallow
 // the new tab.
+// Both rows below close the panel, taking the focused row with it; focus goes
+// back to the avatar (as Escape does) instead of falling to <body>, where the
+// next Tab started over from the top of the page.
 $(document).on('click', '.user-panel-account', function(e) {
     e.preventDefault();
     window.open('https://puter.com/dashboard', '_blank');
     closeUserPanel();
+    $('.user-menu-btn').trigger('focus');
 });
 
 // Feedback row: hand off to Puter's own dialog. Close the panel first — the
 // dialog takes over the screen, and leaving the panel open behind it would
-// have it hanging there when the dialog closes.
+// have it hanging there when the dialog closes. Focus is on the avatar before
+// the dialog opens, so that is where the dialog hands it back.
 $(document).on('click', '.user-panel-feedback', function(e) {
     e.preventDefault();
     closeUserPanel();
+    $('.user-menu-btn').trigger('focus');
     openFeedbackDialog();
 });
 
