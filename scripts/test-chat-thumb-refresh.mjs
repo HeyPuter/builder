@@ -16,6 +16,7 @@ import fs from 'node:fs';
 //   3. fetch error      → fallback swaps every tick (zero-regression behavior)
 //   4. out-of-order resolution → a stale older tick can't re-show an old shot
 //   6. sidebar closed   → no downloads; opening it refreshes the shot once
+//   8. entry filtered out by the search → the same
 //
 // Mirrors the block-extraction style of scripts/test-fs-path-scoping.mjs.
 
@@ -71,6 +72,8 @@ function makeThumb() {
         addClass(c) { t.classes.add(c); return t; },
         toggleClass() { return t; },
         attr() { return t; },
+        itemHidden: false,   // the search filter hid the entry
+        closest() { return { prop: (k) => (k === 'hidden' ? t.itemHidden : undefined) }; },
     };
     return t;
 }
@@ -102,11 +105,11 @@ const factory = new Function(
     'window', '$', 'Image', 'fetch', 'setTimeout', 'Date', 'AbortSignal', 'savedChats',
     'let chatHistorySidebarOpen = true;\n' + block + '\n' + openBlock +
     '\n; return { refreshChatThumb: window.refreshChatThumb, setChatHistorySidebarOpen, ' +
-    'setOpenQuietly: (v) => { chatHistorySidebarOpen = v; } };'
+    'setOpenQuietly: (v) => { chatHistorySidebarOpen = v; }, refreshStaleChatThumbs };'
 );
 const win = {};
 const savedChats = [{ id: 'c1', previewUrl: 'https://app.example.puter.site/' }];
-const { refreshChatThumb, setChatHistorySidebarOpen, setOpenQuietly } = factory(
+const { refreshChatThumb, setChatHistorySidebarOpen, setOpenQuietly, refreshStaleChatThumbs } = factory(
     win, $, FakeImage, fetchMock, setTimeoutMock, DateMock, undefined, savedChats
 );
 
@@ -273,6 +276,49 @@ await (async () => {
     setChatHistorySidebarOpen(true);
     await flush();
     check('a poll that ended with the sidebar open leaves nothing to refresh', fetchCount === after);
+})();
+
+// === Scenario 8: the search filter hides the entry — same as a closed sidebar:
+// no downloads while hidden, one refresh once the filter shows it again. =======
+await (async () => {
+    reset();
+    setOpenQuietly(true);
+    curThumb.itemHidden = true;
+    fetchImpl = () => Promise.resolve(okResp(NEW));
+
+    refreshChatThumb('c1');
+    await flush();
+    while (scheduled) { now += 3000; await step(); }
+    check('filtered-out entry: no screenshot downloads during the poll', fetchCount === 0);
+
+    refreshStaleChatThumbs();   // the filter re-applied, entry still hidden
+    await flush();
+    check('…none while it stays filtered out either', fetchCount === 0);
+
+    curThumb.itemHidden = false;
+    refreshStaleChatThumbs();   // the filter shows it again
+    await flush();
+    check('…and one refresh once the filter shows it again', fetchCount === 1 && swapCount === 1);
+    refreshStaleChatThumbs();
+    await flush();
+    check('…only once', fetchCount === 1);
+})();
+
+// === Scenario 9: skipped ticks followed by fetched ones leave nothing stale;
+// fetched ticks followed by skipped ones do. ===================================
+await (async () => {
+    reset();
+    setOpenQuietly(true);
+    fetchImpl = () => Promise.resolve(okResp(NEW));
+    refreshChatThumb('c1');     // tick0 — fetched
+    await flush();
+    curThumb.itemHidden = true; // filtered out for the rest of the poll
+    while (scheduled) { now += 3000; await step(); }
+    check('fetched, then filtered out: one download', fetchCount === 1);
+    curThumb.itemHidden = false;
+    refreshStaleChatThumbs();
+    await flush();
+    check('…and the shot is refreshed when it shows again', fetchCount === 2);
 })();
 
 if (failures > 0) {

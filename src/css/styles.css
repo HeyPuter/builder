@@ -2140,8 +2140,12 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
 /* The first label (Pinned) sits just under the search box — trim its top gap. */
 .chat-section-label:first-child { padding-top: 6px; }
 /* Tighten the gap between a label and its first item (items carry a 12px top
-   margin of their own). */
-.chat-section-label + .chat-item { margin-top: 2px; }
+   margin of their own). Set by the search filter, which may hide the items
+   right under a label (applyChatSearchFilter). */
+.chat-item.section-first { margin-top: 2px; }
+/* Entries, labels and messages the search filter hides (.chat-item is flex,
+   which would otherwise override the hidden attribute). */
+.chat-list > [hidden] { display: none; }
 
 .chat-list {
     flex: 1;
