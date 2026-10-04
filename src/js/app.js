@@ -1877,7 +1877,9 @@ window.togglePinChat = togglePinChat;
 // used to flip the two classes by hand, and none of them touched the ARIA
 // state, so assistive tech always heard the button as collapsed.)
 function setChatHistorySidebarOpen(open) {
+    const opening = !!open && !chatHistorySidebarOpen;
     chatHistorySidebarOpen = !!open;
+    if (opening) refreshStaleChatThumbs();
     $('.chat-history-sidebar').toggleClass('open', chatHistorySidebarOpen);
     $('.chat-history-toggle')
         .toggleClass('active', chatHistorySidebarOpen)
@@ -1936,6 +1938,18 @@ function loadChatThumb($thumb, previewUrl) {
 // Tracks the latest poll per chat so rapid successive edits supersede (rather
 // than stack) their pollers.
 const _thumbPollToken = new Map();
+// A thumbnail only shows in the sidebar, so a poll doesn't fetch while it is
+// closed — each preview update used to download the screenshot ~14 times over
+// 40 s regardless (up to ~100 KB each, cache-busted, on mobile data too). A
+// poll that ends with fetches skipped leaves its chat here, and opening the
+// sidebar refreshes those once. A poll still inside its window just resumes.
+const _thumbsStaleWhileClosed = new Set();
+function refreshStaleChatThumbs() {
+    for (const chatId of [..._thumbsStaleWhileClosed]) {
+        _thumbsStaleWhileClosed.delete(chatId);
+        window.refreshChatThumb(chatId, { windowMs: 1 });
+    }
+}
 
 // Best-effort abort signal so a hung screenshot fetch can't pin a poll tick's
 // request open indefinitely. Returns undefined where AbortSignal.timeout is
@@ -2019,12 +2033,15 @@ window.refreshChatThumb = function(chatId, opts) {
     let shownBytes = null;
     let evalSeq = -1;
 
+    let skipped = false;
     const tick = function() {
         if (_thumbPollToken.get(chatId) !== token) return; // superseded
         const $thumb = $(`.chat-item[data-chat-id="${chatId}"] .chat-thumb`);
         // The entry may be absent from the DOM right now (e.g. filtered out by the
         // sidebar search); keep the schedule alive in case it returns in-window.
-        if ($thumb.length) {
+        if (!chatHistorySidebarOpen) {
+            skipped = true;
+        } else if ($thumb.length) {
             const seq = n++;
             const url = base + (base.includes('?') ? '&' : '?') + '__ts=' + Date.now() + '_' + seq;
             (async () => {
@@ -2059,7 +2076,9 @@ window.refreshChatThumb = function(chatId, opts) {
             })().catch(() => { /* never let a tick reject unhandled */ });
         }
         if (Date.now() + intervalMs < deadline) setTimeout(tick, intervalMs);
+        else if (skipped && !chatHistorySidebarOpen) _thumbsStaleWhileClosed.add(chatId);
     };
+    _thumbsStaleWhileClosed.delete(chatId);
     tick();
 };
 
