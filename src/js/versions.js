@@ -24,6 +24,9 @@
     // and touches no project file, so snapshotting it would create redundant,
     // no-change versions.
     const MUTATING_TOOLS = new Set(['write', 'edit', 'multi_edit', 'delete', 'copy', 'move', 'rename', 'mkdir', 'create_worker']);
+    // Shared with the tool dispatcher (tools.js), which records only these
+    // tools' paths as changed files for the preview to verify.
+    window.isMutatingTool = function (toolName) { return MUTATING_TOOLS.has(toolName); };
 
     // ----- change tracking ---------------------------------------------------
 

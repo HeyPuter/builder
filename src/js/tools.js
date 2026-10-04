@@ -137,21 +137,27 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
             // verify exactly those files have propagated to the live site before
             // reloading. rename/copy/move land the file at a COMPUTED path (not
             // the raw input): rename -> dir(path)/new_name, copy/move -> dest/basename.
-            try {
-                const _inp = toolCall.input || {};
-                const _base = s => (typeof s === 'string' ? s.slice(s.lastIndexOf('/') + 1) : '');
-                const _trimEnd = s => (typeof s === 'string' ? s.replace(/\/+$/, '') : '');
-                if (toolCall.name === 'rename' && _inp.path && _inp.new_name) {
-                    window.recordPreviewChange?.(_inp.path.slice(0, _inp.path.lastIndexOf('/') + 1) + _inp.new_name);
-                } else if (toolCall.name === 'copy' && _inp.path && _inp.destination) {
-                    window.recordPreviewChange?.(_trimEnd(_inp.destination) + '/' + _base(_inp.path));
-                } else if (toolCall.name === 'move' && Array.isArray(_inp.paths_array) && _inp.destination) {
-                    _inp.paths_array.forEach(p => window.recordPreviewChange?.(_trimEnd(_inp.destination) + '/' + _base(p)));
-                } else {
-                    if (_inp.path) window.recordPreviewChange?.(_inp.path);
-                    if (Array.isArray(_inp.paths_array)) _inp.paths_array.forEach(p => window.recordPreviewChange?.(p));
-                }
-            } catch (e) { /* recording is best-effort */ }
+            // Only tools that write: the probe verifies at most six files, and
+            // the paths the model merely read (ReadTextFile, ViewImage, stat,
+            // SearchFiles…) took those slots, so a file that DID change could go
+            // unverified and the preview reloaded before it had propagated.
+            if (!window.isMutatingTool || window.isMutatingTool(toolCall.name)) {
+                try {
+                    const _inp = toolCall.input || {};
+                    const _base = s => (typeof s === 'string' ? s.slice(s.lastIndexOf('/') + 1) : '');
+                    const _trimEnd = s => (typeof s === 'string' ? s.replace(/\/+$/, '') : '');
+                    if (toolCall.name === 'rename' && _inp.path && _inp.new_name) {
+                        window.recordPreviewChange?.(_inp.path.slice(0, _inp.path.lastIndexOf('/') + 1) + _inp.new_name);
+                    } else if (toolCall.name === 'copy' && _inp.path && _inp.destination) {
+                        window.recordPreviewChange?.(_trimEnd(_inp.destination) + '/' + _base(_inp.path));
+                    } else if (toolCall.name === 'move' && Array.isArray(_inp.paths_array) && _inp.destination) {
+                        _inp.paths_array.forEach(p => window.recordPreviewChange?.(_trimEnd(_inp.destination) + '/' + _base(p)));
+                    } else {
+                        if (_inp.path) window.recordPreviewChange?.(_inp.path);
+                        if (Array.isArray(_inp.paths_array)) _inp.paths_array.forEach(p => window.recordPreviewChange?.(p));
+                    }
+                } catch (e) { /* recording is best-effort */ }
+            }
         }
     }
     
