@@ -1656,11 +1656,14 @@ $(window).on('resize', function () {
 // flag is scoped to the chat being published: the toolbar button is one
 // shared element, and a publish that outlives a chat switch used to leave the
 // NEXT chat's button reading "Publishing…" (disabled, then re-enabled with the
-// stale label) until something else happened to refresh it.
-let _publishBusy = false;
-let _publishBusyChatId = null;
+// stale label) until something else happened to refresh it. It is a SET:
+// publishes of different projects can overlap (the toolbar's in one, the
+// Settings dialog's in another), and a single slot let the second overwrite
+// the first's entry and then clear it on finishing — unlocking a project whose
+// files were still being copied for a turn or a restore to rewrite.
+const _publishBusyChats = new Set();
 function publishBusyHere() {
-    return _publishBusy && _publishBusyChatId === currentChatId;
+    return _publishBusyChats.has(currentChatId);
 }
 // The same question asked about a NAMED project, for the mutators. Publishing
 // already refuses to start during a build turn or a version restore, because it
@@ -1671,7 +1674,7 @@ function publishBusyHere() {
 // Scoped per chat because a publish outlives a chat switch: the project the
 // user moved to is free to build.
 window.isPublishInFlight = function (chatId) {
-    return !!_publishBusy && _publishBusyChatId === (chatId || currentChatId);
+    return _publishBusyChats.has(chatId || currentChatId);
 };
 let _publishPanelOpen = false;
 // Cached random address suggestion for the first-publish field, generated once
@@ -1709,14 +1712,19 @@ window.refreshPublishButton = function () {
 // and the spinner must still be cleared.
 let _publishActionHTML = null;
 function setPublishBusy(busy, chatId) {
-    _publishBusy = busy;
-    _publishBusyChatId = busy ? (chatId || currentChatId) : null;
-    // The shared toolbar button belongs to the OPEN chat; only paint the busy
-    // state on it while that is the chat being published.
-    const forOpenChat = !busy || _publishBusyChatId === currentChatId;
+    const id = chatId || currentChatId;
+    if (busy) _publishBusyChats.add(id); else _publishBusyChats.delete(id);
+    // The shared toolbar button and popover belong to the OPEN chat; only
+    // paint a publish's busy state on them while that is the chat being
+    // published. (A publish ending for another project leaves them alone: the
+    // caller's refreshPublishButton repaints the open chat's true state.)
+    if (id !== currentChatId) {
+        if (!busy) _publishActionHTML = null;
+        return;
+    }
     const $btn = $('.preview-publish-btn');
-    if (forOpenChat) $btn.prop('disabled', busy);
-    if (busy && forOpenChat) $btn.find('.preview-publish-label').text('Publishing…');
+    $btn.prop('disabled', busy);
+    if (busy) $btn.find('.preview-publish-label').text('Publishing…');
     const $action = $('.preview-publish-panel .publish-action');
     $action.prop('disabled', busy);
     if (busy) {
@@ -1763,7 +1771,7 @@ function renderPublishPanel() {
         return;
     }
     // A publish in flight always renders the progress note — including on a
-    // popover that was closed and REopened mid-publish (_publishBusy), which
+    // popover that was closed and REopened mid-publish (publishBusyHere), which
     // would otherwise get a fresh form with a second live Publish button.
     if (_publishPanelView === 'progress' || publishBusyHere()) {
         $panel.find('.publish-panel-header span').text('Publish');
@@ -1882,7 +1890,7 @@ function closePublishPanel() {
     _publishPanelOpen = false;
     _suggestedPublishName = null; // fresh suggestion on the next open
     // Closing acknowledges the progress/share view — the next open starts from
-    // the form. (A publish still in flight re-shows progress via _publishBusy.)
+    // the form. (A publish still in flight re-shows progress via publishBusyHere.)
     _publishPanelView = 'form';
     _publishSuccessData = null;
     $('.preview-publish-btn').attr('aria-expanded', 'false');
@@ -2265,8 +2273,8 @@ async function doPublish() {
         // preserved (renderPublishPanel re-reads _suggestedPublishName, which
         // mirrors the field), and the focus nudge below needs the field to
         // exist. Busy must clear first or the render re-draws the progress note
-        // (the finally's setPublishBusy(false) is a harmless repeat).
-        setPublishBusy(false);
+        // (the finally's setPublishBusy(false, …) is a harmless repeat).
+        setPublishBusy(false, chatId);
         _publishPanelView = 'form';
         _publishSuccessData = null;
         renderPublishPanel();
@@ -2287,7 +2295,7 @@ async function doPublish() {
         const $nameInput = $('.preview-publish-panel .publish-name-input');
         if ($nameInput.length) { $nameInput.trigger('focus'); $nameInput[0].select(); }
     } finally {
-        setPublishBusy(false);
+        setPublishBusy(false, chatId);
         // Whatever chat is open now gets its true state painted back: the
         // published one if it is still open, or the one the user moved to.
         window.refreshPublishButton?.();
@@ -3982,7 +3990,7 @@ async function showChatProperties(chatId) {
         // or rename of THIS project is still in flight — both delete-and-copy
         // the same published directory and mint subdomains against it.
         const blocked = (mode === 'publish' && chatId === currentChatId) ? publishBlockedReason() : null;
-        if (blocked || (_publishBusy && _publishBusyChatId === chatId)) {
+        if (blocked || window.isPublishInFlight(chatId)) {
             window.showToast?.(
                 blocked === 'restore' ? 'Finishing the restore — you can publish the moment it’s done.'
                     : blocked === 'task' ? 'Finishing the current task — you can publish the moment it’s done.'
@@ -4093,7 +4101,7 @@ async function showChatProperties(chatId) {
             $save.prop('disabled', false);
             $input.prop('disabled', false).trigger('focus');
         } finally {
-            setPublishBusy(false);
+            setPublishBusy(false, chatId);
             window.refreshPublishButton?.();
         }
     }

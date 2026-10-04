@@ -29,8 +29,43 @@ const versionsSource = fs.readFileSync(new URL('../src/js/versions.js', import.m
 // ---- ui.js exposes the query, scoped to the project being published ---------
 check('ui.js exposes window.isPublishInFlight', /window\.isPublishInFlight\s*=/.test(uiSource));
 check('the query is scoped per chat, not global',
-    /isPublishInFlight\s*=\s*function\s*\(chatId\)[\s\S]{0,220}_publishBusyChatId/.test(uiSource),
+    /isPublishInFlight\s*=\s*function\s*\(chatId\)[\s\S]{0,220}_publishBusyChats\.has\(chatId/.test(uiSource),
     'it must answer for a named project, since a publish outlives a chat switch');
+
+// ---- Overlapping publishes of two projects keep their own locks -------------
+// The busy flag was ONE slot. Publishing project A from the toolbar, then
+// renaming or publishing project B from its Settings dialog, overwrote A's
+// entry with B's — and B finishing cleared the slot outright, unlocking A while
+// its files were still being copied: a turn or a restore could rewrite them
+// mid-copy, and A's Publish button came back live for a second publish.
+{
+    const a = uiSource.indexOf('const _publishBusyChats = new Set();');
+    const fnAt = uiSource.indexOf('function setPublishBusy(busy, chatId) {', a);
+    const b = uiSource.indexOf('\n}\n', fnAt);
+    const block = uiSource.slice(a, b + 2);
+    const painted = [];
+    const fake$ = (sel) => ({
+        length: 1,
+        prop(k, v) { painted.push([sel, k, v]); return this; },
+        find() { return this; },
+        text() { return this; },
+        html() { return ''; },
+    });
+    const sandbox = { window: {}, $: fake$, currentChatId: 'chat-a' };
+    vm.createContext(sandbox);
+    vm.runInContext(block + '\nthis.setPublishBusy = setPublishBusy;', sandbox);
+    const { window: w } = sandbox;
+    sandbox.setPublishBusy(true, 'chat-a');      // toolbar publish of A
+    sandbox.currentChatId = 'chat-b';            // the user moves to B…
+    sandbox.setPublishBusy(true, 'chat-b');      // …and renames B from Settings
+    check('two projects publishing at once are both locked', w.isPublishInFlight('chat-a') && w.isPublishInFlight('chat-b'));
+    sandbox.setPublishBusy(false, 'chat-b');     // B's quick rename finishes first
+    check('one project finishing keeps the other locked', w.isPublishInFlight('chat-a') === true && w.isPublishInFlight('chat-b') === false);
+    painted.length = 0;
+    sandbox.setPublishBusy(false, 'chat-a');     // A finishes while B is open
+    check('A finishing unlocks A', w.isPublishInFlight('chat-a') === false);
+    check('…without repainting the open project\'s button', painted.length === 0, JSON.stringify(painted));
+}
 
 // ---- app.js: a send waits for the publish ----------------------------------
 {
