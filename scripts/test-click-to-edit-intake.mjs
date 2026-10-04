@@ -27,7 +27,22 @@ const runtime = fs.readFileSync(new URL('../src/runtime.js', import.meta.url), '
 const a = ui.indexOf('const EDIT_TARGET_LIMITS =');
 const b = ui.indexOf('window.sanitizeEditTarget = sanitizeEditTarget;');
 if (a < 0 || b <= a) throw new Error('could not extract sanitizeEditTarget from ui.js');
-const sanitizeEditTarget = new Function(ui.slice(a, b) + '\nreturn sanitizeEditTarget;')();
+// clipChars lives in helpers.js (loaded before ui.js in the real bundle).
+const helpersSrc = fs.readFileSync(new URL('../src/js/helpers.js', import.meta.url), 'utf8');
+const c0 = helpersSrc.indexOf('function clipChars(');
+const clipCharsSrc = helpersSrc.slice(c0, helpersSrc.indexOf('window.clipChars = clipChars;', c0));
+const sanitizeEditTarget = new Function(clipCharsSrc + ui.slice(a, b) + '\nreturn sanitizeEditTarget;')();
+
+{
+    // Clipped by UTF-16 index, an emoji straddling the limit left half of
+    // itself behind: a broken "�" in the chip, and a lone surrogate in the
+    // user's message that the model API rejects as invalid JSON.
+    const text = 'a'.repeat(199) + '🍅 and more';
+    const out = sanitizeEditTarget({ tag: 'p', text });
+    check('an emoji at the clip point is dropped whole, not split', out.text === 'a'.repeat(199) + '…', JSON.stringify(out.text.slice(-3)));
+    const html = '<p>' + '🍅'.repeat(400) + '</p>';
+    check('…in the outer HTML too', !/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/.test(sanitizeEditTarget({ tag: 'p', html }).html));
+}
 
 {
     const big = 'x'.repeat(5_000_000);
