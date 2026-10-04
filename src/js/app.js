@@ -3112,10 +3112,14 @@ function waitForRetry(delayMs, turnChatId) {
 // must never trip the watchdog.
 const STALL_HIDDEN_MIN_MS = 20000;
 // How long the stream may stay silent after returning to the foreground before
-// it's declared dead. Generous on purpose: a healthy-but-quiet stream (model
-// reasoning, or buffering a large tool call) usually shows life well within
-// this; a socket the OS killed never will. A false positive isn't fatal — the
-// turn resumes from its last checkpoint — it just redoes one model round.
+// it's declared dead. Generous on purpose: model reasoning usually shows life
+// well within this; a socket the OS killed never will. A tool call is the
+// exception — the backend buffers a tool_use block and sends it only once the
+// model has finished writing it (no keepalives), so writing a large file is
+// minutes of healthy silence. That's why the hidden-duration trigger is
+// limited to devices that actually suspend background pages (see
+// suspendsBackgroundPages). A false positive isn't fatal — the turn resumes
+// from its last checkpoint — it just redoes one model round.
 const STALL_GRACE_MS = 12000;
 // Don't even arm the watchdog when the stream produced data this recently —
 // e.g. it kept streaming in a desktop background tab (desktop tabs aren't
@@ -3135,6 +3139,7 @@ let _pageWasFrozen = false;      // Page Lifecycle `freeze` seen since the last 
 let _turnLastActivityAt = 0;     // last sign of life from the active turn's stream
 let _turnAwaitingStream = false; // sendChatMessage is inside an attempt (stream/tools)
 let _stallRecovery = false;      // the watchdog aborted the attempt; retry loop resumes it
+let _toolExecController = null;  // the attempt whose tool is executing right now (null: none)
 
 // Stamp "the turn is alive". Called for every streamed chunk and each agentic
 // round handoff (handleMessageStream.js / tools.js — via window.*, they load
@@ -3144,6 +3149,41 @@ function noteTurnActivity() {
     _turnLastActivityAt = Date.now();
 }
 window.noteTurnActivity = noteTurnActivity;
+
+// Bracket a tool's local execution (tools.js). While a tool runs the turn isn't
+// waiting on any socket — the next round's request only opens once the tool
+// returns, after the page is back — so its silence (a 10s+ preview check, a
+// slow fetch) says nothing about the stream. Keyed by the attempt's controller
+// so a stale turn's tool can't shield the live attempt. Ending also stamps
+// activity: the round handoff that follows is the live turn moving on.
+function noteToolExec(controller, running) {
+    if (running) {
+        _toolExecController = controller;
+    } else if (_toolExecController === controller) {
+        _toolExecController = null;
+        noteTurnActivity();
+    }
+}
+window.noteToolExec = noteToolExec;
+
+// Whether this device suspends a backgrounded page — and can silently kill its
+// sockets — without a Page Lifecycle `freeze` event to say so: iOS/iPadOS
+// (every browser there is WebKit) and Android. Desktop browsers keep a hidden
+// tab's connections alive (a dead one errors into the transient retry), so on
+// desktop only `freeze` may arm the watchdog: a long tab switch alone would
+// just kill a healthy build in the middle of a silent tool call. Unknown →
+// keep the protective behaviour.
+function suspendsBackgroundPages() {
+    try {
+        const ua = navigator.userAgent || '';
+        if (navigator.userAgentData && navigator.userAgentData.mobile === true) return true;
+        if (/Android|iPhone|iPad|iPod|Mobi/i.test(ua)) return true;
+        // iPadOS reports a desktop Safari (Macintosh) UA; touch support gives it away.
+        return /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
+    } catch (_) {
+        return true;
+    }
+}
 
 // Hold a screen Wake Lock while a build runs so the phone doesn't sleep (and
 // kill the request) mid-build. Best-effort: unsupported browsers and denials
@@ -3198,6 +3238,7 @@ function armStallWatchdog() {
         if (currentChatId !== watchedChatId) return;         // user switched chats
         if (abortController !== watchedController) return;   // a newer attempt took over
         if (shouldStop || activeTurnInterrupted) return;     // user already stopped it
+        if (_toolExecController === watchedController) return; // a local tool is running, not the stream
         if (document.visibilityState === 'hidden') return;   // backgrounded again; next return re-arms
         if (_turnLastActivityAt >= armedAt) return;          // stream showed life — healthy
         _stallRecovery = true;
@@ -3222,7 +3263,7 @@ document.addEventListener('visibilitychange', () => {
     if (!isProcessing) return;
     // The OS dropped the wake lock when the page was hidden; take it again.
     acquireWakeLock();
-    if (wasFrozen || hiddenForMs >= STALL_HIDDEN_MIN_MS) {
+    if (wasFrozen || (hiddenForMs >= STALL_HIDDEN_MIN_MS && suspendsBackgroundPages())) {
         armStallWatchdog();
     }
 });

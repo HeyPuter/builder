@@ -102,6 +102,10 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
             return { error: 'Aborted', history: c.chatHistory };
         }
         
+        // Tell the background-freeze watchdog (app.js) a local tool is running:
+        // the turn isn't waiting on its stream meanwhile, so silence isn't a stall.
+        const watchdogKey = c.abortController;
+        if (!isStaleTurn(c)) window.noteToolExec?.(watchdogKey, true);
         try {
             // Execute the tool
             const toolResponse = await executeFunction(toolCall.name, toolCall.input, c);
@@ -123,6 +127,7 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
                 addToolResultToHistory(c.chatHistory, toolCall.id, { error: errorMessage }, true);
             }
         } finally {
+            window.noteToolExec?.(watchdogKey, false);
             // Track project-file changes so the turn can be snapshotted for
             // version history. Done in finally because multi-path tools (move,
             // mkdir) can mutate the filesystem and then throw — the change still

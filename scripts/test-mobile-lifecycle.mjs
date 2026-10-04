@@ -38,10 +38,17 @@ let KEEPALIVE = APP.slice(kaA, kaB);
 const stateNames = [];
 KEEPALIVE = KEEPALIVE.replace(/^let (_\w+) = [^;]+;/gm, (m, name) => { stateNames.push(name); return ''; });
 const EXPECTED_STATE = ['_wakeLock', '_wakeLockPending', '_hiddenAt', '_pageWasFrozen',
-    '_turnLastActivityAt', '_turnAwaitingStream', '_stallRecovery'];
+    '_turnLastActivityAt', '_turnAwaitingStream', '_stallRecovery', '_toolExecController'];
 check('keepalive state variables all found', EXPECTED_STATE.every(n => stateNames.includes(n)));
 
-function makeEnv() {
+const IPHONE_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1';
+const ANDROID_UA = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Mobile Safari/537.36';
+const MAC_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36';
+const WINDOWS_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36';
+
+// Defaults to a phone: the hidden-duration trigger only applies on devices that
+// suspend background pages (see suspendsBackgroundPages).
+function makeEnv({ navigator = { userAgent: IPHONE_UA } } = {}) {
     const timers = [];
     const docListeners = {};
     const env = {
@@ -51,6 +58,7 @@ function makeEnv() {
         // stripped block state
         _wakeLock: null, _wakeLockPending: false, _hiddenAt: 0, _pageWasFrozen: false,
         _turnLastActivityAt: 0, _turnAwaitingStream: false, _stallRecovery: false,
+        _toolExecController: null,
         // globals the block reads live
         isProcessing: false,
         currentChatId: 'chat-1',
@@ -59,7 +67,7 @@ function makeEnv() {
         activeTurnInterrupted: false,
         // mocked browser environment
         window: {},
-        navigator: {},
+        navigator,
         document: {
             visibilityState: 'visible',
             addEventListener: (type, fn) => { docListeners[type] = fn; },
@@ -68,7 +76,7 @@ function makeEnv() {
         setTimeout: (fn, delay) => { timers.push({ fn, delay }); },
     };
     const exports = new Function('env',
-        'with (env) {\n' + KEEPALIVE + '\nreturn { armStallWatchdog, acquireWakeLock, releaseWakeLock, noteTurnActivity };\n}'
+        'with (env) {\n' + KEEPALIVE + '\nreturn { armStallWatchdog, acquireWakeLock, releaseWakeLock, noteTurnActivity, noteToolExec, suspendsBackgroundPages };\n}'
     )(env);
     return { env, exports };
 }
@@ -133,6 +141,45 @@ function fireVisible(env, at) {
     exports.noteTurnActivity(); // chunk arrived while hidden (desktop background tab)
     fireVisible(env, 125000);
     check('fresh stream activity suppresses arming (healthy desktop background tab)', env.timers.length === 0);
+}
+
+// === Desktop: a long tab switch alone must not arm ==========================
+// The backend buffers a tool_use block until the model has finished writing it
+// (no keepalives), so a healthy build is silent for minutes while it writes a
+// large file. Desktop browsers keep a hidden tab's sockets alive, so hidden
+// time there says nothing about the stream — only `freeze` may arm.
+for (const [label, ua] of [['macOS', MAC_UA], ['Windows', WINDOWS_UA]]) {
+    const { env } = makeEnv({ navigator: { userAgent: ua, maxTouchPoints: 0 } });
+    env.isProcessing = true;
+    env.abortController = makeAbortable();
+    env._turnAwaitingStream = true;
+    fireHidden(env, 100000);
+    fireVisible(env, 160000);
+    check(`desktop (${label}): long hidden stretch does NOT arm the watchdog`, env.timers.length === 0);
+}
+{
+    const { env } = makeEnv({ navigator: { userAgent: MAC_UA, maxTouchPoints: 0 } });
+    env.isProcessing = true;
+    env.abortController = makeAbortable();
+    env._turnAwaitingStream = true;
+    env.docListeners['freeze']();
+    fireHidden(env, 100000);
+    fireVisible(env, 105000);
+    check('desktop: a real freeze still arms the watchdog', env.timers.length === 1);
+}
+for (const [label, nav] of [
+    ['Android', { userAgent: ANDROID_UA }],
+    ['iPadOS (desktop UA + touch)', { userAgent: MAC_UA.replace('Chrome/129.0.0.0 Safari/537.36', 'Version/18.0 Safari/605.1.15'), maxTouchPoints: 5 }],
+    ['Chromium mobile hint', { userAgent: WINDOWS_UA, userAgentData: { mobile: true } }],
+]) {
+    const { env, exports } = makeEnv({ navigator: nav });
+    check(`${label} counts as a device that suspends background pages`, exports.suspendsBackgroundPages() === true);
+    env.isProcessing = true;
+    env.abortController = makeAbortable();
+    env._turnAwaitingStream = true;
+    fireHidden(env, 100000);
+    fireVisible(env, 125000);
+    check(`${label}: long hidden stretch arms the watchdog`, env.timers.length === 1);
 }
 
 // === Firing: every bail condition must protect a live/abandoned turn =========
@@ -206,6 +253,48 @@ function armedEnv() {
     check('re-hidden before firing → NOT aborted (next return re-arms)',
         env.abortController.aborted === 0 && env._stallRecovery === false);
 }
+
+// === A running tool is not a stalled stream ==================================
+// While a tool executes the turn isn't reading any socket (the next round's
+// request opens only after it returns), so a slow tool — the preview check
+// alone waits 10s+ — must never be mistaken for a dead stream.
+{
+    const { env, exports, fire } = armedEnv();
+    exports.noteToolExec(env.abortController, true); // tool still running at fire time
+    fire(137000);
+    check('tool executing for the watched attempt → NOT aborted',
+        env.abortController.aborted === 0 && env._stallRecovery === false);
+}
+{
+    const { env, exports, fire } = armedEnv();
+    exports.noteToolExec(env.abortController, true);
+    env.__now = 131000;
+    exports.noteToolExec(env.abortController, false); // finished during the grace window
+    fire(137000);
+    check('tool finishing during grace counts as activity → NOT aborted',
+        env.abortController.aborted === 0 && env._stallRecovery === false && env._toolExecController === null);
+}
+{
+    const { env, exports, fire } = armedEnv();
+    const staleTurnController = makeAbortable();
+    exports.noteToolExec(staleTurnController, true); // another (stale) turn's tool
+    fire(137000);
+    check('another attempt\'s tool cannot shield a dead stream → aborted',
+        env.abortController.aborted === 1 && env._stallRecovery === true);
+}
+{
+    const { env, exports } = makeEnv();
+    const a = makeAbortable();
+    const b = makeAbortable();
+    exports.noteToolExec(a, true);
+    env.__now = 5000;
+    exports.noteToolExec(b, false); // a different attempt ending must not clear a's bracket
+    check('ending a different attempt\'s tool leaves the running bracket intact (and stamps nothing)',
+        env._toolExecController === a && env._turnLastActivityAt === 0);
+}
+const TOOLS_SRC = fs.readFileSync(new URL('../src/js/tools.js', import.meta.url), 'utf8');
+check('handleToolCalls brackets each tool exec for the watchdog (start stale-guarded, end in finally)',
+    /if \(!isStaleTurn\(c\)\) window\.noteToolExec\?\.\(watchdogKey, true\);\s*try \{[\s\S]*?await executeFunction\([\s\S]*?\} finally \{\s*window\.noteToolExec\?\.\(watchdogKey, false\);/.test(TOOLS_SRC));
 
 // === Wake lock: best-effort, turn-scoped, never leaked =======================
 {
