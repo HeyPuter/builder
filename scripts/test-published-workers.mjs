@@ -274,6 +274,26 @@ function makeWorld({ failDeploy = false, takenLiveName = null } = {}) {
     check('no workers: no error', w.alerts.length === 0, JSON.stringify(w.alerts));
 }
 
+// ---- The release doesn't publish the backend's source ------------------------
+// The release is a copy of the served directory, so it carried
+// workers/<name>.js — served at <site>/workers/<name>.js, with any key or
+// private logic the backend holds. The published worker runs from its frozen
+// copy in __backend, so the release's copy is removed; any other file under
+// workers/ (a browser Web Worker script the app loads) stays.
+{
+    const w = makeWorld();
+    w.files.set(WORK + '/workers/sw-helper.js', 'self.onmessage = () => {};');
+    await w.sandbox.doPublish();
+    const release = w.sites.get('ay-site');
+    check('release: the serverless worker source is not served',
+        !w.files.has(release + '/workers/api-a.js'), [...w.files.keys()].filter(k => k.startsWith(release)).join(', '));
+    check('release: other files under workers/ are kept', w.files.get(release + '/workers/sw-helper.js') === 'self.onmessage = () => {};');
+    check('release: the published worker still runs (from its frozen copy)',
+        w.deployed.get('api-a-live').code === V1 && w.files.has(w.deployed.get('api-a-live').file_path));
+    check('release: the draft keeps its worker source', w.files.get(WORK + '/workers/api-a.js') === V1);
+    check('release: no error', w.alerts.length === 0, JSON.stringify(w.alerts));
+}
+
 // ---- The Settings dialog's first publish stages the same way ---------------
 // Its first-publish path copied the working files and went live directly — no
 // drain, no empty-copy check, and no deployPublishedWorkers — so the public

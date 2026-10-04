@@ -1930,7 +1930,7 @@ function liveWorkerName(draftName) {
 // the release at them. Returns the rename records. Throws: a release that still
 // calls the draft's workers is not a frozen release, so a backend that can't be
 // published fails the publish rather than shipping that.
-async function deployPublishedWorkers(chatId, appDir, releaseDir) {
+async function deployPublishedWorkers(chatId, appDir, releaseDir, srcPath = appDir) {
     const WO = window.WorkerOwnership;
     if (!WO || typeof puter.workers?.list !== 'function') return [];
     const all = await puter.workers.list();
@@ -1992,6 +1992,21 @@ async function deployPublishedWorkers(chatId, appDir, releaseDir) {
             throw new Error(`Couldn’t finish deploying the published copy of the worker “${rename.oldName}”.`);
         }
     }
+
+    // The release is a copy of the served directory, so it also carried the
+    // draft workers' source files (workers/<name>.js) — published at
+    // <site>/workers/<name>.js for anyone to read, along with any key or
+    // private logic the backend holds. The release never uses them: its workers
+    // run from the frozen copies in backendDir. Remove exactly those files;
+    // anything else under workers/ (a browser Web Worker script) stays.
+    const servedRoot = String(srcPath || appDir).replace(/\/+$/, '') + '/';
+    for (const worker of draftWorkers) {
+        const file = String(worker.file_path || '');
+        if (!file.startsWith(servedRoot)) continue; // outside what the site serves
+        const releaseCopy = releaseDir + '/' + file.slice(servedRoot.length);
+        try { await puter.fs.delete(releaseCopy); }
+        catch (e) { if (!(typeof isNotFoundError === 'function' && isNotFoundError(e))) console.warn('Publish: could not remove the backend source from the release', releaseCopy, e); }
+    }
     return renames;
 }
 
@@ -2044,7 +2059,7 @@ async function stagePublishRelease(chatId, appDir, srcPath) {
         // deployed before the failure is already on its new code while the
         // previous release is still served; there is no atomic swap of both
         // halves, and a retry completes the release.)
-        const publishedWorkers = await deployPublishedWorkers(chatId, appDir, releaseDir);
+        const publishedWorkers = await deployPublishedWorkers(chatId, appDir, releaseDir, srcPath);
         return { pubRoot, releaseName, releaseDir, publishedWorkers };
     } catch (e) {
         // The release never went live, so remove whatever of it landed. The
