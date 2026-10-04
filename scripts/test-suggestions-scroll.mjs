@@ -60,5 +60,16 @@ check('the auto-scroll listener is bound before boot awaits anything (handoff bu
     ready0 > 0 && l0 > ready0 && firstAwait > 0 && l0 < firstAwait
     && l0 < src.indexOf('await consumeComposerHandoff()'));
 
+// The per-chat chip cache holds only the chips: it used to keep the context
+// behind them too — each opened project's whole parsed history, pinned in
+// memory for the rest of the session. The context is rebuilt from the open chat
+// when the regenerate chip needs it, and dropped on a chat switch.
+check('the chip cache stores only the chips', /_suggestionsByChat\.set\(currentChatId, \{ suggestions \}\)/.test(src)
+    && !/_suggestionsByChat\.set\([^)]*context/.test(src));
+check('a chat switch drops the previous chat\'s suggestion context',
+    /function resetChatUIForSwitch\(\)[\s\S]*?clearContinueSuggestions\(\);[\s\S]{0,400}_lastSuggestionContext = null;/.test(src));
+check('deferred chips rebuild their context from the open chat',
+    /_lastSuggestionContext = \{ chatHistory, currentChatId, appDir: currentAppDir \};/.test(src));
+
 if (failures) { console.error('\n' + failures + ' check(s) failed'); process.exit(1); }
 console.log('\nAll suggestion-scroll checks passed.');
