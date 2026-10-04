@@ -1118,8 +1118,19 @@ function htmlEscape(text) {
 // characters "&gt;" was escaped to "&amp;gt;" and is left alone. Inside a code
 // fence the restored ">" round-trips through htmlUnescape to the same ">" the
 // model wrote, so fenced content is unaffected.
+//
+// Quotes are left alone: they can't open markup, and marked escapes them
+// itself wherever they land (text, link titles, hrefs). Pre-escaping them broke
+// what marked parses: GFM autolinking glued the "&#39;" after a quoted URL into
+// the link ('https://x.puter.site' linked to "https://x.puter.site'" and showed
+// a stray "&#39"), and a link title in double quotes no longer parsed, leaving
+// the whole [text](url "title") on screen as literal text.
 function escapeMarkdownSource(text) {
-    return htmlEscape(text).replace(/^((?:[ \t]*&gt;)+)/gm, (m) => m.replaceAll('&gt;', '>'));
+    return String(text)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replace(/^((?:[ \t]*&gt;)+)/gm, (m) => m.replaceAll('&gt;', '>'));
 }
 
 // Exact inverse of htmlEscape. "&amp;" MUST be decoded LAST: decoding it first

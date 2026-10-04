@@ -133,5 +133,30 @@ check('a bare file:// URL is not turned into a link', !/<a\b/i.test(renderAI('op
     check('a URL with an ampersand escapes it in the href', /href="https:\/\/e\.test\/\?a=1&amp;b=2"/.test(renderUser('https://e.test/?a=1&b=2')));
 }
 
+// ---- AI messages: quotes next to links ---------------------------------------
+// The source was pre-escaped with htmlEscape — quotes included — before marked
+// parsed it. GFM autolinking then glued the "&#39;" after a quoted URL into the
+// link (a dead href ending in a quote, with a stray "&#39" on screen), and a
+// double-quoted link title stopped parsing, leaving [text](url "title") as
+// literal text.
+{
+    const single = renderAI("I set the API base to 'https://api.example.com'.");
+    check('AI: a URL in single quotes links to the URL alone',
+        /href="https:\/\/api\.example\.com">https:\/\/api\.example\.com<\/a>&#39;\./.test(single), single);
+    const comma = renderAI("Open 'https://foo.puter.site', enjoy");
+    check('AI: …and the closing quote and comma stay outside the link',
+        /href="https:\/\/foo\.puter\.site">https:\/\/foo\.puter\.site<\/a>&#39;, enjoy/.test(comma), comma);
+    const titled = renderAI('[Docs](https://docs.puter.com "Puter documentation")');
+    check('AI: a link with a quoted title is a link, not literal markdown',
+        /<a target="_blank" href="https:\/\/docs\.puter\.com" title="Puter documentation">Docs<\/a>/.test(titled), titled);
+    const sneaky = renderAI('[a](http://x "t\\"onmouseover=alert(1)")');
+    check('AI: a quote inside a title cannot break out of the attribute',
+        !/\sonmouseover=/.test(sneaky.replace(/title="[^"]*"/g, '')), sneaky);
+    const raw = renderAI('"<img src=x onerror=alert(1)>" and \'<script>x</script>\'');
+    check('AI: raw tags next to quotes are still escaped', !/<img|<script/i.test(raw), raw);
+    const prose = renderAI('He said "hello" and it\'s fine');
+    check('AI: quotes in prose render as quotes', /He said &quot;hello&quot; and it&#39;s fine/.test(prose), prose);
+}
+
 if (failures) { console.error('\n' + failures + ' check(s) failed'); process.exit(1); }
 console.log('\nAll message-link checks passed.');
