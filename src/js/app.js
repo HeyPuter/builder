@@ -864,9 +864,20 @@ window.addEventListener('popstate', async () => {
         }
     }
     if (targetId) {
-        if (targetId !== currentChatId && savedChats.some(c => c.id === targetId)) {
-            // Failure is surfaced inside loadChat (toast); don't also reject.
-            await loadChat(targetId, { urlMode: 'none' }).catch(() => {});
+        if (targetId !== currentChatId) {
+            if (savedChats.some(c => c.id === targetId)) {
+                // Failure is surfaced inside loadChat (toast); don't also reject.
+                await loadChat(targetId, { urlMode: 'none' }).catch(() => {});
+            }
+            // Back onto a project that no longer exists (deleted since), or a
+            // load that failed: nothing switched, so put the address bar back
+            // on what IS open. Left on the dead ?p=, a refresh dropped the
+            // open project for the landing page and a copied link went
+            // nowhere.
+            if (currentChatId !== targetId && readUrlChatId() === targetId) {
+                const openIsListed = savedChats.some(c => c.id === currentChatId);
+                setUrlChat(openIsListed ? currentChatId : null, { replace: true });
+            }
         }
     } else if (currentChatId && chatHistory.some(m => m.role !== 'system')) {
         new_chat({ updateUrl: false });
