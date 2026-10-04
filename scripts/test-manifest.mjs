@@ -673,5 +673,33 @@ check("a description containing an apostrophe is read whole",
 check("a single-quoted content value containing a double quote is read whole",
     W.deriveManifestMeta("<head><title>x</title><meta name='description' content='Say \"hi\" fast'></head>", 'x').description === 'Say "hi" fast');
 
+// A failed icon upload is retried on the next refresh. writeIcons swallows the
+// failure (a missing icon degrades, it doesn't break), but the signature that
+// skips the expensive pass was recorded anyway — and the missing-icon check sits
+// behind it — so the app's icon links 404'd (not installable, and published that
+// way) until its title or icon changed or the builder was reloaded.
+{
+    const savedDoc = globalThis.document;
+    // A canvas that renders: any 2D call is a no-op, toBlob yields a PNG blob.
+    const ctx = new Proxy({}, { get: (t, k) => (k in t ? t[k] : () => ({ width: 10 })), set: (t, k, v) => { t[k] = v; return true; } });
+    globalThis.document = { createElement: () => ({ getContext: () => ctx, toBlob: (cb) => cb(new Blob(['png'], { type: 'image/png' })) }) };
+    const m = mountFs({ [APP + '/index.html']: APP_PAGE });
+    const realWrite = globalThis.puter.fs.write;
+    let failIcon = APP + '/icons/maskable-512.png';
+    globalThis.puter.fs.write = async (p, d, o) => {
+        if (p === failIcon) throw new Error('upload failed');
+        return realWrite(p, d, o);
+    };
+    await fullWindow.ensureAppManifest(APP, { fallbackName: 'Fallback' });
+    check('icons: one upload failing leaves that icon missing', !(failIcon in m.files) && (APP + '/icons/icon-192.png') in m.files);
+    failIcon = null; // the blip has passed
+    await fullWindow.ensureAppManifest(APP, { fallbackName: 'Fallback' });
+    check('icons: the next refresh writes the missing icon', (APP + '/icons/maskable-512.png') in m.files);
+    m.writes.length = 0;
+    await fullWindow.ensureAppManifest(APP, { fallbackName: 'Fallback' });
+    check('icons: once complete, a refresh writes nothing again', m.writes.length === 0, JSON.stringify(m.writes));
+    globalThis.document = savedDoc;
+}
+
 console.log(failures ? `\n${failures} check(s) failed` : '\nall manifest checks passed');
 process.exit(failures ? 1 : 0);
