@@ -286,7 +286,7 @@ export default {
                 {
                     q: 'Do I need design skills?',
                     a: [
-                        'No. Layout, type, spacing, and color are handled for you and kept consistent across every slide. If something looks off, click it and say so, or adjust it directly. The one skill that matters is knowing what you want the room to decide at the end, and that was always your job.',
+                        'No. Layout, type, spacing, and color are handled for you and kept consistent across every slide. If something looks off, click it and say so. The one skill that matters is knowing what you want the room to decide at the end, and that was always your job.',
                     ],
                 },
                 {

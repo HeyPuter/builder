@@ -95,7 +95,7 @@ export default verticalPage({
             title: 'Calm is a design decision',
             art: 'picker',
             body: [
-                'Spacing, color, type, pace: click any element in the preview and adjust it directly, or describe the feeling ("softer", "more space", "less clinical") and let the builder translate.',
+                'Spacing, color, type, pace: click any element in the preview and say what should change, or describe the feeling ("softer", "more space", "less clinical") and let the builder translate.',
                 'Every change is verified before it is called done, and every version is kept, so you can experiment without fear of breaking the site before Monday\'s sessions.',
             ],
         },
