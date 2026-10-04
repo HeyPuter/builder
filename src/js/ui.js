@@ -3529,8 +3529,8 @@ function startRenameChat(chatId) {
     const $edit = $(`
         <div class="chat-title-edit">
             <input type="text" class="chat-title-input" maxlength="${MAX_PROJECT_TITLE_LENGTH}" />
-            <button type="button" class="chat-title-confirm" title="Save">✓</button>
-            <button type="button" class="chat-title-cancel" title="Cancel">✕</button>
+            <button type="button" class="chat-title-confirm" title="Save" aria-label="Save name">✓</button>
+            <button type="button" class="chat-title-cancel" title="Cancel" aria-label="Cancel rename">✕</button>
         </div>
     `);
     const $input = $edit.find('.chat-title-input').val(current);

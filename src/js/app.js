@@ -2443,7 +2443,7 @@ function updateAttachmentDisplay() {
         $thumbnails.append(`
             <div class="attachment-thumbnail" data-id="${htmlEscape(img.id)}" title="${htmlEscape(label)}">
                 <img src="${thumbSrc}" alt="${htmlEscape(img.name)}" loading="lazy" decoding="async">
-                <button class="remove-attachment" data-id="${htmlEscape(img.id)}" title="Remove">×</button>
+                <button class="remove-attachment" data-id="${htmlEscape(img.id)}" title="Remove" aria-label="Remove ${htmlEscape(label)}">×</button>
                 <div class="attachment-info">${htmlEscape(label)}</div>
             </div>
         `);
