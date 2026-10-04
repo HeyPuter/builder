@@ -12,8 +12,10 @@ window.__viewImageInternals = (function () {
     // Anthropic rejects an image over 5MB or 8000px, and downscales anything
     // over ~1568px on its long edge server-side anyway (at full token cost).
     // Stay comfortably inside: attachments may be up to 30MB (dragdrop.js), and
-    // a phone photo is routinely 3–12MB and 4000px+.
-    const VISION_MAX_BYTES = 4 * 1024 * 1024;
+    // a phone photo is routinely 3–12MB and 4000px+. The 5MB is measured on the
+    // base64 payload, which is 4/3 the size of the bytes, so 4MB of raw image
+    // (5.33MB encoded) was still rejected; 3.5MB encodes to under 4.7MB.
+    const VISION_MAX_BYTES = 3.5 * 1024 * 1024;
     const VISION_MAX_EDGE = 1568;
     // How many times to shrink further when a re-encode is still too big.
     const MAX_SHRINK_ROUNDS = 4;
@@ -44,6 +46,20 @@ window.__viewImageInternals = (function () {
         }
     }
 
+    // The format the bytes are actually in — among the four the vision API
+    // takes — or null. The API rejects an image whose bytes don't match its
+    // declared media_type, and a file's extension often lies: images saved from
+    // the web are routinely WebP or JPEG behind a .png/.jpg name.
+    function sniffImageType(bytes) {
+        const b = bytes || [];
+        const at = (i, ...vals) => vals.every((v, k) => b[i + k] === v);
+        if (at(0, 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A)) return 'image/png';
+        if (at(0, 0xFF, 0xD8, 0xFF)) return 'image/jpeg';
+        if (at(0, 0x47, 0x49, 0x46, 0x38)) return 'image/gif';                               // GIF8
+        if (at(0, 0x52, 0x49, 0x46, 0x46) && at(8, 0x57, 0x45, 0x42, 0x50)) return 'image/webp'; // RIFF....WEBP
+        return null;
+    }
+
     function toBlob(canvas, type, quality) {
         return new Promise((resolve) => {
             try { canvas.toBlob((b) => resolve(b || null), type, quality); }
@@ -55,16 +71,17 @@ window.__viewImageInternals = (function () {
     // originalHeight } — the original when it already fits, otherwise a
     // re-encoded copy: downscaled to VISION_MAX_EDGE on the long edge, PNG when
     // the source may carry transparency (png/gif), JPEG otherwise, then shrunk
-    // further (and pushed to JPEG) until it is under VISION_MAX_BYTES. If the
-    // bytes can't be decoded at all, the original is returned untouched so a
-    // format the browser can't read still behaves exactly as before.
-    async function fitImageForVision(blob, mediaType) {
+    // further (and pushed to JPEG) until it is under VISION_MAX_BYTES. `force`
+    // re-encodes even an image that fits (bytes in a format the API won't
+    // take). If the bytes can't be decoded at all, the original is returned
+    // untouched with decodable:false — the caller decides whether to use it.
+    async function fitImageForVision(blob, mediaType, { force = false } = {}) {
         const decoded = await decode(blob);
-        if (!decoded) return { blob, mediaType, width: 0, height: 0, fitted: false };
+        if (!decoded) return { blob, mediaType, width: 0, height: 0, fitted: false, decodable: false };
         const { width, height } = decoded;
         const longEdge = Math.max(width, height);
         try {
-            if (blob.size <= VISION_MAX_BYTES && longEdge <= VISION_MAX_EDGE) {
+            if (!force && blob.size <= VISION_MAX_BYTES && longEdge <= VISION_MAX_EDGE) {
                 return { blob, mediaType, width, height, fitted: false };
             }
             const keepsAlpha = mediaType === 'image/png' || mediaType === 'image/gif';
@@ -89,8 +106,8 @@ window.__viewImageInternals = (function () {
                 else scale *= 0.8;
             }
             if (!out || out.size > VISION_MAX_BYTES) {
-                // Couldn't fit it — hand back the best attempt (or the original)
-                // and let the provider's error surface rather than silently drop it.
+                // Couldn't fit it — hand back the best attempt (or the original);
+                // the caller refuses anything still over the limit.
                 return out
                     ? { blob: out, mediaType: type, width: w, height: h, fitted: true, originalWidth: width, originalHeight: height }
                     : { blob, mediaType, width, height, fitted: false };
@@ -101,7 +118,7 @@ window.__viewImageInternals = (function () {
         }
     }
 
-    return { VISION_MAX_BYTES, VISION_MAX_EDGE, fitImageForVision };
+    return { VISION_MAX_BYTES, VISION_MAX_EDGE, fitImageForVision, sniffImageType };
 })();
 
 window.tools.push({
@@ -146,7 +163,18 @@ window.tools.push({
         // source so the model can read it directly.
         if (ext === 'svg') {
             const blob = await puter.fs.read(path);
-            const text = await blob.text();
+            let text = await blob.text();
+            // Same cap as ReadTextFile, for the same reason: the result is kept
+            // in the chat history and re-sent with every later request, so an
+            // exported multi-megabyte illustration failed this request with
+            // "prompt is too long" — and every request after it.
+            const MAX_CHARS = window.READ_TEXT_FILE_MAX_CHARS || 250000;
+            if (text.length > MAX_CHARS) {
+                const total = text.length;
+                text = text.slice(0, MAX_CHARS) +
+                    `\n\n[…truncated: this SVG is ${total.toLocaleString()} characters long and only the first ${MAX_CHARS.toLocaleString()} are shown. ` +
+                    `To find specific content in the rest, use SearchFiles; to use the image in the app, reference it by path instead of reading it.]`;
+            }
             return { __contentBlocks: [{ type: "text", text: `Contents of SVG image "${path}":\n\n${text}` }] };
         }
 
@@ -164,8 +192,24 @@ window.tools.push({
         // conversation. An oversized image didn't just fail this request: the
         // rejected block was already in the persisted history, so every later
         // request in the chat failed the same way — the project was bricked.
+        // The same goes for anything the API would reject: an image labelled
+        // with the wrong media_type (by its extension rather than its bytes),
+        // bytes that are no supported image at all, or one that can't be made
+        // small enough. Those are refused here, before they reach the history.
+        const { fitImageForVision, sniffImageType, VISION_MAX_BYTES } = window.__viewImageInternals;
         const original = await puter.fs.read(path);
-        const fit = await window.__viewImageInternals.fitImageForVision(original, mediaType);
+        const sniffed = sniffImageType(new Uint8Array(await original.slice(0, 16).arrayBuffer()));
+        // Unknown bytes (AVIF, HEIC, BMP… behind a .png name) are re-encoded to
+        // PNG/JPEG when the browser can decode them.
+        const fit = await fitImageForVision(original, sniffed || mediaType, { force: !sniffed });
+        // Bytes no modern browser can decode (a corrupt or truncated file) would
+        // be rejected by the API too.
+        if (fit.decodable === false || (!sniffed && !fit.fitted)) {
+            throw new Error(`"${path}" can't be viewed: its contents aren't a readable png, jpg, webp or gif image. Do not retry; reference the file by path if the app only needs it.`);
+        }
+        if (fit.blob.size > VISION_MAX_BYTES) {
+            throw new Error(`"${path}" is too large to view, even downscaled. Do not retry; reference the file by path if the app only needs it.`);
+        }
         const base64 = await new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = () => {
@@ -177,7 +221,8 @@ window.tools.push({
             reader.readAsDataURL(fit.blob);
         });
 
-        const caption = fit.fitted
+        const resized = fit.fitted && (fit.width !== fit.originalWidth || fit.height !== fit.originalHeight);
+        const caption = resized
             ? `Contents of image "${path}" (shown downscaled from ${fit.originalWidth}×${fit.originalHeight} to ${fit.width}×${fit.height} to fit; the file itself is unchanged):`
             : `Contents of image "${path}":`;
         return {
