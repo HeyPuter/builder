@@ -96,7 +96,7 @@ export default {
                     art: 'picker',
                     body: [
                         'Click any element in the running interface and describe what should change about that specific piece. No more explaining which of the four cards you mean.',
-                        'For styling, adjust spacing, color, size, and type directly on the selected element and watch it update live. Those tweaks are committed to a stylesheet of your own, and the AI leaves it alone on later turns.',
+                        'Styling tweaks work the same way: select the element and ask for "more padding", "a softer shadow", or "the brand blue", and the change is made to that element.',
                     ],
                 },
                 {
@@ -249,8 +249,8 @@ export default {
                 {
                     q: 'Can I edit the generated UI?',
                     a: [
-                        'Yes, in three ways. Ask for a change in plain language. Click an element in the live preview and describe what should be different about that piece specifically. Or select an element and adjust its spacing, color, size, and type directly, watching it update as you go.',
-                        'Direct visual edits are committed to a stylesheet of your own, which the AI leaves alone on later turns, so a tweak you made by hand does not get undone by the next request.',
+                        'Yes, in two ways. Ask for a change in plain language, or click an element in the live preview and describe what should be different about that piece specifically.',
+                        'Every change is saved as a version, so an edit you do not like is one click to undo.',
                     ],
                 },
                 {
@@ -310,7 +310,7 @@ export default {
                 {
                     q: 'Will later changes undo the tweaks I already made?',
                     a: [
-                        'Not the visual ones. Spacing, color, size, and type adjustments you make directly on an element are committed to a stylesheet of your own, and the AI leaves that file alone on later turns. Larger edits are made surgically to the files involved rather than by rewriting the whole project, and every turn is saved as a version you can restore if something drifts.',
+                        'Not on purpose. Edits are made surgically to the files involved rather than by rewriting the whole project, so a change to one part leaves the rest as it was, and every turn is saved as a version you can restore if something drifts.',
                     ],
                 },
                 {

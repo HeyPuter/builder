@@ -113,15 +113,14 @@ export default {
             id: 'control',
             heading: 'Refining the site with AI assistance and visual editing',
             body: [
-                'The first version is a draft. AI assistance is useful for adding a section, changing its content, or rearranging the page. Visual editing gives you direct control over individual details. Puter AI Builder combines them in three ways.',
+                'The first version is a draft. AI assistance is useful for adding a section, changing its content, or rearranging the page. Visual editing gives you direct control over individual details. In Puter AI Builder you refine a site in two ways.',
             ],
             list: [
                 '**Describe the change.** "Move testimonials above pricing and make the quote button more prominent." Useful for structural changes or changes across several parts of the site. Review the result to make sure the AI applied the change where you intended.',
                 '**Point at the element.** Click the exact heading, card, or button in the preview and say what should be different. This removes the problem of describing where something is. In Puter AI Builder this is the [element picker](/features/).',
-                '**Adjust it directly.** Use visual controls for spacing, size, color, and type on the selected element. Puter AI Builder keeps these edits in a stylesheet of your own, so later AI changes leave them alone.',
             ],
             after: [
-                'If the builder gives you access to the code, there is a fourth option: open the files and edit them. The output of Puter AI Builder is ordinary HTML, CSS, and JavaScript with no build step, so changing a phone number is a text edit, and a developer can take the project over at any point.',
+                'If the builder gives you access to the code, there is a third option: open the files and edit them. The output of Puter AI Builder is ordinary HTML, CSS, and JavaScript with no build step, so changing a phone number is a text edit, and a developer can take the project over at any point.',
             ],
         },
 
@@ -203,7 +202,7 @@ export default {
                 {
                     q: 'Can I edit the site after the AI builds it?',
                     a: [
-                        'Yes. The available controls depend on the tool: AI assistance, visual editing, and direct code editing can work together. In Puter AI Builder you can describe a change, select an element to edit, or adjust its styling with visual controls. Every change is saved as a version, so an edit that makes things worse is one click to undo.',
+                        'Yes. The available controls depend on the tool: AI assistance, visual editing, and direct code editing can work together. In Puter AI Builder you can describe a change, or select an element in the preview and say what should be different about it. Every change is saved as a version, so an edit that makes things worse is one click to undo.',
                     ],
                 },
                 {
