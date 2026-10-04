@@ -1095,7 +1095,7 @@ window.showAppPreview = function(url, opts) {
                                  (the chat) beside the wider preview. -->
                             <svg class="ptc-icon ptc-collapse" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
                         </button>
-                        ${window.FEATURE_FLAGS.clickToEdit ? `<span class="preview-toolbar-divider"></span><button class="preview-select-element" title="Select an element to edit"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 9l5 12 1.8-5.2L21 14Z"/><path d="M7.2 2.2 8 5.1"/><path d="m5.1 8-2.9-.8"/><path d="M14 4.1 12 6"/><path d="m6 12-1.9 2"/></svg></button>` : ''}
+                        ${window.FEATURE_FLAGS.clickToEdit ? `<span class="preview-toolbar-divider"></span><button class="preview-select-element" title="Select an element to edit" aria-pressed="false"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 9l5 12 1.8-5.2L21 14Z"/><path d="M7.2 2.2 8 5.1"/><path d="m5.1 8-2.9-.8"/><path d="M14 4.1 12 6"/><path d="m6 12-1.9 2"/></svg></button>` : ''}
                         <div class="preview-responsive-group">
                             <button class="preview-device-trigger" title="Desktop" aria-haspopup="dialog" aria-expanded="false">
                                 <span class="preview-device-current">${window.DEVICE_ICONS.desktop}</span>
@@ -1355,7 +1355,7 @@ function clearSelectAck() { if (selectAckTimer) { clearTimeout(selectAckTimer); 
 // locator stays valid across reloads/disarms until consumed or cancelled.
 function disarmSelectUI() {
     clearSelectAck();
-    $('.preview-select-element').removeClass('active');
+    $('.preview-select-element').removeClass('active').attr('aria-pressed', 'false');
     $('body').removeClass('preview-selecting');
 }
 
@@ -1420,7 +1420,8 @@ $(document).on('click', '.preview-select-element', function() {
     clearSelectAck();
     try { frame && frame.contentWindow && frame.contentWindow.postMessage({ type: 'puter-select-mode', enabled: active }, '*'); }
     catch (e) { /* cross-origin send is best-effort */ }
-    $(this).toggleClass('active', active);
+    // aria-pressed: a toggle, and a screen reader now hears whether it is on.
+    $(this).toggleClass('active', active).attr('aria-pressed', active ? 'true' : 'false');
     $('body').toggleClass('preview-selecting', active);
     if (active) {
         // The runtime bridge ACKs arming with 'puter-select-ready' (see
@@ -1435,7 +1436,7 @@ $(document).on('click', '.preview-select-element', function() {
         selectAckTimer = setTimeout(function() {
             selectAckTimer = null;
             if (!$('.preview-select-element').hasClass('active')) return; // already disarmed
-            $('.preview-select-element').removeClass('active');
+            $('.preview-select-element').removeClass('active').attr('aria-pressed', 'false');
             $('body').removeClass('preview-selecting');
             try { frame && frame.contentWindow && frame.contentWindow.postMessage({ type: 'puter-select-mode', enabled: false }, '*'); } catch (e) { /* best-effort */ }
             puter.ui.alert('Click-to-edit isn’t available on this app yet. Send any change in the chat and I’ll rebuild it with click-to-edit support.');
