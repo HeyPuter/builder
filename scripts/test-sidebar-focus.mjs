@@ -52,5 +52,15 @@ const ui = read('../src/js/ui.js');
         (ui.match(/closeChatHistorySidebar\(\);\s*focusComposerAfterSidebarOpen\(\);\s*return;/g) || []).length === 2);
 }
 
+// Tab from the rename field toward ✓ blurred the field, which cancelled the
+// rename and removed the editor mid-move — the typed name was lost and ✓/✕
+// were unreachable from the keyboard. Only leaving the editor cancels now.
+{
+    const rename = ui.slice(ui.indexOf('function startRenameChat('), ui.indexOf('function startRenameChat(') + 6000);
+    check('moving between the rename field and its ✓/✕ does not cancel the rename',
+        /\$edit\.on\('focusout', function\(e\) \{\s*if \(e\.relatedTarget && \$edit\[0\]\.contains\(e\.relatedTarget\)\) return;\s*cancel\(\);/.test(rename));
+    check('…and the field no longer cancels on its own blur', !/\$input\.on\('blur', cancel\)/.test(rename));
+}
+
 if (failures) { console.error(`\n${failures} check(s) FAILED`); process.exit(1); }
 console.log('\nAll sidebar focus checks passed.');
