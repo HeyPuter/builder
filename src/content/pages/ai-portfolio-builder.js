@@ -169,7 +169,7 @@ export default {
                 },
                 {
                     title: 'Writer or journalist',
-                    body: 'Clips sorted by publication and topic, with reading-time estimates.',
+                    body: 'Clips filterable by publication and topic, with a bio and editor testimonials.',
                     prompt:
                         'Build a writing portfolio with a clean, typography-first design, a clips page where each piece shows the headline, publication, date, topic tag, and a link to the original, filters by topic and publication, a short bio page, a testimonials section from editors, and a contact form that stores messages in my Puter account.',
                 },
