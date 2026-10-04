@@ -1039,7 +1039,10 @@
         // The one row that's tab-focusable (roving tabindex); arrow keys move it.
         const activeId = resolveFocusId(index);
 
-        let html = '<div class="preview-versions-panel">';
+        // A labelled dialog, like the publish/share popovers: its toolbar
+        // button announces aria-haspopup="dialog", and the panel itself used to
+        // be an anonymous div (same in the loading/unavailable states below).
+        let html = '<div class="preview-versions-panel" role="dialog" aria-label="Version history">';
         html += '<div class="versions-panel-header"><span>Version history</span>';
         html += `<button class="versions-panel-close" title="Close">${window.cross_svg}</button></div>`;
 
@@ -1093,7 +1096,7 @@
     // the very first open of a chat (nothing cached yet) so the panel appears
     // instantly instead of after the network read returns.
     function renderVersionsLoading() {
-        let html = '<div class="preview-versions-panel">';
+        let html = '<div class="preview-versions-panel" role="dialog" aria-label="Version history">';
         html += '<div class="versions-panel-header"><span>Version history</span>';
         html += `<button class="versions-panel-close" title="Close">${window.cross_svg}</button></div>`;
         html += '<div class="versions-empty">Loading…</div>';
@@ -1107,7 +1110,7 @@
     // distinct from the empty state ("No versions yet"): the snapshots may well
     // exist, we just don't know, and implying they're gone would be a lie.
     function renderVersionsUnavailable() {
-        let html = '<div class="preview-versions-panel">';
+        let html = '<div class="preview-versions-panel" role="dialog" aria-label="Version history">';
         html += '<div class="versions-panel-header"><span>Version history</span>';
         html += `<button class="versions-panel-close" title="Close">${window.cross_svg}</button></div>`;
         html += '<div class="versions-empty">Couldn\'t load version history. Check your connection and reopen this panel.</div>';

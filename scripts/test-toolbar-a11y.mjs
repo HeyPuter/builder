@@ -9,6 +9,8 @@ import fs from 'node:fs';
 //     nothing saying it sizes the preview;
 //   * the hosted-app theme toggle was always "Toggle dark mode", never saying
 //     which mode was on;
+//   * the version-history panel was an anonymous div although its button
+//     announces a dialog;
 
 let failures = 0;
 function check(name, cond, detail) {
@@ -39,6 +41,15 @@ const ui = fs.readFileSync(new URL('../src/js/ui.js', import.meta.url), 'utf8');
 check('the theme toggle is "Dark mode", pressed when dark is on',
     /class="theme-toggle-btn"[^`]*aria-label="Dark mode" aria-pressed="\$\{dark \? 'true' : 'false'\}"/.test(ui)
     && !/aria-label="Toggle dark mode"/.test(ui));
+
+// ---- Version history: the dialog its button announces ------------------------
+{
+    const versions = fs.readFileSync(new URL('../src/js/versions.js', import.meta.url), 'utf8');
+    check('the history button announces a dialog', /class="preview-versions" title="Version history" aria-haspopup="dialog"/.test(ui));
+    check('…and every state of the panel (list, loading, unavailable) is that labelled dialog',
+        (versions.match(/'<div class="preview-versions-panel" role="dialog" aria-label="Version history">'/g) || []).length === 3
+        && !/'<div class="preview-versions-panel">'/.test(versions));
+}
 
 if (failures) { console.error(`\n${failures} check(s) FAILED`); process.exit(1); }
 console.log('\nAll toolbar a11y checks passed.');
