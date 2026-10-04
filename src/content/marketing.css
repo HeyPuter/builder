@@ -453,8 +453,8 @@ code {
         --c-send-disabled-bg: #475061;
         --c-send-disabled-fill: #6a7480;
         --c-attach: #8b94a0;
-        --c-attach-hover: #8b94a0;
-        --c-attach-hover-bg: #f0f0f0;
+        --c-attach-hover: #e7e9ec;
+        --c-attach-hover-bg: #2a313c;
         --c-tray-bg: #1b212a;
         --c-tray-border: #333b47;
         --c-thumb-bg: #1e242d;
@@ -479,8 +479,8 @@ code {
     --c-send-disabled-bg: #475061;
     --c-send-disabled-fill: #6a7480;
     --c-attach: #8b94a0;
-    --c-attach-hover: #8b94a0;
-    --c-attach-hover-bg: #f0f0f0;
+    --c-attach-hover: #e7e9ec;
+    --c-attach-hover-bg: #2a313c;
     --c-tray-bg: #1b212a;
     --c-tray-border: #333b47;
     --c-thumb-bg: #1e242d;
