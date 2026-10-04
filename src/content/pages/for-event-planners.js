@@ -104,7 +104,7 @@ export default verticalPage({
             title: 'Change freely, even the week of',
             art: 'history',
             body: [
-                'The string quartet cancels, the ceremony moves an hour, the menu loses the fish. Say the change and it is live everywhere at once, verified before it lands.',
+                'The string quartet cancels, the ceremony moves an hour, the menu loses the fish. Say the change, publish, and it is live everywhere at once, verified before it lands.',
                 'Every version is snapshotted, so even a frantic Thursday-night edit can be rolled back calmly on Friday morning.',
             ],
         },

@@ -48,7 +48,7 @@ export default verticalPage({
             icon: 'utensils',
             title: 'A menu that is always current',
             body:
-                'Edit a dish, a price, or the whole seasonal menu yourself, and the change is live in seconds. The PDF menu that requires a pinch-zoom dies here.',
+                'Edit a dish, a price, or the whole seasonal menu yourself, publish, and the change is live in seconds. The PDF menu that requires a pinch-zoom dies here.',
         },
         {
             icon: 'star',

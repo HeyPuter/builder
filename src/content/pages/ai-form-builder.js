@@ -63,7 +63,7 @@ export default {
                     icon: 'globe',
                     title: 'Publish in one click, free hosting included',
                     body:
-                        'Your form goes live at its own link the moment you want it, ready to share anywhere a link goes. Change it later and the update is live instantly.',
+                        'Your form goes live at its own link the moment you want it, ready to share anywhere a link goes. Change it later, publish again, and the same link serves the update.',
                 },
                 {
                     icon: 'users',

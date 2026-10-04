@@ -155,7 +155,7 @@ export default verticalPage({
         {
             q: 'I change prices and hours a lot. How painful is updating?',
             a: [
-                'A sentence per change: "raise the skin fade to 42" or "closed the first Monday of the month". The change is made, checked, and live in about a minute, from your phone, between clients. That is the entire maintenance story.',
+                'A sentence per change: "raise the skin fade to 42" or "closed the first Monday of the month". The change is made and checked, and one tap on Publish puts it live, all in about a minute, from your phone, between clients. That is the entire maintenance story.',
             ],
         },
         {

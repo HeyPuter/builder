@@ -63,7 +63,7 @@ export default {
                     icon: 'globe',
                     title: 'Publish in one click, free hosting included',
                     body:
-                        'Your page goes live at its own link the moment you want it, ready to put behind an ad or in a bio. Update it anytime and the change is live instantly.',
+                        'Your page goes live at its own link the moment you want it, ready to put behind an ad or in a bio. Update it anytime, publish again, and the same link serves the change.',
                 },
                 {
                     icon: 'users',
