@@ -739,9 +739,12 @@ let _projectLoadingShownAt = 0;
 
 // The skeleton mimics the destination: a short mock conversation, and (under
 // .with-preview) a mock preview pane in the two-pane position. Blocks are
-// aria-hidden; the title node carries the human-readable status.
+// aria-hidden; the title node carries the human-readable status, which is also
+// spoken through window.announce when the skeleton appears (the overlay used
+// to be a role=status inserted with its label in the same moment, which
+// screen readers mostly don't announce).
 function projectLoadingOverlayHtml() {
-    return '<div class="project-loading-overlay" role="status">'
+    return '<div class="project-loading-overlay">'
         + '<div class="project-loading-inner">'
         + '<div class="project-loading-title shimmer"></div>'
         + '<div class="project-loading-row from-user" aria-hidden="true"><div class="project-loading-bubble" style="width: 52%;"></div></div>'
@@ -782,6 +785,7 @@ function showProjectLoading(title, { immediate = false, hasPreview = false } = {
         $existing.addClass('is-visible');
         $existing.toggleClass('with-preview', !!hasPreview);
         $existing.find('.project-loading-title').text(label);
+        window.announce?.(label);
         _projectLoadingShownAt = Date.now();
         return;
     }
@@ -792,6 +796,7 @@ function showProjectLoading(title, { immediate = false, hasPreview = false } = {
         $overlay.toggleClass('with-preview', !!hasPreview);
         // .text(), not markup: project titles are user data.
         $overlay.find('.project-loading-title').text(label);
+        window.announce?.(label);
         _projectLoadingShownAt = Date.now();
         // Force layout so the opacity transition runs (same idiom as showSpinner).
         void $overlay[0].offsetWidth;
@@ -2179,6 +2184,7 @@ async function doPublish() {
     _publishPanelView = 'progress';
     renderPublishPanel();
     $('.preview-publish-panel').trigger('focus');
+    window.announce?.(isFirst ? 'Publishing your site…' : 'Updating your site…');
     setPublishBusy(true, chatId);
     let ok = false;
     // The release directory this publish is staging, while it is still
@@ -2295,6 +2301,7 @@ async function doPublish() {
                     _publishSuccessData = { url, meta };
                     _publishPanelView = 'success';
                     renderPublishPanel();
+                    window.announce?.(isFirst ? 'Your website is live.' : 'Your website was updated.');
                 } else if (currentChatId === chatId) {
                     window.showToast?.(isFirst ? 'Your site is live.' : 'Your changes are now live.', publishToastOptions);
                 }
@@ -2478,8 +2485,11 @@ async function loadPublishedSiteMeta(rootDir) {
 
 // Progress body: quiet spinner + reassurance that closing costs nothing (the
 // publish keeps running; success then reports via the toast).
+// (Spoken through window.announce when the publish starts — not a live
+// region of its own: a region inserted together with its text is mostly not
+// announced.)
 function publishProgressHtml() {
-    return '<div class="publish-result-progress" role="status">' +
+    return '<div class="publish-result-progress">' +
         '<span class="publish-result-spinner" aria-hidden="true"></span>' +
         `<div class="publish-result-title">${_publishViewIsFirst ? 'Publishing your site' : 'Updating your site'}</div>` +
         '<p class="publish-result-sub">This usually takes a few seconds. You can close this and keep building.</p>' +
@@ -2538,8 +2548,11 @@ function publishSuccessHtml({ url, meta }) {
     const copySvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
     const arrowSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg>';
 
-    // role=status so the swap from the progress note is announced once.
-    return '<div class="publish-result-success" role="status">' +
+    // Announced through window.announce when it appears, rather than as a
+    // role=status of its own: inserted together with its content, the region
+    // was mostly not announced — or, where it was, read out whole, share
+    // buttons and all.
+    return '<div class="publish-result-success">' +
         `<div class="publish-result-badge" aria-hidden="true">${badgeSvg}</div>` +
         `<div class="publish-result-title">${_publishViewIsFirst ? 'Your website is live' : 'Your website was updated'}</div>` +
         `<p class="publish-result-sub">${_publishViewIsFirst ? 'Share it with the world.' : 'Share what’s new.'}</p>` +
