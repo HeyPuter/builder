@@ -117,5 +117,29 @@ const save = (t, id) => { t.__setCurrent(id); return t.saveCurrentChat({ current
     check('one tab alone keeps working exactly as before', ids(w.list()) === 'N2,P' && w.list()[0].id === 'N2', w.list().map((c) => c.id).join(','));
 }
 
+// ---- A missing index is rebuilt from the chat files --------------------------
+// A first save interrupted between the chat file and the index (or the index
+// deleted by hand) left files with no list. Boot started from an empty list,
+// and the next save wrote a list without them — hidden for good.
+{
+    const w = world();
+    for (const id of ['OLD1', 'OLD2']) {
+        w.disk.set(`chat-history/${id}.json`, JSON.stringify({ id, title: id, history: [{ role: 'user', content: id }], lastModified: '2026-01-0' + id.slice(-1) }));
+    }
+    const A = w.tab();
+    await A.loadSavedChats();
+    check('missing index: the projects on disk are listed', ids(A.__list()) === 'OLD1,OLD2', ids(A.__list()));
+    await save(A, 'NEW');
+    check('missing index: the next save keeps them', ids(w.list()) === 'NEW,OLD1,OLD2', ids(w.list()));
+}
+{
+    const w = world();
+    const A = w.tab();
+    await A.loadSavedChats();
+    check('brand-new account: an empty list', A.__list().length === 0);
+    await save(A, 'FIRST');
+    check('brand-new account: the first project is saved to the list', ids(w.list()) === 'FIRST', w.disk.get('chat-history/chat-list.json'));
+}
+
 if (failures) { console.error(`\n${failures} check(s) FAILED`); process.exit(1); }
 console.log('\nAll chat-list multi-tab checks passed.');
