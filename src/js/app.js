@@ -25,6 +25,10 @@ let _sendSetupInFlight = false;
 // tell "I finished" from "a newer turn in this same chat has since begun" —
 // the chat-id guards can't, and a stale teardown would clobber the live turn.
 let _turnSeq = 0;
+// The newest turn started in each chat (chatId -> its _turnSeq). A stopped turn
+// that only unwinds after a newer one has begun in the SAME chat must leave the
+// chat's persisted state to that newer turn (see the finally in sendChatMessage).
+const _latestTurnSeqByChat = new Map();
 window.shouldAutoScroll = true;  // Make it globally accessible
 // Local-only attachments: each entry is { name, size, type, file, blobURL, id }
 let attachedImages = Array.isArray(window.attachedImages) ? window.attachedImages : [];
@@ -3736,6 +3740,11 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     acquireWakeLock();
     // This turn's id — see _turnSeq and the end-of-turn guard below.
     const turnSeq = ++_turnSeq;
+    // Tell a caller that tracks its own turn (the Issues panel's batch) which
+    // turn is carrying it.
+    if (typeof opts.onTurnStart === 'function') {
+        try { opts.onTurnStart(turnSeq); } catch (e) { /* caller bookkeeping only */ }
+    }
     // The user bubble rendered during setup, so a turn abandoned before the
     // message reached the conversation can take it back (see the finally).
     let userBubbleMessageId = null;
@@ -3751,6 +3760,10 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // is attributed to the right project even if the user switches chats mid-turn.
     const turnChatId = currentChatId;
     const turnAppDir = currentAppDir;
+    _latestTurnSeqByChat.set(turnChatId, turnSeq);
+    // Version restores already started on this project — see the end-of-turn
+    // snapshot in the finally.
+    const turnRestoreGen = window.restoresStartedFor?.(turnChatId) || 0;
     // Stable per-turn save context. `chatHistory` is captured by reference — every
     // message pushed during the turn (user, assistant text, tool_use, tool_result,
     // and the error marker on the catch path) mutates THIS same array — so saving
@@ -3796,6 +3809,8 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // is NOT treated as "interrupted" — the error card is its terminal UI, so the
     // resume banner would be redundant/confusing layered on top.
     let turnErrored = false;
+    // Set in the finally: a newer turn has started in this same chat (see there).
+    let supersededSameChat = false;
     // Transient-failure auto-retry state (see the retry loop below). `attempt`
     // counts retries used this turn; `retryGaveUp` is set once they're exhausted,
     // which routes the turn to the calm resume banner instead of an error card.
@@ -4328,7 +4343,25 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // unawaited: the directory copy can be slow, so it must not block/hang the
         // UI reset) so it runs concurrently with the awaited chat save below and
         // has a head start on completing before the user can act again.
-        if (window._filesChangedThisTurn > 0) {
+        //
+        // Two exceptions. A newer turn started in this chat while this one was
+        // still unwinding (Stop during a slow tool, then a Resume or a quick
+        // re-send): that turn owns the chat's files and history now. A snapshot
+        // here would capture its half-written files under this turn's label
+        // (window._filesChangedThisTurn is its count by now), and the save below
+        // — interrupted:true, and an older copy of the history if the chat was
+        // reloaded meanwhile — could land after its final save and bring back a
+        // Resume banner on a finished build. Both are left to the newer turn,
+        // which saves the shared history and snapshots the project when it ends.
+        // And a version restore that began after this turn did (restore is only
+        // refused while a turn is PROCESSING; a stopped turn still unwinding
+        // isn't) has already saved any un-snapshotted work and rewritten the
+        // files: a snapshot now would capture a half-restored directory under
+        // this turn's label, and its cap prune could delete the version being
+        // restored.
+        supersededSameChat = _latestTurnSeqByChat.get(turnChatId) !== turnSeq;
+        const restoredSince = (window.restoresStartedFor?.(turnChatId) || 0) !== turnRestoreGen;
+        if (!supersededSameChat && !restoredSince && window._filesChangedThisTurn > 0) {
             // The fallback label (truncated message) is written with the snapshot
             // so a restore point + panel entry exist instantly; aiContext lets
             // versions.js upgrade that label to a concise AI description in the
@@ -4359,12 +4392,14 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // hung we re-enable the UI anyway and let the background writer (and the
         // pagehide net) flush the tail, so persistence can never freeze the input.
         // The writer swallows its own errors, so this never rejects.
-        try {
-            await Promise.race([
-                scheduleSaveCurrentChat(turnSaveContext),
-                new Promise(resolve => setTimeout(resolve, 8000)),
-            ]);
-        } catch (e) { /* writer swallows */ }
+        if (!supersededSameChat) {
+            try {
+                await Promise.race([
+                    scheduleSaveCurrentChat(turnSaveContext),
+                    new Promise(resolve => setTimeout(resolve, 8000)),
+                ]);
+            } catch (e) { /* writer swallows */ }
+        }
     }
 
     // A newer turn may have started in this SAME chat while this one was still
@@ -4393,8 +4428,10 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // Close the loop for a turn started from the Issues panel: a clean
     // completion auto-resolves the batch it was fixing; a stop/error/switch
     // reverts those rows from "Fixing…" to "Sent" so nothing is claimed fixed.
-    // No-op for ordinary turns (see issues.js).
-    window.notifyIssuesTurnFinished?.({ chatId: turnChatId, succeeded: turnSucceeded });
+    // No-op for ordinary turns (see issues.js). The turn's id lets the panel
+    // tell its own batch's turn from a stopped one unwinding late in the same
+    // chat, whose outcome must not settle a batch it never carried.
+    window.notifyIssuesTurnFinished?.({ chatId: turnChatId, succeeded: turnSucceeded, turnSeq });
     if (supersededInChat) return;
 
     // A build that exhausted its automatic retries on repeated transient AI

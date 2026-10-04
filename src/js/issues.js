@@ -1057,7 +1057,10 @@
         // NEXT clean turn in this chat would wrongly claim the batch as
         // reviewed.
         const armed = activeFix;
-        sendChatMessage(message).catch(() => {}).then(() => {
+        // Record which turn carries the batch, so the end-of-turn report of a
+        // different turn in this chat — a stopped one unwinding late — can't
+        // settle (or revert) it.
+        sendChatMessage(message, false, { onTurnStart: (seq) => { armed.turnSeq = seq; } }).catch(() => {}).then(() => {
             if (activeFix === armed) {
                 activeFix = null;
                 // No turn started, so nothing was sent: take the "Sent" stamp
@@ -1095,6 +1098,7 @@
     function notifyIssuesTurnFinishedInner(opts) {
         const batch = activeFix;
         if (!batch || batch.chatId !== opts.chatId) return; // not an issues turn
+        if (batch.turnSeq != null && opts.turnSeq != null && batch.turnSeq !== opts.turnSeq) return; // another turn's report
         activeFix = null;
         const chatId = batch.chatId;
         if (!opts.succeeded) {

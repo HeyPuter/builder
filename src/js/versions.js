@@ -354,6 +354,12 @@
             const chatId = opts.chatId || currentChatId;
             const appDir = opts.appDir || currentAppDir;
             if (!chatId || !appDir || !window.user) return null;
+            // A restore is rewriting this project's files. Any snapshot but its
+            // own safety copy (a Stopped turn's end-of-turn one, landing late)
+            // would capture a half-restored directory under another label, and
+            // its cap prune could delete the very version being restored from.
+            // The restore saved any un-snapshotted work before it began.
+            if (_restoringFilesOf.has(chatId) && !opts.fromRestore) return null;
 
             // Only snapshot when the app directory actually has content.
             let items;
@@ -476,6 +482,12 @@
         });
         return snapshotChain;
     }
+
+    // Restores begun per chat (chatId -> count), and the chats whose files a
+    // restore is rewriting right now; see restoreVersion.
+    const _restoresStarted = new Map();
+    const _restoringFilesOf = new Set();
+    window.restoresStartedFor = function (chatId) { return _restoresStarted.get(chatId) || 0; };
 
     // Queue a snapshot. Returns the chain so a caller MAY await it, but the
     // intended use at end-of-turn is fire-and-forget (do not block the UI).
@@ -656,6 +668,17 @@
                 renderVersionsPanel({ versions: index.versions, current: versionId });
             }
 
+            // From here on the project's files belong to this restore. A turn
+            // still unwinding from a Stop (restore is only refused while a turn
+            // is processing) reads this count before taking its end-of-turn
+            // snapshot and skips it once a restore has begun (see
+            // sendChatMessage) — that snapshot would capture a half-restored
+            // dir, and its cap prune could delete the version restored from.
+            // One it queued just before must land before any file changes.
+            _restoresStarted.set(chatId, (_restoresStarted.get(chatId) || 0) + 1);
+            _restoringFilesOf.add(chatId);
+            try { await snapshotChain; } catch (e) { /* ignore */ }
+
             // Safety net: if the working dir has changes NOT yet captured by a
             // snapshot — an interrupted/Stopped turn, or a failed end-of-turn
             // snapshot (see the toast above) — capture them NOW, before we
@@ -685,7 +708,7 @@
                 // a dialog that just promised "a restore point is saved first".
                 // Nothing in the project dir has been touched yet, and the dirty
                 // flag stays set, so the next attempt takes the snapshot again.
-                const saved = await window.createProjectVersion({ chatId, appDir, label: 'Before restore', protect: versionId });
+                const saved = await window.createProjectVersion({ chatId, appDir, label: 'Before restore', protect: versionId, fromRestore: true });
                 if (!saved) {
                     throw new Error("Couldn't save a restore point for your current files, so nothing was changed. Try again in a moment.");
                 }
@@ -817,6 +840,7 @@
             await puter.ui.alert((e && e.partialRestore ? '' : 'Restore failed: ') + (e.message || e));
         } finally {
             window._restoringVersion = false;
+            _restoringFilesOf.delete(chatId);
             $('.preview-versions-panel .version-restore').prop('disabled', false);
             // Re-enable publishing now the restore is done (swaps the inline
             // "finishing…" row back to the Publish button in an open popover).
