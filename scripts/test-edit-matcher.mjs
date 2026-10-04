@@ -175,6 +175,21 @@ eq('trailing nl preserved', applyFileEdit('a\nb\n', 'a', 'A'), 'A\nb\n');
 // old_content longer than file → not found (no crash)
 throws('old longer than file', () => applyFileEdit('short', 'a\nb\nc\nd\ne', 'x'), 'not found');
 
+// Overlapping matches are still ambiguous. split() counted only
+// non-overlapping runs, so two of three identical lines read as ONE match and
+// the first pair was edited silently.
+throws('overlapping exact matches are ambiguous',
+    () => applyFileEdit('<i class="star"></i>\n<i class="star"></i>\n<i class="star"></i>',
+        '<i class="star"></i>\n<i class="star"></i>', 'X'), 'matches 2 locations');
+throws('overlapping matches are counted in full',
+    () => applyFileEdit('</div>\n</div>\n</div>\n</div>', '</div>\n</div>', 'X'), 'matches 3 locations');
+throws('overlapping trailing-whitespace matches are ambiguous',
+    () => applyFileEdit('x  \nx  \nx  ', 'x\nx', 'Y'), 'matches 2 locations');
+throws('overlapping unicode-normalized matches are ambiguous',
+    () => applyFileEdit(`${LDQUO}q${RDQUO}\n${LDQUO}q${RDQUO}\n${LDQUO}q${RDQUO}`, '"q"\n"q"', 'X'), 'matches 2 locations');
+eq('a unique match next to look-alike repeats still applies',
+    applyFileEdit('aa\nab', 'aa\na', 'Z'), 'Zb');
+
 // ============================ RESULTS ======================================
 console.log(`\n${pass} passed, ${fail} failed\n`);
 if (fail) { console.log('FAILURES:\n' + failures.map(f => ' - ' + f).join('\n')); process.exit(1); }

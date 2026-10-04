@@ -1457,10 +1457,20 @@ window.applyFileEdit = function (content, oldContent, newContent) {
     // Literal replacement: passing a function to .replace() stops '$&'/'$1'/etc.
     // in newText from being interpreted as replacement-pattern syntax.
     const literal = (s) => () => s;
+    // How many places `needle` occurs in `hay`, OVERLAPPING ones included.
+    // split() counts only non-overlapping runs, so "X\nX" in "X\nX\nX" (two
+    // places: three identical lines, two of them quoted) read as one match and
+    // the first was edited silently instead of asking for more context.
+    const occurrences = (hay, needle) => {
+        if (!needle) return 0;
+        let n = 0;
+        for (let i = hay.indexOf(needle); i !== -1; i = hay.indexOf(needle, i + 1)) n++;
+        return n;
+    };
 
     // --- Tier 0: exact substring (preserves the original semantics) ---
     {
-        const n = text.split(oldText).length - 1;
+        const n = occurrences(text, oldText);
         if (n === 1) return text.replace(oldText, literal(newText));
         if (n > 1) throw ambiguous(n);
     }
@@ -1513,7 +1523,7 @@ window.applyFileEdit = function (content, oldContent, newContent) {
         const stripped = parts.join('\n');
         const strippedOld = oldLines.map(trimEndWs).join('\n');
         if (strippedOld) {
-            const n = stripped.split(strippedOld).length - 1;
+            const n = occurrences(stripped, strippedOld);
             if (n > 1) throw ambiguous(n);
             if (n === 1) {
                 const sIdx = stripped.indexOf(strippedOld);
@@ -1579,7 +1589,7 @@ window.applyFileEdit = function (content, oldContent, newContent) {
         const cText = canon(text);
         const cOld = canon(oldText);
         if (cText !== text || cOld !== oldText) {
-            const n = cText.split(cOld).length - 1;
+            const n = occurrences(cText, cOld);
             if (n > 1) throw ambiguous(n);
             if (n === 1) {
                 const idx = cText.indexOf(cOld);
