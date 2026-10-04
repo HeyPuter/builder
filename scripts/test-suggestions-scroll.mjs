@@ -50,5 +50,15 @@ const l0 = src.indexOf("$('.chat-box').on('scroll'");
 const l1 = src.indexOf('});', l0);
 check('the auto-scroll listener uses the shared helper', /chatBoxNearBottom\(this\)/.test(src.slice(l0, l1)));
 
+// Boot can run a whole turn before it finishes: a marketing-page handoff starts
+// its build from inside the ready handler (consumeComposerHandoff awaits it). A
+// listener bound after that left the user unable to scroll up during their
+// first build, so it must be bound before the ready handler's first await.
+const ready0 = src.indexOf('$(document).ready(async function(){');
+const firstAwait = src.indexOf('await ', ready0);
+check('the auto-scroll listener is bound before boot awaits anything (handoff builds run inside boot)',
+    ready0 > 0 && l0 > ready0 && firstAwait > 0 && l0 < firstAwait
+    && l0 < src.indexOf('await consumeComposerHandoff()'));
+
 if (failures) { console.error('\n' + failures + ' check(s) failed'); process.exit(1); }
 console.log('\nAll suggestion-scroll checks passed.');

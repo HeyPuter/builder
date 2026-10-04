@@ -2287,6 +2287,25 @@ $(document).ready(async function(){
     chatHistory = [];
     renderSkeleton();
 
+    // Detect when the user manually scrolls the conversation. Bound right after
+    // the skeleton, before any boot await: a marketing-page handoff starts its
+    // build from inside boot (consumeComposerHandoff awaits the whole turn), and
+    // a listener bound after that left the user unable to scroll up during
+    // their first build — every streamed chunk pulled the chat back down.
+    $('.chat-box').on('scroll', function() {
+        const isScrolledUp = !chatBoxNearBottom(this);
+
+        // If user scrolls up during message streaming, disable auto-scroll for this message
+        if (isScrolledUp && isProcessing) {
+            window.shouldAutoScroll = false;
+        }
+
+        // If user scrolls to bottom again, re-enable auto-scroll
+        if (!isScrolledUp) {
+            window.shouldAutoScroll = true;
+        }
+    });
+
     // Landing-screen community feed: paint the cached batch synchronously
     // (we're still pre-reveal, so returning visitors get no layout shift),
     // then revalidate against featured.json in the background.
@@ -2325,7 +2344,7 @@ $(document).ready(async function(){
     // with cookies blocked for the origin, a sandboxed frame, some private
     // modes). Unguarded, that exception escaped this async ready handler and
     // killed the whole rest of boot — no auth, no project list, no deep-link
-    // restore, no draft, no chat-scroll listener — over a decorative animation.
+    // restore, no draft — over a decorative animation.
     try {
         if (!localStorage.getItem('taglineShimmerShown')) {
             setTimeout(() => $('.chat-tagline').addClass('shimmer-once'), 1000);
@@ -2348,7 +2367,7 @@ $(document).ready(async function(){
             // A connectivity blip during the one-time setup (working dir /
             // project list). Nothing is left half-initialised (_authInitDone
             // stays false, so the first Send re-runs it), but the rest of boot
-            // below — draft restore, the chat-box scroll listener — must still
+            // below — draft restore, a marketing-page handoff — must still
             // run, and the user should know why their projects aren't listed.
             console.error('Could not finish setting up the session:', e);
             window.showToast?.("Couldn't load your projects — check your connection and try again.",
@@ -2393,21 +2412,6 @@ $(document).ready(async function(){
     if (!window.isMobileViewport()) {
         $('.chat-input-message').focus();
     }
-
-    // Add scroll event listener to detect when user manually scrolls
-    $('.chat-box').on('scroll', function() {
-        const isScrolledUp = !chatBoxNearBottom(this);
-        
-        // If user scrolls up during message streaming, disable auto-scroll for this message
-        if (isScrolledUp && isProcessing) {
-            window.shouldAutoScroll = false;
-        }
-        
-        // If user scrolls to bottom again, re-enable auto-scroll
-        if (!isScrolledUp) {
-            window.shouldAutoScroll = true;
-        }
-    });
 
     // Drag and drop functionality moved to dragdrop.js
 });
