@@ -3425,6 +3425,29 @@ $(document).on('change', '.attachment-file-input', async function() {
     $(this).val('');
 });
 
+// Excel, Word, Numbers and friends put a rendered PICTURE of the copied cells or
+// paragraphs on the clipboard next to the text, and browsers expose it as a
+// file — so copying a table to paste its data attached "image.png" and pasted
+// no text at all. Such a copy carries plain text plus HTML with real text in it,
+// and only images as files. A copied image looks different: a screenshot has no
+// text, a file copied in Finder has no HTML, and "Copy image" (whose plain text
+// is the image URL in Firefox) carries HTML that is nothing but the <img>.
+function isRichTextCopy(cd, files) {
+    const types = Array.from(cd.types || []);
+    if (!types.includes('text/plain') || !types.includes('text/html')) return false;
+    if (!Array.from(files).every(f => /^image\//.test(f.type || ''))) return false;
+    let text = '', html = '';
+    try { text = cd.getData('text/plain') || ''; html = cd.getData('text/html') || ''; } catch (err) { return false; }
+    if (!text.trim()) return false;
+    const htmlText = html
+        .replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, '')
+        .replace(/<[^>]*>/g, '')
+        .replace(/&nbsp;|&#160;/gi, ' ')
+        .trim();
+    return htmlText.length > 0;
+}
+window.isRichTextCopy = isRichTextCopy;
+
 // Paste a file into the composer to attach it — a screenshot from the
 // clipboard, a copied image. Only FILE pastes are intercepted (a text paste
 // keeps the browser's default so typing is untouched); the files go through
@@ -3434,6 +3457,7 @@ $(document).on('paste', '.chat-input-message', async function(e) {
     const cd = e.originalEvent && e.originalEvent.clipboardData;
     const files = cd && cd.files;
     if (!files || !files.length) return;
+    if (isRichTextCopy(cd, files)) return; // the browser pastes the text
     e.preventDefault();
     try {
         await handleDroppedFiles(files);
