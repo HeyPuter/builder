@@ -3757,8 +3757,15 @@ function startRenameChat(chatId) {
         if (e.key === 'Enter') { e.preventDefault(); commit(); }
         else if (e.key === 'Escape') { e.preventDefault(); cancel(); }
     });
-    // Clicking away abandons the edit (the ✓ button or Enter is required to save).
-    $input.on('blur', cancel);
+    // Leaving the editor abandons the edit (the ✓ button or Enter is required
+    // to save) — but moving between its own field and buttons doesn't. Tab
+    // from the field toward ✓ used to blur it, cancel, and remove the editor
+    // mid-move: the typed name was lost, and ✓/✕ could never be reached from
+    // the keyboard.
+    $edit.on('focusout', function(e) {
+        if (e.relatedTarget && $edit[0].contains(e.relatedTarget)) return;
+        cancel();
+    });
 }
 
 // When a chat's context menu is dismissed (e.g. by selecting "Delete"), the
