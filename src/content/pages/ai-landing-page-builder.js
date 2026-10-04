@@ -150,7 +150,7 @@ export default {
             items: [
                 {
                     title: 'SaaS waitlist',
-                    body: 'A launch page with an email waitlist, feature highlights, and a referral counter.',
+                    body: 'A launch page with an email waitlist, feature highlights, and a live signup count.',
                     prompt:
                         'Build a launch landing page for a SaaS product with a bold hero and one clear call to action, three feature highlights with icons, a short founder note, and an email waitlist form. Save every signup to my Puter account with a timestamp, show the waitlist count on the page, and make it look great on a phone.',
                 },
