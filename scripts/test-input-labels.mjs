@@ -5,9 +5,9 @@ import fs from 'node:fs';
 // UI's fields had none — the Publish popover's and Settings' site-address
 // fields, the sidebar's rename field — so they were read as a bare "edit
 // text", and the typed-word delete confirmation was named only by its
-// placeholder, the word itself. Every <input> written in the UI's markup must
-// carry aria-label / aria-labelledby, sit inside a <label>, or be a hidden
-// file picker.
+// placeholder, the word itself. Every <input>, <textarea> and <select> written
+// in the UI's markup must carry aria-label / aria-labelledby, sit inside a
+// <label>, or be a hidden file picker.
 
 let failures = 0;
 function check(name, cond, detail) {

@@ -35,7 +35,8 @@ const document = {
     addEventListener: (t, fn, capture) => { if (capture) (captured[t] ||= []).push(fn); },
     querySelectorAll: () => menus,
 };
-const api = new Function('document', 'setTimeout', CODE + '\nreturn { onContextMenuKeyboardClose, modality: () => _lastInputWasKeyboard };')(document, setTimeout);
+const win = {};
+const api = new Function('window', 'document', 'setTimeout', CODE + '\nreturn { onContextMenuKeyboardClose, modality: () => _lastInputWasKeyboard };')(win, document, setTimeout);
 const press = (type) => (captured[type] || []).forEach((fn) => fn({ type }));
 const openMenu = () => { const m = new EventTarget(); menus = [m]; return m; };
 
@@ -76,8 +77,9 @@ const openMenu = () => { const m = new EventTarget(); menus = [m]; return m; };
 {
     press('keydown');
     check('keyboard use is remembered', api.modality() === true);
+    check('…and readable app-wide', win.lastInputWasKeyboard() === true);
     press('pointerdown');
-    check('…and a press switches it back to pointer', api.modality() === false);
+    check('…and a press switches it back to pointer', api.modality() === false && win.lastInputWasKeyboard() === false);
 }
 
 // ---- Wiring ------------------------------------------------------------------

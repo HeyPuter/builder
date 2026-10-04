@@ -117,7 +117,7 @@ check('nothing matches: just the message', show('zzz') === 'No projects match yo
     check('the render signature leaves the query out (a keystroke is not a rebuild)', !/chatSearchQuery|\bq\b/.test(sig), sig);
     check('an unchanged list just re-applies the filter', /if \(chatList\.data\('renderSig'\) === renderSig\) \{\s*applyChatSearchFilter\(chatList\);\s*return;/.test(fn));
     check('a rebuild renders every project and filters after', /savedChats\.filter\(chat => chat\.pinned\)/.test(fn)
-        && /chat-list-no-match" hidden/.test(fn) && /applyChatSearchFilter\(chatList\);\s*\n\s*\n\s*\/\/ The rename editor/.test(fn));
+        && /chat-list-no-match" hidden/.test(fn) && /applyChatSearchFilter\(chatList\);\s*\n\s*\n\s*(restoreListFocus\(\);\s*)?\/\/ The rename editor/.test(fn));
     check('labels carry their section', /attr\('data-section', section\)/.test(fn));
     check('CSS: hidden entries are really hidden (.chat-item is flex)', /\.chat-list > \[hidden\] \{ display: none; \}/.test(css));
     check('CSS: the tight gap follows the filter\'s marker, not DOM adjacency',
