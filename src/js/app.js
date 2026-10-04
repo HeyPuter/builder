@@ -4117,6 +4117,9 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // which routes the turn to the calm resume banner instead of an error card.
     let attempt = 0;
     let retryGaveUp = false;
+    // The SuggestNextSteps chips went out with the end-of-turn save (see there),
+    // so showing them needs no save of its own.
+    let chipsSavedWithTurn = false;
     // Transient failures that strike while the page is HIDDEN (phone locked /
     // app backgrounded) don't consume the retry budget — the service didn't
     // fail, the device's radio was asleep. Counted separately with its own cap
@@ -4709,6 +4712,16 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // pagehide net) flush the tail, so persistence can never freeze the input.
         // The writer swallows its own errors, so this never rejects.
         if (!supersededSameChat) {
+            // A finished turn's SuggestNextSteps chips are known already. Cache
+            // them for the chat before this save, so it persists them (an open
+            // chat's save writes its cached chips) — showing them below used to
+            // write the whole chat file a second time just to add them, and a
+            // chat file can run to megabytes.
+            const toolChips = window._pendingTurnSuggestions;
+            if (turnSucceeded && turnChatId === currentChatId && Array.isArray(toolChips) && toolChips.length) {
+                _suggestionsByChat.set(turnChatId, { suggestions: toolChips });
+                chipsSavedWithTurn = true;
+            }
             try {
                 await Promise.race([
                     scheduleSaveCurrentChat(turnSaveContext),
@@ -4780,10 +4793,10 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             // later sees itself superseded and bows out instead of clobbering these.
             _suggestSeq++;
             renderContinueSuggestions(toolSuggestions);
-            // Persist the freshly-shown chips (renderContinueSuggestions only put
-            // them in the in-memory cache) so a reload restores them too. The
-            // end-of-turn save above ran before they existed, hence this re-save.
-            scheduleSaveCurrentChat(turnSaveContext);
+            // Persist the freshly-shown chips so a reload restores them too —
+            // normally done already, by the end-of-turn save above (see
+            // chipsSavedWithTurn); saved here only if that save went without them.
+            if (!chipsSavedWithTurn) scheduleSaveCurrentChat(turnSaveContext);
         } else {
             generateContinueSuggestions(turnSaveContext);
         }
