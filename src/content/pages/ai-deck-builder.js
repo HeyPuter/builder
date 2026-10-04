@@ -88,7 +88,7 @@ export default {
                     art: 'picker',
                     body: [
                         'Click the slide, the chart, or the one bullet that reads wrong in the live preview and say what should be different. No describing which of the twelve slides you mean.',
-                        'For styling, adjust spacing, colors, and type directly on the element. Those edits are kept in a stylesheet of your own that later changes leave alone.',
+                        'Styling works the same way: select the element and say "more space above this" or "use the brand blue here", and the change is made to that element.',
                     ],
                 },
                 {

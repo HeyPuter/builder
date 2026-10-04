@@ -9,7 +9,7 @@ export default {
 
     title: 'Features: Live Preview, Self-Repair, Publishing | Puter Builder',
     description:
-        'Everything the Puter AI builder does: a self-verifying live preview, click-to-edit, visual style edits, version history, one-click publishing, and a cloud backend.',
+        'Everything the Puter AI builder does: a self-verifying live preview, click-to-edit, version history, one-click publishing, and a cloud backend.',
     ogTagline: 'Everything the builder does',
 
     hero: {
@@ -88,12 +88,6 @@ export default {
                     title: 'Click to edit',
                     body:
                         'Arm the element picker, click any element in the running app, and describe what should change about that specific piece. No more explaining which of the four cards you mean.',
-                },
-                {
-                    icon: 'sliders',
-                    title: 'Direct visual edits',
-                    body:
-                        'Adjust spacing, color, size, and type on a selected element and watch it update live. Apply commits the result to a stylesheet of your own, which the AI leaves alone on later turns.',
                 },
                 {
                     icon: 'history',

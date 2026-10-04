@@ -119,7 +119,7 @@ export default {
                 '**Group by area, not by priority.** "Fix the overdue highlighting and the date format in the same list" is one coherent turn. "Fix the overdue highlighting and add CSV export" is two.',
                 '**Say what should be true, not what to change.** "Overdue items should be obvious at a glance from across the room" gives better results than "make the text red", because it lets the AI solve the actual problem.',
                 '**Point instead of describing.** Once the app is real, stop writing "the third column in the checked-out table". Arm the element picker, click the thing, and describe the change. It is faster and it removes an entire class of misunderstanding.',
-                '**Use direct visual edits for fiddly work.** Spacing, sizes, and colors on a specific element are quicker to nudge with the style controls than to describe. Those edits are kept in their own stylesheet, so later AI changes will not quietly undo them.',
+                '**Be specific about small adjustments.** Once you have pointed at an element, spacing, sizes, and colors are easy to get right in a sentence: "8px more space above this", "the same green as the header". Version history keeps every step, so a tweak that misses is one click to undo.',
                 '**Snapshot before anything structural.** Version history records every turn. Before you say "reorganize this into three tabs", know that the current version is one click away.',
             ],
         },

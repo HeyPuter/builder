@@ -73,7 +73,7 @@ export default {
             heading: 'Step 3: Then the appearance',
             body: [
                 'Once the structure holds, switch from writing to pointing. Arm the element picker, click the exact thing you mean, and describe the change: "this heading is too big on mobile", "this section needs more room above it", "these cards should be the same height".',
-                'For pure adjustment work (spacing, size, color, weight) the direct style controls are faster than any sentence. Nudge the selected element until it looks right and apply. Those edits are stored in a stylesheet of your own, which later AI changes leave alone, so your fine-tuning does not get overwritten by the next feature request.',
+                'Small adjustments (spacing, size, color, weight) work the same way. Said about a selected element, "a little more space above this" or "the same blue as the logo" is a precise instruction, and version history keeps every step if a tweak goes the wrong way.',
                 'Global changes are still better said than clicked. "Use a warmer off-white background throughout and tighten the line height on body text" is one instruction that touches the whole site consistently, which is exactly what you want for anything systemic.',
             ],
         },
