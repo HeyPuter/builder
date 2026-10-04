@@ -66,5 +66,18 @@ const ui = read('../src/js/ui.js');
 // screen reader browsing the list.
 check('the open project\'s entry is aria-current', /if \(isActive\) chatItem\.find\('\.chat-item-link'\)\.attr\('aria-current', 'page'\);/.test(app));
 
+// "New ideas" disabled itself when pressed (dropping focus to <body> at once),
+// and the fresh set replaced the whole row; focus now stays on the chip while it
+// loads and moves to the first new idea.
+{
+    const regen = app.slice(app.indexOf('async function regenerateContinueSuggestions() {'), app.indexOf('window.regenerateContinueSuggestions = regenerateContinueSuggestions;'));
+    check('"New ideas" stays focusable while it loads (aria-disabled, not disabled)',
+        /\$btn\.addClass\('loading'\)\.attr\('aria-disabled', 'true'\);/.test(regen) && !/prop\('disabled', true\)/.test(regen));
+    const render = app.slice(app.indexOf('function renderContinueSuggestions(suggestions) {'), app.indexOf('window.renderDeferredSuggestions'));
+    check('a new set takes focus to its first chip when focus was in the old row (and only then)',
+        /const focusWasInRow = !!\(oldRow && document\.activeElement && oldRow\.contains\(document\.activeElement\)\);/.test(render)
+        && /if \(focusWasInRow\) \$row\.find\('\.chat-suggestion-chip'\)\.first\(\)\.trigger\('focus'\);/.test(render));
+}
+
 if (failures) { console.error(`\n${failures} check(s) FAILED`); process.exit(1); }
 console.log('\nAll sidebar focus checks passed.');

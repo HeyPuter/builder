@@ -963,7 +963,8 @@ select:focus-visible,
     border-color: #bbb;
     color: #222;
 }
-.chat-suggestion-regenerate:disabled {
+.chat-suggestion-regenerate:disabled,
+.chat-suggestion-regenerate[aria-disabled="true"] {
     cursor: default;
 }
 /* While a fresh set is being generated, spin the refresh icon. */
