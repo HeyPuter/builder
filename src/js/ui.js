@@ -461,6 +461,7 @@ window.menuThemeOption = menuThemeOption;
 let _lastInputWasKeyboard = false;
 let _pointerDownDispatching = false;
 document.addEventListener('keydown', function () { _lastInputWasKeyboard = true; }, true);
+window.lastInputWasKeyboard = () => _lastInputWasKeyboard;
 document.addEventListener('pointerdown', function () {
     _lastInputWasKeyboard = false;
     // Set for the rest of this press's dispatch. Registered at load, so it runs
@@ -3621,6 +3622,21 @@ $(document).on('input', '.chat-search-input', function() {
     updateChatHistorySidebar();
 });
 
+// After a project is opened from the sidebar with the keyboard, hand focus to
+// the composer — the next thing to use. The sidebar closing (and its rebuild
+// for the new active entry) took focus down with the entry, to <body>, so the
+// next Tab started over from the top of the page. Not after a tap or click:
+// focusing the composer would pop a phone's keyboard up. Left alone if focus
+// has meanwhile gone somewhere else.
+function focusComposerAfterSidebarOpen() {
+    if (!_lastInputWasKeyboard) return;
+    const active = document.activeElement;
+    if (active && active !== document.body && active !== document.documentElement
+        && !$(active).closest('.chat-history-sidebar').length) return;
+    if (document.querySelector('.confirm-modal-overlay')) return;
+    $('.chat-input-message').trigger('focus');
+}
+
 $(document).on('click', '.chat-item', async function(e) {
     if ($(e.target).closest('.chat-app-link, .chat-menu-btn, .chat-title-edit').length) return;
     // The item is a real link (.chat-item-link → ?p=<chatId>). For the standard
@@ -3639,6 +3655,7 @@ $(document).on('click', '.chat-item', async function(e) {
     // normal selection does) and leave the running chat untouched.
     if (chatId === currentChatId) {
         closeChatHistorySidebar();
+        focusComposerAfterSidebarOpen();
         return;
     }
     // Confirm before switching away from a different project (this isn't reached
@@ -3646,7 +3663,7 @@ $(document).on('click', '.chat-item', async function(e) {
     if (!await confirmLeaveActiveChat()) return;
     // Fire-and-forget: loadChat shows its own loading skeleton and surfaces
     // failure with a toast, so a rejection here needs no further handling.
-    loadChat(chatId).catch(() => {});
+    loadChat(chatId).catch(() => {}).then(focusComposerAfterSidebarOpen);
     // Close sidebar after selection
     closeChatHistorySidebar();
 });
@@ -3679,8 +3696,14 @@ function startRenameChat(chatId) {
     // Swap the editor back for a plain title element showing `text`. A targeted
     // DOM swap (not a full updateChatHistorySidebar() re-render) so it's instant
     // and doesn't disturb the rest of the list.
+    // ✓ / Enter / ✕ / Escape leave focus in the editor, which this swap
+    // removes — dropping it to <body>. It goes to the entry's ⋮, where the
+    // rename began. (A blur, i.e. clicking away, leaves focus where it went.)
     const restoreTitle = function(text) {
+        const hadFocus = $edit[0].contains(document.activeElement);
+        const $entry = $edit.closest('.chat-item');
         $edit.replaceWith($('<div class="chat-title"></div>').text(text));
+        if (hadFocus) $entry.find('.chat-menu-btn').trigger('focus');
     };
 
     let settled = false;
@@ -4426,11 +4449,12 @@ $(document).on('click', '.chat-menu-btn', function(e) {
                         // the .chat-item click handler); just close the sidebar.
                         if (chatId === currentChatId) {
                             closeChatHistorySidebar();
+                            focusComposerAfterSidebarOpen();
                             return;
                         }
                         if (!await confirmLeaveActiveChat()) return;
                         // Fire-and-forget — see the .chat-item click handler.
-                        loadChat(chatId).catch(() => {});
+                        loadChat(chatId).catch(() => {}).then(focusComposerAfterSidebarOpen);
                         closeChatHistorySidebar();
                     }, 0);
                 }

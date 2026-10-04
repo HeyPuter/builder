@@ -2127,6 +2127,39 @@ function updateChatHistorySidebar() {
         if (id && $t.hasClass('loaded') && $t.attr('data-base')) keptThumbs[id] = $t.detach();
     });
 
+    // Keyboard focus on an entry (its link, ⋮ or address) went down with the
+    // rebuild — to <body>, so the next Tab started over from the top of the
+    // page. Pinning moves the entry to Pinned; a rename, or another project's
+    // AI title landing mid-build, rebuilds the list under the user. Note which
+    // control had it, to hand focus to the same one on the rebuilt entry — or,
+    // when the entry is gone (deleted), to the entry now in its place.
+    const focusedEl = document.activeElement;
+    let refocus = null;
+    if (focusedEl && chatList[0] && chatList[0].contains(focusedEl)) {
+        const $focusedItem = $(focusedEl).closest('.chat-item');
+        const control = ['chat-menu-btn', 'chat-app-link', 'chat-item-link'].find(c => focusedEl.classList.contains(c));
+        if ($focusedItem.length && control) {
+            refocus = {
+                id: $focusedItem.attr('data-chat-id'),
+                control,
+                index: chatList.children('.chat-item').not('[hidden]').index($focusedItem),
+            };
+        }
+    }
+    const restoreListFocus = () => {
+        if (!refocus) return;
+        const $shown = chatList.children('.chat-item').not('[hidden]');
+        let $target = $shown.filter(function() { return this.getAttribute('data-chat-id') === refocus.id; })
+            .find('.' + refocus.control);
+        if (!$target.length && $shown.length) {
+            $target = $shown.eq(Math.min(Math.max(refocus.index, 0), $shown.length - 1)).find('.chat-item-link');
+        }
+        if (!$target.length) $target = sidebar.find('.chat-search-input');
+        // Scroll it into view only for keyboard use: a mouse user's focus can
+        // sit on a ⋮ they clicked earlier, and the list must not jump to it.
+        if ($target.length) $target[0].focus({ preventScroll: !window.lastInputWasKeyboard?.() });
+    };
+
     // Carry an in-progress rename across the rebuild the same way (a genuine
     // change elsewhere in the list — another project's AI title landing, a new
     // project being saved — must not eat the user's half-typed name). Its
@@ -2146,6 +2179,7 @@ function updateChatHistorySidebar() {
 
     if (savedChats.length === 0) {
         chatList.append($('<div class="chat-list-empty"></div>').text('No projects yet.'));
+        restoreListFocus();
         return;
     }
 
@@ -2258,6 +2292,7 @@ function updateChatHistorySidebar() {
     chatList.append($('<div class="chat-list-empty chat-list-no-match" hidden></div>').text('No projects match your search.'));
     applyChatSearchFilter(chatList);
 
+    restoreListFocus();
     // The rename editor is back in the DOM (if its project is still listed):
     // restore the caret the detach dropped, so typing carries on uninterrupted.
     if (editingHadFocus && editingInput && document.contains(editingInput)) {
