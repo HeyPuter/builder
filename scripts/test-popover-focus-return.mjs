@@ -39,6 +39,14 @@ for (const [name, src, sel, trigger] of cases) {
         body.slice(0, 300) || '(handler not found)');
 }
 
+// The account panel's "Account settings" and "Send feedback" rows close the
+// panel; focus went down with the clicked row instead of back to the avatar.
+for (const sel of ['.user-panel-account', '.user-panel-feedback']) {
+    const body = handler(ui, 'click', sel);
+    check(`account panel ${sel}: hands focus back to the avatar`,
+        /closeUserPanel\(\);\s*\$\('\.user-menu-btn'\)\.trigger\('focus'\);/.test(body), body.slice(0, 300) || '(handler not found)');
+}
+
 // Escape inside the versions panel already did; keep it that way.
 {
     const at = versions.indexOf("$(document).on('keydown', '.preview-versions-panel'");
