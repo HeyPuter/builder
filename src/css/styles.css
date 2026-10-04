@@ -5729,6 +5729,13 @@ html[data-theme="dark"] audio::-webkit-media-controls-panel { background: var(--
     padding: 0 2px;
 }
 .toast-close:hover { opacity: 1; }
+/* The global focus ring (blue; the accent in dark mode) all but vanished on
+   the toasts' dark fills — 2.9:1 on the default toast, 1.5:1 on an error and
+   1.2:1 on a warning, under the 3:1 a focus indicator needs. White reads on
+   all three (15:1, 7.5:1, 5.9:1), and the × drops its dimming while focused. */
+.toast .toast-close:focus-visible,
+.toast .toast-action:focus-visible { outline-color: #fff; }
+.toast .toast-close:focus-visible { opacity: 1; }
 /* Inline action button (e.g. "Reload" / "Install"), centered with the message
    and close button by the toast's flex alignment. */
 .toast-action {

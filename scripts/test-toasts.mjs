@@ -191,5 +191,20 @@ const buttons = (t) => ({ close: t.find('toast-close'), action: t.find('toast-ac
     check('a sticky toast is still sticky', !t.classList.contains('toast-hide'));
 }
 
+// ---- A focused toast button can be seen ----------------------------------------
+// The global focus ring is blue (the accent in dark mode): 2.9:1 on a default
+// toast, 1.5:1 on an error and 1.2:1 on a warning, under the 3:1 a focus
+// indicator needs. Toast buttons get a white ring, which must out-rank the
+// dark-theme ring rule (html[data-theme="dark"] button:focus-visible).
+{
+    const css = fs.readFileSync(new URL('../src/css/styles.css', import.meta.url), 'utf8');
+    check('toast buttons get a white focus ring',
+        /\.toast \.toast-close:focus-visible,\s*\.toast \.toast-action:focus-visible \{ outline-color: #fff; \}/.test(css));
+    check('…and the × is not dimmed while focused', /\.toast \.toast-close:focus-visible \{ opacity: 1; \}/.test(css));
+    // Specificity: .toast .toast-close:focus-visible = (0,3,0) beats (0,2,2).
+    check('the dark-theme ring rule is still the (lower-specificity) one it must beat',
+        /html\[data-theme="dark"\] button:focus-visible/.test(css));
+}
+
 if (failures) { console.error(`\n${failures} check(s) FAILED`); process.exit(1); }
 console.log('\nAll toast checks passed.');
