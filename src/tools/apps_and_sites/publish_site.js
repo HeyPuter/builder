@@ -31,9 +31,29 @@ ABSOLUTELY VERY IMPORTANT: you only need to call this ONCE per app. The preview 
         // always minted in the preview-<uuid> form regardless of what subdomain
         // the model passes. The user-chosen public subdomain is minted later, at
         // Publish time. See window.makeDraftSubdomain.
-        const subdomain = window.makeDraftSubdomain();
-        const site = await puter.hosting.create(subdomain, path);
-        const url = `https://${site.subdomain}.puter.site/`;
+        //
+        // A project keeps ONE draft address. Each call used to mint a fresh
+        // preview-<uuid> site, and the previous one stayed registered — still
+        // serving the project, deleted by nothing (deleteChat only knows the
+        // current previewUrl), and counted against the account's site limit
+        // until Publish failed with "maximum number of published sites". When
+        // the open project already has a draft site, point it at this
+        // directory instead; mint a new one only if that fails (e.g. the site
+        // was removed) or the project has none.
+        let url = null;
+        const existing = (!window.isStaleTurn?.(state) && typeof window.currentPreviewUrl === 'string')
+            ? (window.currentPreviewUrl.match(/^https:\/\/(preview-[a-z0-9-]+)\.puter\.site\/?$/i) || [])[1]
+            : null;
+        if (existing) {
+            try {
+                await puter.hosting.update(existing, path);
+                url = `https://${existing}.puter.site/`;
+            } catch (e) { /* gone or unusable: mint a new draft below */ }
+        }
+        if (!url) {
+            const site = await puter.hosting.create(window.makeDraftSubdomain(), path);
+            url = `https://${site.subdomain}.puter.site/`;
+        }
         // The hosting.create above is awaited, so the user may have navigated to
         // another project while it was in flight. If this turn is no longer the
         // open chat, do NOT touch the shared preview globals or the preview pane:
