@@ -164,5 +164,24 @@ const APP = fs.readFileSync(new URL('../src/js/app.js', import.meta.url), 'utf8'
         TODO.includes('never end a turn with an item still \\"in_progress\\"'));
 }
 
+// --- Screen readers can tell the step being worked on ------------------------
+// Each step's state is in its icon's label. The live in-progress step (it
+// shimmers) read "Not done", exactly like every waiting step.
+{
+    const start = TODO.indexOf('const TODO_CHECKED_SVG');
+    const end = TODO.indexOf('window.buildTodoListHTML = buildTodoListHTML;');
+    const build = new Function('htmlEscape', TODO.slice(start, end) + '\nreturn buildTodoListHTML;')(
+        (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'));
+    const todos = [
+        { content: 'Set up files', status: 'completed' },
+        { content: 'Build the form', status: 'in_progress' },
+        { content: 'Style it', status: 'pending' },
+    ];
+    const labels = (html) => [...html.matchAll(/aria-label="([^"]+)"/g)].map((m) => m[1]).join(',');
+    check('live checklist: done / in progress / not done', labels(build(todos, true).html) === 'Done,In progress,Not done');
+    check('restored checklist (no turn running): an unfinished in-progress step reads as not done',
+        labels(build(todos, false).html) === 'Done,Not done,Not done');
+}
+
 console.log(failures === 0 ? '\nAll todo-finalize tests passed.' : `\n${failures} todo-finalize test(s) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);

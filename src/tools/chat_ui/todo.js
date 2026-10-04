@@ -34,6 +34,10 @@ function buildTodoListHTML(todos, animate) {
 
     const checkedSvg = TODO_CHECKED_SVG;
     const uncheckedSvg = TODO_UNCHECKED_SVG;
+    // The step being worked on right now looks the same as a waiting one
+    // (it shimmers instead), so its icon is what tells a screen reader: it
+    // used to read "Not done" like every pending step.
+    const inProgressSvg = TODO_UNCHECKED_SVG.replace('aria-label="Not done"', 'aria-label="In progress"');
 
     sortedTodos.forEach(todo => {
         // Wrap the label in a span so the shimmer applies only to the text,
@@ -44,7 +48,7 @@ function buildTodoListHTML(todos, animate) {
         // (full-opacity text + shimmer). This mirrors the in-memory cleanup that
         // demotes in_progress -> pending when a turn stops.
         const status = (!animate && todo.status === 'in_progress') ? 'pending' : todo.status;
-        const icon = status === 'completed' ? checkedSvg : uncheckedSvg;
+        const icon = status === 'completed' ? checkedSvg : status === 'in_progress' ? inProgressSvg : uncheckedSvg;
         const textClass = (animate && status === 'in_progress') ? 'todo-text shimmer' : 'todo-text';
         // Escape model-controlled fields before they hit innerHTML. todo.content
         // is free text from the AI's TodoWrite call (and is re-rendered raw on
