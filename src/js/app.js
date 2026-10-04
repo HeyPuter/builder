@@ -1313,6 +1313,23 @@ async function loadChat(chatId, { urlMode = 'push' } = {}) {
 const _deletedChatIds = new Set();
 
 async function deleteChat(chatId) {
+    // Work still running on this project would outlive the delete: a publish
+    // deploys its backend and creates the public site after the sweep below has
+    // run (a "deleted" project left live on a public address), a duplicate keeps
+    // creating the copy's workers and site from files being removed, and a
+    // restore keeps writing into the directory. Refuse until it finishes — the
+    // caller un-dims the entry on the throw.
+    const busy = window.isPublishInFlight?.(chatId) ? 'publishing'
+        : _duplicatingChats.has(chatId) ? 'being copied'
+            : (window._restoringVersion && currentChatId === chatId) ? 'being restored'
+                : null;
+    if (busy) {
+        window.showToast?.(`This project is still ${busy} — you can delete it as soon as that finishes.`,
+            { type: 'info', key: 'delete-busy', throttleMs: 3000 });
+        const err = new Error('Delete refused: the project is ' + busy);
+        err.busy = true;
+        throw err;
+    }
     try {
         const chat = savedChats.find(c => c.id === chatId);
         // From here on nothing may persist this chat again (see _deletedChatIds),

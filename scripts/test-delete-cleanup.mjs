@@ -42,11 +42,12 @@ const APP_DIR = '/alice/AppData/builder/chat1';
 function notFound() { const e = new Error('not found'); e.code = 'subject_does_not_exist'; return e; }
 
 // failing: which step rejects, and with what kind of error.
-async function run({ failing = null, notFoundOnly = false } = {}) {
+async function run({ failing = null, notFoundOnly = false, ...opts } = {}) {
     const sites = new Set(['draft-one', 'pub-one']);
     const workers = new Map([['api-a', { name: 'api-a', file_path: APP_DIR + '/workers/api-a.js' }]]);
     const dirs = new Set([APP_DIR, '/alice/AppData/builder/.published/chat1', 'chat-history/chat1.json']);
     const alerts = [];
+    const toasts = [];
     const boom = step => {
         if (failing !== step) return null;
         return notFoundOnly ? notFound() : new Error('service unavailable');
@@ -65,9 +66,12 @@ async function run({ failing = null, notFoundOnly = false } = {}) {
         clearComposerDraft() {},
         _chatSavePending: new Map(),
         _suggestionsByChat: new Map(),
+        _duplicatingChats: new Set(opts.duplicating ? ['chat1'] : []),
         console: { warn() {}, error() {} },
         window: {
             user: { username: 'alice' },
+            isPublishInFlight: (id) => !!opts.publishing && id === 'chat1',
+            showToast: (m) => toasts.push(String(m)),
             animateChatItemRemoval: async () => {},
             deleteChatVersions: async () => {},
             deleteChatIssues: async () => {},
@@ -154,6 +158,15 @@ for (const step of ['hosting', 'worker-delete', 'appdir', 'chatfile']) {
     check(`${step}/not-found: the delete completes normally`,
         r.stillListed === false && r.alerts.length === 0 && r.threw === false,
         JSON.stringify(r));
+}
+
+// ---- Work still running on the project blocks the delete ---------------------
+// A publish in flight would create the public site after the sweep (a deleted
+// project left live); a duplicate keeps creating the copy's workers and site.
+for (const [label, opts] of [['publishing', { publishing: true }], ['being copied', { duplicating: true }]]) {
+    const r = await run(opts);
+    check(`${label}: nothing is removed`, r.stillListed === true && r.sitesLeft.length === 2 && r.workersLeft.length === 1 && r.tombstoned === false, JSON.stringify(r));
+    check(`${label}: the caller sees the refusal (so the entry is un-dimmed)`, r.threw === true);
 }
 
 if (failures) { console.error(failures + ' failure(s)'); process.exit(1); }
