@@ -103,6 +103,22 @@ function page({ parsed = true } = {}) {
     const restore = app.slice(app.indexOf('if (message.isError) {'), app.indexOf('if (message.isError) {') + 200);
     check('errors re-rendered from a saved chat are not announced', !/announce/.test(restore));
 }
+// Publish progress/success and the project-loading skeleton were role=status
+// regions inserted together with their content — mostly not announced (and the
+// success card, where it was, read out whole with its share buttons). They are
+// announced explicitly instead, and no longer carry a live role of their own.
+{
+    const ui = read('../src/js/ui.js');
+    check('publishing announces that it started',
+        /_publishPanelView = 'progress';\s*renderPublishPanel\(\);\s*\$\('\.preview-publish-panel'\)\.trigger\('focus'\);\s*window\.announce\?\.\(isFirst \? 'Publishing your site…' : 'Updating your site…'\);/.test(ui));
+    check('…and that the site is live (the closed-popover path speaks through its toast)',
+        /_publishPanelView = 'success';\s*renderPublishPanel\(\);\s*window\.announce\?\.\(isFirst \? 'Your website is live\.' : 'Your website was updated\.'\);/.test(ui));
+    check('the progress and success views are not live regions themselves',
+        /'<div class="publish-result-progress">'/.test(ui) && /'<div class="publish-result-success">'/.test(ui));
+    const load = ui.slice(ui.indexOf('function showProjectLoading('), ui.indexOf('function hideProjectLoading('));
+    check('opening a project announces "Opening …" when the skeleton shows (both paths)', (load.match(/window\.announce\?\.\(label\);/g) || []).length === 2);
+    check('…and the skeleton is not a live region itself', /'<div class="project-loading-overlay">'/.test(ui));
+}
 {
     const css = read('../src/css/styles.css');
     check('CSS: .sr-only hides visually but keeps it readable', /\.sr-only \{[^}]*clip-path: inset\(50%\);[^}]*\}/.test(css) && !/\.sr-only \{[^}]*display: none/.test(css));
