@@ -340,6 +340,10 @@
     // Snapshot the current app directory. Called at the end of a turn that
     // changed files. Never throws — failures are logged and swallowed so a
     // snapshot problem can never break the chat.
+    // What a snapshot request resolves to when the app dir is empty: truthy, so
+    // a restore goes ahead, but not a version id.
+    const NOTHING_TO_SNAPSHOT = Object.freeze({ nothingToSnapshot: true });
+
     async function performCreateVersion(opts) {
         opts = opts || {};
         try {
@@ -358,7 +362,13 @@
             } catch (e) {
                 return null; // app dir doesn't exist yet
             }
-            if (!Array.isArray(items) || items.length === 0) return null;
+            if (!Array.isArray(items)) return null;
+            // An empty project ("start over" — every file deleted) has nothing
+            // to capture, which is not a failed snapshot: there is nothing to
+            // lose. It used to resolve null like one, and restore treats null
+            // as "couldn't save your files": with the dir left flagged dirty,
+            // every restore was refused for good — the one way back blocked.
+            if (items.length === 0) return NOTHING_TO_SNAPSHOT;
 
             const versionId = generateVersionId();
             const root = versionsRootForChat(chatId);
@@ -666,7 +676,9 @@
                 // protect: the cap prune inside must never retire the
                 // version we are about to restore from (see versionsToPrune).
                 // createProjectVersion never throws; it resolves null when the
-                // snapshot could not be taken. That null MUST abort the restore:
+                // snapshot could not be taken (and a truthy no-version marker
+                // when the dir is empty — nothing to save, so carry on). That
+                // null MUST abort the restore:
                 // proceeding would overwrite (and delete) the un-snapshotted work
                 // with no copy anywhere, and then clear the dirty flag so no later
                 // restore would try again either — irreversible data loss behind
