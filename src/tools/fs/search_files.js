@@ -141,7 +141,82 @@ window.__searchFilesInternals = (function () {
         return findLineMatches(lines, opts.re, opts.maxPerFile, opts.deadline || 0);
     }
 
-    return { LIMITS, hasBinaryExtension, looksBinary, compileLineRegex, toLines, clipLine, searchText };
+    // A model-written regex can backtrack catastrophically — `(\w+\s?)+\(`
+    // against one ordinary line runs for minutes — and the time budget above is
+    // only checked BETWEEN lines, so on the main thread a single match() froze
+    // the tab (Stop included) until it gave up. Regex queries therefore run in
+    // a worker with a hard deadline: past it the worker is terminated and the
+    // search reports what it has. Returns null where workers are unavailable
+    // (the caller then matches in place, as before). Literal queries are
+    // escaped, so they can't backtrack and stay on the main thread.
+    function makeRegexRunner(source, flags, signal) {
+        if (typeof Worker === 'undefined' || typeof Blob === 'undefined'
+            || typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') return null;
+        const workerSrc =
+            'const LIMITS = ' + JSON.stringify({ MAX_LINE_CHARS: LIMITS.MAX_LINE_CHARS, MAX_TESTED_LINE_CHARS: LIMITS.MAX_TESTED_LINE_CHARS }) + ';\n' +
+            toLines.toString() + '\n' + clipLine.toString() + '\n' + findLineMatches.toString() + '\n' +
+            'self.onmessage = function (e) {\n' +
+            '    const d = e.data;\n' +
+            '    self.postMessage({ id: d.id, result: findLineMatches(toLines(d.text), new RegExp(d.source, d.flags), d.maxPerFile, 0) });\n' +
+            '};\n';
+        let url = null, worker = null;
+        try {
+            url = URL.createObjectURL(new Blob([workerSrc], { type: 'text/javascript' }));
+            worker = new Worker(url);
+        } catch (e) {
+            if (url) URL.revokeObjectURL(url);
+            return null;
+        }
+        // dead: 'timeout' (a stuck match — report what we have) or 'error' (the
+        // worker couldn't run, e.g. a CSP refusing blob workers — the caller
+        // falls back to matching in place, so a broken worker never costs the
+        // results).
+        let dead = null, nextId = 0;
+        const pending = new Map(); // id -> { resolve, timer }
+        const deadResult = () => (dead === 'error' ? null : { matches: [], timedOut: true });
+        const settle = (id, value) => {
+            const p = pending.get(id);
+            if (!p) return;
+            pending.delete(id);
+            clearTimeout(p.timer);
+            p.resolve(value);
+        };
+        const kill = (why = 'timeout') => {
+            if (dead) return;
+            dead = why;
+            try { worker.terminate(); } catch (e) { /* already gone */ }
+            URL.revokeObjectURL(url);
+            for (const id of [...pending.keys()]) settle(id, deadResult());
+        };
+        worker.onmessage = (e) => {
+            const id = e.data && e.data.id;
+            settle(id, (e.data && e.data.result) || { matches: [] });
+        };
+        worker.onerror = (e) => { if (e && e.preventDefault) e.preventDefault(); kill('error'); };
+        // A Stopped turn shouldn't keep a pathological pattern spinning.
+        if (signal) {
+            if (signal.aborted) kill();
+            else signal.addEventListener('abort', () => kill(), { once: true });
+        }
+        return {
+            // Resolves { matches, capped?, timedOut? }, or null when the worker
+            // failed and the caller should match in place.
+            match(text, maxPerFile, deadline) {
+                if (dead) return Promise.resolve(deadResult());
+                return new Promise((resolve) => {
+                    const id = ++nextId;
+                    // Past the deadline the worker is presumed stuck in this
+                    // match: end it, and with it every request still queued.
+                    const timer = setTimeout(() => { if (pending.has(id)) kill(); }, Math.max(0, deadline - Date.now()));
+                    pending.set(id, { resolve, timer });
+                    worker.postMessage({ id, text, source, flags, maxPerFile });
+                });
+            },
+            dispose: () => kill(),
+        };
+    }
+
+    return { LIMITS, hasBinaryExtension, looksBinary, compileLineRegex, toLines, clipLine, searchText, makeRegexRunner };
 })();
 
 window.tools.push({
@@ -259,6 +334,8 @@ window.tools.push({
         let filesSearched = 0;
         let searchTimedOut = false;
         let next = 0;
+        // Regex queries match off the main thread (see makeRegexRunner).
+        const regexRunner = (re && isRegex) ? S.makeRegexRunner(re.source, re.flags, state && state.abortController && state.abortController.signal) : null;
         async function worker() {
             while (true) {
                 if (Date.now() > deadline) { searchTimedOut = true; return; }
@@ -281,20 +358,30 @@ window.tools.push({
                 if (/\.html?$/i.test(f.path) && window.stripPreviewCacheBust) {
                     text = window.stripPreviewCacheBust(text);
                 }
-                perFile[i] = S.searchText(text, {
-                    re: re,
-                    multilineQuery: multilineLiteral ? query : null,
-                    caseSensitive: caseSensitive,
-                    maxPerFile: L.MAX_PER_FILE,
-                    deadline: deadline,
-                });
+                const viaWorker = regexRunner ? await regexRunner.match(text, L.MAX_PER_FILE, deadline) : null;
+                if (viaWorker) {
+                    perFile[i] = viaWorker;
+                    if (viaWorker.timedOut) { searchTimedOut = true; return; }
+                } else {
+                    perFile[i] = S.searchText(text, {
+                        re: re,
+                        multilineQuery: multilineLiteral ? query : null,
+                        caseSensitive: caseSensitive,
+                        maxPerFile: L.MAX_PER_FILE,
+                        deadline: deadline,
+                    });
+                }
                 filesSearched++;
             }
         }
-        if (files.length > 0) {
-            const workers = [];
-            for (let w = 0; w < Math.min(L.READ_CONCURRENCY, files.length); w++) workers.push(worker());
-            await Promise.all(workers);
+        try {
+            if (files.length > 0) {
+                const workers = [];
+                for (let w = 0; w < Math.min(L.READ_CONCURRENCY, files.length); w++) workers.push(worker());
+                await Promise.all(workers);
+            }
+        } finally {
+            if (regexRunner) regexRunner.dispose();
         }
 
         // Assemble in file order under the total-match and char budgets.
@@ -318,7 +405,11 @@ window.tools.push({
 
         if (totalCapped) notes.push(`Results truncated to the first ${matches.length} matching lines — narrow the query or search a subdirectory to see the rest.`);
         if (anyPerFileCapped) notes.push(`Some files had more than ${L.MAX_PER_FILE} matching lines; only the first ${L.MAX_PER_FILE} per file are shown.`);
-        if (searchTimedOut || anyMatchTimedOut) notes.push('Stopped early: the search hit its time limit; results may be incomplete.');
+        if (searchTimedOut || anyMatchTimedOut) {
+            notes.push(isRegex
+                ? 'Stopped early: the search hit its time limit; results may be incomplete. If this keeps happening, the pattern may backtrack heavily (nested repeats like (\\w+\\s?)+) — simplify it or search for a literal.'
+                : 'Stopped early: the search hit its time limit; results may be incomplete.');
+        }
 
         const result = {
             query: query,

@@ -287,5 +287,73 @@ check('wiring: tool guards its path through assertPathInProject', toolSrc.includ
 check('wiring: tool is read-only (never writes/deletes)',
     !toolSrc.includes('puter.fs.write') && !toolSrc.includes('puter.fs.delete') && !toolSrc.includes('writeFileVerified'));
 
+// --- Regex queries run off the main thread ------------------------------------
+// A catastrophic pattern ((\w+\s?)+\( on an ordinary 72-char line) backtracks
+// for minutes inside ONE match() call, and the budget is checked only between
+// lines — on the main thread that froze the tab, Stop included. The regex
+// runner matches in a worker and ends it at the deadline. Node has no web
+// Worker, so a shim runs the runner's real generated source on worker_threads.
+{
+    const { Worker: ThreadWorker } = await import('node:worker_threads');
+    const { resolveObjectURL } = await import('node:buffer');
+    const created = [];
+    globalThis.Worker = class {
+        constructor(url) {
+            this._ready = resolveObjectURL(url).text().then((src) => {
+                this._t = new ThreadWorker(
+                    'const { parentPort } = require("node:worker_threads");\n' +
+                    'const self = { postMessage: (m) => parentPort.postMessage(m) };\n' +
+                    src + '\nparentPort.on("message", (data) => self.onmessage({ data }));',
+                    { eval: true });
+                this._t.on('message', (data) => this.onmessage && this.onmessage({ data }));
+                this._t.on('error', (e) => this.onerror && this.onerror(e));
+                if (this._terminated) this._t.terminate();
+            });
+            created.push(this);
+        }
+        postMessage(m) { this._ready.then(() => this._t && this._t.postMessage(m)); }
+        terminate() { this._terminated = true; if (this._t) this._t.terminate(); }
+    };
+    try {
+        const text = 'function a() {}\nconst b = 1;\nfunction c(x) { return x; }\n' + 'a'.repeat(72) + '\n';
+        const good = S.compileLineRegex('function\\s+(\\w+)', true, false);
+        const runner = S.makeRegexRunner(good.source, good.flags, null);
+        check('regex runner: created where workers exist', !!runner);
+        const viaWorker = await runner.match(text, 25, Date.now() + 10000);
+        runner.dispose();
+        const inPlace = S.searchText(text, { re: good, maxPerFile: 25 });
+        check('regex runner: a normal pattern gives exactly the in-place results',
+            JSON.stringify(viaWorker.matches) === JSON.stringify(inPlace.matches) && viaWorker.matches.length === 2);
+
+        const bad = S.compileLineRegex('(\\w+\\s?)+\\(', true, false);
+        const stuck = S.makeRegexRunner(bad.source, bad.flags, null);
+        let ticks = 0;
+        const iv = setInterval(() => ticks++, 20);
+        const t0 = Date.now();
+        const res = await stuck.match(text, 25, Date.now() + 400);
+        clearInterval(iv);
+        const elapsed = Date.now() - t0;
+        check('regex runner: a catastrophic pattern is cut off at the deadline', res.timedOut === true && elapsed < 3000);
+        check('regex runner: …while the main thread kept running', ticks >= 5);
+        check('regex runner: later requests to a cut-off runner return at once', (await stuck.match(text, 25, Date.now() + 5000)).timedOut === true);
+
+        const ctrl = new AbortController();
+        const stopped = S.makeRegexRunner(bad.source, bad.flags, ctrl.signal);
+        const pendingMatch = stopped.match(text, 25, Date.now() + 60000);
+        setTimeout(() => ctrl.abort(), 50);
+        const t1 = Date.now();
+        const aborted = await pendingMatch;
+        check('regex runner: Stop ends a stuck match at once', aborted.timedOut === true && Date.now() - t1 < 3000);
+
+        const broken = S.makeRegexRunner(good.source, good.flags, null);
+        created.at(-1).onerror({ preventDefault() {} }); // the worker failed to run (e.g. a CSP)
+        check('regex runner: a worker that cannot run hands matching back (null → in place)',
+            (await broken.match(text, 25, Date.now() + 5000)) === null);
+    } finally {
+        for (const w of created) w.terminate();
+        delete globalThis.Worker;
+    }
+}
+
 if (failures) { console.error('\n' + failures + ' check(s) failed'); process.exit(1); }
 console.log('\nAll SearchFiles checks passed.');
