@@ -15,6 +15,7 @@ import fs from 'node:fs';
 //   2. changed bytes    → exactly one swap, to the new shot
 //   3. fetch error      → fallback swaps every tick (zero-regression behavior)
 //   4. out-of-order resolution → a stale older tick can't re-show an old shot
+//   6. sidebar closed   → no downloads; opening it refreshes the shot once
 //
 // Mirrors the block-extraction style of scripts/test-fs-path-scoping.mjs.
 
@@ -29,6 +30,12 @@ const a = src.indexOf(startMarker);
 const b = src.indexOf(endMarker);
 if (a < 0 || b < 0) throw new Error('could not locate the refreshChatThumb block in app.js');
 const block = src.slice(a, b + endMarker.length);
+// The one writer of the sidebar's open state (it refreshes thumbnails that went
+// stale while the sidebar was closed).
+const openA = src.indexOf('function setChatHistorySidebarOpen(open) {');
+const openB = src.indexOf('function toggleChatHistorySidebar() {');
+if (openA < 0 || openB < 0) throw new Error('could not locate setChatHistorySidebarOpen in app.js');
+const openBlock = src.slice(openA, openB);
 
 // --- Mutable mock state (the mocks delegate here so each scenario can reset) --
 let fetchImpl;        // (url) => Promise<Response-ish>
@@ -39,6 +46,8 @@ let lastSwapSrc;      // src of the most recent swap
 
 function reset() {
     fetchImpl = null;
+    fetchCount = 0;
+    now = 1000;
     scheduled = null;
     swapCount = 0;
     lastSwapSrc = null;
@@ -60,6 +69,8 @@ function makeThumb() {
         find(sel) { return sel === '.chat-thumb-img' && img ? img : { length: 0 }; },
         append(child) { img = child; return t; },
         addClass(c) { t.classes.add(c); return t; },
+        toggleClass() { return t; },
+        attr() { return t; },
     };
     return t;
 }
@@ -81,17 +92,21 @@ class FakeImage {
     }
 }
 
-const fetchMock = (...args) => fetchImpl(...args);
+let fetchCount = 0;
+let now = 1000;
+const fetchMock = (...args) => { fetchCount++; return fetchImpl(...args); };
 const setTimeoutMock = (cb) => { scheduled = cb; return 1; };
-const DateMock = { now: () => 1000 };
+const DateMock = { now: () => now };
 
 const factory = new Function(
     'window', '$', 'Image', 'fetch', 'setTimeout', 'Date', 'AbortSignal', 'savedChats',
-    block + '\n; return { refreshChatThumb: window.refreshChatThumb };'
+    'let chatHistorySidebarOpen = true;\n' + block + '\n' + openBlock +
+    '\n; return { refreshChatThumb: window.refreshChatThumb, setChatHistorySidebarOpen, ' +
+    'setOpenQuietly: (v) => { chatHistorySidebarOpen = v; } };'
 );
 const win = {};
 const savedChats = [{ id: 'c1', previewUrl: 'https://app.example.puter.site/' }];
-const { refreshChatThumb } = factory(
+const { refreshChatThumb, setChatHistorySidebarOpen, setOpenQuietly } = factory(
     win, $, FakeImage, fetchMock, setTimeoutMock, DateMock, undefined, savedChats
 );
 
@@ -206,6 +221,58 @@ await (async () => {
 
     check('error-fallback respects ordering: stale errored tick does not repaint', swapCount === 1);
     check('error-fallback: still showing the newer shot (not the stale fallback)', String(lastSwapSrc).endsWith('_1'));
+})();
+
+// === Scenario 6: the sidebar is closed — a thumbnail nobody can see is never
+// downloaded; opening the sidebar refreshes it once. ==========================
+await (async () => {
+    reset();
+    setOpenQuietly(false);
+    fetchImpl = () => Promise.resolve(okResp(NEW));
+
+    refreshChatThumb('c1');
+    await flush();
+    let ticks = 1;
+    while (scheduled && ticks < 100) { now += 3000; await step(); ticks++; }
+
+    check('closed sidebar: the whole poll ran (sanity)', ticks > 10 && !scheduled);
+    check('closed sidebar: no screenshot downloads during the poll', fetchCount === 0);
+    check('closed sidebar: nothing swapped', swapCount === 0);
+
+    setChatHistorySidebarOpen(true);
+    await flush();
+    check('opening the sidebar refreshes the stale thumbnail once', fetchCount === 1 && swapCount === 1);
+    check('…with no poll left running afterwards', scheduled === null);
+
+    setChatHistorySidebarOpen(false);
+    setChatHistorySidebarOpen(true);
+    await flush();
+    check('opening it again later does not re-download', fetchCount === 1);
+})();
+
+// === Scenario 7: the sidebar opens while a poll is still in its window → the
+// poll just resumes, and nothing is left marked stale. =========================
+await (async () => {
+    reset();
+    setOpenQuietly(false);
+    fetchImpl = () => Promise.resolve(okResp(NEW));
+
+    refreshChatThumb('c1');   // tick0 — closed, skipped
+    await flush();
+    now += 3000; await step(); // tick1 — closed, skipped
+    check('closed: ticks skip the download', fetchCount === 0);
+
+    setChatHistorySidebarOpen(true);
+    await flush();
+    check('opening mid-poll triggers no extra refresh (the poll is still live)', fetchCount === 0);
+    now += 3000; await step(); // tick2 — open
+    check('…and the next tick downloads as usual', fetchCount === 1 && swapCount === 1);
+    while (scheduled) { now += 3000; await step(); }
+    const after = fetchCount;
+    setChatHistorySidebarOpen(false);
+    setChatHistorySidebarOpen(true);
+    await flush();
+    check('a poll that ended with the sidebar open leaves nothing to refresh', fetchCount === after);
 })();
 
 if (failures > 0) {
