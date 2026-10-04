@@ -572,7 +572,13 @@
         const curByName = new Map(curItems.map(it => [it.name, it]));
         const snapByName = new Map(snapItems.map(it => [it.name, it]));
 
-        for (const snapItem of snapItems) {
+        // Each entry is its own round trip, and they ran strictly one after
+        // another: restoring a project with a few dozen attachments took tens
+        // of seconds with sends blocked. A directory's files now go a few at a
+        // time (different paths, so the per-path locks don't serialize them);
+        // subdirectories still follow one by one, which keeps the number of
+        // requests in flight bounded however deep the tree is.
+        const restoreEntry = async (snapItem) => {
             const dest = curDir + '/' + snapItem.name;
             const cur = curByName.get(snapItem.name);
             // Same name but different type → remove the stale entry first.
@@ -590,21 +596,41 @@
                 // propagated to the live site before reloading.
                 window.recordPreviewChange?.(dest);
             }
-        }
+        };
+        await forEachLimited(snapItems.filter(it => !it.is_dir), RESTORE_CONCURRENCY, restoreEntry);
+        for (const dirItem of snapItems.filter(it => it.is_dir)) await restoreEntry(dirItem);
 
         // Remove entries that the snapshot doesn't contain.
-        for (const curItem of curItems) {
-            if (!snapByName.has(curItem.name)) {
-                const stale = curDir + '/' + curItem.name;
-                try {
-                    await lockedFs(stale, () => puter.fs.delete(stale, { recursive: true }));
-                } catch (e) {
-                    console.warn('Restore prune: failed to remove', curItem.name, e);
-                    leftovers.push(curItem.name);
-                }
+        await forEachLimited(curItems.filter(it => !snapByName.has(it.name)), RESTORE_CONCURRENCY, async (curItem) => {
+            const stale = curDir + '/' + curItem.name;
+            try {
+                await lockedFs(stale, () => puter.fs.delete(stale, { recursive: true }));
+            } catch (e) {
+                console.warn('Restore prune: failed to remove', curItem.name, e);
+                leftovers.push(curItem.name);
             }
-        }
+        });
         return leftovers;
+    }
+
+    // Run fn over items, at most `limit` at a time. On the first failure no new
+    // item starts, the ones in flight are allowed to finish, and then the error
+    // is rethrown — so a caller that catches it never races copies still
+    // landing behind its back (restore's mixed-directory handling relies on
+    // the walk having stopped).
+    const RESTORE_CONCURRENCY = 6;
+    async function forEachLimited(items, limit, fn) {
+        let next = 0;
+        let failure = null;
+        const worker = async () => {
+            while (!failure && next < items.length) {
+                const item = items[next++];
+                try { await fn(item); }
+                catch (e) { if (!failure) failure = e; }
+            }
+        };
+        await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+        if (failure) throw failure;
     }
 
     // Every write a restore makes into the app dir goes through the per-path
