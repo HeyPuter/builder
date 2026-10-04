@@ -1818,7 +1818,7 @@ function renderPublishPanel() {
             '<p class="publish-blurb">Pick a public address, then publish. You can change it later — and you\'ll keep editing here, with changes staying in your draft until you publish.</p>' +
             '<div class="publish-name-row">' +
                 '<span class="publish-address-fix">https://</span>' +
-                `<input type="text" class="publish-name-input" value="${suggested}" placeholder="your-app" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off">` +
+                `<input type="text" class="publish-name-input" value="${suggested}" placeholder="your-app" aria-label="Site address (before .puter.site)" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off">` +
                 '<span class="publish-address-fix">.puter.site</span>' +
             '</div>' +
             (blocked
@@ -1839,7 +1839,7 @@ function renderPublishPanel() {
             '<button class="publish-change-address" data-action="change-address">Change address</button>' +
             '<div class="publish-address-edit">' +
                 '<span class="publish-address-fix">https://</span>' +
-                '<input type="text" class="publish-address-input" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off">' +
+                '<input type="text" class="publish-address-input" aria-label="Site address (before .puter.site)" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off">' +
                 '<span class="publish-address-fix">.puter.site</span>' +
                 `<button class="publish-address-save" title="Save address">${window.check_svg}</button>` +
                 `<button class="publish-address-cancel" title="Cancel">${window.x_svg}</button>` +
@@ -3579,7 +3579,7 @@ function startRenameChat(chatId) {
     const current = $title.text();
     const $edit = $(`
         <div class="chat-title-edit">
-            <input type="text" class="chat-title-input" maxlength="${MAX_PROJECT_TITLE_LENGTH}" />
+            <input type="text" class="chat-title-input" maxlength="${MAX_PROJECT_TITLE_LENGTH}" aria-label="Project name" />
             <button type="button" class="chat-title-confirm" title="Save" aria-label="Save name">✓</button>
             <button type="button" class="chat-title-cancel" title="Cancel" aria-label="Cancel rename">✕</button>
         </div>
@@ -3805,7 +3805,7 @@ function confirmByTyping({ title, body, confirmWord, confirmLabel = 'Delete' }) 
                     <div class="confirm-modal-title" id="confirm-modal-title"></div>
                     <div class="confirm-modal-body" id="confirm-modal-body"></div>
                     <div class="confirm-modal-hint" id="confirm-modal-hint"></div>
-                    <input type="text" class="confirm-modal-input" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+                    <input type="text" class="confirm-modal-input" aria-labelledby="confirm-modal-hint" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
                     <div class="confirm-modal-actions">
                         <button type="button" class="confirm-modal-btn confirm-modal-cancel">Cancel</button>
                         <button type="button" class="confirm-modal-btn confirm-modal-confirm" disabled></button>
@@ -4038,7 +4038,7 @@ async function showChatProperties(chatId) {
         const $form = $(
             '<span class="properties-address-edit">' +
                 '<span class="properties-address-fix">https://</span>' +
-                '<input type="text" class="properties-address-input" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off">' +
+                '<input type="text" class="properties-address-input" aria-label="Site address (before .puter.site)" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off">' +
                 '<span class="properties-address-fix">.puter.site</span>' +
                 `<button type="button" class="properties-address-save" title="Save address">${window.check_svg}</button>` +
                 `<button type="button" class="properties-address-cancel" title="Cancel">${window.x_svg}</button>` +
