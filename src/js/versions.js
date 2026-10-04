@@ -1250,10 +1250,14 @@
         }
     });
 
+    // Back to the toolbar button, like Escape (and the publish/share/device
+    // popovers' close buttons): removing the panel took the focused ✕ with it,
+    // dropping focus to <body> — the next Tab restarted from the top of the page.
     $(document).on('click', '.versions-panel-close', function (e) {
         e.preventDefault();
         e.stopPropagation();
         closeVersionsPanel();
+        $('.preview-versions').trigger('focus');
     });
 
     $(document).on('click', '.version-restore', function (e) {
