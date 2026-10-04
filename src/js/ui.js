@@ -274,7 +274,10 @@ function updateUserMenu() {
         // their theme control here. Signed-out users always follow the system.
         if (loggedIn) {
             const dark = getEffectiveTheme() === 'dark';
-            h += `<button class="theme-toggle-btn" title="${dark ? 'Switch to light mode' : 'Switch to dark mode'}" aria-label="Toggle dark mode">${dark ? sun_svg : moon_svg}</button>`;
+            // A toggle button: the name stays "Dark mode" and aria-pressed says
+            // whether it is on — the fixed "Toggle dark mode" never said which
+            // mode was showing. (The tooltip names the action, as before.)
+            h += `<button class="theme-toggle-btn" title="${dark ? 'Switch to light mode' : 'Switch to dark mode'}" aria-label="Dark mode" aria-pressed="${dark ? 'true' : 'false'}">${dark ? sun_svg : moon_svg}</button>`;
         }
         // Feedback is tied to an account (it's how we reply), so it's offered
         // only to signed-in users — here that means hosted inside Puter, where
