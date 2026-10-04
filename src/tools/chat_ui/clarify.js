@@ -251,7 +251,7 @@
                 if (customOpen) {
                     const prefill = answers[qIndex] && answers[qIndex].type === 'custom' ? htmlEscape(answers[qIndex].value) : '';
                     h += `<span class="clarify-custom-icon">${pencil}</span>`;
-                    h += `<input class="clarify-custom-input" type="text" placeholder="Type your answer…" value="${prefill}">`;
+                    h += `<input class="clarify-custom-input" type="text" placeholder="Type your answer…" aria-label="Your answer" value="${prefill}">`;
                     h += `<button class="clarify-custom-ok" title="Use this answer">${enterKey}</button>`;
                 } else {
                     h += `<button class="clarify-custom"><span class="clarify-custom-icon">${pencil}</span><span>Something else</span></button>`;
