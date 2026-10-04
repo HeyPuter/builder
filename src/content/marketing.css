@@ -226,6 +226,9 @@ code {
         padding-bottom: 2px;
     }
     .site-nav::-webkit-scrollbar { display: none; }
+    /* The wrapped header is ~97px tall here, so the 82px anchor offset left the
+       top of every linked heading (the article contents links) under it. */
+    [id] { scroll-margin-top: 116px; }
 }
 
 /* ---------- Buttons ---------- */
