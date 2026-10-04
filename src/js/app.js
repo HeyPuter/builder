@@ -1001,6 +1001,13 @@ async function loadChat(chatId, { urlMode = 'push' } = {}) {
         // having a preview silently un-published it (sidebar link gone, Settings
         // offering a fresh Publish that would mint a second subdomain).
         if (!chat.previewUrl) hideAppPreview();
+        // This chat's draft address from the moment it is the open chat, not
+        // only once showAppPreview runs at the end of this load: saves of the
+        // open chat read it back (saveCurrentChat), and one landing in between
+        // — after the per-image URL awaits below — stamped the PREVIOUS
+        // project's preview address onto this one. Its next publish_site then
+        // re-pointed that other project's draft site at this project's files.
+        window.currentPreviewUrl = chat.previewUrl || null;
         // Restore the published-root path so the propagation probe writes its
         // marker into the actually-served dir (falls back to the app dir below).
         window.currentPreviewPath = chat.previewPath || null;

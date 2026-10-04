@@ -94,5 +94,17 @@ check('new_chat runs the shared reset', /\bresetChatUIForSwitch\(\)/.test(newCha
 // …and no longer needs a clear of its own (one owner, so the two can't drift).
 check('new_chat no longer clears the tray separately', !/clearAllAttachments\(\)/.test(newChat));
 
+// The open chat's draft address must switch with the chat itself. It was only
+// set by showAppPreview at the END of loadChat, so a save of the newly-open
+// chat landing in between (after the media URL awaits) stamped the previous
+// project's preview address onto it.
+{
+    const becomesCurrent = loadChat.indexOf('currentChatId = chatId;');
+    const previewSet = loadChat.indexOf('window.currentPreviewUrl = chat.previewUrl || null;');
+    const firstAwaitAfter = loadChat.indexOf('await ', becomesCurrent);
+    check('loadChat sets the draft address as soon as the chat is current (before any await)',
+        becomesCurrent > 0 && previewSet > becomesCurrent && previewSet < firstAwaitAfter, `${becomesCurrent} ${previewSet} ${firstAwaitAfter}`);
+}
+
 if (failures) { console.error('\n' + failures + ' check(s) failed'); process.exit(1); }
 console.log('\nAll chat-switch reset checks passed.');
