@@ -81,9 +81,13 @@ async function loadSavedChats() {
         raw = await puter.fs.read('chat-history/chat-list.json').then(data => data.text());
     } catch (error) {
         if (isNotFoundError(error)) {
-            // Genuinely no history yet — safe to start empty and to persist.
-            savedChats = [];
-            chatListLoaded = true;
+            // No index. Usually a brand-new account — but the per-chat files
+            // can exist without it (a first save interrupted between the chat
+            // file and the index; the index deleted in Puter's file manager),
+            // and starting from an empty list hid those projects for good: the
+            // next save wrote a list without them. Rebuild from the files; for
+            // a new account the folder (just ensured) is empty, so the list is.
+            await recoverChatListFromFiles();
             return;
         }
         // A real read failure. Do NOT assume "no history" — that would let the
