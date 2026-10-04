@@ -56,7 +56,15 @@ window.tools.push({
             try {
                 content = await puter.fs.read(path).then(d => d.text());
             } catch (e) {
-                throw new Error(`File not found: ${path}. Use the 'write' tool to create new files.`);
+                // Only a file that is really missing may send the model to
+                // 'write'. Any other failure (a network blip, a folder at this
+                // path) reported as "not found" invited it to recreate an
+                // existing file from memory, dropping whatever it misremembered.
+                if (typeof isNotFoundError !== 'function' || isNotFoundError(e)) {
+                    throw new Error(`File not found: ${path}. Use the 'write' tool to create new files.`);
+                }
+                const reason = (e && (e.message || (e.error && e.error.message))) || String(e);
+                throw new Error(`Could not read ${path} (${reason}). It is not a missing file, and nothing was changed: retry this edit — do not recreate the file with 'write'.`);
             }
 
             // Match/write against the clean source the model sees (HTML preview
