@@ -2834,6 +2834,10 @@ function resetChatUIForSwitch() {
     // input, outside .chat-box, so .empty() doesn't reach them) and supersede
     // any in-flight suggestion generation aimed at the chat we're leaving.
     clearContinueSuggestions();
+    // …and the context the regenerate chip ran against: it holds the whole
+    // history of the chat being left. loadChat sets a fresh one when the chat
+    // it opens has chips to show.
+    _lastSuggestionContext = null;
 
     // Drop any pending click-to-edit selection so its chip + armed target can't
     // leak into the chat we're switching to (it targets the old preview).
@@ -4585,11 +4589,13 @@ let _lastSuggestionContext = null;
 
 // Suggestions are produced only at end-of-turn, but they should survive a chat
 // switch: leaving a project and coming back must restore its chips rather than
-// leave the input bare until the next turn. Cache the rendered set per chat id
-// (with the context behind it, so the "New ideas" regenerate chip still targets
-// the right conversation after a restore). Invalidated when a new turn starts
-// for that chat (the conversation changed, so the old ideas are stale — see
-// sendChatMessage) and when a chat is deleted. loadChat re-seeds from it.
+// leave the input bare until the next turn. Cache the rendered set per chat id.
+// Only the chips: the context the "New ideas" regenerate chip needs is rebuilt
+// from the open chat when it is used — caching it held every opened project's
+// whole parsed history in memory for the rest of the session (tens of MB after
+// browsing a few dozen projects, on phones too). Invalidated when a new turn
+// starts for that chat (the conversation changed, so the old ideas are stale —
+// see sendChatMessage) and when a chat is deleted. loadChat re-seeds from it.
 const _suggestionsByChat = new Map();
 
 // Labels of the suggestions shown so far for the current context, fed back into
@@ -4839,7 +4845,7 @@ function renderContinueSuggestions(suggestions) {
     // switching away and back (and the end-of-turn re-save) must still see
     // this set, and the regenerate chip needs the context to keep working.
     if (currentChatId) {
-        _suggestionsByChat.set(currentChatId, { suggestions, context: _lastSuggestionContext });
+        _suggestionsByChat.set(currentChatId, { suggestions });
     }
     // While the issues review card is asking "did the fixes work?", hold the
     // paint — an open question to the user outranks "what next?" ideas.
@@ -4912,7 +4918,9 @@ window.renderDeferredSuggestions = function () {
     if ($('.chat-suggestions').length) return;
     const cached = _suggestionsByChat.get(currentChatId);
     if (!cached || !Array.isArray(cached.suggestions) || !cached.suggestions.length) return;
-    _lastSuggestionContext = cached.context || _lastSuggestionContext;
+    if (!_lastSuggestionContext || _lastSuggestionContext.currentChatId !== currentChatId) {
+        _lastSuggestionContext = { chatHistory, currentChatId, appDir: currentAppDir };
+    }
     renderContinueSuggestions(cached.suggestions);
 };
 
