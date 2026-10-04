@@ -1772,12 +1772,14 @@ function publishWaitingHtml(reason) {
 function renderPublishPanel() {
     const $panel = $('.preview-publish-panel');
     if (!$panel.length) return;
+    const restoreFocus = keepPublishPanelFocus($panel);
 
     // Post-publish share view: stays up until the popover closes.
     if (_publishPanelView === 'success' && _publishSuccessData) {
         $panel.find('.publish-panel-header span').text('Published');
         $panel.find('.publish-panel-body').html(publishSuccessHtml(_publishSuccessData));
         bindPublishSuccessHandlers($panel, _publishSuccessData);
+        restoreFocus();
         return;
     }
     // A publish in flight always renders the progress note — including on a
@@ -1786,6 +1788,7 @@ function renderPublishPanel() {
     if (_publishPanelView === 'progress' || publishBusyHere()) {
         $panel.find('.publish-panel-header span').text('Publish');
         $panel.find('.publish-panel-body').html(publishProgressHtml());
+        restoreFocus();
         return;
     }
 
@@ -1853,17 +1856,34 @@ function renderPublishPanel() {
     }
 
     $panel.find('.publish-panel-header span').text(title);
-    // If the first-publish name field was focused when a re-render fired (e.g. a
-    // turn ended while the user was typing their address), restore focus and put
-    // the caret at the end so their typing isn't interrupted. The value itself is
-    // preserved via _suggestedPublishName (see the input handler).
-    const nameWasFocused = document.activeElement &&
-        document.activeElement.classList.contains('publish-name-input');
     $panel.find('.publish-panel-body').html(body);
-    if (nameWasFocused) {
-        const el = $panel.find('.publish-name-input')[0];
-        if (el) { el.focus(); const n = el.value.length; try { el.setSelectionRange(n, n); } catch (e) {} }
-    }
+    restoreFocus();
+}
+
+// Called before the popover body is swapped; returns the function that puts
+// focus back afterwards. Focus inside the body went down with the replaced
+// markup — to <body>, out of the popover (Escape no longer closed it, and the
+// next Tab started from the top of the page) — whenever a re-render fired under
+// the user: a turn ending, the publish state changing. It returns to the same
+// control in the new body when there is one (the first-publish name field gets
+// its caret back at the end, so typing carries on; its value is preserved via
+// _suggestedPublishName), else to the popover itself.
+function keepPublishPanelFocus($panel) {
+    const active = document.activeElement;
+    const $body = $panel.find('.publish-panel-body');
+    if (!active || !$body.length || !$body[0].contains(active)) return () => {};
+    const cls = Array.from(active.classList).find((c) => c.startsWith('publish-'));
+    const action = active.getAttribute('data-action');
+    const selector = cls ? '.' + cls + (action ? `[data-action="${action}"]` : '') : null;
+    return () => {
+        const el = selector ? $panel.find(selector).filter(':visible')[0] : null;
+        if (!el) { $panel.trigger('focus'); return; }
+        el.focus({ preventScroll: true });
+        if (el.classList.contains('publish-name-input')) {
+            const n = el.value.length;
+            try { el.setSelectionRange(n, n); } catch (e) { /* not a text field */ }
+        }
+    };
 }
 
 function openPublishPanel() {
@@ -2596,8 +2616,21 @@ $(document).on('click', '.publish-change-address', function () {
     $input.trigger('focus');
     $input[0].select();
 });
+// Leave the address editor. Hiding it took the focus in its field or on its
+// buttons down with it — to <body>, out of the open popover — so focus moves to
+// "Change address", which reappears in its place.
+function endPublishAddressEdit($panel) {
+    const active = document.activeElement;
+    const focusHere = !active || active === document.body || ($panel[0] && $panel[0].contains(active));
+    $panel.removeClass('editing-address');
+    if (focusHere) {
+        const btn = $panel.find('.publish-change-address').filter(':visible')[0];
+        if (btn) btn.focus({ preventScroll: true });
+        else $panel.trigger('focus');
+    }
+}
 $(document).on('click', '.publish-address-cancel', function () {
-    $(this).closest('.preview-publish-panel').removeClass('editing-address');
+    endPublishAddressEdit($(this).closest('.preview-publish-panel'));
 });
 $(document).on('keydown', '.publish-address-input', function (e) {
     const $panel = $(this).closest('.preview-publish-panel');
@@ -2614,8 +2647,8 @@ $(document).on('click', '.publish-address-save', async function () {
     const oldSub = previewSubdomain(oldUrl);
     const newSub = ($input.val() || '').trim().toLowerCase();
 
-    if (!oldSub) { $panel.removeClass('editing-address'); return; }
-    if (newSub === oldSub) { $panel.removeClass('editing-address'); return; }
+    if (!oldSub) { endPublishAddressEdit($panel); return; }
+    if (newSub === oldSub) { endPublishAddressEdit($panel); return; }
     if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(newSub)) {
         await puter.ui.alert('Please enter a valid address: lowercase letters, numbers, and hyphens only (it cannot start or end with a hyphen).');
         $input.trigger('focus');
@@ -2659,6 +2692,7 @@ $(document).on('click', '.publish-address-save', async function () {
             }
             $panel.removeClass('editing-address');
             renderPublishPanel();
+            endPublishAddressEdit($panel);
         } else {
             window.savePublishedFields?.(chatId, fields);
         }
