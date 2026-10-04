@@ -335,9 +335,14 @@
         return parts.join(' > ');
     }
 
+    // Never cut between the two halves of an emoji (or any non-BMP character):
+    // the half left behind is a broken character in the builder's chip.
     function clip(s, max) {
         s = s || '';
-        return s.length > max ? s.slice(0, max) + '...' : s;
+        if (s.length <= max) return s;
+        var end = max, hi = s.charCodeAt(end - 1);
+        if (hi >= 0xD800 && hi <= 0xDBFF) end--;
+        return s.slice(0, end) + '...';
     }
 
     // The badge host (half 1) exists in no app file, so "selecting" it would

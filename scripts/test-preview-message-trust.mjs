@@ -37,9 +37,12 @@ const originOfSrc = slice('function _originOf', 'function previewHostSkipsBrowse
 const helpersSrc = slice('function isTrustedPreviewMessage', '// --- App preview error forwarding ---');
 
 // Evaluate them with injected $ / window so the functions close over our mocks.
+// clipChars lives in helpers.js (loaded before ui.js in the real bundle).
+const helpersJs = fs.readFileSync(new URL('../src/js/helpers.js', import.meta.url), 'utf8');
+const clipCharsSrc = helpersJs.slice(helpersJs.indexOf('function clipChars('), helpersJs.indexOf('window.clipChars = clipChars;'));
 function buildHelpers(mockJQ, mockWindow) {
     const factory = new Function('$', 'window',
-        originOfSrc + '\n' + helpersSrc + '\n' +
+        clipCharsSrc + '\n' + originOfSrc + '\n' + helpersSrc + '\n' +
         'return { isTrustedPreviewMessage, fenceUntrusted, inlineUntrusted };');
     return factory(mockJQ, mockWindow);
 }

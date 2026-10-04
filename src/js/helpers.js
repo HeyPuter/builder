@@ -961,6 +961,19 @@ function wellFormedDeep(value) {
 }
 window.wellFormedText = wellFormedText;
 
+// The first `max` UTF-16 code units of `s`, one fewer if the cut would land
+// between the two halves of an emoji (or any non-BMP character) — so a clipped
+// label never ends in a broken "�".
+function clipChars(s, max) {
+    s = String(s == null ? '' : s);
+    if (s.length <= max) return s;
+    let end = max;
+    const hi = s.charCodeAt(end - 1);
+    if (hi >= 0xD800 && hi <= 0xDBFF) end--;
+    return s.slice(0, end);
+}
+window.clipChars = clipChars;
+
 // Keep only the FIRST tool_result for any tool_use id. The API requires a
 // tool_result to sit in the user message right after its tool_use; a second
 // result for the same id — the persisted trace of a Stop mid-tool followed by

@@ -1297,7 +1297,7 @@ function editTargetLabel(d) {
     }
     let html = '<code>' + htmlEscape(sig) + '</code>';
     const t = (d.text || '').trim();
-    if (t) html += ' <span class="edit-target-snippet">"' + htmlEscape(t.length > 40 ? t.slice(0, 40) + '…' : t) + '"</span>';
+    if (t) html += ' <span class="edit-target-snippet">"' + htmlEscape(t.length > 40 ? clipChars(t, 40) + '…' : t) + '"</span>';
     return html;
 }
 
@@ -1402,7 +1402,7 @@ function sanitizeEditTarget(d) {
         let str = (typeof v === 'string') ? v : (v == null ? '' : String(v));
         // Drop control characters (keep newlines/tabs, which outerHTML has).
         str = str.replace(/\p{Cc}/gu, (c) => (c === '\n' || c === '\t') ? c : '');
-        if (str.length > EDIT_TARGET_LIMITS[key]) str = str.slice(0, EDIT_TARGET_LIMITS[key]) + '…';
+        if (str.length > EDIT_TARGET_LIMITS[key]) str = clipChars(str, EDIT_TARGET_LIMITS[key]) + '…';
         out[key] = str;
     }
     // A tag name is letters, digits and hyphens; anything else is not one.
@@ -2446,7 +2446,9 @@ function publishProgressHtml() {
 function publishCardLetterHtml({ url, meta }) {
     const host = (url || '').replace(/^https?:\/\//, '').replace(/\/+$/, '');
     const title = (meta.title || host).trim();
-    return `<span class="publish-site-card-letter" aria-hidden="true">${htmlEscape((title.charAt(0) || '•').toUpperCase())}</span>`;
+    // The first CHARACTER, not code unit: a title starting with an emoji
+    // ("🍅 Pomodoro") rendered half of it, as "�".
+    return `<span class="publish-site-card-letter" aria-hidden="true">${htmlEscape((Array.from(title)[0] || '•').toUpperCase())}</span>`;
 }
 
 // Share-view body. Pure render from { url, meta }; handlers are (re)bound by
@@ -2964,7 +2966,7 @@ function fenceUntrusted(text) {
 // backticks/newlines that could break out of inline context, and cap length.
 function inlineUntrusted(text, max = 2000) {
     const s = String(text == null ? '' : text).replace(/[`\r\n]+/g, ' ').trim();
-    return s.length > max ? s.slice(0, max) + '…' : s;
+    return s.length > max ? clipChars(s, max) + '…' : s;
 }
 
 // True iff a preview error refers to the externally-hosted Puter runtime script
