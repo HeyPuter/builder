@@ -4296,14 +4296,11 @@ $(document).on('click', '.chat-menu-btn', function(e) {
     // place relative to the item, regardless of the click/cursor position.
     // puter.ui.contextMenu reads viewport coords from `x`/`y` (falling back
     // to the cursor); the menu element is position:fixed.
-    const rect = this.getBoundingClientRect();
+    const anchor = chatMenuAnchor(this);
     puter.ui.contextMenu({
         ...menuThemeOption(),
-        x: rect.left,
-        // The button is a tall full-height strip with the ⋮ centered, so its
-        // bottom edge sits well below the glyph. Anchor the menu just under the
-        // glyph (button center) instead so it opens snug against the dots.
-        y: rect.top + rect.height / 2 + 12,
+        x: anchor.x,
+        y: anchor.y,
         items: [
             {
                 label: 'Open',
@@ -4657,14 +4654,25 @@ $(window).on('resize', function() {
 // the deployed puter.js). We recompute those with puter's own anchor + overflow
 // rule: put the menu's left edge at the trigger's left, flipping to a
 // right-edge anchor if it would overflow.
+// Where a project's ⋮ menu hangs from. The button is a tall full-height strip
+// with the ⋮ centered, so its bottom edge sits well below the glyph: anchor the
+// menu just under the glyph (button center) so it opens snug against the dots.
+// Shared by the opener and the resize handler — re-anchoring to the bottom
+// edge made an open menu jump down on any resize (rotating a phone, the
+// on-screen keyboard closing).
+function chatMenuAnchor(btn) {
+    const r = btn.getBoundingClientRect();
+    return { x: r.left, y: r.top + r.height / 2 + 12 };
+}
+
 function repositionOpenContextMenu() {
     if (!openChatMenuBtn) return;
     const menu = document.querySelector('puter-context-menu');
     if (!menu) return;
-    const r = openChatMenuBtn.getBoundingClientRect();
+    const a = chatMenuAnchor(openChatMenuBtn);
     const m = menu.getBoundingClientRect();
-    const left = (r.left + m.width > window.innerWidth) ? Math.max(0, r.left - m.width) : r.left;
-    const top = (r.bottom + m.height > window.innerHeight) ? Math.max(0, window.innerHeight - m.height) : r.bottom;
+    const left = (a.x + m.width > window.innerWidth) ? Math.max(0, a.x - m.width) : a.x;
+    const top = (a.y + m.height > window.innerHeight) ? Math.max(0, window.innerHeight - m.height) : a.y;
     menu.style.left = Math.round(left) + 'px';
     menu.style.top = Math.round(top) + 'px';
 }
