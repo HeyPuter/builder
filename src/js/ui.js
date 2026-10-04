@@ -3680,6 +3680,9 @@ function focusComposerAfterSidebarOpen() {
 
 $(document).on('click', '.chat-item', async function(e) {
     if ($(e.target).closest('.chat-app-link, .chat-menu-btn, .chat-title-edit').length) return;
+    // Being deleted or duplicated (see markChatItemBusy): unavailable to the
+    // keyboard too — and the link must not navigate to it either.
+    if ($(this).is('.deleting, .duplicating')) { e.preventDefault(); return; }
     // The item is a real link (.chat-item-link → ?p=<chatId>). For the standard
     // "open elsewhere" gestures — cmd/ctrl-click (new tab), shift-click (new
     // window), or a non-primary button — let the browser do its native thing
@@ -4470,6 +4473,7 @@ $(document).on('pointerdown', function(e) {
 $(document).on('click', '.chat-menu-btn', function(e) {
     e.preventDefault();
     e.stopPropagation();
+    if ($(this).closest('.chat-item').is('.deleting, .duplicating')) return; // see markChatItemBusy
     // Toggle: a second click on the same button closes the menu. Puter's
     // capture-phase pointerdown handler has already removed the menu element
     // by now, so we only sync our own state and bail.
@@ -4582,12 +4586,12 @@ $(document).on('click', '.chat-menu-btn', function(e) {
                             // Disable + dim the item while its files are removed; a
                             // successful delete re-renders the list (dropping it), so
                             // we only need to re-enable it if the delete fails.
-                            const $item = $(`.chat-item[data-chat-id="${chatId}"]`);
-                            $item.addClass('deleting');
+                            markChatItemBusy($(`.chat-item[data-chat-id="${chatId}"]`), 'deleting', true);
                             try {
                                 await deleteChat(chatId);
                             } catch (e) {
-                                $item.removeClass('deleting');
+                                // Looked up again: a rebuild may have replaced the entry.
+                                markChatItemBusy($(`.chat-item[data-chat-id="${chatId}"]`), 'deleting', false);
                             }
                         }
                     } finally {
