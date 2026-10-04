@@ -274,5 +274,25 @@ function makeWorld({ failDeploy = false, takenLiveName = null } = {}) {
     check('no workers: no error', w.alerts.length === 0, JSON.stringify(w.alerts));
 }
 
+// ---- The Settings dialog's first publish stages the same way ---------------
+// Its first-publish path copied the working files and went live directly — no
+// drain, no empty-copy check, and no deployPublishedWorkers — so the public
+// site kept calling the draft's workers and the AI's next redeploy changed the
+// live backend. Both entry points must stage through stagePublishRelease.
+{
+    const a = uiSource.indexOf('async function submitAddress(mode, $form) {');
+    const b = uiSource.indexOf("$published.on('click', '.properties-rename-site'", a);
+    const body = a >= 0 && b > a ? uiSource.slice(a, b) : '';
+    const firstPublish = body.slice(body.indexOf('// First publish:'));
+    check('settings first publish: stages through the shared helper',
+        firstPublish.includes('await stagePublishRelease(chatId, workingDir, srcPath)'));
+    check('settings first publish: copies nothing itself (the helper does)',
+        body.length > 0 && !firstPublish.includes('puter.fs.copy('));
+    check('settings first publish: retires superseded published backends',
+        firstPublish.includes('retirePublishedWorkers(chatId, publishedWorkers.map('));
+    check('settings first publish: removes the staged release if it never went live',
+        /hosting\.create\(newSub, releaseDir\);\s*\} catch \(e\) \{[\s\S]*?puter\.fs\.delete\(releaseDir/.test(firstPublish));
+}
+
 if (failures) { console.error(failures + ' failure(s)'); process.exit(1); }
 console.log('all published-workers checks passed');

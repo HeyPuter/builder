@@ -69,12 +69,18 @@ const CODE = [
 // ---- Static: the drain exists and the publish uses it before copying --------
 check('helpers.js exposes window.drainFileLocks', /window\.drainFileLocks\s*=/.test(helpersSource));
 {
-    const start = uiSource.indexOf('async function doPublish() {');
+    // Staging (drain → copy → verify → backend) is shared by every publish entry
+    // point, so none of them can copy a file a writer is halfway through.
+    const start = uiSource.indexOf('async function stagePublishRelease(chatId, appDir, srcPath) {');
     const body = uiSource.slice(start, uiSource.indexOf('\n}\n', start));
     const drainAt = body.indexOf('drainFileLocks');
     const copyAt = body.indexOf('puter.fs.copy(');
-    check('doPublish drains the working directory before copying it',
-        drainAt >= 0 && copyAt >= 0 && drainAt < copyAt, `drain@${drainAt} copy@${copyAt}`);
+    check('staging a release drains the working directory before copying it',
+        start >= 0 && drainAt >= 0 && copyAt >= 0 && drainAt < copyAt, `drain@${drainAt} copy@${copyAt}`);
+    const pubStart = uiSource.indexOf('async function doPublish() {');
+    const pubBody = uiSource.slice(pubStart, uiSource.indexOf('\n}\n', pubStart));
+    check('doPublish stages through it and copies nothing itself',
+        pubBody.includes('await stagePublishRelease(') && !pubBody.includes('puter.fs.copy('));
 }
 
 // ---- Behavioural: a writer parked mid-rewrite -------------------------------

@@ -1987,6 +1987,67 @@ async function deployPublishedWorkers(chatId, appDir, releaseDir) {
     return renames;
 }
 
+// Stage a release for publishing, without serving it: let the writes in flight
+// against the working dir finish, copy the working files into a fresh release
+// directory inside the project's published container, check the copy landed,
+// and give the release its own backend. Shared by every publish entry point
+// (the toolbar's doPublish and the Settings dialog's first publish), so none
+// of them can ship a half-written file, an empty site, or a release still
+// calling the draft's workers. If any step fails, whatever landed is removed
+// and the error rethrown; once this resolves, the release is the caller's to
+// serve — or to delete if serving it fails.
+async function stagePublishRelease(chatId, appDir, srcPath) {
+    // Let the writes already in flight against the working directory finish
+    // first. The per-path locks every app-dir writer takes cannot be taken
+    // by a whole-directory copy, and the post-turn preview refresh
+    // (applyPreviewCacheBust, the manifest generator) keeps rewriting served
+    // pages for a while after a turn's own guard has lifted — publishing the
+    // moment the preview appeared copied a file one of them was halfway
+    // through replacing, and the copy failed on its missing contents.
+    await window.drainFileLocks?.(appDir || srcPath);
+    const pubRoot = publishedDirForChat(chatId);
+    const releaseName = newReleaseDirName();
+    const releaseDir = pubRoot + '/' + releaseName;
+    await puter.fs.mkdir(pubRoot, { recursive: true });
+    try {
+        // Retry once on failure, as the version snapshot's copy does: the copy is
+        // the heaviest, most network-dependent step, and overwrite:true makes a
+        // re-copy into the same (not yet live) release idempotent.
+        try {
+            await puter.fs.copy(srcPath, pubRoot, { newName: releaseName, overwrite: true });
+        } catch (copyErr) {
+            console.warn('Publish: copy failed, retrying once:', copyErr);
+            await puter.fs.copy(srcPath, pubRoot, { newName: releaseName, overwrite: true });
+        }
+        // Verify the release actually landed before pointing the public address
+        // at it: a copy that resolves without producing files would otherwise
+        // replace a working site with an empty one.
+        let releaseItems = [];
+        try { releaseItems = await puter.fs.readdir(releaseDir); } catch (e) { releaseItems = []; }
+        if (!Array.isArray(releaseItems) || releaseItems.length === 0) {
+            throw new Error('The copy of your project came back empty, so nothing was published.');
+        }
+
+        // Give the release its own backend and point it there, BEFORE the public
+        // address starts serving it: the new frontend may need endpoints the old
+        // deployment doesn't have, so the backend goes first. A failure here
+        // fails the publish — a release that still calls the draft's workers is
+        // not frozen, which is the whole point of publishing. (A backend that
+        // deployed before the failure is already on its new code while the
+        // previous release is still served; there is no atomic swap of both
+        // halves, and a retry completes the release.)
+        const publishedWorkers = await deployPublishedWorkers(chatId, appDir, releaseDir);
+        return { pubRoot, releaseName, releaseDir, publishedWorkers };
+    } catch (e) {
+        // The release never went live, so remove whatever of it landed. The
+        // deployment the public address is still serving is a sibling of this
+        // directory and is untouched.
+        try { await puter.fs.delete(releaseDir, { recursive: true }); }
+        catch (e2) { /* best effort — an unserved leftover is harmless */ }
+        throw e;
+    }
+}
+
 // Drop published workers whose draft counterpart no longer exists — a backend
 // the user deleted while building stays live until the release that used it is
 // replaced, and goes at the publish that replaces it. Best effort: a leftover
@@ -2090,46 +2151,10 @@ async function doPublish() {
         // release exact rather than a superset — files the user deleted are simply
         // absent from the copy.
         //
-        // Let the writes already in flight against the working directory finish
-        // first. The per-path locks every app-dir writer takes cannot be taken
-        // by a whole-directory copy, and the post-turn preview refresh
-        // (applyPreviewCacheBust, the manifest generator) keeps rewriting served
-        // pages for a while after a turn's own guard has lifted — publishing the
-        // moment the preview appeared copied a file one of them was halfway
-        // through replacing, and the copy failed on its missing contents.
-        await window.drainFileLocks?.(appDir || path);
-        const pubRoot = publishedDirForChat(chatId);
-        const releaseName = newReleaseDirName();
-        const releaseDir = pubRoot + '/' + releaseName;
-        await puter.fs.mkdir(pubRoot, { recursive: true });
+        // Copy into a fresh release and give it its own backend (see
+        // stagePublishRelease, which cleans up after its own failures).
+        const { pubRoot, releaseName, releaseDir, publishedWorkers } = await stagePublishRelease(chatId, appDir, path);
         stagedDir = releaseDir;
-        // Retry once on failure, as the version snapshot's copy does: the copy is
-        // the heaviest, most network-dependent step, and overwrite:true makes a
-        // re-copy into the same (not yet live) release idempotent.
-        try {
-            await puter.fs.copy(path, pubRoot, { newName: releaseName, overwrite: true });
-        } catch (copyErr) {
-            console.warn('Publish: copy failed, retrying once:', copyErr);
-            await puter.fs.copy(path, pubRoot, { newName: releaseName, overwrite: true });
-        }
-        // Verify the release actually landed before pointing the public address
-        // at it: a copy that resolves without producing files would otherwise
-        // replace a working site with an empty one.
-        let releaseItems = [];
-        try { releaseItems = await puter.fs.readdir(releaseDir); } catch (e) { releaseItems = []; }
-        if (!Array.isArray(releaseItems) || releaseItems.length === 0) {
-            throw new Error('The copy of your project came back empty, so nothing was published.');
-        }
-
-        // Give the release its own backend and point it there, BEFORE the public
-        // address starts serving it: the new frontend may need endpoints the old
-        // deployment doesn't have, so the backend goes first. A failure here
-        // fails the publish — a release that still calls the draft's workers is
-        // not frozen, which is the whole point of publishing. (A backend that
-        // deployed before the failure is already on its new code while the
-        // previous release is still served; there is no atomic swap of both
-        // halves, and a retry completes the release.)
-        const publishedWorkers = await deployPublishedWorkers(chatId, appDir, releaseDir);
 
         let url = startUrl;
         const existingSub = previewSubdomain(url);
@@ -4012,16 +4037,27 @@ async function showChatProperties(chatId) {
                     renderPublishedCell();
                     return;
                 }
-                // Same release layout as doPublish: copy into a fresh release
-                // directory inside the project's published container, then serve
-                // that. Never empty the container first — this project may have
-                // been published from the toolbar in the meantime.
-                const releaseName = newReleaseDirName();
-                const releaseDir = pubDir + '/' + releaseName;
-                await puter.fs.mkdir(pubDir, { recursive: true });
-                await puter.fs.copy(srcPath, pubDir, { newName: releaseName, overwrite: true });
-                const site = await puter.hosting.create(newSub, releaseDir);
+                // Staged exactly as doPublish stages it (stagePublishRelease):
+                // in-flight writes drained, a fresh release directory in the
+                // project's published container, the copy verified, and the
+                // release given its own backend. This path used to copy and go
+                // live with none of that — the public site kept calling the
+                // draft's workers, so the AI's next redeploy changed the live
+                // backend. Never empty the container first — this project may
+                // have been published from the toolbar in the meantime.
+                const { releaseName, releaseDir, publishedWorkers } = await stagePublishRelease(chatId, workingDir, srcPath);
+                let site;
+                try {
+                    site = await puter.hosting.create(newSub, releaseDir);
+                } catch (e) {
+                    // Never served (a taken address, the site cap): remove it.
+                    try { await puter.fs.delete(releaseDir, { recursive: true }); }
+                    catch (e2) { /* best effort — an unserved leftover is harmless */ }
+                    throw e;
+                }
                 await retirePublishedReleases(pubDir, releaseName);
+                try { await retirePublishedWorkers(chatId, publishedWorkers.map(w => w.newName)); }
+                catch (e) { console.warn('Publish: could not retire superseded backends:', e); }
                 const sub = site && site.subdomain ? site.subdomain : newSub;
                 pub.url = `https://${sub}.puter.site/`;
                 pub.path = releaseDir;
