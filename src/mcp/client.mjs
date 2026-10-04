@@ -108,15 +108,20 @@ export function createMcpManager({ getOwner, storage, browserFetch, relayFetch, 
     let records = [];
     const emit = () => onChange();
     const key = () => `builder.mcp.v1:${owner}`;
+    // Without storage (site data blocked: the entry point passes none) nothing
+    // is written, so nothing may be marked saved: merge() drops a saved record
+    // that is missing from storage, and marking one saved here made a server
+    // vanish from the panel the moment it was added.
     function save() {
-        if (!owner) return;
+        if (!owner || !storage) return;
         try {
-            storage?.setItem(key(), JSON.stringify(records.map(({ id, name, url }) => ({ id, name, url }))));
+            storage.setItem(key(), JSON.stringify(records.map(({ id, name, url }) => ({ id, name, url }))));
             records.forEach(record => { record.saved = true; });
         } catch { /* connections still work when local storage is unavailable */ }
     }
     // The saved list, or null when it cannot be read.
     function readSaved() {
+        if (!storage) return null;
         try {
             const saved = JSON.parse(storage?.getItem(key()) || '[]');
             if (!Array.isArray(saved)) return null;
