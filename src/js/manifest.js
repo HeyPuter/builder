@@ -634,7 +634,7 @@ async function writeIcons(appDir, meta, svgText) {
         // iOS square-crops and dislikes transparency, so this one is opaque too.
         { file: ICON_FILES.apple180, size: 180, padding: 0.08, background: bg },
     ];
-    let wrote = 0;
+    let wrote = 0, failed = 0;
     try {
         for (const job of jobs) {
             let blob = null;
@@ -655,12 +655,12 @@ async function writeIcons(appDir, meta, svgText) {
             try {
                 await window.withFileLock(path, () => puter.fs.write(path, data, { createMissingParents: true }));
                 wrote++;
-            } catch (e) { /* best effort — a missing icon degrades, it doesn't break */ }
+            } catch (e) { failed++; /* best effort — a missing icon degrades, it doesn't break */ }
         }
     } finally {
         if (art) art.release();
     }
-    return wrote;
+    return { wrote, failed };
 }
 
 // Generate/refresh the manifest, icons and <head> tags for the project at
@@ -748,6 +748,9 @@ async function ensureAppManifestInner(appDir, opts) {
     // startUrl is in the signature so a project that gains an index.html (entry
     // changes → start_url changes) regenerates instead of skipping.
     const sig = JSON.stringify([meta.name, meta.shortName, meta.description, meta.themeColor, meta.startUrl, iconStamp]);
+    // Set when an icon write failed below: the signature is then not recorded,
+    // so the next refresh retries (see the end of this function).
+    let iconsIncomplete = false;
     if (_lastManifestSig.get(appDir) !== sig) {
         // The previous generated manifest (isGeneratedManifest upstream
         // guarantees it is ours or absent). Basis for the merge-regeneration
@@ -794,7 +797,8 @@ async function ensureAppManifestInner(appDir, opts) {
         }
         if (needIcons) {
             const svgText = iconSvgStat ? await readText(iconSvgPath) : null;
-            await writeIcons(appDir, meta, svgText && /<svg\b/i.test(svgText) ? svgText : null);
+            const { failed } = await writeIcons(appDir, meta, svgText && /<svg\b/i.test(svgText) ? svgText : null);
+            iconsIncomplete = failed > 0;
         }
     }
 
@@ -837,7 +841,13 @@ async function ensureAppManifestInner(appDir, opts) {
         });
     }
 
-    _lastManifestSig.set(appDir, sig);
+    // Only a complete pass may skip the next one. writeIcons swallows a failed
+    // upload (a missing icon degrades, it doesn't break), and the missing-icon
+    // check above sits behind this signature: recording it after a failed write
+    // left the app's icon links and manifest icons 404ing — not installable, and
+    // shipped that way by a publish — until its title or icon changed, or the
+    // builder was reloaded.
+    if (!iconsIncomplete) _lastManifestSig.set(appDir, sig);
 }
 
 // Version restore swaps the whole directory underneath us, so the cached
