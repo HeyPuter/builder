@@ -454,6 +454,41 @@ function menuThemeOption() {
 }
 window.menuThemeOption = menuThemeOption;
 
+// The last kind of input the user gave (keyboard / pointer), tracked at the
+// document in the capture phase so it is current before any handler runs.
+// Lets focus be handed on after keyboard use without moving it for a tap
+// (which, on a phone, would pop the on-screen keyboard up).
+let _lastInputWasKeyboard = false;
+let _pointerDownDispatching = false;
+document.addEventListener('keydown', function () { _lastInputWasKeyboard = true; }, true);
+document.addEventListener('pointerdown', function () {
+    _lastInputWasKeyboard = false;
+    // Set for the rest of this press's dispatch. Registered at load, so it runs
+    // before an open context menu's own capture-phase pointerdown listener.
+    _pointerDownDispatching = true;
+    setTimeout(function () { _pointerDownDispatching = false; }, 0);
+}, true);
+
+// Run onClose when the context menu just opened with puter.ui.contextMenu
+// closes from the keyboard — Escape, or an item chosen with Enter/Space.
+// Puter's menu drives the keyboard from its own capture-phase listener and
+// swallows those keys, so the menu buttons' "open" state (held highlight,
+// aria-expanded, their toggle flag) outlived the menu: the button stayed lit,
+// a screen reader still heard "expanded", and the next Enter only "closed" the
+// menu that was already gone — a second press to open it. A pointer close is
+// left to the buttons' pointerdown/click handlers: their toggle (a second
+// click on the button closes the menu) needs that state to survive the menu's
+// own close, which runs inside the press.
+function onContextMenuKeyboardClose(onClose) {
+    const menus = document.querySelectorAll('puter-context-menu');
+    const menu = menus[menus.length - 1];
+    if (!menu) return;
+    menu.addEventListener('close', function () {
+        if (_pointerDownDispatching) return;
+        onClose();
+    }, { once: true });
+}
+
 // Follow the OS theme live, but only while the user hasn't made an explicit
 // choice (no stored preference). Registered once at load.
 if (window.matchMedia) {
@@ -2984,6 +3019,11 @@ $(document).on('click', '.preview-overflow', function(e) {
     });
     overflowMenuOpen = true;
     $(this).attr('aria-expanded', 'true');
+    const trigger = this;
+    onContextMenuKeyboardClose(() => {
+        overflowMenuOpen = false;
+        $(trigger).attr('aria-expanded', 'false');
+    });
 });
 
 // --- Trust + sanitization for preview-iframe messages ---------------------
@@ -4481,6 +4521,12 @@ $(document).on('click', '.chat-menu-btn', function(e) {
                 }
             }
         ]
+    });
+    // Only one chat menu is ever open, so a keyboard close clears the state
+    // the same way the pointerdown handler above does for a pointer one.
+    onContextMenuKeyboardClose(() => {
+        $('.chat-item').removeClass('menu-open');
+        openChatMenuBtn = null;
     });
 });
 
