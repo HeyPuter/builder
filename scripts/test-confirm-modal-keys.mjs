@@ -84,6 +84,37 @@ check('the Delete button still resolves true only on a match', /\$confirm\.on\('
     check('focus trap: closing the dialog removes its listener', listeners.length === 0);
 }
 
+// ---- The ⋮ that opened Settings gets focus back even after a sidebar rebuild --
+// Publishing or renaming from Settings changes what the sidebar entry shows, so
+// the list rebuilds while the dialog is up and the ⋮ that opened it is replaced.
+// Closing the dialog then had nothing to return focus to: it fell to <body>.
+{
+    const a = ui.indexOf('function trapDialogFocus($overlay) {');
+    const b = ui.indexOf('\n}\n', a);
+    const connected = new Set();
+    const mkBtn = (id) => ({ classList: { contains: (c) => c === 'chat-menu-btn' }, getAttribute: (k) => (k === 'data-chat-id' ? id : null),
+        focus() { doc.activeElement = this; } });
+    const doc = {
+        activeElement: null, body: { name: 'body' },
+        addEventListener() {}, removeEventListener() {},
+        contains: (x) => connected.has(x),
+    };
+    const overlay = { contains: () => false };
+    const oldBtn = mkBtn('chat1'), newBtn = mkBtn('chat1'), otherBtn = mkBtn('chat2');
+    connected.add(oldBtn); connected.add(otherBtn);
+    doc.activeElement = oldBtn;
+    const $ = (sel) => (sel === '.chat-menu-btn'
+        ? { filter: (fn) => [...connected].filter((el) => el.classList && fn.call(el)) }
+        : { is: () => false });
+    const trap = new Function('document', '$', ui.slice(a, b + 2) + '\nreturn trapDialogFocus;')(doc, $);
+    const release = trap(Object.assign([overlay], { find: () => ({ filter: () => ({ toArray: () => [] }) }) }));
+    // The list rebuilds while the dialog is up: the old ⋮ is replaced.
+    connected.delete(oldBtn); connected.add(newBtn);
+    doc.activeElement = doc.body;   // the dialog's own focus, gone with it on close
+    release();
+    check('closing returns focus to the opening entry\'s rebuilt ⋮', doc.activeElement === newBtn);
+}
+
 // ---- A key aimed at a dialog above this one is not this dialog's ------------
 // Standalone, a Puter alert or sign-in prompt is a native modal <dialog> in
 // this page. The dialogs' document-wide handlers took its keys anyway: Escape

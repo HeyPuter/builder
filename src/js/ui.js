@@ -3885,6 +3885,11 @@ window.keyIsForDialog = keyIsForDialog;
 // alone.
 function trapDialogFocus($overlay) {
     const opener = document.activeElement;
+    // A sidebar entry's ⋮ that opened the dialog is replaced if the list
+    // rebuilds while it is up — publishing or renaming from Settings changes
+    // what the entry shows — so remember whose ⋮ it was, to find its successor.
+    const openerChatId = (opener && opener.classList && opener.classList.contains('chat-menu-btn'))
+        ? opener.getAttribute('data-chat-id') : null;
     const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])';
     const onKeydown = (e) => {
         if (e.key !== 'Tab' || e.defaultPrevented) return;
@@ -3905,8 +3910,12 @@ function trapDialogFocus($overlay) {
         // nothing else has since taken focus inside the page).
         const active = document.activeElement;
         const stillInDialog = !active || active === document.body || $overlay[0].contains(active);
-        if (stillInDialog && opener && opener !== document.body && document.contains(opener) && typeof opener.focus === 'function') {
-            try { opener.focus({ preventScroll: true }); } catch (e) { /* best effort */ }
+        let target = opener;
+        if (openerChatId && (!target || !document.contains(target))) {
+            target = $('.chat-menu-btn').filter(function() { return this.getAttribute('data-chat-id') === openerChatId; })[0] || null;
+        }
+        if (stillInDialog && target && target !== document.body && document.contains(target) && typeof target.focus === 'function') {
+            try { target.focus({ preventScroll: true }); } catch (e) { /* best effort */ }
         }
     };
 }
