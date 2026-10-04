@@ -76,7 +76,16 @@
       duration: 0, // sticky until the user chooses
       action: {
         label: 'Reload',
-        onClick: function () { acceptUpdate((reg && reg.waiting) || worker); },
+        onClick: function () {
+          var waiting = reg && reg.waiting;
+          if (waiting) { acceptUpdate(waiting); return; }
+          // Nothing left waiting: another tab's Reload already activated this
+          // version (its clients.claim() took this tab over too, but only the
+          // accepting tab reloads). Messaging the now-active worker changed
+          // nothing — no controllerchange, no reload, the toast just closed
+          // and this tab kept running the old code. Load the new version.
+          window.location.reload();
+        },
       },
     });
   }
