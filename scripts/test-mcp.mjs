@@ -136,7 +136,7 @@ await test('the server\'s SSE stream outlives the request timeout, but its heade
     clearInterval(alive);
 });
 
-function fixture({ sse = false, failAuth = false, loop = false, toolError = false, hang = false, expireSession = false, poll = false, rpcError = false, toolList } = {}) {
+function fixture({ sse = false, failAuth = false, loop = false, toolError = false, hang = false, expireSession = false, poll = false, rpcError = false, toolList, noStorage = false } = {}) {
     let owner = 'alice';
     const data = new Map();
     const requests = [];
@@ -146,7 +146,7 @@ function fixture({ sse = false, failAuth = false, loop = false, toolError = fals
             { headers: { 'Content-Type': 'text/event-stream' } })
         : json({ jsonrpc: '2.0', id, result });
     const manager = createMcpManager({ getOwner: () => owner,
-        storage: { setItem: (key, value) => data.set(key, value), getItem: key => data.get(key) },
+        storage: noStorage ? undefined : { setItem: (key, value) => data.set(key, value), getItem: key => data.get(key) },
         origin: base.origin, isInternalHostname: () => false, timeoutMs: 1000,
         relayFetch: () => assert.fail('Must use native fetch'),
         browserFetch: async (_, init) => {
@@ -328,6 +328,20 @@ await test('servers added or removed in another tab are kept, not overwritten', 
     const unsaved = createMcpManager({ getOwner: () => 'alice', storage: { getItem: () => null, setItem() { throw new Error('quota'); } } });
     unsaved.add({ name: 'Local', url: 'https://local.example.com/mcp' });
     assert.deepEqual(names(unsaved), ['Local']);
+});
+
+await test('connections can be added and used where site data is blocked', async () => {
+    // entry.mjs passes no storage when touching localStorage throws (Chrome with
+    // cookies blocked for the site, some private modes). save() still marked
+    // records saved, merge() then dropped every saved record missing from the
+    // (unreadable) list, and an added server vanished from the panel at once.
+    const { manager, id } = fixture({ noStorage: true });
+    assert.deepEqual(manager.list().map(record => record.id), [id]);
+    await manager.connect(id, 'private-token');
+    assert.equal(manager.list()[0].status, 'connected');
+    assert.equal(manager.getTools().length, 2);
+    manager.remove(id);
+    assert.deepEqual(manager.list(), []);
 });
 
 await test('a live connection removed in another tab stays usable here', async () => {
