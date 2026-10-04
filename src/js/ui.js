@@ -1097,7 +1097,7 @@ window.showAppPreview = function(url, opts) {
                         </button>
                         ${window.FEATURE_FLAGS.clickToEdit ? `<span class="preview-toolbar-divider"></span><button class="preview-select-element" title="Select an element to edit" aria-pressed="false"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 9l5 12 1.8-5.2L21 14Z"/><path d="M7.2 2.2 8 5.1"/><path d="m5.1 8-2.9-.8"/><path d="M14 4.1 12 6"/><path d="m6 12-1.9 2"/></svg></button>` : ''}
                         <div class="preview-responsive-group">
-                            <button class="preview-device-trigger" title="Desktop" aria-haspopup="dialog" aria-expanded="false">
+                            <button class="preview-device-trigger" title="Desktop" aria-label="Preview size: Desktop" aria-haspopup="dialog" aria-expanded="false">
                                 <span class="preview-device-current">${window.DEVICE_ICONS.desktop}</span>
                             </button>
                         </div>
@@ -1223,7 +1223,10 @@ function setPreviewDevice(device) {
     window.currentPreviewDevice = device;
     $('.preview-body').removeClass('device-mobile device-tablet device-desktop').addClass('device-' + device);
     $('.preview-device-current').html(window.DEVICE_ICONS[device]);
-    $('.preview-device-trigger').attr('title', window.DEVICE_LABELS[device]);
+    // Named for what it controls: its name used to be just "Desktop" /
+    // "Tablet" / "Mobile", with nothing saying it sizes the preview.
+    $('.preview-device-trigger').attr('title', window.DEVICE_LABELS[device])
+        .attr('aria-label', 'Preview size: ' + window.DEVICE_LABELS[device]);
 }
 window.setPreviewDevice = setPreviewDevice;
 
