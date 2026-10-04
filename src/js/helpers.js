@@ -922,12 +922,44 @@ function prepareHistoryForAI(historyArray) {
     // Drop a second tool_result for an id that already has one (see
     // dropDuplicateToolResults) so a history corrupted that way still sends.
     const deduped = dropDuplicateToolResults(copy);
+    // No half characters on the wire (see wellFormedDeep).
+    wellFormedDeep(deduped);
     // Apply cacheLast logic to the last message
     if (deduped.length > 0) {
         deduped[deduped.length - 1].cache_control = { type: "ephemeral" };
     }
     return deduped;
 }
+
+// Text clipped at a fixed length by UTF-16 index — a click-to-edit snippet, an
+// error report, a fetched response — can end half-way through an emoji (or any
+// character outside the BMP), leaving a lone surrogate. The model API rejects
+// such a request as invalid JSON ("no low surrogate in string"), and since the
+// message is persisted, every later request in the chat failed the same way.
+// Replace each lone surrogate with U+FFFD on the way out — in place, on the
+// clone prepareHistoryForAI owns — which also heals a history already carrying
+// one. Paired surrogates (real emoji) are untouched.
+const _SURROGATE_RE = /[\uD800-\uDBFF][\uDC00-\uDFFF]|[\uD800-\uDFFF]/g;
+function wellFormedText(s) {
+    return /[\uD800-\uDFFF]/.test(s) ? s.replace(_SURROGATE_RE, (m) => (m.length === 2 ? m : '\uFFFD')) : s;
+}
+function wellFormedDeep(value) {
+    if (Array.isArray(value)) {
+        for (let i = 0; i < value.length; i++) {
+            const v = value[i];
+            if (typeof v === 'string') value[i] = wellFormedText(v);
+            else if (v && typeof v === 'object') wellFormedDeep(v);
+        }
+    } else if (value && typeof value === 'object') {
+        for (const k of Object.keys(value)) {
+            const v = value[k];
+            if (typeof v === 'string') value[k] = wellFormedText(v);
+            else if (v && typeof v === 'object') wellFormedDeep(v);
+        }
+    }
+    return value;
+}
+window.wellFormedText = wellFormedText;
 
 // Keep only the FIRST tool_result for any tool_use id. The API requires a
 // tool_result to sit in the user message right after its tool_use; a second
