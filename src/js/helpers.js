@@ -610,9 +610,10 @@ function autoResizeTextarea(textarea) {
 // Lightweight, non-blocking toast for surfacing things the user would otherwise
 // never see — most importantly a FAILED background save or version snapshot,
 // which were previously console-only. A product whose promise is "your work is
-// saved / you can always go back" must not fail those silently. The toast is an
-// aria-live region so screen readers announce it, and is throttled per `key` so
-// a burst of the same failure shows once rather than stacking up.
+// saved / you can always go back" must not fail those silently. Toasts are
+// added to an aria-live region so screen readers announce them, and are
+// throttled per `key` so a burst of the same failure shows once rather than
+// stacking up.
 //   showToast(message, { type, key, throttleMs, duration, action, onDismiss })
 //     type: 'info' | 'warning' | 'error'   (styling; default 'info')
 //     key: throttle bucket                  (default = message)
@@ -622,15 +623,13 @@ function autoResizeTextarea(textarea) {
 //     onDismiss: called only when the user closes it via the × (not on action
 //                click or auto-dismiss) — e.g. to record a "don't nag" snooze
 window._toastLastShown = window._toastLastShown || {};
-window.showToast = function (message, opts) {
-    opts = opts || {};
-    if (typeof document === 'undefined' || !document.body) return null;
-    const key = opts.key || message;
-    const throttleMs = opts.throttleMs || 0;
-    const now = Date.now();
-    if (throttleMs && window._toastLastShown[key] && (now - window._toastLastShown[key]) < throttleMs) return null;
-    window._toastLastShown[key] = now;
-
+// The live region holding the toasts. It is created once the page is parsed,
+// before any toast, and kept (empty, click-through) between them: screen
+// readers announce what is ADDED to a live region they already know, and
+// mostly say nothing for a region that appears together with its content —
+// which is how every toast arrived while the container was created with the
+// first one and removed when the last one left.
+function toastContainer() {
     let container = document.querySelector('.toast-container');
     if (!container) {
         container = document.createElement('div');
@@ -641,10 +640,27 @@ window.showToast = function (message, opts) {
         container.setAttribute('aria-atomic', 'false');
         document.body.appendChild(container);
     }
+    return container;
+}
+if (typeof document !== 'undefined' && document.addEventListener) {
+    if (document.body) toastContainer();
+    else document.addEventListener('DOMContentLoaded', toastContainer, { once: true });
+}
+window.showToast = function (message, opts) {
+    opts = opts || {};
+    if (typeof document === 'undefined' || !document.body) return null;
+    const key = opts.key || message;
+    const throttleMs = opts.throttleMs || 0;
+    const now = Date.now();
+    if (throttleMs && window._toastLastShown[key] && (now - window._toastLastShown[key]) < throttleMs) return null;
+    window._toastLastShown[key] = now;
 
+    const container = toastContainer();
+
+    // No live role of its own: the container announces it, and a live region
+    // nested in another can be read twice.
     const toast = document.createElement('div');
     toast.className = 'toast toast-' + (opts.type || 'info');
-    toast.setAttribute('role', 'status');
 
     const text = document.createElement('span');
     text.className = 'toast-message';
@@ -667,9 +683,6 @@ window.showToast = function (message, opts) {
         // never fires (e.g. reduced-motion disables the transition).
         setTimeout(function () {
             if (toast.parentNode) toast.parentNode.removeChild(toast);
-            if (container && !container.children.length && container.parentNode) {
-                container.parentNode.removeChild(container);
-            }
         }, 250);
     };
 
