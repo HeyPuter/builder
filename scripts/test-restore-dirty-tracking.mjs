@@ -244,6 +244,50 @@ function makeRun(hooks = {}, opts = {}) {
         second.backupAttempts === 0, 'copies: ' + second.backupAttempts);
 }
 
+// ---- The Publish button sees the stored record right after a reload ---------
+// window._projectDirtySinceSnapshot answered from memory alone, and nothing
+// loads the stored record until a tool runs or a restore starts: right after a
+// reload the Publish button read "Published" over edits that never reached a
+// checkpoint, and publishing skipped the snapshot that records what went live.
+{
+    const first = makeRun();
+    first.sandbox.window.markProjectModified('write', 'chat-a');
+    const second = makeRun({}, { files: first.files, storage: first.storage });
+    check('reload: the open project still reads as having un-snapshotted changes',
+        second.sandbox.window._projectDirtySinceSnapshot === true);
+}
+
+// ---- Two tabs of the same account share one record ---------------------------
+// The record was read once per tab and written back whole. A tab that had
+// already looked was blind to edits another tab recorded afterwards — its
+// restore skipped the safety snapshot and destroyed them — and any change it
+// recorded erased the other tab's entries from storage.
+{
+    const storage = new Map();
+    const tabB = makeRun({}, { storage });
+    check('two tabs: B starts out seeing a clean project', tabB.sandbox.window.isProjectDirty('chat-a') === false);
+    const tabA = makeRun({}, { files: tabB.files, storage });
+    tabA.sandbox.window.markProjectModified('write', 'chat-a'); // A's edits never reached a checkpoint
+    check('two tabs: B sees the edits A recorded after B first looked',
+        tabB.sandbox.window.isProjectDirty('chat-a') === true);
+    await tabB.restore('v1');
+    check('two tabs: B\'s restore saved A\'s un-snapshotted work first',
+        tabB.recoverable('LATEST UNSNAPSHOTTED WORK') && tabB.recoverable('UNIQUE NEW FEATURE'),
+        'copies: ' + tabB.backupAttempts);
+}
+{
+    const storage = new Map();
+    const tabB = makeRun({}, { storage });
+    tabB.sandbox.window.isProjectDirty('chat-b');
+    const tabA = makeRun({}, { storage });
+    tabA.sandbox.window.markProjectModified('write', 'chat-a');
+    tabB.sandbox.window.markProjectModified('write', 'chat-b'); // B records its own, unrelated edit
+    const third = makeRun({}, { storage });
+    check('two tabs: recording an edit in one tab keeps the other tab\'s record',
+        third.sandbox.window.isProjectDirty('chat-a') === true && third.sandbox.window.isProjectDirty('chat-b') === true,
+        String(storage.get('builderUnsnapshotted:alice')));
+}
+
 // ---- Storage blocked: cleanliness cannot be proved, so assume it is not -----
 {
     const run = makeRun({}, { blockStorage: true });
