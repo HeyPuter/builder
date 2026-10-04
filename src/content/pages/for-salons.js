@@ -96,7 +96,7 @@ export default verticalPage({
             title: 'Style it by pointing, like a consultation',
             art: 'picker',
             body: [
-                'Click the thing that feels off in the live preview and say what you want: softer, bolder, more space, less beige. Or adjust color and type directly on the element and apply it when it looks right.',
+                'Click the thing that feels off in the live preview and say what you want: softer, bolder, more space, less beige. Every version is saved, so a look you end up not liking is one click to undo.',
                 'A salon\'s site is part of its finish work. This is the tool that lets you obsess over it without a designer\'s hourly rate.',
             ],
         },

@@ -253,7 +253,7 @@ export default {
                 {
                     q: 'Can I customize the prototype after it is generated?',
                     a: [
-                        'Yes, all of it. Ask for changes in plain language, or click any element in the live preview and say what should be different. For styling, adjust spacing, colors, and type directly on the element, and those tweaks stay put through later changes. There is no template underneath limiting what can change.',
+                        'Yes, all of it. Ask for changes in plain language, or click any element in the live preview and say what should be different. Styling works the same way: point at the element and ask for more space, a different color, or another typeface. There is no template underneath limiting what can change.',
                     ],
                 },
                 {
