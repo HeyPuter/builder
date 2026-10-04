@@ -63,6 +63,12 @@ export default {
                     body:
                         'Each turn ends with a few specific next steps for your app in particular, based on what it already has. Tap one to send it, or ignore them entirely.',
                 },
+                {
+                    icon: 'link',
+                    title: 'MCP connections',
+                    body:
+                        'Connect remote MCP servers (Streamable HTTP, public or with a bearer token) and the AI can use their tools while it builds. OAuth sign-in and local servers are not supported yet.',
+                },
             ],
         },
 
