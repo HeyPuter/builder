@@ -671,7 +671,18 @@ function applyPromptDeepLink() {
         // A starter prompt is a few sentences. Anything past this is either junk
         // or an attempt to stuff the box from a link, and truncating is
         // friendlier than ignoring it outright.
-        $input.val(prompt.slice(0, 2000));
+        // The text lands in the user's own composer, which shows only a few
+        // lines: a crafted link could tuck instructions between a harmless
+        // start and end behind runs of blank lines or spaces, to be sent
+        // unseen with one press of Enter. Collapse those runs so everything
+        // the link put in the box is on screen (paragraph breaks survive).
+        const shown = prompt.slice(0, 2000)
+            .replace(/\r\n?/g, '\n')
+            .replace(/[^\S\n]+/g, ' ')
+            .replace(/ ?\n ?/g, '\n')
+            .replace(/\n{3,}/g, '\n\n')
+            .trim();
+        $input.val(shown);
         autoResizeTextarea($input[0]);
         // .val() fires no 'input' event, so mirror it into the persisted draft
         // the way the chip injector does — it should survive a reload like
