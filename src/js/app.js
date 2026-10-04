@@ -1018,6 +1018,41 @@ async function loadChat(chatId, { urlMode = 'push' } = {}) {
         window.closeIssuesPanel?.();
         window.closeDevicePanel?.();
 
+        // Media that renders from a read URL — attachments saved without a
+        // thumbnail (SVG, HEIC, older chats), legacy attachments, generated
+        // images/videos — costs a stat + token request each, and the loop below
+        // awaited them one at a time: forty dropped icons meant ~80 sequential
+        // round trips of loading skeleton on every open. Resolve them all up
+        // front, a few at a time; the loop picks the results up in order.
+        const mediaPaths = new Set();
+        for (const m of history) {
+            if (!m) continue;
+            if (m.role === 'user' && Array.isArray(m.content)) {
+                for (const item of m.content) {
+                    if (item && item.type === 'image-ref' && !item.thumb && item.path) mediaPaths.add(item.path);
+                    else if (item && item.type === 'file' && item.puter_path) mediaPaths.add(item.puter_path);
+                }
+            } else if (m.content && typeof m.content === 'object' && m.content.type === 'tool_result'
+                && typeof m.content.content === 'string' && m.content.content.includes('"filename"')) {
+                try {
+                    const r = JSON.parse(m.content.content);
+                    if (r && r.success && r.path && r.filename) mediaPaths.add(r.path);
+                } catch (e) { /* the loop reports unparseable results as before */ }
+            }
+        }
+        const mediaURLs = new Map();
+        await mapWithConcurrency([...mediaPaths], 6, async (p) => {
+            try { mediaURLs.set(p, { url: await puter.fs.getReadURL(p) }); }
+            catch (error) { mediaURLs.set(p, { error }); }
+        });
+        if (superseded()) return chat;
+        const readURLFor = async (p) => {
+            const r = mediaURLs.get(p);
+            if (!r) return puter.fs.getReadURL(p);
+            if (r.error) throw r.error;
+            return r.url;
+        };
+
         // Rebuild the chat display
         // Skip all system prompts at the start
         let startIndex = 0;
@@ -1060,7 +1095,7 @@ async function loadChat(chatId, { urlMode = 'push' } = {}) {
                                 imageContent += `<img src="${item.thumb}" alt="${htmlEscape(item._name || 'Attached image')}" class="message-image">`;
                             } else {
                                 try {
-                                    const readURL = await puter.fs.getReadURL(item.path);
+                                    const readURL = await readURLFor(item.path);
                                     if (superseded()) return chat;
                                     imageContent += `<img src="${readURL}" alt="${htmlEscape(item._name || 'Attached image')}" class="message-image">`;
                                 } catch (error) {
@@ -1074,7 +1109,7 @@ async function loadChat(chatId, { urlMode = 'push' } = {}) {
                         } else if (item.type === 'file' && item.puter_path) {
                             // Backward-compat: legacy Puter-storage attachments
                             try {
-                                const readURL = await puter.fs.getReadURL(item.puter_path);
+                                const readURL = await readURLFor(item.puter_path);
                                 if (superseded()) return chat;
                                 imageContent += `<img src="${readURL}" alt="Attached image" class="message-image">`;
                             } catch (error) {
@@ -1106,7 +1141,7 @@ async function loadChat(chatId, { urlMode = 'push' } = {}) {
                             // Check if it's a video (ends with .mp4) or image
                             const isVideo = toolResponse.path.toLowerCase().endsWith('.mp4') || toolResponse.filename?.toLowerCase().endsWith('.mp4');
                             try {
-                                const readURL = await puter.fs.getReadURL(toolResponse.path);
+                                const readURL = await readURLFor(toolResponse.path);
                                 if (superseded()) return chat;
                                 // This is a bit weird but it is safer than putting the function directly in the HTML at the cost of polluting global a bit
                                 const openString = "openfile_" + crypto.randomUUID();
