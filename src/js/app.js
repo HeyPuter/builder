@@ -3913,7 +3913,23 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             // "a_b.png") — suffix collisions within the batch so no attachment
             // silently overwrites another. Computed up front, in order, so the
             // suffixes are deterministic regardless of write concurrency.
+            // Files already in the project count as taken too: puter.fs.write
+            // overwrites by default, and every pasted screenshot is named
+            // "image.png", so a screenshot pasted in a later turn silently
+            // replaced the one the app was already using. One readdir per
+            // target folder; a folder that can't be listed (usually: it doesn't
+            // exist yet) contributes nothing, which is what it was before.
             const usedRels = new Set();
+            const wantedRels = atts.map(a => (a.relPath || a.name).split('/').map(sanitizeSegment).join('/'));
+            const targetDirs = new Set(wantedRels.map(rel => rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/')) : ''));
+            await Promise.all([...targetDirs].map(async (dir) => {
+                let items = [];
+                try { items = await puter.fs.readdir(dir ? assetsDir + '/' + dir : assetsDir); } catch (e) { return; }
+                for (const item of items || []) {
+                    if (item && item.name) usedRels.add(dir ? dir + '/' + item.name : item.name);
+                }
+            }));
+            if (turnAbandoned()) throw abandonedError();
             const uniqueRel = (rel) => {
                 if (!usedRels.has(rel)) { usedRels.add(rel); return rel; }
                 const slash = rel.lastIndexOf('/');
@@ -3926,7 +3942,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                     if (!usedRels.has(cand)) { usedRels.add(cand); return cand; }
                 }
             };
-            const rels = atts.map(a => uniqueRel((a.relPath || a.name).split('/').map(sanitizeSegment).join('/')));
+            const rels = wantedRels.map(uniqueRel);
 
             const attachmentParts = await mapWithConcurrency(atts, 6, async (a, i) => {
                 // Save to assets/ and return a display-only ref marker. These markers
