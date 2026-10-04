@@ -43,7 +43,7 @@ const CODE = [
 const PARENT = '/alice/AppData/builder';
 const OLD_DIR = PARENT + '/chat1';
 
-// failAt: null | 'list' | 'create-first' | 'create-second'
+// failAt: null | 'list' | 'create-first' | 'create-second' | 'chat-write'
 async function run({ failAt = null, workerCount = 1 } = {}) {
     const files = new Map([
         [OLD_DIR + '/index.html', "fetch('https://original-api.puter.work/save', {method:'POST'})"],
@@ -90,6 +90,7 @@ async function run({ failAt = null, workerCount = 1 } = {}) {
             ui: { alert: async m => alerts.push(String(m)) },
             hosting: {
                 create: async (sub, path) => { sites.set(sub, path); return { subdomain: sub }; },
+                delete: async (sub) => { sites.delete(sub); },
             },
             workers: {
                 list: async () => {
@@ -111,7 +112,10 @@ async function run({ failAt = null, workerCount = 1 } = {}) {
                     if (!files.has(path)) { const e = new Error('not found'); e.code = 'subject_does_not_exist'; throw e; }
                     return { text: async () => files.get(path) };
                 },
-                write: async (path, data) => { files.set(path, data); },
+                write: async (path, data) => {
+                    if (failAt === 'chat-write' && path === 'chat-history/chat-copy.json') throw new Error('storage unavailable');
+                    files.set(path, data);
+                },
                 readdir: async dir => {
                     const items = new Map();
                     for (const p of under(dir)) {
@@ -168,6 +172,20 @@ check('control: the copy has a worker of its own',
     JSON.stringify(ok.deployedNames));
 check('control: the copy is hosted', ok.hosted.join() === 'copy-draft');
 check('control: no error shown', ok.alerts.length === 0, JSON.stringify(ok.alerts));
+
+// ---- The copy's chat file can't be written: nothing is left behind -----------
+// Its files, its redeployed workers and its draft site were all created before
+// the final write. The generic catch only alerted, so each failed attempt (and
+// each retry) left a running worker nobody owned and a site counting against
+// the account's limit.
+{
+    const r = await run({ failAt: 'chat-write' });
+    check('copy save failure: the copy is not listed', r.listed === false && r.chatFileWritten === false);
+    check('copy save failure: the copy\'s worker is removed', r.deployedNames.join() === 'original-api', JSON.stringify(r.deployedNames));
+    check('copy save failure: the copy\'s draft site is removed', r.hosted.length === 0, JSON.stringify(r.hosted));
+    check('copy save failure: the copied files are removed', r.copyFilesLeft === 0, String(r.copyFilesLeft));
+    check('copy save failure: the user is told', r.alerts.length === 1 && /Could not duplicate/.test(r.alerts[0]), JSON.stringify(r.alerts));
+}
 
 // ---- The worker list fails: we cannot prove the copy is independent ---------
 const listFail = await run({ failAt: 'list' });
