@@ -154,7 +154,7 @@ export default {
             id: 'publish',
             heading: 'Step 7: Publishing',
             body: [
-                'Until you publish, the app runs in a private preview that only you can open. When you are ready, Publish gives it a public address on puter.site that anyone with the link can use. It takes one click, there is no build to wait for, and you can take it down again just as quickly.',
+                'Until you publish, the app runs in a draft preview at an unlisted address that only you know. When you are ready, Publish gives it a public address on puter.site that anyone with the link can use. It takes one click, there is no build to wait for, and you can take it down again just as quickly.',
                 'If you want to show it to someone before that, share the draft link instead. It points at your work-in-progress preview and updates as you keep building, which is ideal for "does this look right to you?" without committing to anything public.',
                 'Publishing does not freeze the project. Keep making changes afterwards and push them live whenever you want.',
             ],
