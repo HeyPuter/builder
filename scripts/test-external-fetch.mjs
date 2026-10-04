@@ -27,10 +27,16 @@ const host = (u) => new URL(u).hostname; // the same normalisation the exec reli
 for (const u of ['http://localhost/', 'http://LOCALHOST:8080/x', 'http://api.localhost/', 'http://127.0.0.1/', 'http://127.1/', 'http://2130706433/',
     'http://0x7f000001/', 'http://10.0.0.5/', 'http://172.16.9.1/', 'http://172.31.255.255/', 'http://192.168.1.1/', 'http://169.254.169.254/latest/meta-data/',
     'http://100.64.0.1/', 'http://0.0.0.0/', 'http://[::1]/', 'http://[fd00::1]/', 'http://[fe80::1]/', 'http://[::ffff:127.0.0.1]/',
-    'http://intranet/', 'http://printer.local/', 'http://db.internal/', 'http://router.home.arpa/']) {
+    'http://intranet/', 'http://printer.local/', 'http://db.internal/', 'http://router.home.arpa/',
+    // IPv6 spellings of internal targets: the IPv4 address embedded in a
+    // compatible, translated, NAT64 or 6to4 address is what gets reached.
+    'http://[::127.0.0.1]/', 'http://[::ffff:0:7f00:1]/', 'http://[64:ff9b::a9fe:a9fe]/', 'http://[64:ff9b::10.0.0.1]/',
+    'http://[2002:7f00:1::]/', 'http://[2002:c0a8:101::1]/', 'http://[64:ff9b:1::1]/', 'http://[fec0::1]/', 'http://[ff02::1]/',
+    'http://[0:0:0:0:0:ffff:a9fe:a9fe]/']) {
     check('denied: ' + u, I.isInternalHostname(host(u)) === true);
 }
-for (const u of ['https://docs.puter.com/llms.txt', 'https://example.com/', 'http://8.8.8.8/', 'https://172.15.0.1/', 'https://172.32.0.1/', 'https://192.169.0.1/', 'https://[2606:4700::1111]/', 'https://sub.domain.co.uk/path']) {
+for (const u of ['https://docs.puter.com/llms.txt', 'https://example.com/', 'http://8.8.8.8/', 'https://172.15.0.1/', 'https://172.32.0.1/', 'https://192.169.0.1/', 'https://[2606:4700::1111]/', 'https://sub.domain.co.uk/path',
+    'https://[2001:4860:4860::8888]/', 'https://[64:ff9b::8.8.8.8]/', 'https://[2002:808:808::1]/']) {
     check('allowed: ' + u, I.isInternalHostname(host(u)) === false);
 }
 check('an empty hostname is refused', I.isInternalHostname('') === true);
