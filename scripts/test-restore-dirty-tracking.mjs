@@ -288,6 +288,26 @@ function makeRun(hooks = {}, opts = {}) {
         String(storage.get('builderUnsnapshotted:alice')));
 }
 
+// ---- An emptied project can still be restored -------------------------------
+// "Start over": the model deletes every file. The end-of-turn snapshot finds
+// nothing to copy and resolved null — the same value as a FAILED snapshot — so
+// the project stayed flagged dirty, and every restore then refused with
+// "Couldn't save a restore point…", forever: the one way back was blocked.
+{
+    const files = new Map([
+        [A_ROOT + '/v1/index.html', 'OLD VERSION'],
+        [A_ROOT + '/v2/index.html', 'LAST CHECKPOINT'],
+        [A_ROOT + '/index.json', JSON.stringify({ current: 'v2', versions: [{ id: 'v1' }, { id: 'v2' }] })],
+    ]);
+    const run = makeRun({}, { files });
+    run.sandbox.window.markProjectModified('delete', 'chat-a');
+    await run.sandbox.window.createProjectVersion({ chatId: 'chat-a', appDir: A_DIR, label: 'start over' });
+    await run.restore('v1');
+    check('emptied project: the restore goes ahead (nothing to back up is not a failure)',
+        run.files.get(A_DIR + '/index.html') === 'OLD VERSION' && !run.alerts.some(a => /restore point/.test(a)),
+        JSON.stringify(run.alerts));
+}
+
 // ---- Storage blocked: cleanliness cannot be proved, so assume it is not -----
 {
     const run = makeRun({}, { blockStorage: true });
