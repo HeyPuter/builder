@@ -341,8 +341,19 @@ $(document).ready(function() {
         // plain FileList where webkitGetAsEntry isn't available (no folder
         // support there — browsers surface a folder as an unreadable File).
         const files = e.dataTransfer?.files;
+        // A big folder takes a while to walk, and the tray belongs to the open
+        // project (a switch empties it). Note which project the drop was for, so
+        // a scan that finishes after the user opened another one doesn't stage
+        // its files there — to be saved into THAT project's assets on its next
+        // send.
+        const dropChatId = typeof currentChatId !== 'undefined' ? currentChatId : null;
         const pending = (entries.length > 0 || looseFiles.length > 0)
             ? collectDroppedEntries(entries).then(({ items, truncated }) => {
+                if (typeof currentChatId !== 'undefined' && currentChatId !== dropChatId) {
+                    window.showToast?.('The dropped files finished loading after you switched projects, so they weren’t attached. Drop them again here to attach them.',
+                        { type: 'info', key: 'drop-after-switch', throttleMs: 4000 });
+                    return;
+                }
                 const all = [...looseFiles.map(f => ({ file: f })), ...items];
                 // A folder drop that yields nothing (empty, or all junk/unreadable)
                 // shouldn't be a silent no-op — tell the user what happened.

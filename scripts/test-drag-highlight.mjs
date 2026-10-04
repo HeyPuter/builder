@@ -177,5 +177,59 @@ function makeEnv() {
     check('a non-file drag never outlines the composer', !env.highlighted());
 }
 
+// === A folder scan that outlives a project switch is not attached ===========
+// Walking a big dropped folder is async, and the tray belongs to the open
+// project (a switch empties it). A scan that finished after the user opened
+// another project staged its files THERE — to be saved into that project's
+// assets/ on its next send.
+async function dropFolderThen(switchChats) {
+    const listeners = new Map();
+    const toasts = [];
+    const win = {
+        addEventListener: (type, fn) => { listeners.set(type, fn); },
+        attachedImages: [],
+        updateAttachmentDisplay() {},
+        showToast: (msg) => toasts.push(msg),
+    };
+    const scope = { currentChatId: 'chat-a' };
+    let releaseRead;
+    const file = { name: 'photo.png', size: 10, type: 'image/png' };
+    const fileEntry = { isFile: true, isDirectory: false, name: 'photo.png', fullPath: '/shots/photo.png', file: (ok) => ok(file) };
+    const dirEntry = {
+        isFile: false, isDirectory: true, name: 'shots', fullPath: '/shots',
+        createReader: () => {
+            let served = false;
+            return { readEntries: (ok) => {
+                if (served) return ok([]);
+                served = true;
+                releaseRead = () => ok([fileEntry]);
+            } };
+        },
+    };
+    new Function(
+        'window', 'document', '$', 'setTimeout', 'clearTimeout',
+        'classifyAttachment', 'isTextAttachment', 'puter', 'console', 'URL', 'File', 'scope',
+        'with (scope) {\n' + code + '\n}',
+    )(win, { querySelector: () => null }, () => ({ ready: (cb) => cb() }), setTimeout, clearTimeout,
+      () => 'image', () => false, { ui: { alert: async () => {} } }, console,
+      { createObjectURL: () => 'blob:x' }, function File() {}, scope);
+    listeners.get('drop')({
+        preventDefault() {}, stopPropagation() {},
+        dataTransfer: { types: ['Files'], files: [], items: [{ kind: 'file', webkitGetAsEntry: () => dirEntry }] },
+    });
+    for (let i = 0; i < 20 && !releaseRead; i++) await new Promise((r) => setTimeout(r, 0));
+    if (switchChats) scope.currentChatId = 'chat-b';
+    releaseRead();
+    await new Promise((r) => setTimeout(r, 20));
+    return { attached: win.attachedImages.length, toasts };
+}
+{
+    const stayed = await dropFolderThen(false);
+    check('a folder drop attaches its files when the project is still open', stayed.attached === 1);
+    const moved = await dropFolderThen(true);
+    check('a folder scan that finishes after a project switch attaches nothing', moved.attached === 0);
+    check('…and says why', moved.toasts.length === 1 && /switched projects/.test(moved.toasts[0]));
+}
+
 if (failures) { console.error('\n' + failures + ' check(s) failed'); process.exit(1); }
 console.log('\nAll drag-highlight checks passed.');
