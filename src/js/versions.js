@@ -75,43 +75,56 @@
     // localStorage throws where site data is blocked, so every access is
     // guarded; a blocked store is recorded rather than ignored, because it is
     // the difference between "this project is clean" and "we cannot tell".
+    //
+    // The stored list is also shared by every tab of the account. Reading it
+    // once per session left a tab blind to edits another tab recorded later (a
+    // restore there skipped the safety snapshot and destroyed them), and writing
+    // this tab's whole set back erased the other tab's entries. So it is read
+    // on every question, and each change is applied to the list as it stands
+    // now. The in-memory set keeps this tab's own marks, so they hold even when
+    // storage can't be used — a chat is dirty if either says so.
     let _storageUsable = true;
-    let _hydratedKey = null;
     function dirtyStoreKey() {
         const name = (window.user && window.user.username) || '';
         return name ? 'builderUnsnapshotted:' + name : null;
     }
-    function hydrateDirty() {
+    // The stored list now, or null when there is none to read.
+    function readStoredDirty() {
         const key = dirtyStoreKey();
-        if (!key || _hydratedKey === key) return;
-        _hydratedKey = key;
+        if (!key) return null;
         try {
             const ids = JSON.parse(localStorage.getItem(key) || '[]');
-            if (Array.isArray(ids)) for (const id of ids) if (id) _dirtyChats.add(id);
+            return new Set(Array.isArray(ids) ? ids.filter(Boolean) : []);
         } catch (e) {
             _storageUsable = false;
+            return null;
         }
     }
-    function persistDirty() {
+    function updateStoredDirty(chatId, dirty) {
         const key = dirtyStoreKey();
         if (!key) return;
-        try { localStorage.setItem(key, JSON.stringify([..._dirtyChats].filter(Boolean))); }
+        const ids = readStoredDirty() || new Set();
+        if (dirty) ids.add(chatId); else ids.delete(chatId);
+        try { localStorage.setItem(key, JSON.stringify([...ids])); }
         catch (e) { _storageUsable = false; }
+    }
+    function recordedDirty(chatId) {
+        if (_dirtyChats.has(chatId)) return true;
+        const stored = readStoredDirty();
+        return !!stored && stored.has(chatId);
     }
 
     function markDirty(chatId) {
-        hydrateDirty();
         _mutationGen.set(chatId, (_mutationGen.get(chatId) || 0) + 1);
         _dirtyChats.add(chatId);
         _knownClean.delete(chatId);
-        persistDirty();
+        updateStoredDirty(chatId, true);
     }
     // The working dir is now known to match a checkpoint.
     function clearDirty(chatId) {
-        hydrateDirty();
         _dirtyChats.delete(chatId);
         _knownClean.add(chatId);
-        persistDirty();
+        updateStoredDirty(chatId, false);
     }
     function openChatId() { return typeof currentChatId !== 'undefined' ? currentChatId : null; }
     // Ask the question for a NAMED chat. Anything that spans an await must use
@@ -120,8 +133,7 @@
     // a restore or a publish.
     function isChatDirty(chatId) {
         const id = chatId || openChatId();
-        hydrateDirty();
-        if (_dirtyChats.has(id)) return true;
+        if (recordedDirty(id)) return true;
         // With no readable record and no checkpoint watched this session, the
         // working dir cannot be shown to match its version — and a needless
         // safety snapshot costs a copy, while a missing one costs the user's
@@ -131,7 +143,12 @@
     window.isProjectDirty = isChatDirty;
     Object.defineProperty(window, '_projectDirtySinceSnapshot', {
         configurable: true,
-        get() { return _dirtyChats.has(openChatId()); },
+        // Reads the stored record too: it used to answer from memory alone, so
+        // right after a reload the Publish button read "Published" over edits
+        // that never reached a checkpoint (and publishing skipped the snapshot
+        // that records what went live). Unlike isChatDirty, an unreadable store
+        // doesn't count as dirty here — this only drives what the UI shows.
+        get() { return recordedDirty(openChatId()); },
         set(v) { if (v) markDirty(openChatId()); else clearDirty(openChatId()); },
     });
 
@@ -465,7 +482,7 @@
         _dirtyChats.delete(chatId);
         _knownClean.delete(chatId);
         _mutationGen.delete(chatId);
-        persistDirty();
+        updateStoredDirty(chatId, false);
         try { await snapshotChain; } catch (e) { /* ignore */ }
         try {
             await puter.fs.delete(versionsRootForChat(chatId), { recursive: true });
