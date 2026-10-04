@@ -622,6 +622,8 @@
         // the file work and skip UI/history side-effects if the context changed.
         const chatId = currentChatId;
         const appDir = currentAppDir;
+        // Set once the project's files start being rewritten (see the catch).
+        let filesTouched = false;
         try {
             // Let any in-flight background snapshot finish first, so we read the
             // index and mutate files against a consistent, fully-written state.
@@ -742,6 +744,7 @@
             };
 
             let leftovers = [];
+            filesTouched = true;
             try {
                 leftovers = await restoreDirFromSnapshot(appDir, snapDir);
             } catch (e) {
@@ -791,11 +794,23 @@
             // runs first and the read below sees its label; one queued later
             // sees our current pointer.
             const fallbackIndex = index;
-            await (snapshotChain = snapshotChain.catch(function () {}).then(async function () {
-                index = (await readIndexForDisplay(chatId)) || fallbackIndex;
-                index.current = versionId;
-                await writeIndex(chatId, index);
-            }));
+            try {
+                await (snapshotChain = snapshotChain.catch(function () {}).then(async function () {
+                    index = (await readIndexForDisplay(chatId)) || fallbackIndex;
+                    index.current = versionId;
+                    await writeIndex(chatId, index);
+                }));
+            } catch (e) {
+                // Every file of the version already landed; only recording it
+                // failed. Reported as a plain "Restore failed", over files that
+                // had in fact been replaced — with the old version still marked
+                // Current and the project marked clean against it. Leave the
+                // state unknown (dirty, no Current) and say what happened.
+                await markDirUnknown();
+                const partial = new Error("Your project's files were restored to this version, but the version history couldn't be updated, so it may not show this version as current. Try restoring again in a moment.");
+                partial.partialRestore = true;
+                throw partial;
+            }
             // The working dir now exactly matches versionId's snapshot.
             clearDirty(chatId);
 
@@ -835,9 +850,15 @@
             }
         } catch (e) {
             console.error('Restore failed:', e);
-            // Clear the overlay on failure (the success path hands it off to
-            // refreshPreviewWhenReady, which hides it after the reload).
-            if (typeof window.showPreviewUpdating === 'function') window.showPreviewUpdating(false);
+            // Once the file work began, the project on disk has changed (fully,
+            // or a partial mix), so reload the preview to show what is really
+            // there rather than the pre-restore app — refreshPreviewWhenReady
+            // hides the overlay after the reload. Before that, just clear it.
+            if (filesTouched && currentChatId === chatId && typeof window.refreshPreviewWhenReady === 'function') {
+                window.refreshPreviewWhenReady();
+            } else if (typeof window.showPreviewUpdating === 'function') {
+                window.showPreviewUpdating(false);
+            }
             // Revert the optimistic highlight to the true persisted state.
             renderVersionsPanelIfOpen();
             await puter.ui.alert((e && e.partialRestore ? '' : 'Restore failed: ') + (e.message || e));

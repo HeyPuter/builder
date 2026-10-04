@@ -25,7 +25,9 @@ const appDir = '/alice/AppData/builder/project';
 const root = '/alice/AppData/builder/.versions/chat1';
 
 // undeletable: a path whose removal always rejects (null = everything deletes).
-async function run(undeletable) {
+// opts.failFinalIndexWrite: the index write that records the restored version
+// as current rejects (every file has already landed by then).
+async function run(undeletable, opts = {}) {
     const files = new Map([
         [appDir + '/index.html', 'NEWER INDEX'],
         [appDir + '/new-feature.js', 'A ROUTE V1 DOES NOT HAVE'],
@@ -54,7 +56,12 @@ async function run(undeletable) {
                 if (!files.has(path)) throw new Error('not found: ' + path);
                 return { text: async () => files.get(path) };
             },
-            write: async (path, data) => { files.set(path, data); },
+            write: async (path, data) => {
+                if (opts.failFinalIndexWrite && path === root + '/index.json' && JSON.parse(data).current === 'v1') {
+                    throw new Error('storage unavailable');
+                }
+                files.set(path, data);
+            },
             mkdir: async () => {},
             stat: async path => {
                 if (![...files.keys()].some(p => p.startsWith(path + '/'))) throw new Error('not found: ' + path);
@@ -83,10 +90,12 @@ async function run(undeletable) {
             },
         },
     };
+    let previewRefreshes = 0;
     const window = {
         user: { username: 'alice' },
         showToast: () => {},
         showPreviewUpdating: () => {},
+        refreshPreviewWhenReady: () => { previewRefreshes++; },
     };
     const localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
     vm.runInNewContext(source, {
@@ -108,6 +117,7 @@ async function run(undeletable) {
         leftoverNested: files.has(appDir + '/extras/legacy.js'),
         current: index.current,
         dirty: window._projectDirtySinceSnapshot,
+        previewRefreshes,
     };
 }
 
@@ -138,6 +148,25 @@ check('directory: the version is NOT claimed as current', dirFail.current !== 'v
     'current=' + dirFail.current);
 check('directory: the project is left marked as not matching a checkpoint',
     dirFail.dirty === true, 'dirty=' + dirFail.dirty);
+
+// ---- The files land, but recording the restored version fails --------------
+// It used to surface as a plain "Restore failed" over files that had in fact
+// been replaced, with the old version still Current, the project marked clean
+// against it, and the preview still showing the pre-restore app.
+{
+    const r = await run(null, { failFinalIndexWrite: true });
+    check('index write: the files are restored', r.indexHtml === 'OLD INDEX');
+    check('index write: the user is told the files were restored, not that it failed',
+        r.alerts.length === 1 && !/^Restore failed/.test(r.alerts[0]) && /files were restored/.test(r.alerts[0]), JSON.stringify(r.alerts));
+    check('index write: the old version is not left marked current', r.current !== 'v2', 'current=' + r.current);
+    check('index write: the project is left marked as not matching a checkpoint', r.dirty === true);
+    check('index write: the preview reloads to show the restored files', r.previewRefreshes === 1);
+}
+// A file that could not be removed leaves the files changed too: reload.
+{
+    const r = await run(appDir + '/new-feature.js');
+    check('partial restore: the preview reloads to show what is on disk', r.previewRefreshes === 1);
+}
 
 if (failures) { console.error(failures + ' failure(s)'); process.exit(1); }
 console.log('all restore-prune-failure checks passed');
