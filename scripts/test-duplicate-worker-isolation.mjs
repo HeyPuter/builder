@@ -37,6 +37,7 @@ const CODE = [
     extract(appSource, 'async function rewriteWorkerUrlsInDir(dir, renames, changed = new Set()) {'),
     extract(appSource, 'async function discardCopyAttempt(newAppDir, renames) {'),
     extract(appSource, 'async function redeployWorkersForCopy(oldAppDir, newAppDir) {'),
+    extract(appSource, 'function markChatItemBusy($item, cls, on) {'),
     extract(appSource, 'async function duplicateChat(chatId) {'),
 ].join('\n\n');
 
@@ -75,7 +76,7 @@ async function run({ failAt = null, workerCount = 1 } = {}) {
         generateChatId: () => 'chat-copy',
         saveChatList: async () => {},
         updateChatHistorySidebar() {},
-        $: () => ({ addClass() { return this; }, removeClass() { return this; } }),
+        $: () => ({ addClass() { return this; }, removeClass() { return this; }, toggleClass() { return this; }, hasClass() { return false; }, find() { return { attr() { return this; } }; } }),
         console: { warn() {}, error() {} },
         // WorkerOwnership.urlHost parses with the WHATWG URL constructor, which
         // a bare VM context does not provide.

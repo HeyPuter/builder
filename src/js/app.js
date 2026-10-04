@@ -1312,6 +1312,20 @@ async function loadChat(chatId, { urlMode = 'push' } = {}) {
 // project rose from the dead in the sidebar, with its history but no files.
 const _deletedChatIds = new Set();
 
+// Mark a sidebar entry busy — being deleted, or being duplicated — or not:
+// dimmed and click-through via CSS (.deleting / .duplicating), and announced
+// as unavailable. pointer-events only stops pointers, though: the keyboard went
+// straight through, so Enter opened a project mid-delete (or navigated the
+// link to it) and its ⋮ menu offered Delete or Duplicate again. The entry's
+// click and ⋮ handlers (ui.js) refuse a busy entry, and a list rebuild
+// re-applies the state (see buildChatItem) instead of quietly dropping it.
+function markChatItemBusy($item, cls, on) {
+    $item.toggleClass(cls, !!on);
+    const busy = $item.hasClass('deleting') || $item.hasClass('duplicating');
+    $item.find('.chat-item-link, .chat-menu-btn').attr('aria-disabled', busy ? 'true' : null);
+}
+window.markChatItemBusy = markChatItemBusy;
+
 async function deleteChat(chatId) {
     // Work still running on this project would outlive the delete: a publish
     // deploys its backend and creates the public site after the sweep below has
@@ -1606,7 +1620,7 @@ async function duplicateChat(chatId) {
     if (!chatId || _duplicatingChats.has(chatId)) return;
     _duplicatingChats.add(chatId);
     // Dim the source row while we work; cleared in finally / by the re-render.
-    $(`.chat-item[data-chat-id="${chatId}"]`).addClass('duplicating');
+    markChatItemBusy($(`.chat-item[data-chat-id="${chatId}"]`), 'duplicating', true);
     // What this attempt has created so far, so a failure before the copy is
     // saved can take it all back (see the catch): the copied files, the
     // workers redeployed for them, and the copy's draft site.
@@ -1790,7 +1804,7 @@ async function duplicateChat(chatId) {
         _duplicatingChats.delete(chatId);
         // No-op after a successful re-render (the row is a fresh node); covers the
         // error path where the sidebar was not rebuilt.
-        $(`.chat-item[data-chat-id="${chatId}"]`).removeClass('duplicating');
+        markChatItemBusy($(`.chat-item[data-chat-id="${chatId}"]`), 'duplicating', false);
     }
 }
 window.duplicateChat = duplicateChat;
@@ -2208,6 +2222,9 @@ function updateChatHistorySidebar() {
             </div>
         `);
         chatItem.attr('data-chat-id', chat.id);
+        // Still deleting or being duplicated: a rebuild mid-way keeps it busy.
+        if (_deletedChatIds.has(chat.id)) markChatItemBusy(chatItem, 'deleting', true);
+        if (_duplicatingChats.has(chat.id)) markChatItemBusy(chatItem, 'duplicating', true);
         // Every entry's ⋮ button otherwise shares the same bare "Options" name;
         // a screen-reader user tabbing through the list couldn't tell whose.
         chatItem.find('.chat-menu-btn')
