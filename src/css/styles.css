@@ -5367,6 +5367,12 @@ html[data-theme="dark"] .preview-toolbar .preview-publish-btn[data-state="clean"
 }
 html[data-theme="dark"] .preview-toolbar .preview-publish-btn[data-state="clean"]:hover { background: rgba(74, 222, 128, 0.22) !important; }
 html[data-theme="dark"] .preview-toolbar .preview-publish-btn[data-state="clean"][aria-expanded="true"] { background: rgba(74, 222, 128, 0.22) !important; color: #8fe3ab; }
+/* The dark theme recolours every focus ring to the accent — which is this
+   button's own fill here, so the inset ring vanished on the Publish and
+   Publish changes states. Ring it in the label colour instead; the "Published"
+   state's ring sits outside the button, on the toolbar, and keeps the accent. */
+html[data-theme="dark"] .preview-publish-btn:focus-visible { outline-color: #0b1118; }
+html[data-theme="dark"] .preview-publish-btn[data-state="clean"]:focus-visible { outline-color: var(--accent); }
 html[data-theme="dark"] .preview-publish-dot { background: #0b1118; }
 html[data-theme="dark"] .preview-publish-panel,
 html[data-theme="dark"] .preview-share-panel,
