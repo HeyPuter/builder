@@ -119,6 +119,46 @@ window.isComposingKeyEvent = function (e) {
     return ne.isComposing === true || ne.keyCode === 229 || ne.which === 229;
 };
 
+// puter.ui.alert, answered however its dialog closes. Standalone (outside the
+// Puter desktop) the SDK renders a <puter-alert> holding a native modal
+// <dialog>, which the browser also closes on Escape — and that close answered
+// nothing: the alert's promise stayed pending forever. Every flow awaiting it
+// stalled there, and the ones holding a guard across the dialog never let go:
+// Escape on "Restore the project to this version?" (or on a restore error)
+// left the project marked as restoring, so Send, Publish and every later
+// restore were refused until a reload. A dialog closed without an answer now
+// resolves null — what a click on its backdrop answers — and is removed.
+// Inside the Puter desktop no element is rendered here, so nothing changes.
+(function answerAlertsClosedWithoutAnswer() {
+    const ui = window.puter && window.puter.ui;
+    if (!ui || typeof ui.alert !== 'function' || ui.alert.answersOnClose) return;
+    const original = ui.alert;
+    const alert = function (...args) {
+        const before = new Set(document.querySelectorAll('puter-alert'));
+        const answer = original.apply(ui, args);
+        const el = Array.from(document.querySelectorAll('puter-alert')).find(x => !before.has(x));
+        const dialog = el && el.shadowRoot && el.shadowRoot.querySelector('dialog');
+        if (!dialog || !answer || typeof answer.then !== 'function') return answer;
+        return new Promise((resolve, reject) => {
+            answer.then(resolve, reject);
+            // Escape fires cancel and closes the dialog at once (its close
+            // event follows with the next frame). Checked a task later, so a
+            // cancel something prevented — the dialog still up — is left
+            // alone, and a button or backdrop click, which answers before its
+            // dialog closes, has already settled this.
+            const settle = () => setTimeout(() => {
+                if (dialog.open) return;
+                resolve(null);
+                if (el.isConnected) el.remove();
+            }, 0);
+            dialog.addEventListener('cancel', settle);
+            dialog.addEventListener('close', settle, { once: true });
+        });
+    };
+    alert.answersOnClose = true;
+    ui.alert = alert;
+})();
+
 // Turn RAW text into HTML with its URLs as links: everything is escaped, and
 // each http(s)/ftp/www URL becomes an anchor whose href and label are the URL.
 // Escape-aware by construction — it used to run over ALREADY-escaped text, so a
