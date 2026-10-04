@@ -3465,6 +3465,18 @@ $(document).on('click', '.close-sidebar', function(e) {
     closeChatHistorySidebar();
 });
 
+// Escape closes the open sidebar while focus is in it, and hands focus back to
+// the menu button that opened it — not left on a control that just became
+// hidden. (The inline rename editor handles its own Escape and stops it short
+// of here; a dialog or menu on top claims it with preventDefault.)
+$(document).on('keydown', function(e) {
+    if (e.key !== 'Escape' || e.isDefaultPrevented() || !chatHistorySidebarOpen) return;
+    if (!$(document.activeElement).closest('.chat-history-sidebar').length) return;
+    e.preventDefault();
+    closeChatHistorySidebar();
+    $('.chat-history-toggle').trigger('focus');
+});
+
 // Live filter the chat list as the user types (matches title + app URL).
 $(document).on('input', '.chat-search-input', function() {
     chatSearchQuery = $(this).val();
