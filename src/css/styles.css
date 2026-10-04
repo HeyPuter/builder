@@ -1998,7 +1998,13 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
     height: 100vh;
     height: 100dvh;
     background: #ffffff;
-    transition: left 0.1s ease;
+    /* Closed means hidden, not just off-screen: parked at left:-300px its
+       controls (New, search, every project's link and ⋮ menu) stayed in the Tab
+       order, so keyboard focus vanished into them before reaching the composer,
+       and screen readers read the whole list. visibility flips only once the
+       slide-out has finished, and back at once when it opens. */
+    visibility: hidden;
+    transition: left 0.1s ease, visibility 0s linear 0.1s;
     z-index: 1000;
     display: flex;
     flex-direction: column;
@@ -2009,6 +2015,8 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
    bleed a dark strip onto the visible left edge of the page. */
 .chat-history-sidebar.open {
     left: 0;
+    visibility: visible;
+    transition: left 0.1s ease, visibility 0s;
     border-right: 1px solid #e0e0e0;
     box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
 }
