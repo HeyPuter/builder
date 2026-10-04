@@ -4231,12 +4231,13 @@ window.showChatProperties = showChatProperties;
 // gap (styles in .chat-item-removing / .chat-item-collapsing). Resolves when
 // the animation finishes — deleteChat (app.js) awaits it before the sidebar
 // re-render drops the entry, so the item never pops out abruptly. Resolves
-// immediately when the item isn't in the DOM or the user prefers reduced
-// motion, so the delete flow never stalls on the animation.
+// immediately when the item isn't shown (not in the DOM, or hidden by the
+// search filter) or the user prefers reduced motion, so the delete flow never
+// stalls on the animation.
 window.animateChatItemRemoval = function(chatId) {
     return new Promise((resolve) => {
         const $item = $(`.chat-item[data-chat-id="${chatId}"]`);
-        if (!$item.length || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        if (!$item.length || $item.prop('hidden') || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
             resolve();
             return;
         }

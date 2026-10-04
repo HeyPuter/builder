@@ -1938,15 +1938,16 @@ function loadChatThumb($thumb, previewUrl) {
 // Tracks the latest poll per chat so rapid successive edits supersede (rather
 // than stack) their pollers.
 const _thumbPollToken = new Map();
-// A thumbnail only shows in the sidebar, so a poll doesn't fetch while it is
-// closed — each preview update used to download the screenshot ~14 times over
-// 40 s regardless (up to ~100 KB each, cache-busted, on mobile data too). A
-// poll that ends with fetches skipped leaves its chat here, and opening the
-// sidebar refreshes those once. A poll still inside its window just resumes.
-const _thumbsStaleWhileClosed = new Set();
+// A poll doesn't fetch a thumbnail nobody can see — while the sidebar is
+// closed or the search filter hides the entry — since each preview update used
+// to download the screenshot ~14 times over 40 s regardless (up to ~100 KB
+// each, cache-busted, on mobile data too). A poll whose last ticks were skipped
+// leaves its chat here, and the sidebar opening or the filter showing the entry
+// again refreshes those once. A poll still inside its window just resumes.
+const _staleChatThumbs = new Set();
 function refreshStaleChatThumbs() {
-    for (const chatId of [..._thumbsStaleWhileClosed]) {
-        _thumbsStaleWhileClosed.delete(chatId);
+    for (const chatId of [..._staleChatThumbs]) {
+        _staleChatThumbs.delete(chatId);
         window.refreshChatThumb(chatId, { windowMs: 1 });
     }
 }
@@ -2037,11 +2038,13 @@ window.refreshChatThumb = function(chatId, opts) {
     const tick = function() {
         if (_thumbPollToken.get(chatId) !== token) return; // superseded
         const $thumb = $(`.chat-item[data-chat-id="${chatId}"] .chat-thumb`);
-        // The entry may be absent from the DOM right now (e.g. filtered out by the
-        // sidebar search); keep the schedule alive in case it returns in-window.
-        if (!chatHistorySidebarOpen) {
+        // The entry may be out of sight right now (the sidebar closed, or the
+        // entry filtered out by the sidebar search, or not rendered yet); keep
+        // the schedule alive in case it returns in-window.
+        if (!chatHistorySidebarOpen || !$thumb.length || $thumb.closest('.chat-item').prop('hidden')) {
             skipped = true;
-        } else if ($thumb.length) {
+        } else {
+            skipped = false;
             const seq = n++;
             const url = base + (base.includes('?') ? '&' : '?') + '__ts=' + Date.now() + '_' + seq;
             (async () => {
@@ -2076,26 +2079,15 @@ window.refreshChatThumb = function(chatId, opts) {
             })().catch(() => { /* never let a tick reject unhandled */ });
         }
         if (Date.now() + intervalMs < deadline) setTimeout(tick, intervalMs);
-        else if (skipped && !chatHistorySidebarOpen) _thumbsStaleWhileClosed.add(chatId);
+        else if (skipped) _staleChatThumbs.add(chatId);
     };
-    _thumbsStaleWhileClosed.delete(chatId);
+    _staleChatThumbs.delete(chatId);
     tick();
 };
 
 function updateChatHistorySidebar() {
     const sidebar = $('.chat-history-sidebar');
     const chatList = sidebar.find('.chat-list');
-
-    // Match the title and the project's addresses. The link an entry shows is
-    // its PUBLISHED url (see buildChatItem below), so that is what a user types
-    // to find it; the draft preview url is kept too for anyone pasting that.
-    const q = chatSearchQuery.trim().toLowerCase();
-    const chats = q
-        ? savedChats.filter(chat =>
-            (chat.title || '').toLowerCase().includes(q) ||
-            (chat.publishedUrl || '').toLowerCase().includes(q) ||
-            (chat.previewUrl || '').toLowerCase().includes(q))
-        : savedChats;
 
     // Skip the rebuild when nothing the list renders has changed. This runs on
     // every chat save — i.e. after every tool round of a running build — and
@@ -2104,11 +2096,20 @@ function updateChatHistorySidebar() {
     // sidebar mid-build: an open rename editor vanished with their typing, and
     // the item whose ⋮ menu was open lost its held-open state. Everything the
     // markup depends on is in the signature (id order, title, both urls for the
-    // link and thumbnail, pin section, active item, the filter), so any real
-    // change still rebuilds exactly as before.
-    const renderSig = JSON.stringify([q, currentChatId, chats.map(c =>
+    // link and thumbnail, pin section, active item), so any real change still
+    // rebuilds exactly as before.
+    //
+    // The search filter is not part of it: every project is rendered, and the
+    // filter only hides the entries that don't match (applyChatSearchFilter).
+    // Rebuilding the list on each keystroke took ~40-65 ms with a few hundred
+    // projects (most of it re-laying-out every entry), several times that on a
+    // phone — typing in the search box lagged.
+    const renderSig = JSON.stringify([currentChatId, savedChats.map(c =>
         [c.id, c.title || '', c.publishedUrl || '', c.previewUrl || '', !!c.pinned])]);
-    if (chatList.data('renderSig') === renderSig) return;
+    if (chatList.data('renderSig') === renderSig) {
+        applyChatSearchFilter(chatList);
+        return;
+    }
     chatList.data('renderSig', renderSig);
 
     // Preserve already-loaded thumbnails across the rebuild. This function runs on
@@ -2143,9 +2144,8 @@ function updateChatHistorySidebar() {
 
     chatList.empty();
 
-    if (chats.length === 0) {
-        const msg = q ? 'No projects match your search.' : 'No projects yet.';
-        chatList.append($('<div class="chat-list-empty"></div>').text(msg));
+    if (savedChats.length === 0) {
+        chatList.append($('<div class="chat-list-empty"></div>').text('No projects yet.'));
         return;
     }
 
@@ -2240,21 +2240,23 @@ function updateChatHistorySidebar() {
     // the existing newest-modified-first order of savedChats — filtering keeps it.
     // Section headers are only drawn once at least one project is pinned;
     // otherwise the list is the original flat, header-less list.
-    const pinnedChats = chats.filter(chat => chat.pinned);
-    const recentChats = chats.filter(chat => !chat.pinned);
+    const pinnedChats = savedChats.filter(chat => chat.pinned);
+    const recentChats = savedChats.filter(chat => !chat.pinned);
 
-    const appendSection = (label, items) => {
+    const appendSection = (label, section, items) => {
         if (!items.length) return;
-        chatList.append($('<div class="chat-section-label"></div>').text(label));
+        chatList.append($('<div class="chat-section-label"></div>').text(label).attr('data-section', section));
         items.forEach(chat => chatList.append(buildChatItem(chat)));
     };
 
     if (pinnedChats.length) {
-        appendSection('Pinned', pinnedChats);
-        appendSection('Recent', recentChats);
+        appendSection('Pinned', 'pinned', pinnedChats);
+        appendSection('Recent', 'recent', recentChats);
     } else {
         recentChats.forEach(chat => chatList.append(buildChatItem(chat)));
     }
+    chatList.append($('<div class="chat-list-empty chat-list-no-match" hidden></div>').text('No projects match your search.'));
+    applyChatSearchFilter(chatList);
 
     // The rename editor is back in the DOM (if its project is still listed):
     // restore the caret the detach dropped, so typing carries on uninterrupted.
@@ -2267,6 +2269,47 @@ function updateChatHistorySidebar() {
     if (menuOpenId && typeof openChatMenuBtn !== 'undefined' && openChatMenuBtn) {
         openChatMenuBtn = chatList.find(`.chat-item[data-chat-id="${menuOpenId}"] .chat-menu-btn`)[0] || null;
     }
+}
+
+// Show only the sidebar entries matching the search box, laid out exactly as a
+// list built from the matches alone: the Pinned/Recent labels show only while
+// a pinned project matches (Recent also needs a match of its own), the first
+// entry under a label keeps its tighter gap, and no match at all says so.
+function applyChatSearchFilter(chatList) {
+    // Match the title and the project's addresses. The link an entry shows is
+    // its PUBLISHED url (see buildChatItem above), so that is what a user types
+    // to find it; the draft preview url is kept too for anyone pasting that.
+    const q = chatSearchQuery.trim().toLowerCase();
+    const byId = new Map(savedChats.map(chat => [chat.id, chat]));
+    const matches = (chat) => !q || (!!chat && (
+        (chat.title || '').toLowerCase().includes(q) ||
+        (chat.publishedUrl || '').toLowerCase().includes(q) ||
+        (chat.previewUrl || '').toLowerCase().includes(q)));
+    const sections = { pinned: { label: null, shown: [] }, recent: { label: null, shown: [] } };
+    let section = sections.recent;
+    const items = [];
+    let noMatch = null;
+    chatList.children().each(function() {
+        if (this.classList.contains('chat-section-label')) {
+            section = sections[this.getAttribute('data-section')] || sections.recent;
+            section.label = this;
+        } else if (this.classList.contains('chat-item')) {
+            const show = matches(byId.get(this.getAttribute('data-chat-id')));
+            if (this.hidden === show) this.hidden = !show;
+            items.push(this);
+            if (show) section.shown.push(this);
+        } else if (this.classList.contains('chat-list-no-match')) {
+            noMatch = this;
+        }
+    });
+    const sectioned = sections.pinned.shown.length > 0;
+    if (sections.pinned.label) sections.pinned.label.hidden = !sectioned;
+    if (sections.recent.label) sections.recent.label.hidden = !(sectioned && sections.recent.shown.length > 0);
+    const firsts = sectioned ? [sections.pinned.shown[0], sections.recent.shown[0]] : [];
+    for (const item of items) item.classList.toggle('section-first', firsts.includes(item));
+    if (noMatch) noMatch.hidden = sections.pinned.shown.length + sections.recent.shown.length > 0;
+    // An entry the filter hid skipped its thumbnail refreshes; now it shows again.
+    if (chatHistorySidebarOpen) refreshStaleChatThumbs();
 }
 
 async function initializeUser() {
