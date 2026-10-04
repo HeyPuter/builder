@@ -2598,7 +2598,14 @@ $(document).on('click', '.publish-address-save', async function () {
     // the live working directory the AI edits. A record with a URL but no path
     // (a save that fell back to the list entry) used to re-point the new public
     // subdomain at the working dir, after which every AI edit went live.
+    // The rest of this project's published record is read with its id, before
+    // the first await: the user can open another project while the address is
+    // being created, and the globals then describe THAT project — saving its
+    // version and date here made this one read "Publish changes" afterwards
+    // with a wrong (or missing) "last published".
     const chatId = currentChatId;
+    const publishedVersionId = window.currentPublishedVersionId || null;
+    const publishedAt = window.currentPublishedAt || null;
     const path = await resolvePublishedDir(window.currentPublishedPath, chatId);
     if (!path) {
         await puter.ui.alert('Cannot change the address: this project’s published files could not be found. Publish it again first.');
@@ -2615,14 +2622,10 @@ $(document).on('click', '.publish-address-save', async function () {
         catch (e) { console.warn('Failed to remove old published subdomain:', e); }
 
         const newUrl = `https://${newSub}.puter.site/`;
-        const fields = {
-            publishedUrl: newUrl,
-            publishedPath: path,
-            publishedVersionId: window.currentPublishedVersionId || null,
-            publishedAt: window.currentPublishedAt || null,
-        };
+        const fields = { publishedUrl: newUrl, publishedPath: path, publishedVersionId, publishedAt };
         if (currentChatId === chatId) {
             window.currentPublishedUrl = newUrl;
+            window.currentPublishedPath = path;
             if (typeof saveCurrentChat === 'function') {
                 try { await saveCurrentChat({ currentChatId: chatId, chatHistory: chatHistory }); }
                 catch (e) { /* save surfaces its own failure toast */ }
