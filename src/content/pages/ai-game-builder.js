@@ -94,7 +94,7 @@ export default {
                     art: 'history',
                     body: [
                         'Tuning a game means trying things: faster enemies, a double jump, a shorter timer. Every change is saved as a version, so you can try anything and go back in a click if it made the game worse.',
-                        'Nothing is spent on a failed attempt except the minute it took, and no version is ever lost.',
+                        'Nothing is spent on a failed attempt except the minute it took, and the version before it is a click away.',
                     ],
                 },
                 {

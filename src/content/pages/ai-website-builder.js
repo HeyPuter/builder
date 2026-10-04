@@ -65,7 +65,7 @@ export default {
                     icon: 'globe',
                     title: 'Publish in one click, free hosting included',
                     body:
-                        'Your site goes live at its own link the moment you want it, ready to share. Update it anytime and the change is live instantly.',
+                        'Your site goes live at its own link the moment you want it, ready to share. Update it anytime, publish again, and the same link serves the change.',
                 },
                 {
                     icon: 'users',
