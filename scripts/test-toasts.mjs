@@ -10,6 +10,8 @@ import fs from 'node:fs';
 // and stays. Each toast also had a live role of its own inside the live
 // container, which can be read twice.
 //
+// It also must hold while it is being read or used (below).
+//
 // Runs the real toast code from helpers.js against a small fake DOM.
 
 let failures = 0;
@@ -43,7 +45,17 @@ class El {
     contains(x) { for (let n = x; n; n = n.parentNode) if (n === this) return true; return false; }
     addEventListener(t, fn) { (this.listeners[t] ||= []).push(fn); }
     dispatch(t, ev = {}) { for (const fn of this.listeners[t] || []) fn({ type: t, target: this, ...ev }); }
-    focus() { const prev = this.doc.activeElement; this.doc.activeElement = this; prev?.dispatch?.('focusout', { relatedTarget: this }); this.dispatch('focusin', { relatedTarget: prev }); }
+    get isConnected() { for (let n = this; n; n = n.parentNode) if (n === this.doc.body) return true; return false; }
+    matches(sel) { return sel === ':focus-visible' ? this.doc.activeElement === this && this.doc.keyboard : false; }
+    // focusin/focusout bubble: deliver to every ancestor, like the browser.
+    bubble(t, ev) { for (let n = this; n; n = n.parentNode) for (const fn of n.listeners[t] || []) fn({ type: t, target: this, ...ev }); }
+    focus() {
+        const prev = this.doc.activeElement;
+        if (prev === this) return;
+        this.doc.activeElement = this;
+        if (prev && prev.bubble) prev.bubble('focusout', { relatedTarget: this });
+        this.bubble('focusin', { relatedTarget: prev && prev !== this.doc.body ? prev : null });
+    }
     find(cls) { for (const c of this.children) { if (c.classList.contains(cls)) return c; const f = c.find(cls); if (f) return f; } return null; }
 }
 
@@ -93,6 +105,90 @@ function page({ parsed = true } = {}) {
 {
     const p = page();
     check('a page already parsed when the script runs gets its region at once', !!p.container());
+}
+
+// ---- A toast holds while it is being read or used --------------------------
+// It auto-dismissed on a timer regardless: it vanished mid-read, taking its
+// action button ("Reload", "Install") from under the pointer or keyboard focus.
+// Dismissing it from the keyboard also dropped focus to <body>.
+const buttons = (t) => ({ close: t.find('toast-close'), action: t.find('toast-action') });
+{
+    const p = page();
+    const t = p.window.showToast('Update ready', { action: { label: 'Reload', onClick() {} } });
+    p.advance(3000);
+    t.dispatch('pointerenter', { pointerType: 'mouse' });
+    p.advance(30000);
+    check('hovered with a mouse: the toast stays', t.parentNode !== null && !t.classList.contains('toast-hide'));
+    t.dispatch('pointerleave', { pointerType: 'mouse' });
+    p.advance(2900);
+    check('…and after the pointer leaves it gets the rest of its time (3 s here)', !t.classList.contains('toast-hide'));
+    p.advance(200);
+    check('…then goes', t.classList.contains('toast-hide'));
+}
+{
+    const p = page();
+    const t = p.window.showToast('x');
+    p.advance(5900);
+    t.dispatch('pointerenter', { pointerType: 'mouse' });
+    t.dispatch('pointerleave', { pointerType: 'mouse' });
+    p.advance(1900);
+    check('left with almost no time to go: still at least two seconds', !t.classList.contains('toast-hide'));
+    p.advance(200);
+    check('…then goes', t.classList.contains('toast-hide'));
+}
+{
+    const p = page();
+    const t = p.window.showToast('x');
+    p.advance(1000);
+    t.dispatch('pointerenter', { pointerType: 'touch' });
+    p.advance(5100);
+    check('a touch does not hold the toast (its hover ends with the tap)', t.classList.contains('toast-hide'));
+}
+{
+    const p = page();
+    p.doc.keyboard = true;
+    const composer = p.doc.body.appendChild(new El('textarea', p.doc));
+    composer.focus();
+    const t = p.window.showToast('Update ready', { action: { label: 'Reload', onClick() {} } });
+    const { close, action } = buttons(t);
+    p.advance(1000);
+    action.focus();
+    p.advance(20000);
+    check('focus inside: the toast stays', !t.classList.contains('toast-hide'));
+    close.focus();
+    p.advance(20000);
+    check('…while focus moves between its buttons too', !t.classList.contains('toast-hide'));
+    close.dispatch('click');
+    check('dismissed from the keyboard: focus goes back where it came from', p.doc.activeElement === composer);
+}
+{
+    const p = page();
+    p.doc.keyboard = false; // a mouse click focuses the button, not :focus-visible
+    const composer = p.doc.body.appendChild(new El('textarea', p.doc));
+    composer.focus();
+    const t = p.window.showToast('x');
+    const { close } = buttons(t);
+    close.focus();
+    close.dispatch('click');
+    check('dismissed with a click or tap: focus is not moved (no phone keyboard popping up)', p.doc.activeElement === close);
+}
+{
+    const p = page();
+    p.doc.keyboard = true;
+    const t = p.window.showToast('x');
+    buttons(t).close.focus();
+    p.advance(1000);
+    p.doc.body.focus();   // focus entered at once, so all 6 s are still to go
+    p.advance(5900);
+    check('focus leaving the toast resumes the timer with the time it had left', !t.classList.contains('toast-hide'));
+    p.advance(200);
+    check('…then it goes', t.classList.contains('toast-hide'));
+}
+{
+    const p = page();
+    const t = p.window.showToast('Install the app', { duration: 0 });
+    p.advance(60000);
+    check('a sticky toast is still sticky', !t.classList.contains('toast-hide'));
 }
 
 if (failures) { console.error(`\n${failures} check(s) FAILED`); process.exit(1); }

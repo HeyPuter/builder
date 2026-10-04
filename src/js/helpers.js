@@ -674,9 +674,24 @@ window.showToast = function (message, opts) {
     toast.appendChild(closeBtn);
 
     let removed = false;
+    // Where keyboard focus came from when it entered the toast. Dismissing it
+    // from its × (or its action) used to drop focus to <body>, so the next Tab
+    // started over from the top of the page; it goes back here instead. Only
+    // for keyboard focus (:focus-visible) — a tap must not re-focus the
+    // composer and pop the phone keyboard back up.
+    let returnFocusTo = null;
+    toast.addEventListener('focusin', function (e) {
+        if (e.relatedTarget && !toast.contains(e.relatedTarget)) returnFocusTo = e.relatedTarget;
+    });
     const dismiss = function () {
         if (removed) return;
         removed = true;
+        const active = document.activeElement;
+        let keyboardFocus = false;
+        try { keyboardFocus = !!active && toast.contains(active) && active.matches(':focus-visible'); } catch (e) { /* old engine */ }
+        if (keyboardFocus && returnFocusTo && returnFocusTo.isConnected) {
+            try { returnFocusTo.focus({ preventScroll: true }); } catch (e) { /* best effort */ }
+        }
         toast.classList.remove('toast-visible');
         toast.classList.add('toast-hide');
         // Remove after the fade; the timeout is the backstop if transitionend
@@ -712,7 +727,35 @@ window.showToast = function (message, opts) {
     requestAnimationFrame(function () { toast.classList.add('toast-visible'); });
 
     const duration = (opts.duration == null) ? 6000 : opts.duration;
-    if (duration > 0) setTimeout(dismiss, duration);
+    if (duration > 0) {
+        // Hold the auto-dismiss while the pointer rests on the toast or focus
+        // is inside it: it used to vanish mid-read, taking its action button
+        // ("Reload", "Install") from under the pointer or keyboard focus. It
+        // resumes on leaving, with at least two seconds to go.
+        let timer = null, remaining = duration, startedAt = 0, hovered = false, focused = false;
+        const run = function () {
+            if (removed || timer || hovered || focused) return;
+            startedAt = Date.now();
+            timer = setTimeout(function () { timer = null; dismiss(); }, remaining);
+        };
+        const hold = function () {
+            if (!timer) return;
+            clearTimeout(timer);
+            timer = null;
+            remaining = Math.max(remaining - (Date.now() - startedAt), 2000);
+        };
+        // A touch "hover" ends the moment the finger lifts; only a resting
+        // mouse or pen holds the toast.
+        toast.addEventListener('pointerenter', function (e) { if (e.pointerType === 'touch') return; hovered = true; hold(); });
+        toast.addEventListener('pointerleave', function () { if (!hovered) return; hovered = false; run(); });
+        toast.addEventListener('focusin', function () { focused = true; hold(); });
+        toast.addEventListener('focusout', function (e) {
+            if (e.relatedTarget && toast.contains(e.relatedTarget)) return; // moving between its buttons
+            focused = false;
+            run();
+        });
+        run();
+    }
     // Let the caller retire a sticky toast it is about to replace (the PWA
     // update prompt re-arms for a newer worker).
     toast.dismiss = dismiss;
