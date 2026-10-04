@@ -377,6 +377,28 @@ window.syncViewSeg = function() {
     });
 };
 
+// On a phone the app preview is a full-screen layer over the chat, which was
+// only covered, not hidden: in app view, Tab and a screen reader's swipe still
+// walked into the messages and composer underneath. The covered chat is inert
+// while the preview covers it — recomputed on every change of the body's
+// classes and whenever the viewport crosses the phone breakpoint, so it can
+// never outlive the cover (an inert chat would be unusable).
+function syncCoveredChatInert() {
+    const $body = $('body');
+    const covered = window.isMobileViewport() && $body.hasClass('preview-active') && !$body.hasClass('mobile-view-chat');
+    $('main.chat').each(function() {
+        if (this.hasAttribute('inert') !== covered) this.toggleAttribute('inert', covered);
+    });
+}
+$(function() {
+    syncCoveredChatInert();
+    if (typeof MutationObserver !== 'undefined') {
+        new MutationObserver(syncCoveredChatInert).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    }
+    const phone = window.matchMedia && window.matchMedia('(max-width: 900px)');
+    if (phone && phone.addEventListener) phone.addEventListener('change', syncCoveredChatInert);
+});
+
 // ---- Colour theme (light / dark) -----------------------------------------
 // The chosen theme is applied as data-theme="light|dark" on <html>; all dark
 // styling is scoped under html[data-theme="dark"] in css/styles.css. A no-flash
@@ -2951,8 +2973,17 @@ $(document).on('click', '.preview-toggle-chat', function() {
 // Each segment selects an explicit view by setting/clearing `mobile-view-chat`;
 // on large screens both panes show at once and the control is hidden by CSS.
 $(document).on('click', '.view-seg-btn', function() {
-    $('body').toggleClass('mobile-view-chat', $(this).data('view') === 'chat');
+    const view = $(this).data('view');
+    $('body').toggleClass('mobile-view-chat', view === 'chat');
     window.syncViewSeg();
+    // Each switcher sits in the pane it leaves, so pressing a segment hid the
+    // pressed button and dropped focus (VoiceOver's or the keyboard's) to
+    // <body> on every switch. It moves to the same segment in the switcher
+    // now showing.
+    if (!$(this).is(':visible')) {
+        $('.view-seg-btn').filter(function() { return $(this).data('view') === view && $(this).is(':visible'); })
+            .first().trigger('focus');
+    }
 });
 
 // Mobile only: overflow ("…") menu in the preview toolbar. History/download don't
