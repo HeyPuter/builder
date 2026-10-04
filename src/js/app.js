@@ -1590,12 +1590,19 @@ async function duplicateChat(chatId) {
     _duplicatingChats.add(chatId);
     // Dim the source row while we work; cleared in finally / by the re-render.
     $(`.chat-item[data-chat-id="${chatId}"]`).addClass('duplicating');
+    // What this attempt has created so far, so a failure before the copy is
+    // saved can take it all back (see the catch): the copied files, the
+    // workers redeployed for them, and the copy's draft site.
+    let newAppDir = null;
+    let workerRenames = [];
+    let copySubdomain = null;
+    let copySaved = false;
     try {
         const username = window.user.username;
         const parentDir = `/${username}/AppData/${puter.appID}`;
         const oldAppDir = `${parentDir}/${chatId}`;
         const newId = generateChatId();
-        const newAppDir = `${parentDir}/${newId}`;
+        newAppDir = `${parentDir}/${newId}`;
 
         // --- Resolve the source's persisted state ---------------------------
         // The on-disk per-chat file is the source of truth for a settled chat.
@@ -1655,7 +1662,6 @@ async function duplicateChat(chatId) {
         // the copy — or a worker list that failed, which proves nothing about
         // what the source owns — discards the whole duplication instead of
         // quietly handing the user a copy wired to someone else's backend.
-        let workerRenames = [];
         if (filesCopied) {
             let workerFailures = [];
             try {
@@ -1690,6 +1696,7 @@ async function duplicateChat(chatId) {
                 : newAppDir;
             try {
                 const site = await puter.hosting.create(window.makeDraftSubdomain(), publishRoot);
+                copySubdomain = site.subdomain;
                 newPreviewUrl = `https://${site.subdomain}.puter.site/`;
                 newPreviewPath = publishRoot;
             } catch (e) {
@@ -1734,6 +1741,7 @@ async function duplicateChat(chatId) {
             interrupted: false
         };
         await puter.fs.write(`chat-history/${newId}.json`, JSON.stringify(chatData));
+        copySaved = true;
 
         // Insert into the in-memory list (newest-first), mirroring the list-entry
         // shape saveCurrentChat writes, then persist the index and re-render.
@@ -1750,6 +1758,16 @@ async function duplicateChat(chatId) {
         updateChatHistorySidebar();
     } catch (error) {
         console.error('Error duplicating chat:', error);
+        // Nothing points at a copy whose chat file never landed: its workers
+        // would run unowned, its draft site would count against the account's
+        // site limit, and every retry would leak another set. Take them back.
+        if (!copySaved && newAppDir) {
+            if (copySubdomain) {
+                try { await puter.hosting.delete(copySubdomain); }
+                catch (e) { console.warn('Duplicate: could not remove the copy’s site:', e); }
+            }
+            await discardCopyAttempt(newAppDir, workerRenames);
+        }
         puter.ui.alert('Could not duplicate this project: ' + (error?.message || error));
     } finally {
         _duplicatingChats.delete(chatId);
