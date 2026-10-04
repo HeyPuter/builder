@@ -5066,6 +5066,10 @@ function renderContinueSuggestions(suggestions) {
     // funnels through, so it also covers an async Haiku generation landing
     // late and the loadChat chip restore.)
     if (window.isIssueReviewPromptShowing?.()) return;
+    // Focus on a chip of the row being replaced — "New ideas", typically —
+    // went down with it, to <body>. It goes to the first chip of the new set.
+    const oldRow = $('.chat-suggestions')[0];
+    const focusWasInRow = !!(oldRow && document.activeElement && oldRow.contains(document.activeElement));
     $('.chat-suggestions').remove();
     const $row = $('<div class="chat-suggestions"></div>');
     suggestions.forEach(s => {
@@ -5117,6 +5121,7 @@ function renderContinueSuggestions(suggestions) {
     $row.on('scroll', () => updateSuggestionFade(row));
     updateSuggestionFade(row);
     enableSuggestionMouseScroll(row);
+    if (focusWasInRow) $row.find('.chat-suggestion-chip').first().trigger('focus');
 
 }
 
@@ -5390,13 +5395,16 @@ async function regenerateContinueSuggestions() {
     if (!_lastSuggestionContext || isProcessing) return;
     const $btn = $('.chat-suggestion-regenerate');
     if ($btn.hasClass('loading')) return;
-    $btn.addClass('loading').prop('disabled', true);
+    // aria-disabled, not disabled: disabling the button the user just pressed
+    // dropped keyboard focus to <body> on the spot. The .loading check above
+    // already refuses a second press.
+    $btn.addClass('loading').attr('aria-disabled', 'true');
     try {
         await generateContinueSuggestions(_lastSuggestionContext);
     } finally {
         // If a fresh set rendered, the row was replaced and $btn is detached —
         // these calls are then harmless no-ops; otherwise they re-enable the chip.
-        $btn.removeClass('loading').prop('disabled', false);
+        $btn.removeClass('loading').removeAttr('aria-disabled');
     }
 }
 window.regenerateContinueSuggestions = regenerateContinueSuggestions;
