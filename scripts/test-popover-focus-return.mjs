@@ -28,14 +28,15 @@ function handler(src, event, selector) {
 
 const cases = [
     ['versions panel ✕', versions, '.versions-panel-close', '.preview-versions'],
-    ['publish popover ✕', ui, '.publish-panel-close', '.preview-publish-btn'],
+    ['publish popover ✕', ui, '.publish-panel-close', null],
     ['share popover ✕', ui, '.share-panel-close', '.preview-share'],
     ['device panel ✕', ui, '.device-panel-close', '.preview-device-trigger'],
 ];
 for (const [name, src, sel, trigger] of cases) {
     const body = handler(src, 'click', sel);
     check(`${name}: hands focus back to its toolbar button`,
-        body.length > 0 && body.includes(`$('${trigger}').trigger('focus')`), body.slice(0, 300) || '(handler not found)');
+        body.length > 0 && (trigger ? body.includes(`$('${trigger}').trigger('focus')`) : body.includes('focusPublishTrigger();')),
+        body.slice(0, 300) || '(handler not found)');
 }
 
 // Escape inside the versions panel already did; keep it that way.
@@ -124,6 +125,20 @@ for (const [name, src, sel, trigger] of cases) {
     check('…on ✕ / Escape', /on\('click', '\.publish-address-cancel', function \(\) \{\s*endPublishAddressEdit\(/.test(ui));
     check('…on saving the same name', /if \(newSub === oldSub\) \{ endPublishAddressEdit\(\$panel\); return; \}/.test(ui));
     check('…and after saving a new one', /renderPublishPanel\(\);\s*endPublishAddressEdit\(\$panel\);/.test(ui));
+}
+
+// The Publish button is disabled while a publish runs (and the progress note
+// invites closing the popover), so handing focus "back" to it dropped it to
+// <body>. Every close path goes through focusPublishTrigger, which falls back
+// to the composer.
+{
+    const a = ui.indexOf('function focusPublishTrigger() {');
+    check('focusPublishTrigger is present', a >= 0);
+    const fn = ui.slice(a, ui.indexOf('\n}\n', a));
+    check('…it skips a disabled Publish button and falls back to the composer',
+        /if \(btn && !btn\.disabled\) \{ btn\.focus\(\); return; \}/.test(fn) && /\.chat-input-message/.test(fn));
+    check('no close path focuses the Publish button directly any more', !/\$\('\.preview-publish-btn'\)\.trigger\('focus'\)/.test(ui));
+    check('…the ✕, panel Escape and name-field Escape all use it', (ui.match(/closePublishPanel\(\);\s*focusPublishTrigger\(\);/g) || []).length === 3);
 }
 
 if (failures) { console.error(`\n${failures} check(s) FAILED`); process.exit(1); }
