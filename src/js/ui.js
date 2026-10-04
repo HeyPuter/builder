@@ -4699,7 +4699,7 @@ function openUserPanel() {
     const choice = getStoredTheme() || 'device';
     const seg = (c) => {
         const active = c.key === choice;
-        return `<button class="user-theme-opt${active ? ' active' : ''}" data-theme-choice="${c.key}" role="radio" aria-checked="${active ? 'true' : 'false'}">` +
+        return `<button class="user-theme-opt${active ? ' active' : ''}" data-theme-choice="${c.key}" role="radio" aria-checked="${active ? 'true' : 'false'}" tabindex="${active ? '0' : '-1'}">` +
             `${c.icon}<span>${c.label}</span>` +
         '</button>';
     };
@@ -4769,7 +4769,8 @@ window.syncUserPanelTheme = function() {
     const choice = getStoredTheme() || 'device';
     $seg.find('.user-theme-opt').each(function() {
         const active = $(this).data('theme-choice') === choice;
-        $(this).toggleClass('active', active).attr('aria-checked', active ? 'true' : 'false');
+        $(this).toggleClass('active', active).attr('aria-checked', active ? 'true' : 'false')
+            .attr('tabindex', active ? '0' : '-1');
     });
 };
 
@@ -4788,6 +4789,24 @@ $(document).on('click', '.user-menu-btn', function(e) {
 $(document).on('click', '.user-theme-opt', function(e) {
     e.preventDefault();
     setThemeChoice($(this).data('theme-choice'));
+});
+// It is announced as a radio group ("radio button, 1 of 3"), so it works like
+// one: a single Tab stop (the chosen option; see tabindex above), and the
+// arrow keys move to and choose the next/previous option, wrapping, with
+// Home/End for the ends. All three used to be Tab stops and the arrows did
+// nothing.
+$(document).on('keydown', '.user-theme-opt', function(e) {
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+    const $opts = $(this).closest('.user-theme-seg').find('.user-theme-opt');
+    let i = $opts.index(this);
+    if (step) i = (i + step + $opts.length) % $opts.length;
+    else if (e.key === 'Home') i = 0;
+    else if (e.key === 'End') i = $opts.length - 1;
+    else return;
+    e.preventDefault();
+    const next = $opts[i];
+    next.focus();
+    setThemeChoice($(next).data('theme-choice'));
 });
 
 // Account row: open the Puter dashboard. Synchronous window.open (no
