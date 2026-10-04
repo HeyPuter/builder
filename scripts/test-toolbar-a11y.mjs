@@ -7,6 +7,8 @@ import fs from 'node:fs';
 //     select mode was on;
 //   * the device trigger was named just "Desktop" / "Tablet" / "Mobile", with
 //     nothing saying it sizes the preview;
+//   * the hosted-app theme toggle was always "Toggle dark mode", never saying
+//     which mode was on;
 
 let failures = 0;
 function check(name, cond, detail) {
@@ -32,6 +34,11 @@ const ui = fs.readFileSync(new URL('../src/js/ui.js', import.meta.url), 'utf8');
     const fn = ui.slice(ui.indexOf('function setPreviewDevice(device) {'), ui.indexOf('window.setPreviewDevice = setPreviewDevice;'));
     check('…and its name follows the chosen size', /\.attr\('aria-label', 'Preview size: ' \+ window\.DEVICE_LABELS\[device\]\)/.test(fn));
 }
+
+// ---- Hosted-app theme toggle: a toggle with a state ---------------------------
+check('the theme toggle is "Dark mode", pressed when dark is on',
+    /class="theme-toggle-btn"[^`]*aria-label="Dark mode" aria-pressed="\$\{dark \? 'true' : 'false'\}"/.test(ui)
+    && !/aria-label="Toggle dark mode"/.test(ui));
 
 if (failures) { console.error(`\n${failures} check(s) FAILED`); process.exit(1); }
 console.log('\nAll toolbar a11y checks passed.');
