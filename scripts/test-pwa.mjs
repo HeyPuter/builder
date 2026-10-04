@@ -175,6 +175,35 @@ check('pwa.js tears the worker down in local dev', /getRegistrations\(\)/.test(p
 check('pwa.js only reloads on an accepted update', /updateAccepted/.test(pwa) && /!updateAccepted/.test(pwa) && /controllerchange/.test(pwa));
 check('pwa.js never auto-skips waiting without intent', /SKIP_WAITING/.test(pwa) && /updateAccepted\s*=\s*true/.test(pwa));
 check('pwa.js exposes a programmatic install trigger', /window\.promptPWAInstall\s*=/.test(pwa));
+// The update toast's Reload, run for real. In a second tab the version is
+// usually already active by the time it is clicked (the first tab's Reload
+// activated it, and clients.claim() took this tab over without reloading it):
+// posting SKIP_WAITING to the active worker changed nothing, and the tab kept
+// running the old code.
+{
+    const a = pwa.indexOf('var updateAccepted = false;');
+    const b = pwa.indexOf("window.addEventListener('load'", a);
+    let toast = null, reloads = 0;
+    const win = {
+        showToast: (msg, opts) => (toast = { msg, opts, dismiss() {} }),
+        location: { reload: () => { reloads++; } },
+    };
+    const promptUpdate = new Function('window', pwa.slice(a, b) + '\nreturn promptUpdate;')(win);
+    const worker = (name) => ({ name, posted: [], postMessage(m) { this.posted.push(m); } });
+    const w1 = worker('v2');
+    const reg = { waiting: w1 };
+    promptUpdate(reg, w1);
+    reg.waiting = null; // another tab accepted: v2 is active now
+    toast.opts.action.onClick();
+    check('update Reload with nothing left waiting reloads the tab', reloads === 1 && w1.posted.length === 0);
+    const w2 = worker('v3');
+    const reg2 = { waiting: w2 };
+    reloads = 0;
+    promptUpdate(reg2, w2);
+    toast.opts.action.onClick();
+    check('update Reload with a waiting worker activates it (the reload follows controllerchange)',
+        w2.posted.length === 1 && w2.posted[0].type === 'SKIP_WAITING' && reloads === 0);
+}
 check('pwa.js snoozes a dismissed install prompt', /pwaInstallDismissedAt/.test(pwa) && /onDismiss/.test(pwa));
 
 // --- Build wiring (vite.config) --------------------------------------------
