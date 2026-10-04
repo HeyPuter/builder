@@ -296,7 +296,7 @@ export default {
                 {
                     q: 'Does it output React or Tailwind components?',
                     a: [
-                        'No. The output is complete pages in plain HTML, CSS, and JavaScript, with no framework and no build step. That is what makes the files portable and immediately publishable, and it is why a browser and an editor are the only tools needed to keep working on them.',
+                        'Not React components. The output is complete pages in plain HTML, CSS, and JavaScript, styled with Tailwind utility classes loaded from a CDN, so there is no framework and no build step. That is what makes the files portable and immediately publishable, and it is why a browser and an editor are the only tools needed to keep working on them.',
                         'For an existing React project, the exported files can serve as a reference, but adapting them to your components and build setup is a separate development step.',
                     ],
                 },
