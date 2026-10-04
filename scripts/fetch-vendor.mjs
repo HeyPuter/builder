@@ -61,7 +61,16 @@ async function main() {
 
   for (const [url, name] of RAW) {
     process.stdout.write(`• ${name} … `);
-    fs.writeFileSync(path.join(VENDOR, name), await get(url, true));
+    let body = await get(url, true);
+    // CDN builds can end with a `//# sourceMappingURL=` pointing at a map that
+    // is not vendored (marked's is a jsDelivr-relative /sm/….map). The dev
+    // server then logs a failed map load on startup and DevTools fetches the
+    // URL (getting the app's HTML back). The build strips these comments when
+    // it concatenates the bundle; strip them here so dev matches.
+    if (name.endsWith('.js')) {
+      body = Buffer.from(body.toString('utf8').replace(/^[ \t]*\/\/[#@]\s*source(?:Mapping)?URL=.*$/gm, ''));
+    }
+    fs.writeFileSync(path.join(VENDOR, name), body);
     console.log('ok');
   }
 
