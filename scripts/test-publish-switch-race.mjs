@@ -275,5 +275,66 @@ check('switch/auto-name: the address is derived from A’s chat, not B’s',
     raceAutoName.hostingCalls[0] && raceAutoName.hostingCalls[0].sub === 'alpha-notes-app',
     JSON.stringify(raceAutoName.hostingCalls));
 
+// ---- Change address: a switch mid-rename keeps this project's baseline ------
+// The toolbar's address editor read the published version id and date from
+// the globals AFTER awaiting hosting.create/delete; a project opened in the
+// meantime had repointed them, so its values (or nulls) were saved onto this
+// project — which then read "Publish changes" with a wrong "last published".
+{
+    const marker = "$(document).on('click', '.publish-address-save', ";
+    const a = source.indexOf(marker);
+    const b = source.indexOf('\n});\n', a);
+    const handlerSrc = source.slice(a + marker.length, b + 2);
+    const saved = [];
+    let releaseCreate;
+    const input = { val: () => 'new-name', prop() { return input; }, trigger() { return input; } };
+    const panel = { find: () => input, removeClass() { return panel; } };
+    const sandbox = {
+        currentChatId: 'chat-a',
+        chatHistory: [],
+        window: {
+            currentPublishedUrl: 'https://old-name.puter.site/',
+            currentPublishedPath: '/alice/AppData/builder/.published/chat-a/r1',
+            currentPublishedVersionId: 'v-a-7',
+            currentPublishedAt: '2026-09-01T00:00:00.000Z',
+            savePublishedFields: (id, fields) => saved.push([id, fields]),
+            isSubdomainLimitErr: () => false,
+            puterErrInfo: () => ({ message: '' }),
+        },
+        $: (x) => (x && x.closest ? x : { closest: () => panel, prop() { return this; } }),
+        puter: {
+            ui: { alert: async () => {} },
+            hosting: {
+                create: () => new Promise((r) => { releaseCreate = r; }),
+                delete: async () => {},
+            },
+        },
+        resolvePublishedDir: async (p) => p,
+        previewSubdomain: (u) => (u.match(/^https?:\/\/([^.]+)\.puter\.site/) || [])[1] || null,
+        console: { warn() {} },
+    };
+    vm.createContext(sandbox);
+    const handler = vm.runInContext('(' + handlerSrc + ')', sandbox);
+    const done = handler.call({ closest: () => panel, prop() { return this; } });
+    for (let i = 0; i < 20 && !releaseCreate; i++) await new Promise(setImmediate);
+    // The user opens project B while the new address is being created.
+    sandbox.currentChatId = 'chat-b';
+    Object.assign(sandbox.window, {
+        currentPublishedUrl: 'https://b-site.puter.site/',
+        currentPublishedPath: '/alice/AppData/builder/.published/chat-b/r9',
+        currentPublishedVersionId: 'v-b-2',
+        currentPublishedAt: '2026-10-01T00:00:00.000Z',
+    });
+    releaseCreate({ subdomain: 'new-name' });
+    await done;
+    const [id, fields] = saved[0] || [];
+    check('change address: the rename is saved to the project it was made for', id === 'chat-a', JSON.stringify(saved));
+    check('change address: that project keeps its own published version and date',
+        fields && fields.publishedVersionId === 'v-a-7' && fields.publishedAt === '2026-09-01T00:00:00.000Z',
+        JSON.stringify(fields));
+    check('change address: the open project\'s globals are left alone',
+        sandbox.window.currentPublishedUrl === 'https://b-site.puter.site/');
+}
+
 if (failures) { console.error(failures + ' failure(s)'); process.exit(1); }
 console.log('all publish-switch-race checks passed');
