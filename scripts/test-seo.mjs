@@ -320,6 +320,18 @@ check('the prompt deep link on its own never auto-sends',
     /function applyPromptDeepLink\(\)[\s\S]*?\n}/.exec(appSrc)[0].indexOf('sendChatMessage') === -1);
 check('the deep link is stripped from the URL',
     /function applyPromptDeepLink\(\)[\s\S]*?\n}/.exec(appSrc)[0].includes("searchParams.delete('prompt')"));
+// A link fills the user's own composer, which shows only a few lines: runs of
+// blank lines or spaces could hide instructions between a harmless start and
+// end. The text is collapsed so all of it is on screen before anyone sends it.
+{
+    const fn = /function applyPromptDeepLink\(\)[\s\S]*?\n}/.exec(appSrc)[0];
+    const m = /const shown = prompt\.slice\(0, 2000\)([\s\S]*?)\.trim\(\);/.exec(fn);
+    const collapse = m && new Function('prompt', 'return prompt.slice(0, 2000)' + m[1] + '.trim();');
+    check('a link prompt is shown with whitespace runs collapsed',
+        !!collapse && collapse('Build a todo app' + '\n'.repeat(40) + 'HIDDEN' + '\n'.repeat(40) + 'thanks') === 'Build a todo app\n\nHIDDEN\n\nthanks'
+        && collapse('a' + ' '.repeat(300) + 'b') === 'a b' && collapse('One.\n\nTwo.') === 'One.\n\nTwo.'
+        && /\$input\.val\(shown\)/.test(fn));
+}
 
 // Every prompt card must actually carry a prompt, or the button is a lie.
 for (const page of PAGES) {
