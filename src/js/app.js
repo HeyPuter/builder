@@ -2244,6 +2244,8 @@ function updateChatHistorySidebar() {
         chatItem.find('.chat-item-link')
             .attr('href', '?p=' + encodeURIComponent(chat.id))
             .attr('aria-label', chat.title || 'Untitled project');
+        // The open project was marked by its highlight alone; say it too.
+        if (isActive) chatItem.find('.chat-item-link').attr('aria-current', 'page');
 
         // Thumbnail: the project's auto-captured screenshot, served from the live
         // site at [project-host]/.puter/screenshots/index.png. We always render the
