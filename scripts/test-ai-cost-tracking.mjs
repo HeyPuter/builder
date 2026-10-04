@@ -104,5 +104,30 @@ check('app.js sends NEGATIVE revenue amount', /amount:\s*-\(costCents\s*\/\s*100
 // Zero-cost turns must not emit a revenue event (would record a $0 conversion).
 check('app.js guards revenue on costCents > 0', /costCents\s*>\s*0\s*\?\s*\{\s*currency/.test(APP));
 
+// --- Interrupted and retried attempts keep their usage ------------------------
+// Usage accumulates on the attempt's context and was folded into the history
+// only on a clean completion, so every Stop, error, chat switch and retried
+// attempt dropped what its rounds had cost from the project-info totals.
+{
+    const HMS = fs.readFileSync(new URL('../src/js/handleMessageStream.js', import.meta.url), 'utf8');
+    const a0 = HMS.indexOf('function recordUsageChunk(');
+    const b0 = HMS.indexOf('// Turn a terminal "error" stream chunk', a0);
+    const { recordUsageChunk, flushTurnUsage } = new Function(HMS.slice(a0, b0) + '\nreturn { recordUsageChunk, flushTurnUsage };')();
+    // A two-round turn stopped mid-way through round two.
+    const ctx = { chatHistory: [{ role: 'user', content: 'go' }, { role: 'assistant', content: { type: 'tool_use', id: 't1' } }] };
+    recordUsageChunk(ctx, { usage: { usd_cents: 1.5, input_tokens: 1000, output_tokens: 200 } });
+    recordUsageChunk(ctx, { usage: { usd_cents: 0.5, input_tokens: 300, output_tokens: 50 } });
+    flushTurnUsage(ctx);
+    check('interrupted attempt: its usage is folded into the history', ctx.chatHistory[1].costUsdCents === 2 && ctx.chatHistory[1].tokenUsage.input === 1300);
+    flushTurnUsage(ctx);
+    check('interrupted attempt: flushing again adds nothing', ctx.chatHistory[1].costUsdCents === 2);
+
+    const send = APP.slice(APP.indexOf('async function sendChatMessage('));
+    check('app.js flushes a failed attempt\'s usage before retrying',
+        /removeUncommittedBubble\(context\);[\s\S]{0,300}if \(context\) flushTurnUsage\(context\);/.test(send));
+    check('app.js flushes on every terminal path (Stop, error, switch) in the finally',
+        /turnSaveContext\.interrupted = [^\n]+\n[\s\S]{0,600}if \(context\) flushTurnUsage\(context\);/.test(send));
+}
+
 if (failures) { console.error('\n' + failures + ' check(s) failed'); process.exit(1); }
 console.log('\nAll AI-cost-tracking checks passed');

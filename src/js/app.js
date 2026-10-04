@@ -3811,6 +3811,9 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     let turnErrored = false;
     // Set in the finally: a newer turn has started in this same chat (see there).
     let supersededSameChat = false;
+    // The current attempt's stream context (built in the retry loop below);
+    // declared out here so the catch and finally can reach it.
+    let context = null;
     // Transient-failure auto-retry state (see the retry loop below). `attempt`
     // counts retries used this turn; `retryGaveUp` is set once they're exhausted,
     // which routes the turn to the calm resume banner instead of an error card.
@@ -4089,7 +4092,6 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // redone. `context` is declared out here so the catch below can clean up a
         // partial bubble. See the MAX_TURN_RETRIES / isTransientTurnError block.
         const turnTools = window.getTurnTools();
-        let context = null;
         while (true) {
             // A fresh AbortController per attempt. This is also the guard for a chat
             // switch during turn setup — terminateActiveTurn() may have run before
@@ -4159,6 +4161,9 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                 }
                 // Drop any partial, unsaved narration bubble before resuming.
                 removeUncommittedBubble(context);
+                // This attempt's rounds were generated (and billed) even though
+                // it failed; keep their usage — the retry builds a new context.
+                if (context) flushTurnUsage(context);
                 if (stallRecovery) {
                     // The user just came back to the app — reconnect promptly (a
                     // short beat for the abort to settle and the radio to wake),
@@ -4317,6 +4322,12 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // interrupted, whether or not this attempt got as far as a nudge.
         const turnAppended = turnSaveContext.chatHistory.length > turnTodoScanStart;
         turnSaveContext.interrupted = !turnSucceeded && !turnErrored && (isResume || turnAppended);
+
+        // Record the AI usage of rounds that ran before a Stop, an error or a
+        // chat switch. Only a clean completion folded it into the history
+        // (handleMessageStream's recurser block), so the project-info dialog
+        // under-reported what interrupted turns had cost. A no-op once flushed.
+        if (context) flushTurnUsage(context);
 
         // A composer send that never got its message into the conversation —
         // Stop while the attachments were still uploading, or an upload that
