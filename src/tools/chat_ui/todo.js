@@ -1,7 +1,7 @@
 // Checkbox icons shared by the full checklist render (updateTodoDisplay) and
 // the in-place check-off patch (checkOffTodoDisplay) below.
-const TODO_CHECKED_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><title>checkbox-checked</title><g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="1" stroke="#029802"><rect x="1.25" y="1.25" width="9.5" height="9.5" rx="2" ry="2"></rect><polyline points="3.747 6.5 5.25 8 8.253 4"></polyline></g></svg>';
-const TODO_UNCHECKED_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><title>checkbox-unchecked</title><g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="1" stroke="#000000"><rect x="1.25" y="1.25" width="9.5" height="9.5" rx="2" ry="2"></rect></g></svg>';
+const TODO_CHECKED_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12" role="img" aria-label="Done"><g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="1" stroke="#029802"><rect x="1.25" y="1.25" width="9.5" height="9.5" rx="2" ry="2"></rect><polyline points="3.747 6.5 5.25 8 8.253 4"></polyline></g></svg>';
+const TODO_UNCHECKED_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12" role="img" aria-label="Not done"><g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="1" stroke="#000000"><rect x="1.25" y="1.25" width="9.5" height="9.5" rx="2" ry="2"></rect></g></svg>';
 
 // Build the checklist's markup (the complete .todo-list node) from a TodoWrite
 // payload. Shared by updateTodoDisplay below (remove + append at the bottom of
