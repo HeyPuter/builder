@@ -762,6 +762,50 @@ window.showToast = function (message, opts) {
     return toast;
 };
 
+// Screen-reader announcements for what appears on screen but is otherwise not
+// spoken. The chat box isn't a live region (streaming output read out token by
+// token would be unusable), so a failed build's error card, the "interrupted —
+// Resume" banner and the reconnecting status arrived in silence. Two
+// persistent, visually hidden regions (polite / assertive), created once the
+// page is parsed for the same reason as the toast region: a region inserted
+// together with its text is mostly not announced. The text is cleared a little
+// later so a reader browsing to the end of the page doesn't meet stale
+// messages, and the same text again while it is still up is not repeated.
+const _announcers = {};
+function announcerRegion(kind) {
+    let el = _announcers[kind];
+    if (el && el.isConnected) return el;
+    el = document.createElement('div');
+    el.className = 'sr-only';
+    // role=status / role=alert: polite / assertive, atomic.
+    el.setAttribute('role', kind === 'assertive' ? 'alert' : 'status');
+    el.setAttribute('data-announcer', kind);
+    document.body.appendChild(el);
+    _announcers[kind] = el;
+    return el;
+}
+window.announce = function (text, opts) {
+    if (typeof document === 'undefined' || !document.body || !text) return;
+    text = String(text);
+    const el = announcerRegion(opts && opts.assertive ? 'assertive' : 'polite');
+    if (el._text === text) return;
+    el._text = text;
+    clearTimeout(el._showTimer);
+    clearTimeout(el._clearTimer);
+    el.textContent = '';
+    // A beat after emptying it, so a region that still held text announces
+    // the new text as a change rather than an edit.
+    el._showTimer = setTimeout(function () {
+        el.textContent = text;
+        el._clearTimer = setTimeout(function () { el.textContent = ''; el._text = ''; }, 7000);
+    }, 50);
+};
+if (typeof document !== 'undefined' && document.addEventListener) {
+    const initAnnouncers = function () { announcerRegion('polite'); announcerRegion('assertive'); };
+    if (document.body) initAnnouncers();
+    else document.addEventListener('DOMContentLoaded', initAnnouncers, { once: true });
+}
+
 // Returns true if `url` carries a scheme that must never become a live link or
 // image source in a rendered chat message — javascript:, data:, vbscript:,
 // blob:, file:, etc. Relative URLs, fragment anchors (#…), query-only refs, and

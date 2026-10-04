@@ -5677,6 +5677,20 @@ html[data-theme="dark"] .properties-modal-close:hover { background: var(--surfac
 html[data-theme="dark"] audio::-webkit-media-controls-play-button,
 html[data-theme="dark"] audio::-webkit-media-controls-panel { background: var(--surface); }
 
+/* Visually hidden, still read by screen readers (window.announce's regions). */
+.sr-only {
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+}
+
 /* ---- Toast notifications (window.showToast) ----
    Used to surface otherwise-silent failures (a failed background save or
    version snapshot). The container is an aria-live region (set in JS). */
