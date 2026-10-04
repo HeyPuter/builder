@@ -2425,7 +2425,7 @@ $(document).on('keydown', '.publish-name-input', function (e) {
     } else if (e.key === 'Escape') {
         e.preventDefault();
         closePublishPanel();
-        $('.preview-publish-btn').trigger('focus');
+        focusPublishTrigger();
     }
     e.stopPropagation();
 });
@@ -2460,18 +2460,28 @@ $(document).on('click', '.preview-publish-panel .publish-copy', async function (
     } catch (err) { /* clipboard blocked — the link is still selectable */ }
 });
 
+// Hand focus back to the toolbar's Publish button as the popover closes.
+// While a publish runs that button is disabled and can't take focus — and the
+// progress note invites closing the popover ("you can close this and keep
+// building") — so focus fell to <body>; it goes to the composer instead.
+function focusPublishTrigger() {
+    const btn = $('.preview-publish-btn').filter(':visible')[0];
+    if (btn && !btn.disabled) { btn.focus(); return; }
+    $('.chat-input-message').filter(':visible').trigger('focus');
+}
+
 // Close affordances: the X, Escape, and clicks outside the popover/button.
 $(document).on('click', '.publish-panel-close', function (e) {
     e.preventDefault();
     e.stopPropagation();
     closePublishPanel();
-    $('.preview-publish-btn').trigger('focus');
+    focusPublishTrigger();
 });
 $(document).on('keydown', '.preview-publish-panel', function (e) {
     if (e.key === 'Escape') {
         e.preventDefault();
         closePublishPanel();
-        $('.preview-publish-btn').trigger('focus');
+        focusPublishTrigger();
     }
 });
 $(document).on('click', function (e) {
