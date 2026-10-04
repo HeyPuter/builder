@@ -4365,12 +4365,21 @@ body.preview-active.chat-hidden .chat {
     .chat-history-sidebar {
         width: min(300px, 85vw);
     }
+    /* The scrim covers the whole page except the sidebar and the burger that
+       closes it. At z-index 999 the toolbar's right-hand controls (z-index
+       1000) floated above it, undimmed, and a tap there opened the account
+       panel behind an open sidebar instead of dismissing it. Same z-index as
+       those controls (the scrim comes later in the DOM, so it paints on top),
+       with the open sidebar lifted one above. */
+    .chat-history-sidebar.open {
+        z-index: 1001;
+    }
     .chat-history-sidebar.open ~ .sidebar-backdrop {
         display: block;
         position: fixed;
         inset: 0;
         background: rgba(0, 0, 0, 0.4);
-        z-index: 999; /* under the sidebar itself (z-index 1000) */
+        z-index: 1000;
     }
 
     /* --- App preview ---
