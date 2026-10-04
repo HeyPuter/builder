@@ -71,5 +71,60 @@ check('the body is read through the byte-capped reader', /I\.readCapped\(respons
 check('the result is fenced and labelled as untrusted data', /data: fence\(data\)/.test(exec) && /untrusted data/.test(exec));
 check('the conversation-size trim is still applied', /MAX_CHARS/.test(exec));
 
+// --- redirects (the real exec, stubbed network) --------------------------------
+// puter.net.fetch never follows redirects, so the model got a bare "301 Moved"
+// page with the target dropped. The tool follows them itself — each hop held to
+// the first URL's rules.
+{
+    const twin = { tools: [] };
+    let routes = {};
+    const requested = [];
+    const puterStub = { net: { fetch: async (href) => {
+        requested.push(href);
+        const r = routes[href];
+        if (!r) return new Response('not found', { status: 404, headers: { 'content-type': 'text/plain' } });
+        const nullBody = [101, 204, 205, 304].includes(r.status);
+        return new Response(nullBody ? null : (r.body ?? ''), { status: r.status, headers: r.headers || {} });
+    } } };
+    new Function('window', 'puter', src)(twin, puterStub);
+    const tool = twin.tools.find((t) => t.function.name === 'FetchExternalResource');
+    const run = async (URL_) => { try { return { ok: true, res: await tool.exec({ URL: URL_ }, {}) }; } catch (e) { return { ok: false, err: e }; } };
+
+    routes = {
+        'http://docs.example.com/guide': { status: 301, headers: { location: 'https://docs.example.com/guide' }, body: '<h1>Moved</h1>' },
+        'https://docs.example.com/guide': { status: 308, headers: { location: '/guide/' } },
+        'https://docs.example.com/guide/': { status: 200, headers: { 'content-type': 'text/html' }, body: '<h1>The guide</h1>' },
+    };
+    let r = await run('http://docs.example.com/guide');
+    check('redirects: an http→https→trailing-slash chain is followed to the content',
+        r.ok && r.res.status === 200 && /The guide/.test(r.res.data), JSON.stringify(r.res || r.err.message));
+    check('redirects: relative Location headers resolve against the hop that sent them', requested.includes('https://docs.example.com/guide/'));
+    check('redirects: the result says where the content came from',
+        r.ok && r.res.url === 'http://docs.example.com/guide' && r.res.redirected_to === 'https://docs.example.com/guide/');
+
+    routes = { 'https://evil.example.com/x': { status: 302, headers: { location: 'http://169.254.169.254/latest/meta-data/' } } };
+    requested.length = 0;
+    r = await run('https://evil.example.com/x');
+    check('redirects: a hop to a private address is refused, not fetched',
+        !r.ok && /private or internal/.test(r.err.message) && !requested.some((u) => u.includes('169.254')), r.ok ? 'fetched' : r.err.message);
+
+    routes = { 'https://a.example.com/x': { status: 302, headers: { location: 'file:///etc/passwd' } } };
+    r = await run('https://a.example.com/x');
+    check('redirects: a hop to a non-http(s) scheme is refused', !r.ok && /non-http\(s\)/.test(r.err.message));
+
+    routes = {};
+    for (let i = 0; i < 8; i++) routes[`https://loop.example.com/${i}`] = { status: 302, headers: { location: `/${i + 1}` } };
+    r = await run('https://loop.example.com/0');
+    check('redirects: a redirect loop stops after a few hops', !r.ok && /redirected more than \d+ times/.test(r.err.message));
+
+    routes = { 'https://plain.example.com/': { status: 200, headers: { 'content-type': 'text/plain' }, body: 'hello' } };
+    r = await run('https://plain.example.com/');
+    check('redirects: a direct response carries no redirected_to', r.ok && r.res.status === 200 && !('redirected_to' in r.res));
+
+    routes = { 'https://cache.example.com/': { status: 304, headers: {} } };
+    r = await run('https://cache.example.com/');
+    check('redirects: a 3xx without a Location is returned as is', r.ok && r.res.status === 304);
+}
+
 if (failures) { console.error(`\n${failures} external-fetch check(s) failed.`); process.exit(1); }
 console.log('\nAll external-fetch checks passed.');
