@@ -364,12 +364,18 @@
             // The restore saved any un-snapshotted work before it began.
             if (_restoringFilesOf.has(chatId) && !opts.fromRestore) return null;
 
-            // Only snapshot when the app directory actually has content.
+            // Only snapshot when the app directory actually has content. A
+            // directory that doesn't exist yet is "nothing to snapshot"; any
+            // other failure (a network blip on the listing) is a failed
+            // snapshot, and must reach the catch below so it is reported —
+            // this used to be the one failure the "Couldn't save a restore
+            // point" warning never covered.
             let items;
             try {
                 items = await puter.fs.readdir(appDir);
             } catch (e) {
-                return null; // app dir doesn't exist yet
+                if (typeof isNotFoundError === 'function' && isNotFoundError(e)) return null;
+                throw e;
             }
             if (!Array.isArray(items)) return null;
             // An empty project ("start over" — every file deleted) has nothing
@@ -568,7 +574,19 @@
         leftovers = leftovers || [];
         const snapItems = await puter.fs.readdir(snapDir);
         let curItems = [];
-        try { curItems = await puter.fs.readdir(curDir); } catch (e) { curItems = []; }
+        try {
+            curItems = await puter.fs.readdir(curDir);
+        } catch (e) {
+            // Only a directory that doesn't exist yet is empty. Any other
+            // failure used to be read as empty too, and then there was nothing
+            // to prune: the files this version doesn't have stayed, the
+            // directory was a superset of the version, and it was still marked
+            // Current and clean — the partial restore the leftovers machinery
+            // exists to report. Fail the restore instead; the caller marks the
+            // state unknown and says what happened.
+            if (!(typeof isNotFoundError === 'function' && isNotFoundError(e))) throw e;
+            curItems = [];
+        }
         const curByName = new Map(curItems.map(it => [it.name, it]));
         const snapByName = new Map(snapItems.map(it => [it.name, it]));
 
