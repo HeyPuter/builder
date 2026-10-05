@@ -141,20 +141,31 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
             // the paths the model merely read (ReadTextFile, ViewImage, stat,
             // SearchFiles…) took those slots, so a file that DID change could go
             // unverified and the preview reloaded before it had propagated.
+            // Recorded as the path the tool ACTED on, not as the model spelled
+            // it: the tools resolve a relative path against the project
+            // directory and normalise ./, ../ and // (assertPathInProject),
+            // while the probe matches recorded paths against the site's
+            // directory by exact prefix. A file written as "styles.css" was
+            // recorded as "styles.css", matched nothing, and went unverified —
+            // the preview reloaded on the floor delay while the edge still
+            // served the old stylesheet, and then verified that stale page.
             if (!window.isMutatingTool || window.isMutatingTool(toolCall.name)) {
                 try {
                     const _inp = toolCall.input || {};
+                    const _abs = p => (window.assertPathInProject ? window.assertPathInProject(p, c) : p);
                     const _base = s => (typeof s === 'string' ? s.slice(s.lastIndexOf('/') + 1) : '');
                     const _trimEnd = s => (typeof s === 'string' ? s.replace(/\/+$/, '') : '');
                     if (toolCall.name === 'rename' && _inp.path && _inp.new_name) {
-                        window.recordPreviewChange?.(_inp.path.slice(0, _inp.path.lastIndexOf('/') + 1) + _inp.new_name);
+                        const abs = _abs(_inp.path);
+                        window.recordPreviewChange?.(abs.slice(0, abs.lastIndexOf('/') + 1) + _inp.new_name);
                     } else if (toolCall.name === 'copy' && _inp.path && _inp.destination) {
-                        window.recordPreviewChange?.(_trimEnd(_inp.destination) + '/' + _base(_inp.path));
+                        window.recordPreviewChange?.(_abs(_trimEnd(_inp.destination)) + '/' + _base(_abs(_inp.path)));
                     } else if (toolCall.name === 'move' && Array.isArray(_inp.paths_array) && _inp.destination) {
-                        _inp.paths_array.forEach(p => window.recordPreviewChange?.(_trimEnd(_inp.destination) + '/' + _base(p)));
+                        const dest = _abs(_trimEnd(_inp.destination));
+                        _inp.paths_array.forEach(p => window.recordPreviewChange?.(dest + '/' + _base(_abs(p))));
                     } else {
-                        if (_inp.path) window.recordPreviewChange?.(_inp.path);
-                        if (Array.isArray(_inp.paths_array)) _inp.paths_array.forEach(p => window.recordPreviewChange?.(p));
+                        if (_inp.path) window.recordPreviewChange?.(_abs(_inp.path));
+                        if (Array.isArray(_inp.paths_array)) _inp.paths_array.forEach(p => window.recordPreviewChange?.(_abs(p)));
                     }
                 } catch (e) { /* recording is best-effort */ }
             }
