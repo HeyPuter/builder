@@ -1806,19 +1806,32 @@ let _suggestedPublishName = null;
 
 window.refreshPublishButton = function () {
     const $btn = $('.preview-publish-btn');
-    if (!$btn.length || publishBusyHere()) return;
+    if (!$btn.length) return;
     const st = window.computePublishState({
         publishedUrl: window.currentPublishedUrl,
         publishedVersionId: window.currentPublishedVersionId,
         currentVersionId: window.getCurrentVersionId?.(),
         dirtySinceSnapshot: window._projectDirtySinceSnapshot,
     });
-    $btn.attr('data-state', st.state).prop('disabled', false);
-    $btn.find('.preview-publish-label').text(st.label);
+    $btn.attr('data-state', st.state);
     $btn.attr('title',
         st.state === 'clean' ? 'Your site is live — view or update it'
             : st.state === 'dirty' ? 'Publish your latest changes'
                 : 'Publish your app to a public link');
+    // A publish of THIS project is still running: keep the button busy. This
+    // used to bail before painting anything, which was right while the user
+    // stayed put (setPublishBusy had painted it) but not when they came BACK
+    // to the project mid-publish — the button then kept the label and state
+    // painted for the project they had switched to in between, enabled, until
+    // the publish finished. The popover is left alone too: it shows the
+    // progress view, and a failed publish's typed address must survive.
+    if (publishBusyHere()) {
+        $btn.prop('disabled', true);
+        $btn.find('.preview-publish-label').text('Publishing…');
+        return;
+    }
+    $btn.prop('disabled', false);
+    $btn.find('.preview-publish-label').text(st.label);
     // Keep an open panel in sync when state changes underneath it — but never
     // while the user is mid-edit in the address field (that would drop their
     // input and focus).
