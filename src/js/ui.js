@@ -302,17 +302,59 @@ function updateUserMenu() {
         const el = $container.find('.' + focusedControl)[0];
         if (el) { try { el.focus({ preventScroll: true }); } catch (e) { /* best effort */ } }
     }
-    // The username is user-controlled — inject the avatar initial via .text(),
-    // never into the HTML string.
+    // The username is user-controlled — paintAvatar sets the initial as text,
+    // never into the HTML string. Then make sure the picture is fresh (a no-op
+    // while the cache is; a change repaints through the onChange hook below).
     if (loggedIn && !isApp) {
-        const initial = ((window.user.username || '').trim().charAt(0) || '?').toUpperCase();
-        $container.find('.user-avatar').text(initial);
+        paintAvatar($container.find('.user-avatar')[0], window.user.username);
+        window.profilePicture?.refresh(window.user.username);
     }
     // Keep an open account panel's theme control in sync — setThemeChoice(),
     // toggleTheme() and the OS-preference listener all route through here.
     window.syncUserPanelTheme?.();
 }
 window.updateUserMenu = updateUserMenu;
+
+// Fill an avatar circle (toolbar or account panel) for `username`: their
+// Puter profile picture when one is cached (see profile-picture.js), over the
+// username's initial, which stays underneath as the fallback. Synchronous and
+// from cache only, so a re-render (theme change, sign-in) repaints the same
+// picture on the same frame — the data URL is already decoded, and
+// decoding="sync" keeps the browser from showing a blank frame first.
+function paintAvatar(el, username) {
+    if (!el) return;
+    const initial = ((username || '').trim().charAt(0) || '?').toUpperCase();
+    let picture = null;
+    try { picture = window.profilePicture?.get(username) || null; } catch (e) {}
+    const current = el.querySelector('img.avatar-picture');
+    // Already showing exactly this — leave the node alone.
+    if (picture && current && current.getAttribute('src') === picture && el.dataset.initial === initial) return;
+    el.textContent = initial;
+    el.dataset.initial = initial;
+    el.classList.toggle('has-picture', !!picture);
+    if (!picture) return;
+    const img = document.createElement('img');
+    img.className = 'avatar-picture';
+    img.alt = '';
+    img.decoding = 'sync';
+    img.draggable = false;
+    // Broken after all: back to the initial, and drop the cached picture so
+    // every other avatar (and the next reload) stops trying it.
+    img.addEventListener('error', () => {
+        img.remove();
+        el.classList.remove('has-picture');
+        window.profilePicture?.invalidate(username, picture);
+    }, { once: true });
+    img.src = picture;
+    el.appendChild(img);
+}
+
+// A user's picture arrived, changed or went away: repaint the avatars on
+// screen in place (re-rendering the toolbar would steal focus from it).
+window.profilePicture?.onChange((username) => {
+    if (!window.user || window.user.is_temp || window.user.username !== username) return;
+    document.querySelectorAll('.user-avatar, .user-panel-avatar').forEach((el) => paintAvatar(el, username));
+});
 
 // SVG used by the preview pane reload button
 window.reload_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>`;
@@ -4759,11 +4801,11 @@ function openUserPanel() {
                 '</button>' +
             '</div>' +
         '</div>');
-    // The username is user-controlled — inject it (and the avatar initial)
-    // via .text(), never into the HTML string.
+    // The username is user-controlled — inject it via .text() (and the avatar
+    // initial via paintAvatar), never into the HTML string.
     const name = (window.user && window.user.username) || '';
     $panel.find('.user-panel-name').text(name);
-    $panel.find('.user-panel-avatar').text((name.trim().charAt(0) || '?').toUpperCase());
+    paintAvatar($panel.find('.user-panel-avatar')[0], name);
     $('body').append($panel);
     positionUserPanel();
     // Focus the dialog container (not a row) so Escape works and keyboard users
@@ -4859,6 +4901,8 @@ $(document).on('click', '.user-panel-feedback', function(e) {
 $(document).on('click', '.user-panel-logout', function() {
     window.mcpManager?.reset();
     try { localStorage.removeItem('homeGreetingName'); } catch (e) {}
+    // Nor should the next person on this device see this account's picture.
+    window.profilePicture?.clear();
     puter.auth.signOut();
     location.reload();
 });
