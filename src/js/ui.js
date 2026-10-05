@@ -1367,6 +1367,7 @@ $(document).on('keydown', '.preview-device-panel', function(e) {
 $(document).on('click', function(e) {
     if (!_devicePanelOpen) return;
     const $t = $(e.target);
+    if (isInPuterDialog(e.target)) return;
     if ($t.closest('.preview-device-panel').length) return;
     if ($t.closest('.preview-device-trigger').length) return;
     closeDevicePanel();
@@ -2558,6 +2559,7 @@ $(document).on('keydown', '.preview-publish-panel', function (e) {
 $(document).on('click', function (e) {
     if (!_publishPanelOpen) return;
     const $t = $(e.target);
+    if (isInPuterDialog(e.target)) return;
     if ($t.closest('.preview-publish-panel').length) return;
     if ($t.closest('.preview-publish-btn').length) return;
     closePublishPanel();
@@ -2978,6 +2980,7 @@ $(document).on('keydown', '.preview-share-panel', function (e) {
 $(document).on('click', function (e) {
     if (!_sharePanelOpen) return;
     const $t = $(e.target);
+    if (isInPuterDialog(e.target)) return;
     if ($t.closest('.preview-share-panel').length) return;
     if ($t.closest('.preview-share').length) return;
     closeSharePanel();
@@ -3046,6 +3049,7 @@ let overflowMenuOpen = false;
 $(document).on('pointerdown', function(e) {
     if (!overflowMenuOpen) return;
     if ($(e.target).closest('.preview-overflow').length) return;
+    if (isInPuterDialog(e.target)) return;
     overflowMenuOpen = false;
     $('.preview-overflow').attr('aria-expanded', 'false');
 });
@@ -3863,6 +3867,22 @@ let suppressSidebarClose = false;
 // otherwise read as an outside click. Stay open for the entire flow.
 let deleteFlowActive = false;
 
+// Puter's own dialogs (puter.ui.alert / prompt, its context menu, pickers…)
+// are custom elements appended to <body>, outside every panel of ours, and
+// the buttons inside their shadow roots don't stop their clicks: a press on
+// OK / Yes / No bubbles to document with the dialog host as its target. Every
+// "click outside closes" handler read that as a click outside and closed the
+// surface the dialog was raised FROM — a failed publish's alert closed the
+// publish popover and dropped the typed address it had just promised to keep;
+// an invalid address in the Settings dialog collapsed the sidebar under it;
+// declining to leave a running project with "No" closed the project list.
+// A press inside one of these is never a press outside anything.
+const PUTER_DIALOG_SELECTOR = 'puter-dialog, puter-alert, puter-prompt, puter-context-menu, puter-notification, puter-color-picker, puter-font-picker, puter-menubar';
+function isInPuterDialog(target) {
+    return !!(target && $(target).closest(PUTER_DIALOG_SELECTOR).length);
+}
+window.isInPuterDialog = isInPuterDialog;
+
 // Close sidebar when clicking outside
 $(document).on('click', function(e) {
     // Only proceed if sidebar is open
@@ -3870,6 +3890,8 @@ $(document).on('click', function(e) {
 
     // Don't collapse while a delete is mid-flight (see deleteFlowActive).
     if (deleteFlowActive) return;
+    // Nor for a press inside a Puter dialog (see isInPuterDialog).
+    if (isInPuterDialog(e.target)) return;
 
     // A chat context menu was just dismissed by this click — don't treat it as
     // an outside click, so actions like Delete keep the sidebar open.
@@ -4924,6 +4946,7 @@ $(document).on('pointerdown', function(e) {
     const $t = $(e.target);
     if ($t.closest('.user-panel').length) return;
     if ($t.closest('.user-menu-btn').length) return;
+    if (isInPuterDialog(e.target)) return;
     closeUserPanel();
 });
 
