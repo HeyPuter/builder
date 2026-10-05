@@ -312,18 +312,51 @@
 
     function esc(s) { return (window.CSS && CSS.escape) ? CSS.escape(s) : s; }
 
+    // A <form>'s named controls shadow its own DOM properties: with
+    // <input name="id"> inside it, form.id IS that input (and form.tagName,
+    // form.parentNode, form.children… likewise for controls of those names).
+    // Picking anything inside such a form then built a locator of
+    // "form#[object HTMLInputElement]", threw on tagName.toLowerCase (so the
+    // pick never reached the builder and its toggle stayed lit), or, with a
+    // control named parentNode, walked the form↔input cycle forever. Read every
+    // DOM property through its prototype getter where the platform has one;
+    // a plain property read is the fallback for anything that is not an
+    // element (and for the stub DOM the regression test runs this against).
+    function getter(ctor, name) {
+        try {
+            var d = ctor && ctor.prototype && Object.getOwnPropertyDescriptor(ctor.prototype, name);
+            return (d && typeof d.get === 'function') ? d.get : null;
+        } catch (e) { return null; }
+    }
+    var GETTERS = {
+        tagName: getter(window.Element, 'tagName'),
+        id: getter(window.Element, 'id'),
+        className: getter(window.Element, 'className'),
+        children: getter(window.Element, 'children'),
+        outerHTML: getter(window.Element, 'outerHTML'),
+        parentNode: getter(window.Node, 'parentNode'),
+        textContent: getter(window.Node, 'textContent')
+    };
+    function read(el, name) {
+        var g = GETTERS[name];
+        if (g) { try { return g.call(el); } catch (e) { /* not an element: read it plainly */ } }
+        return el[name];
+    }
+
     // A locator the model can actually find in the app's source: stop at the
     // nearest id if there is one, otherwise walk up building a descendant chain,
     // disambiguating siblings of the same tag with :nth-of-type.
     function selectorFor(el) {
         var parts = [], node = el;
-        while (node && node.nodeType === 1 && node.tagName !== 'HTML') {
-            var part = node.tagName.toLowerCase();
-            if (node.id) { parts.unshift(part + '#' + esc(node.id)); break; }
-            var parent = node.parentNode;
+        while (node && node.nodeType === 1 && read(node, 'tagName') !== 'HTML') {
+            var tag = read(node, 'tagName');
+            var part = tag.toLowerCase();
+            var id = read(node, 'id');
+            if (id) { parts.unshift(part + '#' + esc(id)); break; }
+            var parent = read(node, 'parentNode');
             if (parent) {
-                var sameTag = Array.prototype.filter.call(parent.children || [], function (c) {
-                    return c.tagName === node.tagName;
+                var sameTag = Array.prototype.filter.call(read(parent, 'children') || [], function (c) {
+                    return read(c, 'tagName') === tag;
                 });
                 if (sameTag.length > 1) {
                     part += ':nth-of-type(' + (Array.prototype.indexOf.call(sameTag, node) + 1) + ')';
@@ -348,7 +381,7 @@
     // The badge host (half 1) exists in no app file, so "selecting" it would
     // hand the model an element it can never find or edit. Events from inside
     // the badge's shadow root retarget to the host, so this covers them too.
-    function skip(el) { return !!(el && el.tagName === BADGE_TAG); }
+    function skip(el) { return !!(el && read(el, 'tagName') === BADGE_TAG); }
 
     function onMove(e) {
         if (!armed) return;
@@ -365,14 +398,15 @@
         if (skip(e.target)) return; // badge click: stay armed, pick nothing
         try {
             var el = e.target;
+            var className = read(el, 'className');
             reply({
                 type: 'puter-element-selected',
                 selector: selectorFor(el),
-                tag: el.tagName.toLowerCase(),
-                id: el.id || '',
-                className: (typeof el.className === 'string' ? el.className : ''),
-                text: clip((el.textContent || '').trim(), MAX_TEXT),
-                html: clip(el.outerHTML || '', MAX_HTML)
+                tag: read(el, 'tagName').toLowerCase(),
+                id: read(el, 'id') || '',
+                className: (typeof className === 'string' ? className : ''),
+                text: clip((read(el, 'textContent') || '').trim(), MAX_TEXT),
+                html: clip(read(el, 'outerHTML') || '', MAX_HTML)
             });
         } finally {
             stop(); // one pick per arming, and never get stuck armed
