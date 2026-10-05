@@ -106,5 +106,28 @@ check('new_chat no longer clears the tray separately', !/clearAllAttachments\(\)
         becomesCurrent > 0 && previewSet > becomesCurrent && previewSet < firstAwaitAfter, `${becomesCurrent} ${previewSet} ${firstAwaitAfter}`);
 }
 
+// A send must not start while a project is still being opened: loadChat
+// clears the processing flags before its file download and installs the
+// project only after it, so a Send in that window started a turn against the
+// project being LEFT. Its end-of-turn reset then bailed as stale and the opened
+// project was left with a disabled composer, a Stop button and a Resume banner.
+{
+    const send = APP.slice(APP.indexOf('async function sendChatMessage('), APP.indexOf('const turnSeq = ++_turnSeq;'));
+    const gate = send.indexOf('if (_loadChatSeq !== _loadChatSettledSeq) {');
+    const setup = send.indexOf('_sendSetupInFlight = true;');
+    const stop = send.indexOf('if (isProcessing) {');
+    check('sendChatMessage refuses while a project load is in flight', gate > 0 && gate < setup, `${gate} ${setup}`);
+    check('…but Stop still works during a load (the gate sits after the Stop branch)', stop > 0 && stop < gate, `${stop} ${gate}`);
+    check('the refusal says why', /send-blocked-loading/.test(send.slice(gate, setup)));
+    // new_chat disowns any load in flight by bumping the load counter; it must
+    // settle it too, or the landing it opens would refuse every send.
+    const bump = newChat.indexOf('_loadChatSeq++;');
+    const settle = newChat.indexOf('_loadChatSettledSeq = _loadChatSeq;');
+    check('new_chat settles the load counter it bumps', bump > 0 && settle > bump, `${bump} ${settle}`);
+    // …and loadChat settles it on every exit, so the gate can never stick.
+    const settles = (loadChat.match(/_loadChatSettledSeq = Math\.max\(_loadChatSettledSeq, seq\)/g) || []).length;
+    check('loadChat settles the counter on success, failure and supersession', settles >= 3, String(settles));
+}
+
 if (failures) { console.error('\n' + failures + ' check(s) failed'); process.exit(1); }
 console.log('\nAll chat-switch reset checks passed.');
