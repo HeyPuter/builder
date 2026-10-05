@@ -112,7 +112,10 @@ function cpLen(s) {
 // Content of <meta name="…"> regardless of attribute order. Returns '' when the
 // tag is absent or has no content attribute.
 function metaContent(html, name) {
-    const re = new RegExp('<meta\\b[^>]*\\bname\\s*=\\s*["\']' + name + '["\'][^>]*>', 'i');
+    // The tag runs to the first ">" OUTSIDE a quoted attribute value, so a
+    // description like content="a > b" is read whole (it used to be "").
+    const attr = '(?:[^>"\']|"[^"]*"|\'[^\']*\')*';
+    const re = new RegExp('<meta\\b' + attr + '\\bname\\s*=\\s*["\']' + name + '["\']' + attr + '>', 'i');
     const tag = (String(html).match(re) || [])[0];
     if (!tag) return '';
     // Match the value up to the SAME quote that opened it, so a description
