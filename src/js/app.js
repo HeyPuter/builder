@@ -2934,6 +2934,15 @@ function new_chat({ updateUrl = true } = {}) {
     if (updateUrl) setUrlChat(null, { replace: true });
     currentChatId = generateChatId();
     // Auth-dependent state will be set up by ensureAuthenticated() on next send
+    // — unless this session's one-time setup (working folder, project list)
+    // has already succeeded, in which case the fresh system prompt below is
+    // all a new chat needs. The flag used to be set true here for ANY signed-in
+    // user, so a boot whose setup had failed (a connectivity blip on the
+    // project-list read) was marked done the moment the user clicked New:
+    // every later send skipped the setup, the sidebar stayed empty, and on a
+    // brand-new account every save failed for want of the never-created
+    // folder, until a reload.
+    const authReady = window._authInitDone === true;
     window._authInitDone = false;
     chatHistory = [];
     if (window.user && !window.user.is_temp) {
@@ -2956,7 +2965,7 @@ function new_chat({ updateUrl = true } = {}) {
             ]
         };
         chatHistory = [system_prompt];
-        window._authInitDone = true;
+        window._authInitDone = authReady;
     }
     
     // Reset input and button state
