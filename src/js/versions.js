@@ -934,9 +934,13 @@
                     const messageId = (typeof generateMessageId === 'function') ? generateMessageId() : null;
                     chatHistory.push({ role: 'assistant', content: note, messageId });
                     if (typeof appendMessage === 'function') appendMessage(note, false);
+                    // Best effort: the note is in memory and the next save
+                    // carries it. saveCurrentChat is async, so a failed write
+                    // rejects (an unhandled rejection in the console) rather
+                    // than throwing into the catch.
                     try {
                         if (typeof saveCurrentChat === 'function') {
-                            saveCurrentChat({ currentChatId: chatId, chatHistory: chatHistory });
+                            Promise.resolve(saveCurrentChat({ currentChatId: chatId, chatHistory: chatHistory })).catch(() => {});
                         }
                     } catch (e) { /* non-fatal */ }
                 }
