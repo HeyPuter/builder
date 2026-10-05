@@ -1242,6 +1242,9 @@
         const $t = $(e.target);
         if ($t.closest('.preview-issues-panel').length) return;
         if ($t.closest('.preview-issues').length) return;
+        // A press inside a Puter dialog (an alert raised from the panel) is
+        // not a press outside it — see isInPuterDialog in ui.js.
+        if (window.isInPuterDialog?.(e.target)) return;
         // Toasts live on <body>, outside the panel, but the ones on screen while
         // it is open are its own ("Issue deleted. [Undo]", the limit notices):
         // clicking Undo or their × must not read as a click-away that closes

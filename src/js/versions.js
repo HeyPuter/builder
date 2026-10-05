@@ -1333,6 +1333,10 @@
         const $t = $(e.target);
         if ($t.closest('.preview-versions-panel').length) return;
         if ($t.closest('.preview-versions').length) return;
+        // A press inside a Puter dialog (the restore confirm, a failure
+        // alert) is not a press outside the panel — see isInPuterDialog in
+        // ui.js.
+        if (window.isInPuterDialog?.(e.target)) return;
         closeVersionsPanel();
     });
 })();
