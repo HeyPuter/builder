@@ -708,6 +708,9 @@ check('the <head> title wins over a later SVG title',
     W.deriveManifestMeta('<html><head><title>Real</title></head><body><svg><title>Close icon</title></svg></body></html>', 'F').name === 'Real');
 check('a title outside <head> (no head) still counts',
     W.deriveManifestMeta('<html><title>Loose</title><body></body></html>', 'F').name === 'Loose');
+// --- a content value may contain ">" ---------------------------------------------
+check('a description containing ">" is read whole',
+    W.deriveManifestMeta('<head><title>x</title><meta name="description" content="a > b"></head>', 'x').description === 'a > b');
 // --- a content value keeps the other quote character --------------------------
 check("a description containing an apostrophe is read whole",
     W.deriveManifestMeta('<head><title>x</title><meta name="description" content="Bob\'s task list"></head>', 'x').description === "Bob's task list");
