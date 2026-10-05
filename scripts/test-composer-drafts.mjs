@@ -570,6 +570,25 @@ check('ui.js chip injection mirrors its programmatic write into the draft store'
     chipSrc.includes('window.saveComposerDraft?.()'));
 
 // -----------------------------------------------------------------------------------------
+// ---- An abandoned send hands its text back even after a history repair ------
+// Whether this turn's user message reached the conversation used to be judged
+// by the history having grown past the turn's scan start. repairDanglingToolUses
+// also appends to it (synthesised tool_results for a build cut off mid-tool), so
+// a send abandoned during attachment prep in such a project counted as "in the
+// conversation": the hand-back was skipped and the text — composer cleared,
+// draft tombstoned — was gone. A dedicated flag, set at the push, decides now.
+{
+    const send = APP.slice(APP.indexOf('async function sendChatMessage('), APP.indexOf('async function fetchModelResponse(') > 0 ? APP.indexOf('async function fetchModelResponse(') : APP.length);
+    const decl = send.indexOf('let userMessageAppended = false;');
+    const tryAt = send.indexOf('\n    try {', decl);
+    const push = send.indexOf('turnSaveContext.chatHistory.push({ role: "user", content: messageContent, messageId });');
+    const set = send.indexOf('userMessageAppended = true;', push);
+    const use = send.indexOf('const turnAppended = userMessageAppended;');
+    check('the user-message flag is declared before the turn body (so the finally can read it)', decl > 0 && tryAt > decl, `${decl} ${tryAt}`);
+    check('…set right where the user message is pushed', push > 0 && set > push && set - push < 200, `${push} ${set}`);
+    check('…and is what decides the hand-back, not the history length', use > set && !/const turnAppended = turnSaveContext\.chatHistory\.length/.test(send));
+}
+
 if (failures) {
     console.error(`\n${failures} check(s) failed`);
     process.exit(1);

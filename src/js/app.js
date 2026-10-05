@@ -4122,6 +4122,14 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // THIS turn's TodoWrite calls, so a turn that never touched the checklist
     // can't falsely complete a previous turn's abandoned one.
     const turnTodoScanStart = turnSaveContext.chatHistory.length;
+    // Whether THIS turn's user message reached the conversation. Judged by a
+    // dedicated flag, not by the history having grown past the scan start:
+    // repairDanglingToolUses (below) also appends to it, so a send abandoned
+    // during attachment prep in a project whose last build was cut off
+    // mid-tool counted as "in the conversation" — the hand-back at the end of
+    // the turn was skipped, and the user's text (composer cleared, draft
+    // tombstoned) was gone, while Resume re-sent the repaired OLD history.
+    let userMessageAppended = false;
     updateSendButtonState(true);
     $('.chat-input').addClass('disabled');
     $('.chat-input-message').prop('disabled', true);
@@ -4409,6 +4417,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
 
             const messageContent = contentParts.length > 0 ? contentParts : messageText;
             turnSaveContext.chatHistory.push({ role: "user", content: messageContent, messageId });
+            userMessageAppended = true;
 
             // Persist the user's message right away. The end-of-turn save only
             // lands after the whole AI response finishes — for a short/text-only
@@ -4657,7 +4666,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // nothing to resume — flagging it would offer a Resume that re-sends a
         // finished conversation. A resume turn keeps the flag: its history WAS
         // interrupted, whether or not this attempt got as far as a nudge.
-        const turnAppended = turnSaveContext.chatHistory.length > turnTodoScanStart;
+        const turnAppended = userMessageAppended;
         turnSaveContext.interrupted = !turnSucceeded && !turnErrored && (isResume || turnAppended);
 
         // Record the AI usage of rounds that ran before a Stop, an error or a
