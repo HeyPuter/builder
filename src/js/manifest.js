@@ -198,7 +198,13 @@ window.deriveManifestMeta = function (html, fallbackName) {
     // every single preview refresh. Same reason the block never counts as a
     // hand-written manifest link (see hasForeignManifestLink).
     const src = replacePwaBlocks(String(html || ''), '\n');
-    const titleRaw = (src.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || '';
+    // The document's title, not the first <title> in the file: inline SVG
+    // icons carry their own <title> (their accessible name), and a page whose
+    // <head> has none used to be installed as "Close icon". Look in <head>
+    // first, then anywhere outside an <svg>.
+    const headSrc = (src.match(/<head\b[^>]*>([\s\S]*?)<\/head\s*>/i) || [])[1];
+    const titleIn = (part) => (String(part || '').match(/<title\b[^>]*>([\s\S]*?)<\/title>/i) || [])[1];
+    const titleRaw = (headSrc != null && titleIn(headSrc)) || titleIn(src.replace(/<svg\b[\s\S]*?<\/svg\s*>/gi, '')) || '';
     const name = collapse(decodeEntities(titleRaw)) || collapse(fallbackName) || 'App';
     const themeColor = sanitizeColor(metaContent(src, 'theme-color'), DEFAULT_THEME);
     return {

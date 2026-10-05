@@ -701,6 +701,13 @@ check('the rule does not leak into todos/summaries',
     check('orphan followed by the user\'s own tags: one manifest link, one block',
         stampedMixed.split('rel="manifest"').length === 2 && stampedMixed.split('<!-- /puter-pwa -->').length === 2);
 }
+// --- the document title, not an inline SVG's ------------------------------------
+check('an inline SVG <title> is not the app name',
+    W.deriveManifestMeta('<html><head></head><body><svg><title>Close icon</title></svg></body></html>', 'Fallback').name === 'Fallback');
+check('the <head> title wins over a later SVG title',
+    W.deriveManifestMeta('<html><head><title>Real</title></head><body><svg><title>Close icon</title></svg></body></html>', 'F').name === 'Real');
+check('a title outside <head> (no head) still counts',
+    W.deriveManifestMeta('<html><title>Loose</title><body></body></html>', 'F').name === 'Loose');
 // --- a content value keeps the other quote character --------------------------
 check("a description containing an apostrophe is read whole",
     W.deriveManifestMeta('<head><title>x</title><meta name="description" content="Bob\'s task list"></head>', 'x').description === "Bob's task list");
