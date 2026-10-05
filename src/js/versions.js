@@ -532,25 +532,46 @@
     // (deployed from outside the project directory) are never touched. In the
     // background and best effort: a failure is reported, never undoes the
     // restore.
+    //
+    // One redeploy per project at a time, and the latest restore wins. Each
+    // deployment reads the worker's source when it runs, and the redeploy is
+    // left running in the background, so two restores in a row (undo, then
+    // redo) used to race theirs: the slower first deployment landed after the
+    // faster second one, and the backend ended up running the version the
+    // user had just moved away from — with no warning, since both "succeeded".
+    // A redeploy now waits for the previous one of the same project to finish
+    // and stops as soon as a newer restore has queued its own (which redeploys
+    // every worker again from the files as they are now).
+    const _redeploys = new Map(); // appDir → { gen, chain }
     async function redeployProjectWorkers(appDir) {
         const WO = window.WorkerOwnership;
         if (!WO || !puter.workers || typeof puter.workers.list !== 'function' || typeof puter.workers.create !== 'function') return;
-        let owned;
-        try { owned = WO.ownedWorkers(await puter.workers.list(), appDir); }
-        catch (e) { return; }
-        let failed = 0;
-        for (const worker of owned) {
-            try { await puter.fs.stat(worker.file_path); }
-            catch (e) { continue; } // not part of the restored version
-            try {
-                const res = await puter.workers.create(worker.name, worker.file_path, { sandbox: true });
-                if (!res || res.success === false) failed++;
-            } catch (e) { failed++; }
-        }
-        if (failed) {
-            window.showToast?.(`The project's files were restored, but ${failed === 1 ? 'its backend' : failed + ' of its backends'} couldn't be redeployed to match — ${failed === 1 ? 'it' : 'they'} may still be running newer code.`,
-                { type: 'warning', key: 'restore-workers', throttleMs: 5000 });
-        }
+        const slot = _redeploys.get(appDir) || { gen: 0, chain: Promise.resolve() };
+        _redeploys.set(appDir, slot);
+        const gen = ++slot.gen;
+        const superseded = () => slot.gen !== gen;
+        slot.chain = slot.chain.catch(function () {}).then(async function () {
+            if (superseded()) return;
+            let owned;
+            try { owned = WO.ownedWorkers(await puter.workers.list(), appDir); }
+            catch (e) { return; }
+            let failed = 0;
+            for (const worker of owned) {
+                if (superseded()) return;
+                try { await puter.fs.stat(worker.file_path); }
+                catch (e) { continue; } // not part of the restored version
+                if (superseded()) return;
+                try {
+                    const res = await puter.workers.create(worker.name, worker.file_path, { sandbox: true });
+                    if (!res || res.success === false) failed++;
+                } catch (e) { failed++; }
+            }
+            if (failed && !superseded()) {
+                window.showToast?.(`The project's files were restored, but ${failed === 1 ? 'its backend' : failed + ' of its backends'} couldn't be redeployed to match — ${failed === 1 ? 'it' : 'they'} may still be running newer code.`,
+                    { type: 'warning', key: 'restore-workers', throttleMs: 5000 });
+            }
+        });
+        return slot.chain;
     }
 
     // Recursively make curDir an exact copy of snapDir. For each snapshot entry:
