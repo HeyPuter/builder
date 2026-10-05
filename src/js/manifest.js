@@ -342,10 +342,55 @@ function seamEnd(s, i) {
     return j;
 }
 
+// The lines our block is made of (see stampManifestTags), one tag per line
+// with our own hrefs. Used to recognise what is left of a block whose END
+// marker went missing: the model rewrote the <head> and dropped the end of the
+// block, but kept its start marker and the tags after it. Leaving those tags
+// in place made hasForeignManifestLink read our own manifest link as a
+// hand-written one, which opted the project out of manifest and icon
+// regeneration for good — a later rename shipped a stale manifest, new pages
+// never got stamped, and nothing could tell this apart from an app that
+// brought its own PWA setup. The page's theme-color is deliberately NOT in
+// this list: ours was derived from the page in the first place, so a leftover
+// one is simply read as the page's own on the next pass.
+const OUR_BLOCK_LINE_RE = new RegExp(
+    '^[ \\t]*(?:' +
+    '<link\\s+rel="manifest"\\s+href="(?:\\.\\./)*manifest\\.json">' +
+    '|<link\\s+rel="icon"\\s+type="image/png"\\s+sizes="192x192"\\s+href="(?:\\.\\./)*' + ICON_FILES.any192.replace(/[.\/]/g, '\\$&') + '">' +
+    '|<link\\s+rel="apple-touch-icon"\\s+href="(?:\\.\\./)*' + ICON_FILES.apple180.replace(/[.\/]/g, '\\$&') + '">' +
+    '|<meta\\s+name="mobile-web-app-capable"\\s+content="yes">' +
+    '|<meta\\s+name="apple-mobile-web-app-capable"\\s+content="yes">' +
+    '|<meta\\s+name="apple-mobile-web-app-status-bar-style"\\s+content="default">' +
+    '|<meta\\s+name="apple-mobile-web-app-title"\\s+content="[^"<>]*">' +
+    ')[ \\t]*\\r?$', 'i');
+
+// Where an orphaned block ends: the run of our own lines that directly follow
+// its start marker (blank lines allowed between them), stopping at the first
+// line that is not ours and never reaching `limit`. With no such line the
+// orphan is just its marker.
+function orphanBlockEnd(s, bodyAt, limit) {
+    let end = bodyAt;
+    let i = bodyAt;
+    while (i < limit) {
+        let nl = s.indexOf('\n', i);
+        if (nl < 0 || nl > limit) nl = limit;
+        const line = s.slice(i, nl);
+        if (line.trim() !== '') {
+            if (!OUR_BLOCK_LINE_RE.test(line)) break;
+            end = nl;
+        }
+        i = nl + 1;
+    }
+    return end;
+}
+
 // Replace every generated block — start marker through the FIRST end marker
 // after it, plus the seam on both sides — with `replacement`. A start marker
-// followed by another start marker before any end marker is an orphan and is
-// left alone (see above). Returns the input itself when there is no block.
+// with no end marker after it, or with another start marker before the end
+// marker, is an orphan: it is replaced together with the run of our own tags
+// that follow it (see OUR_BLOCK_LINE_RE), and nothing else — the user's own
+// tags after it are never touched (see above). Returns the input itself when
+// there is no block.
 function replacePwaBlocks(html, replacement) {
     const s = String(html == null ? '' : html);
     let out = '';
@@ -359,12 +404,16 @@ function replacePwaBlocks(html, replacement) {
         const bodyAt = start.index + start[0].length;
         PWA_END_RE.lastIndex = bodyAt;
         const end = PWA_END_RE.exec(s);
-        if (!end) break; // no end marker anywhere after this start: nothing more to strip
         PWA_START_PREFIX_RE.lastIndex = bodyAt;
         const next = PWA_START_PREFIX_RE.exec(s);
-        if (next && next.index < end.index) { from = next.index; continue; } // orphan
+        let blockEnd;
+        if (end && !(next && next.index < end.index)) {
+            blockEnd = end.index + end[0].length;
+        } else {
+            blockEnd = orphanBlockEnd(s, bodyAt, next ? next.index : s.length); // orphan
+        }
         const a = Math.max(last, seamStart(s, start.index));
-        const b = seamEnd(s, end.index + end[0].length);
+        const b = seamEnd(s, blockEnd);
         out += s.slice(last, a) + replacement;
         last = b;
         from = b;
