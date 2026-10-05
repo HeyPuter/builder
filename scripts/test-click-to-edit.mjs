@@ -143,6 +143,20 @@ function makeDom(srcText, opts = {}) {
         }
     }
 
+    // opts.shadowing models the real platform: DOM properties live on the
+    // prototype as accessors (Element.prototype.id etc.), and an OWN property
+    // of the same name shadows them — which is what a <form>'s named controls
+    // do to the form. The bridge must then read through the prototype.
+    if (opts.shadowing) {
+        for (const name of ['tagName', 'id', 'className', 'textContent', 'outerHTML', 'children', 'parentNode']) {
+            Object.defineProperty(Node.prototype, name, {
+                get() { return this['_' + name]; },
+                set(v) { this['_' + name] = v; },
+                configurable: true,
+            });
+        }
+    }
+
     const parentWin = {
         postMessage(msg, targetOrigin) { posted.push({ msg, targetOrigin }); },
     };
@@ -157,6 +171,7 @@ function makeDom(srcText, opts = {}) {
         },
     };
     win.self = win;
+    if (opts.shadowing) { win.Element = Node; win.Node = Node; }
     // Framed by default — that's the builder's preview pane. topLevel models a
     // published app someone is actually using.
     win.top = opts.topLevel ? win : { notSelf: true };
@@ -509,6 +524,46 @@ function runBridgeChecks(label, srcText) {
             dom.fireWin('scroll');
         } catch (e) { threw = true; }
         check(`[${label}] a hostile message never throws into the page`, !threw);
+    }
+
+    // A <form>'s named controls shadow its DOM properties: <input name="id">
+    // makes form.id that input, name="tagName" makes form.tagName an element,
+    // name="parentNode" makes the ancestor walk a form↔input cycle. The bridge
+    // reads through the prototype getters, so a pick inside such a form still
+    // yields a usable locator — and still reaches the builder.
+    {
+        const dom = makeDom(srcText, { shadowing: true });
+        dom.exec();
+        const form = new dom.Node('form', { id: 'signup' });
+        const idInput = new dom.Node('input');
+        const tagInput = new dom.Node('input');
+        const parentInput = new dom.Node('input');
+        const button = new dom.Node('button', { text: 'Go', html: '<button>Go</button>' });
+        dom.body.appendChild(form);
+        form.appendChild(idInput); form.appendChild(tagInput); form.appendChild(parentInput); form.appendChild(button);
+        // The shadowing itself (what the browser does for named controls).
+        Object.defineProperty(form, 'id', { value: idInput, configurable: true });
+        Object.defineProperty(form, 'tagName', { value: tagInput, configurable: true });
+        Object.defineProperty(form, 'parentNode', { value: parentInput, configurable: true });
+        Object.defineProperty(form, 'children', { value: idInput, configurable: true });
+        dom.send({ type: 'puter-select-mode', enabled: true });
+        dom.posted.length = 0;
+        let threw = false;
+        try { dom.click(button); } catch (e) { threw = true; }
+        const pick = dom.posted[0] && dom.posted[0].msg;
+        check(`[${label}] a pick inside a form with shadowing controls still reaches the builder`,
+            !threw && !!pick && pick.type === 'puter-element-selected');
+        check(`[${label}] …with the form's real id in the locator`,
+            !!pick && pick.selector === 'form#signup > button');
+        check(`[${label}] …and disarms as usual`, !dom.armed());
+        // The form itself as the target: its own id/tag/html read through the
+        // prototype, never the shadowing controls.
+        dom.send({ type: 'puter-select-mode', enabled: true });
+        dom.posted.length = 0;
+        try { dom.click(form); } catch (e) { threw = true; }
+        const formPick = dom.posted[0] && dom.posted[0].msg;
+        check(`[${label}] picking the form itself reports its real tag and id`,
+            !threw && !!formPick && formPick.tag === 'form' && formPick.id === 'signup' && formPick.selector === 'form#signup');
     }
 }
 
