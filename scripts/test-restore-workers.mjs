@@ -108,5 +108,83 @@ async function restore({ failDeploy = false } = {}) {
     check('…and says the backend may still be running newer code', r.toasts.length === 1 && /couldn.t be redeployed/.test(r.toasts[0]), JSON.stringify(r.toasts));
 }
 
+// === Two restores in a row: the backend ends on the version the files are on ==
+// Undo then redo, one click each. Each deployment reads the worker's source
+// when it runs and the redeploy runs in the background, so a slow first
+// deployment used to land AFTER the fast second one: files on v2, backend on
+// v1, no warning. Redeploys of one project now run one at a time and a newer
+// restore supersedes an older one.
+{
+    const files = new Map([
+        [APP + '/index.html', 'V2'], [APP + '/workers/api.js', 'CODE-V2'],
+        [ROOT + '/v1/index.html', 'V1'], [ROOT + '/v1/workers/api.js', 'CODE-V1'],
+        [ROOT + '/v2/index.html', 'V2'], [ROOT + '/v2/workers/api.js', 'CODE-V2'],
+        [ROOT + '/index.json', JSON.stringify({ current: 'v2', versions: [{ id: 'v1' }, { id: 'v2' }] })],
+    ]);
+    const backend = { code: 'CODE-V2' };
+    const landed = [];
+    const toasts = [];
+    const events = new Map();
+    let createCalls = 0;
+    const under = (p) => [...files.keys()].some((k) => k.startsWith(p + '/'));
+    const $ = (t) => ({ length: 0, on(e, s, h) { if (typeof s === 'string') events.set(e + ':' + s, h); return this; }, prop() { return this; }, data() { return t.versionId; } });
+    const window = { user: { username: 'alice' }, showToast: (m) => toasts.push(String(m)), showPreviewUpdating() {} };
+    const puter = {
+        appID: 'builder',
+        ui: { alert: async () => {} },
+        fs: {
+            read: async (p) => { if (!files.has(p)) throw new Error('not found: ' + p); return { text: async () => files.get(p) }; },
+            write: async (p, d) => { files.set(p, d); },
+            mkdir: async () => {},
+            stat: async (p) => { if (!files.has(p) && !under(p)) throw new Error('not found: ' + p); return {}; },
+            readdir: async (p) => {
+                const m = new Map();
+                for (const k of files.keys()) {
+                    if (!k.startsWith(p + '/')) continue;
+                    const rel = k.slice(p.length + 1);
+                    m.set(rel.split('/')[0], { name: rel.split('/')[0], is_dir: rel.includes('/') });
+                }
+                return [...m.values()];
+            },
+            copy: async (from, to, o = {}) => {
+                const dest = to + '/' + (o.newName || from.split('/').at(-1));
+                if (files.has(from)) files.set(dest, files.get(from));
+                else for (const [k, v] of [...files]) if (k.startsWith(from + '/')) files.set(dest + k.slice(from.length), v);
+            },
+            delete: async (p) => { for (const k of [...files.keys()]) if (k === p || k.startsWith(p + '/')) files.delete(k); },
+        },
+        workers: {
+            list: async () => [{ name: 'api', file_path: APP + '/workers/api.js', url: 'https://api.puter.work' }],
+            create: async (name, filePath) => {
+                const n = ++createCalls;
+                const code = files.get(filePath); // the deployment reads the source NOW
+                // The first redeploy is slow (backend latency), the second fast.
+                await new Promise((r) => setTimeout(r, n === 1 ? 40 : 2));
+                backend.code = code;
+                landed.push(`create#${n}:${code}`);
+                return { success: true };
+            },
+        },
+    };
+    const sandbox = {
+        window, puter, $, document: {}, currentChatId: 'chat1', currentAppDir: APP, isProcessing: false,
+        puterConfirm: async () => true, localStorage: { getItem() { return null; }, setItem() {} },
+        isNotFoundError: (e) => /not found/.test(e.message), console: { warn() {}, error() {} },
+    };
+    vm.createContext(sandbox);
+    vm.runInContext(ownershipSrc, sandbox);
+    vm.runInContext(versionsSrc, sandbox);
+    const click = (versionId) => events.get('click:.version-restore').call({ versionId }, { preventDefault() {}, stopPropagation() {} });
+    const settle = async () => { for (let n = 0; n < 500 && (window._restoringVersion || n < 5); n++) await new Promise(setImmediate); };
+    click('v1'); await settle();   // undo — its redeploy is now running in the background
+    click('v2'); await settle();   // redo, right away
+    await new Promise((r) => setTimeout(r, 120)); // let every deployment land
+    check('after undo then redo, the files are on the redone version', files.get(APP + '/workers/api.js') === 'CODE-V2');
+    check('…and so is the backend', backend.code === 'CODE-V2', JSON.stringify(landed));
+    check('the superseded redeploy did not deploy stale code on top of the newer one',
+        landed.length === 0 || landed[landed.length - 1] === `create#${landed.length}:CODE-V2`, JSON.stringify(landed));
+    check('nothing to report', toasts.length === 0, JSON.stringify(toasts));
+}
+
 if (failures) { console.error(`\n${failures} check(s) FAILED`); process.exit(1); }
 console.log('\nAll restore-workers checks passed.');
