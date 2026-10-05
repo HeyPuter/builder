@@ -2901,6 +2901,12 @@ function new_chat({ updateUrl = true } = {}) {
     // and drop the skeleton without the usual min-visible hold: the user
     // explicitly abandoned that load, so the landing must appear immediately.
     _loadChatSeq++;
+    // …and settle it at once: the landing is open and sendable right now, and
+    // "a load is in flight" is read as the counters disagreeing (the send gate
+    // in sendChatMessage, the boot-time overlay cleanup). A superseded load
+    // still landing later only ever raises the settled mark to its own, lower,
+    // number, so this stays settled.
+    _loadChatSettledSeq = _loadChatSeq;
     window.hideProjectLoading?.({ immediate: true });
 
     // Clear chat messages from display
@@ -3927,6 +3933,20 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // a refresh. The interrupted flag is already persisted by the turn's
         // mid-turn checkpoint saves, so a refresh shows the same banner.
         showResumeBanner();
+        return;
+    }
+
+    // Nor while a project is still being opened. loadChat clears the
+    // processing flags up front (so the project it opens is sendable) and only
+    // installs that project after its file has downloaded — a Send landing in
+    // between (Enter after Back, a click on Send during the skeleton) started a
+    // turn against the project being LEFT. The load then took the UI over, so
+    // that turn's end-of-turn reset bailed as stale and the opened project was
+    // left with a disabled composer, a Stop button, and a Resume banner it never
+    // earned. The counters match exactly when no load is in flight.
+    if (_loadChatSeq !== _loadChatSettledSeq) {
+        window.showToast?.('Opening the project — you can send the moment it’s ready.',
+            { type: 'info', key: 'send-blocked-loading', throttleMs: 3000 });
         return;
     }
 
