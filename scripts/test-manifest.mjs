@@ -667,6 +667,40 @@ check('the rule does not leak into todos/summaries',
     check('orphaned start marker: stamping is still a fixed point', pass2 === pass1);
     check('orphaned start marker: exactly one generated block', pass2.split('<!-- /puter-pwa -->').length === 2);
 }
+// --- an orphaned block that kept our tags is taken back, not read as foreign --
+// The model rewrote the <head>, dropped the end marker, but kept the start
+// marker and the tags after it. Those tags made hasForeignManifestLink read our
+// own manifest link as hand-written, so the project opted out of manifest/icon
+// regeneration for good. The orphan is now recognised by the run of our own
+// lines after its marker and absorbed by the next stamp; the user's own tags
+// after it are left alone.
+{
+    const meta = W.deriveManifestMeta('<html><head><title>T</title></head></html>', 'T');
+    const once = W.stampManifestTags('<html><head>\n<title>T</title>\n</head><body></body></html>', meta, '');
+    // Drop the end marker and the user's title moves after our tags.
+    const orphan = once.replace('    <!-- /puter-pwa -->\n', '') + '';
+    check('orphaned block with our tags: no longer read as a hand-written manifest link',
+        W.hasForeignManifestLink(orphan) === false);
+    const pass1 = W.stampManifestTags(orphan, meta, '');
+    check('orphaned block with our tags: it stamps again', typeof pass1 === 'string');
+    check('orphaned block with our tags: exactly one manifest link afterwards',
+        pass1 && pass1.split('rel="manifest"').length === 2);
+    check('orphaned block with our tags: exactly one block, with its end marker',
+        pass1 && pass1.split('<!-- puter-pwa: generated, do not edit -->').length === 2 && pass1.split('<!-- /puter-pwa -->').length === 2);
+    check('orphaned block with our tags: stamping is a fixed point', W.stampManifestTags(pass1, meta, '') === pass1);
+    check('orphaned block with our tags: the user\'s title survives', pass1 && pass1.includes('<title>T</title>'));
+    // The user's own tags right after the orphan are not ours and stay put;
+    // the page's theme-color is read as the page's own.
+    const mixed = '<html><head>\n<!-- puter-pwa: generated, do not edit -->\n<link rel="manifest" href="manifest.json">\n<meta name="theme-color" content="#123456">\n<link rel="icon" href="favicon.ico">\n<title>Mine</title>\n</head><body></body></html>';
+    check('orphan followed by the user\'s own tags: the manifest link is ours', W.hasForeignManifestLink(mixed) === false);
+    const stampedMixed = W.stampManifestTags(mixed, W.deriveManifestMeta(mixed, 'Mine'), '');
+    check('orphan followed by the user\'s own tags: their favicon, title and theme-color survive',
+        stampedMixed.includes('<link rel="icon" href="favicon.ico">') && stampedMixed.includes('<title>Mine</title>') && stampedMixed.includes('content="#123456"'));
+    check('orphan followed by the user\'s own tags: their theme-color is the one the manifest uses',
+        W.deriveManifestMeta(mixed, 'Mine').themeColor.toLowerCase() === '#123456');
+    check('orphan followed by the user\'s own tags: one manifest link, one block',
+        stampedMixed.split('rel="manifest"').length === 2 && stampedMixed.split('<!-- /puter-pwa -->').length === 2);
+}
 // --- a content value keeps the other quote character --------------------------
 check("a description containing an apostrophe is read whole",
     W.deriveManifestMeta('<head><title>x</title><meta name="description" content="Bob\'s task list"></head>', 'x').description === "Bob's task list");
