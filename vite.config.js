@@ -41,6 +41,8 @@ const SCRIPTS = [
   'js/issues-core.js',
   'js/worker-ownership.js',
   'js/tools.js',
+  // Before ui.js, which paints the avatar from window.profilePicture.
+  'js/profile-picture.js',
   'js/ui.js',
   'js/mcp-ui.js',
   'js/featured.js',

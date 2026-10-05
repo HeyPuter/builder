@@ -234,6 +234,33 @@ select:focus-visible,
     box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
 }
 
+/* Profile picture over the initial (see paintAvatar in ui.js). The initial
+   stays in the DOM as the fallback; .has-picture hides it and swaps the
+   gradient for a neutral fill, so a transparent picture doesn't sit on blue
+   with a letter peeking through. The picture fills the circle exactly, so
+   showing or dropping it never shifts layout. */
+.user-avatar,
+.user-panel-avatar {
+    position: relative;
+    overflow: hidden;
+}
+.user-avatar.has-picture,
+.user-panel-avatar.has-picture {
+    background: #e9e9e9;
+    color: transparent;
+}
+.avatar-picture {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: inherit;
+    display: block;
+    pointer-events: none;
+    -webkit-user-drag: none;
+}
+
 /* The toolbar's text buttons: Sign In when signed out, and "Send feedback"
    when signed in with no account panel to hold the row (hosted inside Puter).
    Same pill as .open-web-btn. */
@@ -4961,6 +4988,8 @@ html[data-theme="dark"] .user-menu-btn:hover .user-avatar,
 html[data-theme="dark"] .user-menu-btn[aria-expanded="true"] .user-avatar {
     box-shadow: 0 0 0 3px rgba(108, 176, 245, 0.35);
 }
+html[data-theme="dark"] .user-avatar.has-picture,
+html[data-theme="dark"] .user-panel-avatar.has-picture { background: var(--surface-hover); }
 
 /* ---- Account panel ---- */
 html[data-theme="dark"] .user-panel {
