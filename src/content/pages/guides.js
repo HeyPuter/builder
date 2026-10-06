@@ -1,6 +1,6 @@
 export default {
     slug: 'guides',
-    updated: '2026-09-26',
+    updated: '2026-10-07',
     priority: 0.6,
     changefreq: 'monthly',
     navLabel: 'Guides',
@@ -57,6 +57,13 @@ export default {
                     slug: 'guides/how-to-write-a-build-prompt',
                     body:
                         'The difference between a prompt that produces a demo and one that produces something you can use, with before-and-after examples and the six patterns that account for most of the gap.',
+                },
+                {
+                    icon: 'receipt',
+                    label: 'How to accept payments in your app',
+                    slug: 'guides/how-to-accept-payments-in-your-app',
+                    body:
+                        'Take card payments with Stripe: create an account, copy a test key, give it to the builder, try a test card, then switch to a live key. Covers key safety, webhooks, fees and limits.',
                 },
                 {
                     icon: 'search',
