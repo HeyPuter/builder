@@ -14,7 +14,7 @@ window.tools.push({
             required: ["path"],
             additionalProperties: false
         },
-        strict: true
+        strict: false
     },
 
     exec: async function(args, state) {

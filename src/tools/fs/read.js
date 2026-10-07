@@ -18,7 +18,7 @@ window.tools.push({
             required: ["path"],
             additionalProperties: false
         },
-        strict: true
+        strict: false
     },
     exec: async function(args, state) {
         // Confine reads to the project directory (no peeking at the wider account).
