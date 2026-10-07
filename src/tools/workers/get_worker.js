@@ -14,7 +14,7 @@ window.tools.push({
             required: ["name"],
             additionalProperties: false
         },
-        strict: true
+        strict: false
     },
     exec: async function(args, state) {
         const name = String((args && args.name) || '').trim();

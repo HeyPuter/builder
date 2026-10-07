@@ -491,6 +491,48 @@ await test('MCP errors remain errors and large results are bounded', async () =>
     manager.reset();
 });
 
+await test('the shipped tools stay within Claude’s strict-tool limit, including MCP connections', async () => {
+    const context = vm.createContext({ window: {} });
+    vm.runInContext(fs.readFileSync(new URL('../src/js/tools.js', import.meta.url), 'utf8'), context);
+    // Load the actual shipped registry so adding a tool cannot silently exceed
+    // Claude's 20-strict-tool limit. Simple reads reserve strict mode for
+    // mutations and complex inputs; every tool remains available.
+    const config = fs.readFileSync(new URL('../vite.config.js', import.meta.url), 'utf8');
+    const scripts = config.match(/const SCRIPTS = \[([\s\S]*?)\];/);
+    assert.ok(scripts, 'Could not find the shipped script list');
+    const toolFiles = [...scripts[1].matchAll(/'(tools\/[^']+\.js)'/g)].map(match => match[1]);
+    assert.ok(toolFiles.length > 20, 'Expected to exercise a tool list larger than the strict limit');
+    for (const file of toolFiles) {
+        vm.runInContext(fs.readFileSync(new URL('../src/' + file, import.meta.url), 'utf8'), context, { filename: file });
+    }
+    const { window } = context;
+    assert.equal(window.tools.length, toolFiles.length, 'All shipped tools must register');
+    const checkLimit = () => {
+        const strictTools = window.getTurnTools().filter(tool => tool.function.strict === true);
+        assert.ok(strictTools.length <= 20,
+            `Too many strict tools (${strictTools.length}): ${strictTools.map(tool => tool.function.name).join(', ')}`);
+    };
+    checkLimit();
+    for (const name of ['write', 'edit', 'multi_edit', 'delete', 'mkdir', 'rename', 'copy', 'move',
+        'create_worker', 'delete_worker', 'publish_site', 'TodoWrite', 'AskClarifyingQuestions', 'SuggestNextSteps']) {
+        assert.equal(window.findTool(name)?.function.strict, true, `${name} must keep strict inputs`);
+    }
+    // Exercise the largest supported MCP connection through the real adapter,
+    // rather than assuming external tool definitions stay non-strict.
+    const { manager, id } = fixture({ toolList: Array.from({ length: 64 }, (_, index) => ({
+        name: `tool_${index}`, inputSchema: { type: 'object', properties: {} },
+    })) });
+    try {
+        await manager.connect(id, 'private-token');
+        assert.equal(manager.list()[0].status, 'connected');
+        window.mcpManager = manager;
+        assert.equal(window.getTurnTools().length, window.tools.length + 64);
+        checkLimit();
+    } finally {
+        manager.reset();
+    }
+});
+
 await test('Builder dispatch uses the turn snapshot and propagates MCP error status', async () => {
     const context = vm.createContext({ window: {} });
     vm.runInContext(fs.readFileSync(new URL('../src/js/tools.js', import.meta.url), 'utf8'), context);
