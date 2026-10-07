@@ -145,7 +145,7 @@ function renderSkeleton() {
         // Empty-state starter prompts (populated by renderStarterPrompts after
         // append), with a small lead-in heading. Both hidden once the chat is
         // active via `.chat.active`, like the tagline above them.
-        h += `<div class="chat-starter-heading">Looking for an idea?</div>`;
+        h += `<div class="chat-starter-heading"><a href="/what-to-build/">Looking for an idea?</a></div>`;
         h += `<div class="chat-starter-prompts"></div>`;
         h += `</div>`; // /.home-hero
         // "From the community" — the daily-curated feed of featured apps.
@@ -175,18 +175,16 @@ function renderSkeleton() {
                 // puter.js is blocked or slow to load, env is unknown, and the
                 // links must still render (see why below).
                 //
-                // These are not decoration. Every one of those pages is reached
-                // by a crawler through this row: the app's own body is written
-                // by JavaScript at runtime and contains no other outbound link,
-                // so without it the landing page is a dead end and the pages
-                // below it are orphans. Keep them real <a href> elements.
+                // These links and the starter-heading link give crawlers paths
+                // into the static pages from the app's JavaScript-rendered body.
+                // Keep them real <a href> elements.
                 h += `<nav class="chat-footer-nav" aria-label="About this app">`;
                     for (const item of [
                         { href: '/ai-app-builder/', label: 'AI app builder' },
                         { href: '/ai-website-builder/', label: 'AI website builder' },
+                        { href: '/open-source-ai-app-builder/', label: 'Open source' },
                         { href: '/use-cases/', label: 'Use cases' },
                         { href: '/for/', label: "Who it's for" },
-                        { href: '/what-to-build/', label: 'What to build' },
                         { href: '/features/', label: 'Features' },
                         { href: '/guides/', label: 'Guides' },
                     ]) {

@@ -37,7 +37,7 @@ import {
     PUTER_JS_SRC,
     FILE_ICON_URL,
 } from './build-seo.mjs';
-import { ORIGIN, HEADER_NAV, FOOTER_NAV, PLAUSIBLE_SRC, urlFor, pathFor, buildLink } from '../src/content/site.js';
+import { ORIGIN, HEADER_NAV, FOOTER_NAV, PLAUSIBLE_SRC, LINKS, urlFor, pathFor, buildLink } from '../src/content/site.js';
 
 const read = (rel) => fs.readFileSync(new URL(rel, import.meta.url), 'utf8');
 const indexHtml = read('../src/index.html');
@@ -382,15 +382,16 @@ for (const page of PAGES) {
 }
 check('llms.txt uses no em or en dashes', !/[—–]/.test(renderLlmsTxt(PAGES)));
 
-// github.com/HeyPuter/build is a PRIVATE repository: linking it ships a 404 to
-// every visitor, and calling the builder open source is simply untrue. Puter
-// itself is open source and is the correct thing to point at.
+// The public Apache-licensed repository is HeyPuter/builder. The old /build
+// destination is not the same repository; reject that exact path without
+// accidentally rejecting /builder as a substring.
 const allRendered = [...rendered.values()].join('\n') + renderLlmsTxt(PAGES);
-check('nothing links to the private builder repository',
-    !allRendered.includes('github.com/HeyPuter/build'));
-check('nothing calls the builder itself open source',
-    !/\bthe builder is open source\b/i.test(allRendered) &&
-    !/builder'?s own source/i.test(allRendered));
+check('nothing links to the obsolete builder repository path',
+    !/github\.com\/HeyPuter\/build(?=[/?#"\s)]|$)/i.test(allRendered));
+check('the builder source link agrees with the licensed local repository',
+    LINKS.builderGithub === 'https://github.com/HeyPuter/builder' &&
+    read('../LICENSE').includes('Apache License') &&
+    read('../README.md').includes(LINKS.builderGithub));
 
 // Docs paths are case-sensitive on this host; the lowercase forms 404.
 check('docs links use the case-sensitive paths',
@@ -585,7 +586,7 @@ for (const page of PAGES) {
     check(`${page.slug}: screenshot has one-sentence alt text`,
         typeof shot.alt === 'string' && shot.alt.length > 20 && shot.alt.length <= 80);
     check(`${page.slug}: hero renders the screenshot as its stage`,
-        html.includes('class="hero has-crumbs has-shot"') &&
+        html.includes(`class="hero${page.parent ? ' has-crumbs' : ''} has-shot"`) &&
         html.includes(`<div class="hero-shot"><img src="${escapeHtml(shot.src)}" alt="${escapeHtml(shot.alt)}"`) &&
         /<img src="\/screenshots\/[^"]+"[^>]*\bwidth="\d+" height="\d+" fetchpriority="high"/.test(html) &&
         !html.includes('class="demo"'));

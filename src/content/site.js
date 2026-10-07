@@ -52,8 +52,8 @@ export const LINKS = {
     workers: 'https://docs.puter.com/Workers/',
     peer: 'https://docs.puter.com/Peer/',
     userPays: 'https://docs.puter.com/user-pays-model/',
-    // Puter itself is open source. The builder's own repository is NOT public —
-    // do not link it, and do not describe the builder as open source.
+    // The builder and the underlying Puter platform have separate repositories.
+    builderGithub: 'https://github.com/HeyPuter/builder',
     puterGithub: 'https://github.com/HeyPuter/puter',
     x: 'https://x.com/HeyPuter',
     discord: 'https://discord.com/invite/PQcx7Teh8u',
@@ -79,7 +79,7 @@ export const FOOTER_NAV = [
         links: [
             { label: 'AI app builder', slug: 'ai-app-builder' },
             { label: 'AI website builder', slug: 'ai-website-builder' },
-            { label: 'What to build', slug: 'what-to-build' },
+            { label: 'Open source', slug: 'open-source-ai-app-builder' },
             { label: 'Features', slug: 'features' },
         ],
     },
@@ -131,6 +131,7 @@ export const FOOTER_NAV = [
         links: [
             { label: 'Discord', href: LINKS.discord },
             { label: 'X', href: LINKS.x },
+            { label: 'AI Builder on GitHub', href: LINKS.builderGithub },
             { label: 'Puter on GitHub', href: LINKS.puterGithub },
         ],
     },
