@@ -60,10 +60,10 @@ export default {
                 },
                 {
                     icon: 'receipt',
-                    label: 'How to accept payments in your app',
-                    slug: 'guides/how-to-accept-payments-in-your-app',
+                    label: 'How to accept payments with Stripe',
+                    slug: 'guides/how-to-accept-payments-with-stripe',
                     body:
-                        'Take card payments with Stripe: create an account, copy a test key, give it to the builder, try a test card, then switch to a live key. Covers key safety, webhooks, fees and limits.',
+                        'Take card payments with Stripe. Sign up, copy your secret key, give it to the builder, and try the checkout with a test card. Covers subscriptions too.',
                 },
                 {
                     icon: 'search',
