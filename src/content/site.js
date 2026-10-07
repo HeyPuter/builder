@@ -80,7 +80,6 @@ export const FOOTER_NAV = [
             { label: 'AI app builder', slug: 'ai-app-builder' },
             { label: 'AI website builder', slug: 'ai-website-builder' },
             { label: 'Open source', slug: 'open-source-ai-app-builder' },
-            { label: 'What to build', slug: 'what-to-build' },
             { label: 'Features', slug: 'features' },
         ],
     },
