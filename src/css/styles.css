@@ -923,6 +923,14 @@ select:focus-visible,
     color: #6f6f6f;
     animation: suggestionsIn 0.25s ease;
 }
+.chat .chat-starter-heading a {
+    color: inherit;
+    text-decoration: none;
+}
+.chat .chat-starter-heading a:hover {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
 .chat.active .chat-starter-heading {
     display: none;
 }

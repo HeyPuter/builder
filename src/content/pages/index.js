@@ -15,6 +15,7 @@
 
 import aiAppBuilder from './ai-app-builder.js';
 import aiWebsiteBuilder from './ai-website-builder.js';
+import openSourceAiAppBuilder from './open-source-ai-app-builder.js';
 import useCases from './use-cases.js';
 import aiLandingPageBuilder from './ai-landing-page-builder.js';
 import aiFormBuilder from './ai-form-builder.js';
@@ -55,6 +56,7 @@ import bestAiWebsiteBuilder from './best-ai-website-builder.js';
 export const PAGES = [
     aiAppBuilder,
     aiWebsiteBuilder,
+    openSourceAiAppBuilder,
     useCases,
     aiLandingPageBuilder,
     aiFormBuilder,
