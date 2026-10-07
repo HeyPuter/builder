@@ -1,6 +1,6 @@
 export default {
     slug: 'guides',
-    updated: '2026-10-07',
+    updated: '2026-09-26',
     priority: 0.6,
     changefreq: 'monthly',
     navLabel: 'Guides',
@@ -57,13 +57,6 @@ export default {
                     slug: 'guides/how-to-write-a-build-prompt',
                     body:
                         'The difference between a prompt that produces a demo and one that produces something you can use, with before-and-after examples and the six patterns that account for most of the gap.',
-                },
-                {
-                    icon: 'receipt',
-                    label: 'How to accept payments with Stripe',
-                    slug: 'guides/how-to-accept-payments-with-stripe',
-                    body:
-                        'Take card payments with Stripe. Sign up, copy your secret key, give it to the builder, and try the checkout with a test card. Covers subscriptions too.',
                 },
                 {
                     icon: 'search',
