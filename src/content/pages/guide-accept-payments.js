@@ -55,7 +55,7 @@ export default {
                 {
                     title: 'Test the checkout',
                     body:
-                        'In the preview, click your Buy button and pay with card number 4242 4242 4242 4242, any future expiry date and any three-digit CVC. The payment shows up under Payments in your Stripe Dashboard. Stripe lists more [test cards](https://docs.stripe.com/testing), such as cards that get declined. Checkout works in the draft preview, so you can test before you publish.',
+                        'In the preview, click your Buy button. Checkout opens in a new tab, because Stripe does not run inside the preview frame. Pay with card number 4242 4242 4242 4242, any future expiry date and any three-digit CVC. The payment shows up under Payments in your Stripe Dashboard. Stripe lists more [test cards](https://docs.stripe.com/testing), such as cards that get declined. Checkout works in the draft preview, so you can test before you publish.',
                 },
             ],
         },
