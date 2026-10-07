@@ -13,8 +13,7 @@ window.tools.push({
             },
             required: ["path"],
             additionalProperties: false
-        },
-        strict: true
+        }
     },
     exec: async function(args, state) {
         // Confine directory listings to the project directory, and list the

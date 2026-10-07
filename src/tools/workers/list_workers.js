@@ -8,8 +8,7 @@ window.tools.push({
             properties: {},
             required: [],
             additionalProperties: false
-        },
-        strict: true
+        }
     },
     exec: async function(args, state) {
         // Deployed workers are ACCOUNT-level resources shared by every project

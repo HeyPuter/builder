@@ -13,8 +13,7 @@ window.tools.push({
             },
             required: ["path"],
             additionalProperties: false
-        },
-        strict: true
+        }
     },
 
     exec: async function(args, state) {
