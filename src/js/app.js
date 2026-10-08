@@ -976,7 +976,10 @@ function scrollChatToBottom() {
 let _loadChatSeq = 0;
 let _loadChatSettledSeq = 0;
 
-async function loadChat(chatId, { urlMode = 'push' } = {}) {
+// `preloaded`: the chat's saved data, when the caller has just written it
+// (a template fork) and reading it back would only cost a round trip. Taken
+// as given, so pass a copy the caller no longer touches.
+async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
     const seq = ++_loadChatSeq;
     // Content-shaped loading skeleton while the project JSON + media URLs are
     // fetched (see showProjectLoading in ui.js — delayed show, so a fast load
@@ -995,8 +998,8 @@ async function loadChat(chatId, { urlMode = 'push' } = {}) {
         terminateActiveTurn();
         resetChatUIForSwitch();
 
-        const chatData = await puter.fs.read(`chat-history/${chatId}.json`).then(data => data.text());
-        const chat = JSON.parse(chatData);
+        const chat = preloaded
+            || JSON.parse(await puter.fs.read(`chat-history/${chatId}.json`).then(data => data.text()));
         // Rapid sidebar clicks (or New chat) start a newer load while this one
         // is still reading; only the LATEST may install its state. Before this
         // check the slower load finishing last won: the user clicked B, ended up

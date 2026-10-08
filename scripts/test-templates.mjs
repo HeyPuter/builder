@@ -293,6 +293,10 @@ function makeEnv(opts = {}) {
                 if (opts.indexFails) throw new Error('offline');
                 return new Response(JSON.stringify(index));
             }
+            if (/^https:\/\/[^/]+\.puter\.site\//.test(url)) {
+                log.siteChecks = (log.siteChecks || 0) + 1;
+                return new Response('<!doctype html>', { status: 200 });
+            }
             if (opts.failFetch && opts.failFetch(url)) return new Response('nope', { status: 404 });
             if (extraFiles.has(url)) return new Response(extraFiles.get(url));
             const m = url.match(/^\/template-files\/([^/]+)\/([^/]+)\/(.+)$/);
@@ -314,7 +318,7 @@ function makeEnv(opts = {}) {
         },
         confirmLeaveActiveChat: async () => opts.confirmLeave !== false,
         loadChat: async (id, o) => {
-            log.loads.push([id, o && o.urlMode]);
+            log.loads.push([id, o && o.urlMode, o && o.preloaded]);
             ctx.currentChatId = id;
             const chat = JSON.parse(files.get(`chat-history/${id}.json`));
             ctx.currentPreviewUrl = chat.previewUrl;
@@ -418,9 +422,11 @@ if (built) {
             chat.previewUrl === 'https://preview-0000.puter.site/' && chat.previewPath === env.appDir);
         check('fork: listed first in the sidebar and the index saved',
             env.ctx.savedChats[0].id === 'chat_new' && env.ctx.savedChats[0].title === 'Product Landing Page 2' && env.log.listSaves >= 1);
-        check('fork: opened, with the preview waiting for the new site to go live',
+        check('fork: opened once the new site answers, without the edit-propagation wait',
             env.log.loads.length === 1 && env.log.loads[0][0] === 'chat_new' && env.log.loads[0][1] === 'push' &&
-            env.log.previews.length === 1 && env.log.previews[0][1].waitForReady === true);
+            env.log.siteChecks >= 1 && env.log.previews.length === 0);
+        check('fork: opened from the chat it saved, not a read of the file back',
+            JSON.stringify(env.log.loads[0][2]) === JSON.stringify(chat));
         check('fork: a restore point of the template as it arrived',
             env.log.versions.length === 1 && env.log.versions[0].chatId === 'chat_new' && env.log.versions[0].appDir === env.appDir);
         check('fork: counted, and nothing alarming shown',

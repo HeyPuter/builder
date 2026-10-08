@@ -31,6 +31,7 @@
     let _indexRequest = null;    // in-flight fetch of the index, shared
     let _forking = null;         // slug of the fork in flight, if any
     let _deepLink = null;        // { slug, handoffId } captured at boot
+    const _fileDownloads = new Map(); // `${slug}@${version}` -> Promise of its files
 
     const core = () => window.TemplateCore;
     const enabled = () => !!window.FEATURE_FLAGS?.templates;
@@ -101,8 +102,14 @@
     }
 
     // Fetch every file of a template. Text files come back as strings (a fork
-    // rewrites worker placeholders in them), everything else as a Blob.
-    async function fetchTemplateFiles(template) {
+    // rewrites worker placeholders in them), everything else as a Blob. A
+    // version's files never change, so one download is shared: the dialog
+    // starts it on open, and the fork picks it up (often already finished).
+    // Nothing here is mutated by a fork. A failed download is forgotten so the
+    // next attempt fetches again.
+    function fetchTemplateFiles(template) {
+        const key = `${template.slug}@${template.version}`;
+        if (_fileDownloads.has(key)) return _fileDownloads.get(key);
         const fetchOne = async (path) => {
             const res = await fetch(core().fileUrl(template, path), { cache: 'no-cache' });
             if (!res.ok) throw new Error(`could not download ${path} (HTTP ${res.status})`);
@@ -110,7 +117,27 @@
                 ? { path, text: await res.text(), blob: null }
                 : { path, text: null, blob: await res.blob() };
         };
-        return runPool(template.files, 6, fetchOne);
+        const download = runPool(template.files, 6, fetchOne);
+        _fileDownloads.set(key, download);
+        download.catch(() => { if (_fileDownloads.get(key) === download) _fileDownloads.delete(key); });
+        return download;
+    }
+
+    // Resolve once a freshly created site answers its entry page, or after
+    // `timeout` regardless (the preview then loads whatever is there). A new
+    // subdomain has nothing stale cached at the edge, so a fork needs none of
+    // the propagation wait an edit gets (refreshPreviewWhenReady, ui.js): it
+    // only has to exist, which usually takes one round trip.
+    async function waitForSite(url, { timeout = 8000, interval = 400 } = {}) {
+        const start = Date.now();
+        while (Date.now() - start < timeout) {
+            try {
+                const res = await fetch(url, { cache: 'no-store' });
+                if (res.ok) return true;
+            } catch (e) { /* not reachable yet */ }
+            await new Promise(r => setTimeout(r, interval));
+        }
+        return false;
     }
 
     // Put back everything a failed fork created. Best effort: nothing here was
@@ -130,9 +157,8 @@
     }
 
     // Copy a template into a new project in the signed-in user's account.
-    // Resolves with the new chat id, or null when nothing was made (already
-    // forking, the user declined to leave a running build). Throws on failure
-    // after cleaning up; the caller tells the user.
+    // Resolves with { id, chat }: the new chat id and the data saved for it.
+    // Throws on failure after cleaning up; the caller tells the user.
     async function createFork(template) {
         const username = window.user.username;
         const parentDir = `/${username}/AppData/${puter.appID}`;
@@ -154,9 +180,11 @@
         const deployed = [];     // { templateName, name, url }
         let subdomain = null;
         try {
-            // 1. The backend. Deployed first, so the frontend can be written
-            //    with its real URLs in place of the placeholders.
-            if (template.workers.length) {
+            // 1. The backend, deployed first so the files that call it can be
+            //    written with its real URLs in place of the placeholders. The
+            //    files that don't call it upload meanwhile.
+            const deployWorkers = async () => {
+                if (!template.workers.length) return;
                 const existing = await puter.workers.list();
                 const taken = (Array.isArray(existing) ? existing : []).map(w => w && w.name).filter(Boolean);
                 for (const workerName of template.workers) {
@@ -176,21 +204,31 @@
                     }
                     deployed.push({ templateName: workerName, name, url: created.url });
                 }
-            }
-
-            // 2. Everything else, placeholders swapped for the fork's own URLs.
-            const urls = {};
-            for (const w of deployed) urls[w.templateName] = w.url;
-            const rest = files.filter(f => !core().isWorkerSource(f.path, template.workers));
-            await runPool(rest, 4, async (f) => {
+            };
+            const writeFiles = (list) => runPool(list, 6, async (f) => {
                 let data = f.blob;
                 if (f.text != null) {
+                    const urls = {};
+                    for (const w of deployed) urls[w.templateName] = w.url;
                     const out = core().substituteWorkerUrls(f.text, urls);
                     if (out.missing.length) throw new Error(`${f.path} refers to a backend that was not deployed`);
                     data = out.text;
                 }
                 await puter.fs.write(`${appDir}/${f.path}`, data, { createMissingParents: true });
             });
+
+            // 2. Everything else, placeholders swapped for the fork's own URLs.
+            //    Both halves settle before a failure is thrown, so the cleanup
+            //    never races a write still in flight.
+            const rest = files.filter(f => !core().isWorkerSource(f.path, template.workers));
+            const callsBackend = (f) => f.text != null && core().placeholdersIn(f.text).length > 0;
+            const settled = await Promise.allSettled([
+                deployWorkers(),
+                writeFiles(rest.filter(f => !callsBackend(f))),
+            ]);
+            const failed = settled.find(r => r.status === 'rejected');
+            if (failed) throw failed.reason;
+            await writeFiles(rest.filter(callsBackend));
         } catch (e) {
             await discardFork(appDir, deployed, subdomain);
             throw e;
@@ -200,10 +238,13 @@
         //    complete and the model opens a preview on the first turn), the
         //    same call duplicateChat makes.
         let previewUrl = null;
+        let siteLive = Promise.resolve();
         try {
             const site = await puter.hosting.create(window.makeDraftSubdomain(), appDir);
             subdomain = site.subdomain;
             previewUrl = `https://${site.subdomain}.puter.site/`;
+            // Checked while the project is saved below; awaited before return.
+            siteLive = waitForSite(previewUrl);
         } catch (e) {
             console.warn('Template: could not open a preview for the new project:', e);
         }
@@ -254,8 +295,9 @@
             interrupted: false,
             pinned: false,
         };
+        const chatJson = JSON.stringify(chatData);
         try {
-            await puter.fs.write(`chat-history/${newId}.json`, JSON.stringify(chatData));
+            await puter.fs.write(`chat-history/${newId}.json`, chatJson);
         } catch (e) {
             await discardFork(appDir, deployed, subdomain);
             throw e;
@@ -278,13 +320,17 @@
         // original" is always one click in Version history. Fire and forget:
         // a failed snapshot costs that convenience, never the project.
         window.createProjectVersion?.({ chatId: newId, appDir, label: `${template.name} template` });
-        return newId;
+        await siteLive;
+        return { id: newId, chat: JSON.parse(chatJson) };
     }
 
     // Fork `slug` and open the new project. Signs the visitor in first, so it
     // must be called from inside a click (the only place the sign-in popup is
     // allowed to open) unless they are already signed in.
-    async function forkTemplate(slug, { source = 'app' } = {}) {
+    // `onStart` runs once the copy actually begins (signed in, template found,
+    // the user agreed to leave a running build), so the dialog can get out of
+    // the way of the project's loading view.
+    async function forkTemplate(slug, { source = 'app', onStart = null } = {}) {
         if (_forking) return null;
         _forking = slug;
         const startedIn = currentChatId;
@@ -297,8 +343,9 @@
                 return null;
             }
             if (!await confirmLeaveActiveChat()) return null;
+            onStart?.();
             window.showProjectLoading?.(template.name, { hasPreview: true });
-            const newId = await createFork(template);
+            const { id: newId, chat } = await createFork(template);
             window.track?.('Template Used', { template: template.slug, source });
             // The user may have opened another project while the fork was
             // being made. Don't pull them out of it: the new one is in the
@@ -307,12 +354,11 @@
                 window.showToast?.(`“${template.name}” is ready in your projects.`, { type: 'success' });
                 return newId;
             }
-            await loadChat(newId, { urlMode: 'push' }).catch(() => {});
-            // The site was created seconds ago: wait for it to reach the CDN
-            // (with the usual overlay) rather than showing a not-found page.
-            if (currentChatId === newId && window.currentPreviewUrl) {
-                window.showAppPreview(window.currentPreviewUrl, { waitForReady: true });
-            }
+            // loadChat shows the preview straight away, like a duplicated
+            // project's: createFork already waited for the new site to answer.
+            // It gets the saved chat (a fresh copy) instead of reading back
+            // the file just written.
+            await loadChat(newId, { urlMode: 'push', preloaded: chat }).catch(() => {});
             return newId;
         } catch (e) {
             window.hideProjectLoading?.();
@@ -356,6 +402,8 @@
         $overlay.find('.template-modal-body').text(template.description);
         $overlay.find('.template-modal-details').attr('href', `/templates/${template.slug}/`);
         $overlay.find('.template-modal-thumb').append(buildThumb(template, { eager: true }));
+        // Most people who open the dialog use the template: download it now.
+        fetchTemplateFiles(template).catch(() => { /* the fork retries and reports */ });
 
         let releaseFocus = null;
         const close = () => {
@@ -370,12 +418,16 @@
             $use.prop('disabled', true).text('Copying…');
             // Called synchronously from the click so a signed-out visitor's
             // sign-in popup is allowed to open.
-            const fork = forkTemplate(template.slug, { source });
-            // A declined sign-in or a failure leaves the dialog up to try
-            // again; the new project's arrival takes it down.
+            let started = false;
+            const fork = forkTemplate(template.slug, {
+                source,
+                onStart: () => { started = true; close(); },
+            });
+            // A declined sign-in leaves the dialog up to try again. Once the
+            // copy has started the dialog is gone, and a failure is an alert.
             fork.then((newId) => {
-                if (newId) close();
-                else $use.prop('disabled', false).text('Use this template');
+                if (newId && !started) close();
+                else if (!newId && !started) $use.prop('disabled', false).text('Use this template');
             });
         });
         $overlay.find('.template-modal-cancel').on('click', close);
