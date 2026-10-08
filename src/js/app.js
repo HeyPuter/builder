@@ -3304,6 +3304,39 @@ window.resumeBuild = resumeBuild;
 // retried — they propagate to the existing handling unchanged.
 const MAX_TURN_RETRIES = 4;
 
+// ---- Usage-limit unblock tracking ------------------------------------------
+// A build that fails at the usage limit records when it happened and which
+// error shape it was (kind); the next build that completes reports
+// 'Unblocked After Limit' and clears it. A success soon after the limit almost
+// always means the user upgraded or bought credits; one in a later month may
+// just be the monthly allowance resetting, hence same_month. localStorage, not
+// puter.kv: an account out of credits may not be able to write KV either.
+const LIMIT_HIT_KEY = 'usage_limit_hit';
+
+function recordUsageLimitHit(kind) {
+    try { localStorage.setItem(LIMIT_HIT_KEY, JSON.stringify({ at: Date.now(), kind })); } catch (e) {}
+}
+
+function reportUnblockAfterLimit() {
+    try {
+        const raw = localStorage.getItem(LIMIT_HIT_KEY);
+        if (!raw) return;
+        localStorage.removeItem(LIMIT_HIT_KEY);
+        const hit = JSON.parse(raw);
+        // Past 7 days the success says little about paying; drop it uncounted.
+        const hours = (Date.now() - hit.at) / 36e5;
+        if (hours >= 168) return;
+        // Bucketed so the Plausible breakdown groups instead of listing every value.
+        const since = hours < 1 ? '<1h' : hours < 24 ? '1-24h' : '1-7d';
+        const then = new Date(hit.at), now = new Date();
+        window.track?.('Unblocked After Limit', {
+            kind: hit.kind,
+            since_limit: since,
+            same_month: then.getUTCFullYear() === now.getUTCFullYear() && then.getUTCMonth() === now.getUTCMonth(),
+        });
+    } catch (e) { /* analytics must never break the app */ }
+}
+
 // ===== transient-retry-classifier (start) =====
 // True only for failures a retry can plausibly fix. Allowlist-based: the default
 // is "don't retry", so a novel/ambiguous error surfaces immediately (today's
@@ -4611,6 +4644,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                 costCents > 0 ? { currency: 'USD', amount: -(costCents / 100) } : undefined,
             );
             if (attempt > 0) window.track?.('Build Recovered', { attempts: attempt });
+            reportUnblockAfterLimit();
         }
     } catch (error) {
         if(spinner)
@@ -4627,6 +4661,8 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         if (!shouldStop && !activeTurnInterrupted && turnChatId === currentChatId) {
             turnErrored = true;
             if(error.error?.delegate === "usage-limited-chat"){
+                window.track?.('Usage Limit Hit', { first_build: isFirstBuildTurn, model: MODEL, kind: 'tier' });
+                recordUsageLimitHit('tier');
                 appendMessage('You have reached the current tier\'s usage limit. Please upgrade your Puter account to continue. <button class="upgrade-button">Upgrade</button>', false, false, false, true);
                 window.announce?.('You have reached the current tier\'s usage limit. Upgrade your Puter account to continue.', { assertive: true });
             }else{
@@ -4634,7 +4670,18 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                 // sentence and show it as a styled error card (not a plain bubble
                 // with a raw "messages.0.content..." field path). Persist it with an
                 // isError marker so a chat reload re-renders the same card.
-                const friendlyError = friendlyErrorMessage(extractErrorText(error));
+                const errorText = extractErrorText(error);
+                // Out of credits can also arrive as a plain error (Puter's 402
+                // insufficient_funds, or the text of a mid-stream failure) rather
+                // than the usage-limited-chat delegate above; count both as one event.
+                const lowerError = errorText.toLowerCase();
+                if (error.code === 'insufficient_funds' || error.error?.code === 'insufficient_funds' ||
+                    (lowerError.includes('insufficient') &&
+                        (lowerError.includes('credit') || lowerError.includes('fund') || lowerError.includes('balance')))) {
+                    window.track?.('Usage Limit Hit', { first_build: isFirstBuildTurn, model: MODEL, kind: 'credits' });
+                    recordUsageLimitHit('credits');
+                }
+                const friendlyError = friendlyErrorMessage(errorText);
                 appendErrorMessage(friendlyError);
                 window.announce?.('Error: ' + friendlyError, { assertive: true });
                 turnSaveContext.chatHistory.push({ role: "assistant", content: friendlyError, isError: true });
