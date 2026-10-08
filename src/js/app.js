@@ -3311,21 +3311,35 @@ const MAX_TURN_RETRIES = 4;
 // always means the user upgraded or bought credits; one in a later month may
 // just be the monthly allowance resetting, hence same_month. localStorage, not
 // puter.kv: an account out of credits may not be able to write KV either.
-const LIMIT_HIT_KEY = 'usage_limit_hit';
+// Keyed by the user's uuid so another account signing in on the same browser
+// can't report the first account's limit as its own unblock.
+// ===== usage-limit-unblock (start) =====
+const LIMIT_HIT_PREFIX = 'usage_limit_hit:';
+
+function limitHitKey() {
+    const id = window.user && window.user.uuid;
+    return id ? LIMIT_HIT_PREFIX + id : null;
+}
 
 function recordUsageLimitHit(kind) {
-    try { localStorage.setItem(LIMIT_HIT_KEY, JSON.stringify({ at: Date.now(), kind })); } catch (e) {}
+    try {
+        const key = limitHitKey();
+        if (key) localStorage.setItem(key, JSON.stringify({ at: Date.now(), kind }));
+    } catch (e) {}
 }
 
 function reportUnblockAfterLimit() {
     try {
-        const raw = localStorage.getItem(LIMIT_HIT_KEY);
+        const key = limitHitKey();
+        if (!key) return;
+        const raw = localStorage.getItem(key);
         if (!raw) return;
-        localStorage.removeItem(LIMIT_HIT_KEY);
+        localStorage.removeItem(key);
         const hit = JSON.parse(raw);
+        if (!hit || typeof hit.at !== 'number') return;
         // Past 7 days the success says little about paying; drop it uncounted.
         const hours = (Date.now() - hit.at) / 36e5;
-        if (hours >= 168) return;
+        if (hours < 0 || hours >= 168) return;
         // Bucketed so the Plausible breakdown groups instead of listing every value.
         const since = hours < 1 ? '<1h' : hours < 24 ? '1-24h' : '1-7d';
         const then = new Date(hit.at), now = new Date();
@@ -3336,6 +3350,7 @@ function reportUnblockAfterLimit() {
         });
     } catch (e) { /* analytics must never break the app */ }
 }
+// ===== usage-limit-unblock (end) =====
 
 // ===== transient-retry-classifier (start) =====
 // True only for failures a retry can plausibly fix. Allowlist-based: the default
