@@ -49,6 +49,14 @@ window.FEATURE_FLAGS = {
     // so the landing screen is the plain centered layout again. Disabled for
     // now; re-enable by setting true.
     featuredFeed: false,
+    // Official project templates (js/templates.js, sources in src/templates/):
+    // the "Start from a template" section under the landing hero, the
+    // /?template=<slug> link the /templates/<slug>/ pages send visitors
+    // through, and the fork that copies a template into a new project. When
+    // false the section is never rendered, the index is never fetched, and a
+    // template link lands on the plain landing screen. The static template
+    // pages still build (they are ordinary marketing pages).
+    templates: true,
     // Make generated apps installable: the builder writes a manifest.json, PNG
     // icons and the matching <head> tags into the app dir on every preview
     // refresh (see js/manifest.js), and a prompt rule asks the model for an
@@ -1018,6 +1026,12 @@ function prepareHistoryForAI(historyArray) {
         // text-hidden content part it carries is converted to text below.
         if (msg.resumeNudge) {
             delete msg.resumeNudge;
+        }
+        // Where a project forked from a template came from (on its system
+        // message, see createFork in templates.js). Read by loadChat for the
+        // "Started from" note; never sent to the chat endpoint.
+        if (msg.templateOrigin) {
+            delete msg.templateOrigin;
         }
         // Bookkeeping fields that record the AI response cost + token usage on
         // assistant messages (see handleMessageStream / sumChatCostCents /

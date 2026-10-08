@@ -143,6 +143,15 @@ const fileB = new File(['bbbb'], 'b.pdf', { type: 'application/pdf' });
     const noPrompt = await h.stash({ files: [fileB] });
     check('a file-only send parks with an empty prompt', (await h.take(noPrompt)).prompt === '');
 
+    // A template page's "Use this template" parks {template} instead of a
+    // send; an ordinary send carries none (see consumeTemplateDeepLink).
+    const tpl = await h.take(await h.stash({ template: 'feedback-board' }));
+    check('a template hand-over parks the slug with no prompt or files',
+        tpl.template === 'feedback-board' && tpl.prompt === '' && tpl.files.length === 0);
+    check('an ordinary send carries no template',
+        (await h.take(await h.stash({ prompt: 'x', files: [] }))).template === '');
+    check('a non-string template is dropped', (await h.take(await h.stash({ template: 42 }))).template === '');
+
     const old = await h.stash({ prompt: 'abandoned', files: [fileA] });
     const realNow = Date.now;
     Date.now = () => realNow() + 11 * 60 * 1000;
