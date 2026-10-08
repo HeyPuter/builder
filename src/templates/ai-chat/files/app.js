@@ -42,15 +42,24 @@ async function loadConversations() {
 }
 
 let saveTimer = null;
+function writeConversations() {
+    const list = state.conversations
+        .filter(c => c.messages.length)
+        .sort((a, b) => b.updatedAt - a.updatedAt)
+        .slice(0, MAX_CONVERSATIONS);
+    return puter.kv.set(STORE_KEY, JSON.stringify(list)).catch(() => { /* retried on the next change */ });
+}
 function saveConversations() {
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => {
-        const list = state.conversations
-            .filter(c => c.messages.length)
-            .sort((a, b) => b.updatedAt - a.updatedAt)
-            .slice(0, MAX_CONVERSATIONS);
-        puter.kv.set(STORE_KEY, JSON.stringify(list)).catch(() => { /* retried on the next change */ });
-    }, 400);
+    saveTimer = setTimeout(() => { saveTimer = null; writeConversations(); }, 400);
+}
+// Write a save that is still waiting on its timer, now. Before signing out:
+// left to fire later it would write an emptied list, or into the next account.
+async function flushConversations() {
+    if (saveTimer === null) return;
+    clearTimeout(saveTimer);
+    saveTimer = null;
+    await writeConversations();
 }
 
 // ---- Rendering -------------------------------------------------------------
@@ -275,7 +284,8 @@ $('sign-in').addEventListener('click', async () => {
         $('sign-in-error').textContent = 'Sign-in was cancelled. Try again when you are ready.';
     }
 });
-$('sign-out').addEventListener('click', () => {
+$('sign-out').addEventListener('click', async () => {
+    await flushConversations();
     puter.auth.signOut();
     state.conversations = [];
     showSignedOut();

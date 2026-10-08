@@ -127,7 +127,12 @@ export function validateTemplate(t, core = loadTemplateCore()) {
     }
 
     for (const f of t.files) {
-        if (!core.isTextFile(f.path)) continue;
+        if (!core.isTextFile(f.path)) {
+            // A fork copies these byte for byte, so a placeholder here would
+            // reach it unreplaced.
+            if (f.bytes.includes('{{WORKER_URL')) err(`${f.path} uses {{WORKER_URL:...}}, but a fork only rewrites text files (.html, .js, .css, …)`);
+            continue;
+        }
         const names = core.placeholdersIn(f.bytes.toString('utf8'));
         if (!names.length) continue;
         if (core.isWorkerSource(f.path, workers)) {
@@ -138,11 +143,12 @@ export function validateTemplate(t, core = loadTemplateCore()) {
             if (!workers.includes(n)) err(`${f.path} uses {{WORKER_URL:${n}}} but declares no worker "${n}"`);
         }
     }
-    // A stray, malformed placeholder would reach the fork untouched.
+    // A stray, malformed placeholder would reach the fork untouched. Counts
+    // every start, so an unterminated one ("{{WORKER_URL:api}") is caught too.
     for (const f of t.files) {
         if (!core.isTextFile(f.path)) continue;
         const text = f.bytes.toString('utf8');
-        const all = (text.match(/\{\{\s*WORKER_URL[^}]*\}\}/g) || []);
+        const all = (text.match(/\{\{\s*WORKER_URL/g) || []);
         const good = (text.match(core.PLACEHOLDER_RE) || []);
         if (all.length !== good.length) err(`${f.path} has a malformed {{WORKER_URL:...}} placeholder`);
     }
@@ -173,13 +179,14 @@ export function buildTemplates({ templates = TEMPLATES, dir = TEMPLATES_DIR } = 
     const errors = read.flatMap((t) => validateTemplate(t, core));
     const slugs = templates.map((m) => m && m.slug);
     if (new Set(slugs).size !== slugs.length) errors.push('[templates] two templates share a slug');
+    // Before the index is built: indexEntry assumes valid metadata, and a
+    // TypeError from it would replace this list.
+    if (errors.length) throw new Error(errors.join('\n'));
     const index = { templates: read.map(indexEntry) };
-    if (!errors.length) {
-        const accepted = core.sanitizeIndex(JSON.parse(JSON.stringify(index)));
-        for (const entry of index.templates) {
-            if (!accepted.some((a) => a.slug === entry.slug)) {
-                errors.push(`[templates] ${entry.slug}: the app would reject this index entry (see TemplateCore.sanitizeIndex)`);
-            }
+    const accepted = core.sanitizeIndex(JSON.parse(JSON.stringify(index)));
+    for (const entry of index.templates) {
+        if (!accepted.some((a) => a.slug === entry.slug)) {
+            errors.push(`[templates] ${entry.slug}: the app would reject this index entry (see TemplateCore.sanitizeIndex)`);
         }
     }
     if (errors.length) throw new Error(errors.join('\n'));

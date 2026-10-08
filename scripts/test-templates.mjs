@@ -232,6 +232,15 @@ if (built) {
     check('a placeholder inside a worker source fails', /is a worker source and cannot use/.test(errorsFor(meta('inworker', { workers: ['a', 'b'] }))));
     make('malformed', { 'index.html': "'{{WORKER_URL: api}}' '{{WORKER_URL:api}'" });
     check('a malformed placeholder fails', /malformed/.test(errorsFor(meta('malformed'))));
+    make('unterminated', { 'index.html': "fetch('{{WORKER_URL:api}/ideas')", 'workers/api.js': '' });
+    check('an unterminated placeholder fails on its own', /malformed/.test(errorsFor(meta('unterminated', { workers: ['api'] }))));
+    make('binary', { 'index.html': '', 'app.tsx': "const API = '{{WORKER_URL:api}}';", 'workers/api.js': '' });
+    check('a placeholder in a file the fork copies unchanged fails',
+        /app\.tsx uses \{\{WORKER_URL:\.\.\.\}\}, but a fork only rewrites text files/.test(errorsFor(meta('binary', { workers: ['api'] }))));
+    let shapeErr = '';
+    try { buildTemplates({ templates: [meta('good', { workers: ['api'], suggestions: 'x' })], dir: tmp }); } catch (e) { shapeErr = e.message; }
+    check('bad metadata is reported, not hidden by a TypeError building the index',
+        /needs at least one suggestion/.test(shapeErr) && !/is not a function/.test(shapeErr), shapeErr);
     check('a folder that does not match the slug fails',
         /must live in src\/templates\/other\//.test(validateTemplate({ ...readTemplate(meta('good', { workers: ['api'] }), { dir: tmp }), meta: meta('other', { workers: ['api'] }) }, core).join('\n')));
     let threw = '';

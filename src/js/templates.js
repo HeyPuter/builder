@@ -602,8 +602,13 @@
             if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
             e.preventDefault();
             const slug = this.getAttribute('data-template');
+            const href = this.getAttribute('href');
             const template = await findTemplate(slug);
             if (template) openTemplateDialog(template, { source: 'landing' });
+            // A card painted from the cached index while the live one can't
+            // be fetched: its own page still works. Not a fork from the cache,
+            // whose file URLs may belong to a deploy that's gone.
+            else if (href) window.location.href = href;
         });
     }
 

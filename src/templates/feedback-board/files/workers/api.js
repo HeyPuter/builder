@@ -4,14 +4,16 @@
 // belongs to the account that deployed it), so the board is shared by
 // everyone who opens the app, signed in or not.
 //
-// Storage layout:
-//   feedback-board:ideas                 JSON array of ideas, newest first
+// Storage layout, one key per thing so no request rewrites another's data:
+//   feedback-board:idea:<idea>           { id, title, details, createdAt }
+//   feedback-board:votes:<idea>          vote count, changed only by kv.incr
 //   feedback-board:vote:<idea>:<voter>   present while that voter upvotes it
 //
 // Voters are anonymous ids the browser generates and remembers. They stop
 // accidental double votes; they are not an identity check.
 
-const IDEAS_KEY = 'feedback-board:ideas';
+const IDEA_PREFIX = 'feedback-board:idea:';
+const VOTES_PREFIX = 'feedback-board:votes:';
 const MAX_IDEAS = 200;
 const MAX_TITLE = 100;
 const MAX_DETAILS = 500;
@@ -33,19 +35,42 @@ function cleanVoter(value) {
     return /^[A-Za-z0-9-]{8,64}$/.test(voter) ? voter : '';
 }
 
-async function loadIdeas() {
-    const raw = await me.puter.kv.get(IDEAS_KEY);
-    if (!raw) return [];
-    try {
-        const list = typeof raw === 'string' ? JSON.parse(raw) : raw;
-        return Array.isArray(list) ? list : [];
-    } catch (e) {
-        return [];
-    }
+function parse(value) {
+    if (typeof value !== 'string') return value;
+    try { return JSON.parse(value); } catch (e) { return null; }
 }
 
-async function saveIdeas(ideas) {
-    await me.puter.kv.set(IDEAS_KEY, JSON.stringify(ideas));
+// Every idea with its vote count, newest first.
+async function loadIdeas() {
+    const [ideaRows, voteRows] = await Promise.all([
+        me.puter.kv.list({ pattern: IDEA_PREFIX, returnValues: true }),
+        me.puter.kv.list({ pattern: VOTES_PREFIX, returnValues: true }),
+    ]);
+    const votes = new Map();
+    for (const row of voteRows || []) votes.set(row.key.slice(VOTES_PREFIX.length), Number(row.value) || 0);
+    return (ideaRows || [])
+        .map(row => parse(row.value))
+        .filter(idea => idea && typeof idea.id === 'string')
+        .map(idea => ({ ...idea, votes: Math.max(0, votes.get(idea.id) || 0) }))
+        .sort((a, b) => b.createdAt - a.createdAt);
+}
+
+// An idea and everything stored about it, its voters included.
+async function removeIdea(id) {
+    const voterKeys = await me.puter.kv.list({ pattern: `feedback-board:vote:${id}:` });
+    await Promise.all([
+        me.puter.kv.del(IDEA_PREFIX + id),
+        me.puter.kv.del(VOTES_PREFIX + id),
+        ...(voterKeys || []).map(key => me.puter.kv.del(key)),
+    ]);
+}
+
+// Keep the board bounded: past the cap, the least-voted old ideas go.
+async function pruneIdeas() {
+    const ideas = await loadIdeas();
+    if (ideas.length <= MAX_IDEAS) return;
+    ideas.sort((a, b) => (b.votes - a.votes) || (b.createdAt - a.createdAt));
+    await Promise.all(ideas.slice(MAX_IDEAS).map(idea => removeIdea(idea.id)));
 }
 
 function voteKey(ideaId, voter) {
@@ -82,16 +107,14 @@ router.post('/ideas', async ({ request }) => {
     if (!title) return json({ error: 'Give your idea a short title.' }, 400);
     const voter = cleanVoter(body.voter);
 
-    const ideas = await loadIdeas();
-    const idea = { id: newId(), title, details, votes: voter ? 1 : 0, createdAt: Date.now() };
-    ideas.unshift(idea);
-    // Keep the board bounded: past the cap, the least-voted old ideas go.
-    if (ideas.length > MAX_IDEAS) {
-        ideas.sort((a, b) => (b.votes - a.votes) || (b.createdAt - a.createdAt));
-        ideas.length = MAX_IDEAS;
+    const idea = { id: newId(), title, details, createdAt: Date.now() };
+    await me.puter.kv.set(IDEA_PREFIX + idea.id, idea);
+    idea.votes = 0;
+    if (voter) {
+        await me.puter.kv.set(voteKey(idea.id, voter), '1');
+        idea.votes = await me.puter.kv.incr(VOTES_PREFIX + idea.id);
     }
-    await saveIdeas(ideas);
-    if (voter) await me.puter.kv.set(voteKey(idea.id, voter), '1');
+    await pruneIdeas();
     return json({ idea: { ...idea, voted: !!voter } }, 201);
 });
 
@@ -101,19 +124,15 @@ router.post('/ideas/:id/vote', async ({ request, params }) => {
     const voter = cleanVoter(body && body.voter);
     if (!voter) return json({ error: 'Missing voter id.' }, 400);
 
-    const ideas = await loadIdeas();
-    const idea = ideas.find(i => i.id === params.id);
+    const idea = parse(await me.puter.kv.get(IDEA_PREFIX + params.id));
     if (!idea) return json({ error: 'That idea no longer exists.' }, 404);
 
+    // The count only ever moves by kv.incr, which is atomic, so votes cast at
+    // the same moment all land.
     const key = voteKey(idea.id, voter);
     const already = await me.puter.kv.get(key);
-    if (already) {
-        await me.puter.kv.del(key);
-        idea.votes = Math.max(0, (idea.votes || 0) - 1);
-    } else {
-        await me.puter.kv.set(key, '1');
-        idea.votes = (idea.votes || 0) + 1;
-    }
-    await saveIdeas(ideas);
+    if (already) await me.puter.kv.del(key);
+    else await me.puter.kv.set(key, '1');
+    idea.votes = Math.max(0, await me.puter.kv.incr(VOTES_PREFIX + idea.id, already ? -1 : 1));
     return { idea: { ...idea, voted: !already } };
 });
