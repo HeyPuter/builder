@@ -38,6 +38,7 @@ Go from an idea to a working website or application in your browser. AI Builder 
 - **Chat and visual editing:** Ask for changes in chat or select an element in the preview to tell the AI exactly what to update.
 - **Version history:** Revisit saved versions and restore an earlier state as you experiment with your project.
 - **MCP connections:** Connect remote MCP servers so the AI can use tools from your other services while it builds.
+- **Templates:** Start from a finished app or website, copied into your own account, and make it yours by describing changes.
 
 Follow the steps below to start building your first website or app.
 

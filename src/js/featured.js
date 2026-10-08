@@ -202,7 +202,7 @@ function renderFeaturedFeed(items) {
 
     if (!items.length) {
         $feed.attr('hidden', true).empty();
-        $('#new-chat').removeClass('has-feed');
+        syncHomeFeedLayout();
         return;
     }
 
@@ -214,8 +214,17 @@ function renderFeaturedFeed(items) {
     items.forEach((item, i) => $grid.append(buildFeaturedCard(item, i)));
 
     $feed.empty().append($head, $grid).removeAttr('hidden');
-    $('#new-chat').addClass('has-feed');
+    syncHomeFeedLayout();
 }
+
+// The scrolling landing layout (.has-feed, see styles.css) is on while ANY
+// section under the hero is showing: this feed, or the templates row
+// (js/templates.js). Each section's renderer calls this after showing or
+// hiding itself, so neither can switch the layout off under the other.
+function syncHomeFeedLayout() {
+    $('#new-chat').toggleClass('has-feed', $('.home-feed:not([hidden])').length > 0);
+}
+window.syncHomeFeedLayout = syncHomeFeedLayout;
 
 // Called once from boot (app.js), right after renderSkeleton().
 window.initFeaturedFeed = function () {

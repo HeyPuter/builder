@@ -3,7 +3,8 @@
 # Everything here is public and everything is meant to be indexed, by search
 # crawlers and by the AI agents that increasingly answer "what can build me an
 # app from a description?" on their behalf. Prompt links only prefill the app,
-# so skip crawling those variants while leaving public pages crawlable.
+# and template links only open the app's template dialog, so skip crawling
+# those variants while leaving public pages (including /templates/) crawlable.
 #
 # A compact, plain-text map of the site for language models lives at
 # https://builder.puter.com/llms.txt (generated from the same page registry as
@@ -12,5 +13,6 @@
 User-agent: *
 Allow: /
 Disallow: /?prompt=
+Disallow: /?template=
 
 Sitemap: https://builder.puter.com/sitemap.xml

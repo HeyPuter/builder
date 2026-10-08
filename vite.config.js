@@ -15,6 +15,11 @@ import {
   ogKey,
   plain as seoPlain,
 } from './scripts/build-seo.mjs';
+import {
+  buildTemplates,
+  THUMB as TEMPLATE_THUMB,
+  SHOT as TEMPLATE_SHOT,
+} from './scripts/build-templates.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SRC = path.resolve(__dirname, 'src');
@@ -40,12 +45,16 @@ const SCRIPTS = [
   'js/publish-errors.js',
   'js/issues-core.js',
   'js/worker-ownership.js',
+  // Pure half of the official templates (validation, placeholders, the note a
+  // fork's system prompt carries); js/templates.js below is the I/O half.
+  'js/template-core.js',
   'js/tools.js',
   // Before ui.js, which paints the avatar from window.profilePicture.
   'js/profile-picture.js',
   'js/ui.js',
   'js/mcp-ui.js',
   'js/featured.js',
+  'js/templates.js',
   'tools/fs/stat.js',
   'tools/fs/mkdir.js',
   'tools/fs/write.js',
@@ -436,6 +445,112 @@ function featuredFeedPlugin() {
 }
 
 /**
+ * The official project templates (src/templates/, see src/templates/index.js
+ * and js/template-core.js).
+ *
+ * Build: validates every template (buildTemplates throws, failing the build,
+ * on anything a fork would trip over) and writes
+ *   dist/templates.json                                 the index the app reads
+ *   dist/template-files/<slug>/<version>/<path>         each file, verbatim
+ *   dist/template-thumbs/<slug>.webp, <slug>-large.webp card + page images
+ * The version in the file paths is a hash of the template's bytes, so an index
+ * and the files it lists always come from the same deploy. The images are
+ * derived from <slug>/screenshot.png with the same crop-and-downscale the
+ * community feed uses (top-anchored cover, Lanczos), for the same reason: the
+ * browser's own downscale of a 1280px capture into a small card blurs text.
+ *
+ * Dev: the same three things, served from src/templates/ per request, so an
+ * edit to a template shows on reload. Only the current version's files are
+ * served, as in a build.
+ *
+ * Every path above is a stable-path file to the service worker (not in its
+ * immutable list), so it is fetched network-first and never goes stale.
+ */
+function templatesPlugin() {
+  const imageFor = (screenshot, { width, height }) => sharp(screenshot)
+    .resize(width, height, { fit: 'cover', position: 'top', withoutEnlargement: true })
+    .webp({ quality: 88 })
+    .toBuffer();
+  const IMAGE_SIZES = { '': TEMPLATE_THUMB, '-large': TEMPLATE_SHOT };
+
+  return {
+    name: 'templates',
+    configureServer(server) {
+      const imageCache = new Map(); // `${slug}${suffix}@${mtime}` -> Buffer
+      server.middlewares.use((req, res, next) => {
+        const rawPath = (req.url || '').split('?')[0];
+        if (rawPath !== '/templates.json' && !rawPath.startsWith('/template-files/') && !rawPath.startsWith('/template-thumbs/')) {
+          return next();
+        }
+        // Decoded only once the path is ours: a malformed escape anywhere else
+        // is Vite's to handle, and here it is a bad request, not a crash.
+        let urlPath;
+        try {
+          urlPath = decodeURIComponent(rawPath);
+        } catch (e) {
+          res.statusCode = 400;
+          return res.end('malformed path');
+        }
+        let built;
+        try {
+          built = buildTemplates();
+        } catch (e) {
+          console.warn(e.message);
+          res.statusCode = 500;
+          return res.end(e.message);
+        }
+        res.setHeader('Cache-Control', 'no-store');
+        if (urlPath === '/templates.json') {
+          res.setHeader('Content-Type', 'application/json');
+          return res.end(JSON.stringify(built.index));
+        }
+        const file = urlPath.match(/^\/template-files\/([a-z0-9-]+)\/([a-f0-9]+)\/(.+)$/);
+        if (file) {
+          const t = built.templates.find((x) => x.meta.slug === file[1] && x.version === file[2]);
+          const f = t && t.files.find((x) => x.path === file[3]);
+          if (!f) { res.statusCode = 404; return res.end('no such template file'); }
+          const type = { html: 'text/html', js: 'text/javascript', css: 'text/css', svg: 'image/svg+xml', json: 'application/json', png: 'image/png', webp: 'image/webp' }[path.extname(f.path).slice(1)];
+          if (type) res.setHeader('Content-Type', type);
+          return res.end(f.bytes);
+        }
+        const thumb = urlPath.match(/^\/template-thumbs\/([a-z0-9-]+?)(-large)?\.webp$/);
+        const t = thumb && built.templates.find((x) => x.meta.slug === thumb[1]);
+        if (!t || !t.screenshot) { res.statusCode = 404; return res.end('no such template image'); }
+        const suffix = thumb[2] || '';
+        const key = `${t.meta.slug}${suffix}@${fs.statSync(t.screenshot).mtimeMs}`;
+        (async () => {
+          if (!imageCache.has(key)) imageCache.set(key, await imageFor(t.screenshot, IMAGE_SIZES[suffix]));
+          res.setHeader('Content-Type', 'image/webp');
+          res.end(imageCache.get(key));
+        })().catch((e) => { res.statusCode = 500; res.end(`template image failed: ${e.message}`); });
+      });
+    },
+    closeBundle: {
+      // After classicBundle's copies, like the other emitters (a parallel
+      // hook would start before OUT_DIR is populated).
+      sequential: true,
+      async handler() {
+        const { templates, index } = buildTemplates();
+        for (const t of templates) {
+          const base = path.join(OUT_DIR, 'template-files', t.meta.slug, t.version);
+          for (const f of t.files) {
+            const dest = path.join(base, ...f.path.split('/'));
+            fs.mkdirSync(path.dirname(dest), { recursive: true });
+            fs.writeFileSync(dest, f.bytes);
+          }
+          const thumbs = path.join(OUT_DIR, 'template-thumbs');
+          fs.mkdirSync(thumbs, { recursive: true });
+          for (const [suffix, size] of Object.entries(IMAGE_SIZES)) {
+            fs.writeFileSync(path.join(thumbs, `${t.meta.slug}${suffix}.webp`), await imageFor(t.screenshot, size));
+          }
+        }
+        fs.writeFileSync(path.join(OUT_DIR, 'templates.json'), JSON.stringify(index, null, 2));
+      },
+    },
+  };
+}
+
+/**
  * Ships the offline fallback page and writes the service worker (dist/sw.js).
  * Runs in closeBundle — AFTER every asset (and the verbatim favicons copied by
  * classicBundle) is on disk — so the precache list is built by scanning the real
@@ -789,7 +904,7 @@ ${lines.map((line, i) =>
 export default defineConfig({
   root: 'src',
   publicDir: false,
-  plugins: [classicBundle(), featuredFeedPlugin(), pwaPlugin(), seoPagesPlugin()],
+  plugins: [classicBundle(), featuredFeedPlugin(), templatesPlugin(), pwaPlugin(), seoPagesPlugin()],
   server: {
     port: 8080,
     open: true,
