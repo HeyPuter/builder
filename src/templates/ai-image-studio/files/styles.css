@@ -1,0 +1,49 @@
+/* Soft color wash behind the sign-in screen. */
+.glow { position: fixed; inset: 0; pointer-events: none; background:
+    radial-gradient(40rem 24rem at 50% 20%, rgba(249, 115, 22, 0.16), transparent 70%),
+    radial-gradient(36rem 22rem at 70% 70%, rgba(217, 70, 239, 0.12), transparent 70%); }
+
+/* Quiet scrollbars for the panels. */
+.scroll-thin { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.12) transparent; }
+
+/* Selectable tiles and segments are real radio inputs, visually hidden; the
+   label is what people see and click. */
+.choice input { position: absolute; opacity: 0; pointer-events: none; }
+.choice span { transition: background-color 0.15s, color 0.15s, box-shadow 0.15s; }
+.choice input:focus-visible + span { box-shadow: 0 0 0 2px #fb923c; }
+
+/* A generation in progress: a slow sheen over the placeholder. */
+.shimmer { position: relative; overflow: hidden; background: rgba(255, 255, 255, 0.03); }
+.shimmer::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+    animation: sheen 1.6s ease-in-out infinite; }
+@keyframes sheen { to { transform: translateX(100%); } }
+
+/* Images fade in once their bytes have arrived. */
+.card img { opacity: 0; transition: opacity 0.4s ease, transform 0.5s ease; }
+.card img.loaded { opacity: 1; }
+.card:hover img.loaded { transform: scale(1.02); }
+
+.viewer[open] { display: block; animation: fade-in 0.18s ease-out; }
+.viewer-nav { position: absolute; top: 50%; transform: translateY(-50%); display: flex; height: 2.5rem; width: 2.5rem;
+    align-items: center; justify-content: center; border-radius: 9999px; background: rgba(24, 24, 27, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.1); color: #e4e4e7; backdrop-filter: blur(8px); transition: background-color 0.15s; }
+.viewer-nav:hover { background: rgba(39, 39, 42, 0.9); }
+.viewer-nav:disabled { opacity: 0; pointer-events: none; }
+
+.btn-primary, .btn-ghost { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; border-radius: 0.75rem;
+    padding: 0.625rem 1rem; font-size: 0.875rem; font-weight: 500; transition: background-color 0.15s, color 0.15s; }
+.btn-primary { background: #fff; color: #09090b; }
+.btn-primary:hover { background: #e4e4e7; }
+.btn-ghost { background: rgba(255, 255, 255, 0.05); color: #e4e4e7; }
+.btn-ghost:hover { background: rgba(255, 255, 255, 0.1); }
+.btn-primary:focus-visible, .btn-ghost:focus-visible, .viewer-nav:focus-visible { outline: none; box-shadow: 0 0 0 2px #fb923c; }
+
+.toast { animation: toast-in 0.2s ease-out; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
+@keyframes fade-in { from { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+    .shimmer::after, .viewer[open], .toast { animation: none; }
+    .card img, .card:hover img.loaded { transition: none; transform: none; }
+}
