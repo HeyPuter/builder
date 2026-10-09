@@ -4951,7 +4951,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
 
 // A fast, cheap model is plenty for short follow-up ideas (and keeps this off
 // the critical path of the main, more capable build model).
-const SUGGESTION_MODEL = 'anthropic/claude-haiku-4-5';
+const SUGGESTION_MODEL = 'anthropic/claude-haiku-5-5';
 
 // Bumped whenever suggestions are cleared or a new generation starts, so an
 // older in-flight generation can detect it has been superseded and bow out.
