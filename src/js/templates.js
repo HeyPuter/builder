@@ -262,6 +262,7 @@
             files: renamedFiles,
             previewUrl,
             workers: deployed,
+            instructions: template.instructions,
         });
         const systemMessage = {
             role: 'system',

@@ -99,6 +99,11 @@ export function validateTemplate(t, core = loadTemplateCore()) {
     if (!Array.isArray(m.workers)) err('`workers` must be an array (empty for none)');
     if (!Array.isArray(m.suggestions) || !m.suggestions.length) err('needs at least one suggestion');
     if (!m.page || typeof m.page !== 'object') err('needs `page` copy for its static page');
+    if (m.instructions !== undefined) {
+        if (typeof m.instructions !== 'string' || !m.instructions.trim()) err('`instructions` must be non-empty text when given');
+        // Longer would be cut short by TemplateCore.sanitizeIndex.
+        else if (m.instructions.trim().length > 2000) err('`instructions` is longer than 2000 characters');
+    }
     // The card, the dialog and the static page all show it.
     if (!t.screenshot) err(`needs a screenshot at src/templates/${slug}/screenshot.png (${SHOT.width}x${SHOT.height})`);
 
@@ -168,6 +173,7 @@ export function indexEntry(t) {
         files: t.files.map((f) => f.path),
         workers: m.workers.slice(),
         suggestions: m.suggestions.map((s) => ({ label: s.label, prompt: s.prompt })),
+        ...(m.instructions ? { instructions: m.instructions } : {}),
     };
 }
 
