@@ -44,6 +44,7 @@ window.TemplateCore = (function () {
     const MAX_TEMPLATES = 60;
     const MAX_FILES = 200;
     const MAX_SUGGESTIONS = 5;
+    const MAX_INSTRUCTIONS = 2000;
 
     function str(v, max) {
         return (typeof v === 'string' ? v : '').trim().slice(0, max);
@@ -109,6 +110,9 @@ window.TemplateCore = (function () {
                 files,
                 workers: workers.slice(),
                 suggestions,
+                // Template-specific rules for the model, added to every fork's
+                // system prompt (buildTemplateNote). Plain text only.
+                instructions: str(raw.instructions, MAX_INSTRUCTIONS),
             });
             if (out.length >= MAX_TEMPLATES) break;
         }
@@ -190,6 +194,14 @@ window.TemplateCore = (function () {
             }
         }
         lines.push('Before changing anything, read the files involved and build on the existing code. Keep what already works unless the user asks to replace it, and keep following every rule above.');
+        // Rules this template needs kept for as long as the project lives,
+        // whatever the user changes. The note is part of the system message,
+        // so the model sees them on every turn.
+        const instructions = String(opts.instructions || '').trim();
+        if (instructions) {
+            lines.push(`Rules for this "${opts.name}" project. Keep following them through every change, even when the user rewrites the app, unless the user explicitly asks to drop one:`);
+            lines.push(instructions);
+        }
         return lines.join('\n');
     }
 

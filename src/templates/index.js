@@ -17,6 +17,9 @@
 //                {{WORKER_URL:<name>}}; a fork deploys its own and swaps in
 //                the URL (see js/template-core.js).
 //   suggestions  the "what next?" chips a fresh fork opens with
+//   instructions optional rules for the model, in plain text, added to every
+//                fork's system prompt so they hold through the user's later
+//                changes (TemplateCore.buildTemplateNote). Max 2000 chars.
 //   page         copy for the static page (see src/content/templates.js)
 //
 // Adding a template is: create the folder, import it here, and add it to the
@@ -28,6 +31,7 @@ import feedbackBoard from './feedback-board/template.js';
 import aiChat from './ai-chat/template.js';
 import aiImageStudio from './ai-image-studio/template.js';
 import designerPortfolio from './designer-portfolio/template.js';
+import xPlayerCard from './x-player-card/template.js';
 
 export const TEMPLATES = [
     feedbackBoard,
@@ -35,6 +39,7 @@ export const TEMPLATES = [
     aiImageStudio,
     landingPage,
     designerPortfolio,
+    xPlayerCard,
 ];
 
 export default TEMPLATES;

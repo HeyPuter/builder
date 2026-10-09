@@ -1,0 +1,119 @@
+:root {
+    --ink: #221c17;
+    --muted: #6f665d;
+    --line: #e6dfd5;
+    --soft: #f4efe7;
+    --bg: #fbf8f3;
+    --surface: #ffffff;
+    --accent: #ff5b36;
+    --accent-dark: #e2461f;
+    --accent-soft: #ffe8df;
+    --display: "Bricolage Grotesque", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+a { color: var(--accent-dark); }
+.ext { width: 1em; height: 1em; margin-left: 1px; vertical-align: -0.15em; }
+
+/* Inside a frame (X's card), scroll this box rather than the page */
+.in-frame, .in-frame body { height: 100%; overflow: hidden; }
+.in-frame .page { height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+
+/* Inside X's 480 by 480 card, keep the title, button and steps above the fold */
+.in-frame .wrap { padding: 16px 16px 32px; }
+.in-frame .badge { font-size: 11px; padding: 2px 7px; }
+.in-frame h1 { font-size: 24px; }
+.in-frame .title-row { margin: 6px 0; gap: 8px 12px; }
+.in-frame .btn { padding: 7px 13px; font-size: 14px; }
+.in-frame .lead { font-size: 14px; line-height: 1.4; }
+.in-frame .hero h2 { font-size: 16px; margin: 12px 0 8px; }
+.in-frame .steps { gap: 6px; }
+.in-frame .steps li { padding: 8px 12px 8px 46px; border-radius: 10px; }
+.in-frame .steps li::before { left: 12px; top: 9px; width: 24px; height: 24px; font-size: 13px; border-radius: 7px; }
+.in-frame .steps h3 { font-size: 14px; margin: 0; }
+.in-frame .steps p { font-size: 13px; line-height: 1.35; }
+.in-frame .notes { margin-top: 20px; }
+.in-frame .notice { font-size: 13px; line-height: 1.4; padding: 10px 12px; border-radius: 10px; }
+.in-frame footer { margin-top: 24px; font-size: 12px; }
+
+.wrap { max-width: 720px; margin: 0 auto; padding: 48px 16px 64px; }
+.hero h2 { margin-top: 32px; }
+.steps h3 a { color: inherit; }
+
+h1, h2, h3 { font-family: var(--display); }
+h1 { font-size: 40px; line-height: 1.05; margin: 0; letter-spacing: -0.03em; font-weight: 800; }
+h2 { font-size: 22px; margin: 48px 0 16px; letter-spacing: -0.01em; }
+h3 { font-size: 17px; margin: 0 0 4px; }
+
+.top { margin-bottom: 8px; }
+.badge {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: var(--accent-soft);
+    color: var(--accent-dark);
+    border-radius: 6px;
+    padding: 3px 8px;
+}
+.title-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; margin: 12px 0; }
+.lead { font-size: 18px; color: var(--muted); margin: 0; }
+.muted { color: var(--muted); }
+.small { font-size: 14px; }
+
+.btn {
+    display: inline-block;
+    background: var(--accent);
+    color: #fff;
+    text-decoration: none;
+    font-weight: 700;
+    border-radius: 10px;
+    padding: 10px 18px;
+    box-shadow: 0 2px 0 var(--accent-dark);
+}
+.btn:hover { background: var(--accent-dark); }
+
+.steps { list-style: none; padding: 0; margin: 0; counter-reset: step; display: grid; gap: 12px; }
+.steps li {
+    counter-increment: step;
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 16px 16px 16px 62px;
+}
+.steps li::before {
+    content: counter(step);
+    position: absolute;
+    left: 16px;
+    top: 16px;
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    background: var(--accent-soft);
+    color: var(--accent-dark);
+    font-family: var(--display);
+    font-weight: 800;
+    display: grid;
+    place-items: center;
+}
+.steps p { margin: 0; color: var(--muted); }
+
+.notes { margin-top: 40px; }
+.notice { margin: 0; padding: 12px 16px; background: var(--soft); border: 1px solid var(--line); border-radius: 12px; color: var(--muted); font-size: 15px; }
+
+footer { margin-top: 56px; }
+
+@media (max-width: 520px) {
+    .wrap { padding-top: 32px; }
+    h1 { font-size: 34px; }
+}

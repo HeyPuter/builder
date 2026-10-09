@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#ff5b36">
+<title>X (Twitter) Player Card</title>
+<meta name="description" content="Post a link on X that people can use right in their feed.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&display=swap" rel="stylesheet">
+
+<!--
+    X Player Card tags. When this page's link is posted on X, the card plays
+    this same page (twitter:player points at it). X reads the tags from the
+    raw HTML and does not run JavaScript, so they must stay written out here.
+    Every URL must be absolute and HTTPS: once your copy is published, replace
+    https://playable-card.puter.site with its address.
+-->
+<meta name="twitter:card" content="player">
+<meta name="twitter:site" content="@yourhandle">
+<meta name="twitter:title" content="Make your own playable X card">
+<meta name="twitter:description" content="This post is a Player Card. Click to make your own with Puter AI Builder.">
+<meta name="twitter:image" content="https://playable-card.puter.site/preview.png">
+<meta name="twitter:player" content="https://playable-card.puter.site/">
+<meta name="twitter:player:width" content="480">
+<meta name="twitter:player:height" content="480">
+
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<script>
+// Inside X's card the frame itself does not scroll, so the page scrolls an
+// inner box instead (see .in-frame in styles.css).
+if (window.self !== window.top) document.documentElement.classList.add('in-frame');
+</script>
+<div class="page">
+
+<main class="wrap">
+<div class="hero">
+    <div class="hero-copy">
+        <header class="top">
+            <span class="badge">Template</span>
+            <div class="title-row">
+                <h1>X (Twitter) Player Card</h1>
+                <a class="btn" href="https://builder.puter.com/templates/x-player-card/" target="_blank" rel="noopener">Make your own playable card</a>
+            </div>
+            <p class="lead">This page is a template for your own Player Card. Make it yours, publish it, and people can use it right in their X feed.</p>
+        </header>
+
+        <section aria-labelledby="steps-h">
+            <h2 id="steps-h">How it works</h2>
+            <ol class="steps">
+                <li>
+                    <h3><a href="https://builder.puter.com/templates/x-player-card/" target="_blank" rel="noopener">Open Puter AI Builder<svg class="ext" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 11L11 5M6 5h5v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></h3>
+                    <p>Use this template to start your own card.</p>
+                </li>
+                <li>
+                    <h3>Customize it</h3>
+                    <p>Tell the builder what to put in the card: an app, a video, anything interactive.</p>
+                </li>
+                <li>
+                    <h3>Publish</h3>
+                    <p>Make the website public, then post the link on X.</p>
+                </li>
+            </ol>
+        </section>
+    </div>
+</div>
+
+<section class="notes">
+    <p class="notice">X’s rules say Player Cards are meant for video and audio only. X can choose to show your card as a plain link at any time, so yours may stop working inside the post.</p>
+</section>
+
+<footer class="muted small">Made with <a href="https://builder.puter.com/" target="_blank" rel="noopener">Puter AI Builder</a>. Not affiliated with X.</footer>
+</main>
+</div>
+
+</body>
+</html>
