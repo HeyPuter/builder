@@ -138,6 +138,10 @@ check('titles are disambiguated against existing projects',
     const bare = core.buildTemplateNote({ name: 'Notes', appDir, files: ['index.html'], previewUrl: null, workers: [] });
     check('without a preview or backend the note says neither',
         !bare.includes('publish_site') && !bare.includes('serverless backend'));
+    check('without instructions the note adds no template rules', !bare.includes('Rules for this'));
+    const ruled = core.buildTemplateNote({ name: 'Notes', appDir, files: ['index.html'], workers: [], instructions: '- Keep the tags.' });
+    check('a template\'s instructions end the note, marked as rules that outlast the user\'s changes',
+        /Rules for this "Notes" project\. Keep following them through every change/.test(ruled) && ruled.endsWith('\n- Keep the tags.'));
 
     // "Make a copy" of a fork: duplicateChat rewrites the app dir, then
     // WorkerOwnership.rewriteHistory rewrites worker URLs and source paths.
