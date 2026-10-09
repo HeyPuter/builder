@@ -445,6 +445,22 @@ if (built) {
         check('fork: counted, and nothing alarming shown',
             env.log.tracked.some(([e, p]) => e === 'Template Used' && p.template === 'landing-page' && p.source === 'landing') &&
             env.log.alerts.length === 0);
+        check('fork: a template without instructions adds no template rules', !blocks[2].text.includes('Rules for this'));
+    }
+
+    // --- A template with instructions -----------------------------------------
+    // template.js -> the built index -> sanitizeIndex -> forkTemplate -> the
+    // fork's system prompt, end to end.
+    {
+        const withRules = TEMPLATES.find((m) => m.instructions);
+        check('fork: at least one registered template ships instructions', !!withRules);
+        if (withRules) {
+            const env = makeEnv();
+            await env.ctx.forkTemplate(withRules.slug);
+            const note = env.chatFile().history[0].content[2].text;
+            check('fork: a template\'s instructions reach the fork\'s system prompt, as its rules',
+                note.includes(`Rules for this "${withRules.name}" project.`) && note.endsWith('\n' + withRules.instructions.trim()));
+        }
     }
 
     // --- A template with a backend --------------------------------------------

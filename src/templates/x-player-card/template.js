@@ -10,7 +10,7 @@ export default {
     workers: [],
 
     suggestions: [
-        { label: 'Set my published address', prompt: 'Replace https://your-site.puter.site in every card tag in index.html with my published address, which is: ' },
+        { label: 'Set my published address', prompt: 'Point the card tags in index.html at my published address: update twitter:player to it and twitter:image to its /preview.png. My address is: ' },
         { label: 'Put my app in the card', prompt: 'Replace this page with my own app, keeping the card tags in the head. It plays inside a 480 by 480 box on X. Here is what it does: ' },
         { label: 'Show a video instead', prompt: 'Replace this page with a video player that fills the 480 by 480 card box, keeping the card tags in the head. I will upload the video file.' },
         { label: 'Change the card text', prompt: 'Change the card title, description and the @yourhandle tag to match my project and my X account.' },
@@ -53,7 +53,7 @@ export default {
             {
                 q: 'Why do I have to add my published address after publishing?',
                 a: [
-                    'X needs full https:// addresses in the card tags, and your site does not have one until you publish it. Publish once, then ask the builder to replace https://your-site.puter.site with your address. The published page shows whether the tags match.',
+                    'X needs full https:// addresses in the card tags, and your copy does not have its own until you publish it. Publish once, then give the builder your address and it points the card tags at it.',
                 ],
             },
             {
