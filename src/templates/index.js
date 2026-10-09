@@ -27,12 +27,14 @@ import landingPage from './landing-page/template.js';
 import feedbackBoard from './feedback-board/template.js';
 import aiChat from './ai-chat/template.js';
 import aiImageStudio from './ai-image-studio/template.js';
+import designerPortfolio from './designer-portfolio/template.js';
 
 export const TEMPLATES = [
     feedbackBoard,
     aiChat,
     aiImageStudio,
     landingPage,
+    designerPortfolio,
 ];
 
 export default TEMPLATES;

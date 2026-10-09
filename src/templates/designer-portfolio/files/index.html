@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#d42a1f">
+<title>Ines Varga: Graphic designer and 3D artist</title>
+<meta name="description" content="Portfolio of Ines Varga, a graphic designer and 3D artist in Lisbon. Identity, print and 3D work for labels, craft brands, publishers and events.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gloock&family=Archivo:wdth,wght@62..125,300..900&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="hero" id="top">
+    <span class="crop tl" aria-hidden="true"></span>
+    <span class="crop tr" aria-hidden="true"></span>
+    <span class="reg top" aria-hidden="true"></span>
+    <div class="hero-inner">
+        <div class="hero-nav">
+            <span>Portfolio · 2026 update</span>
+            <nav aria-label="Sections">
+                <a href="#work">Work</a>
+                <a href="#services">Services</a>
+                <a href="#about">About</a>
+                <a href="#contact">Contact</a>
+            </nav>
+        </div>
+
+        <div class="hero-main">
+            <div class="hero-copy">
+                <p class="eyebrow">Graphic designer &amp; 3D artist · Lisbon</p>
+                <h1><span class="first">Ines</span><span class="last">Varga</span></h1>
+                <p class="hero-lede">I design identities, posters, packaging and book covers, and make the 3D renders that show them off.</p>
+                <div class="hero-actions">
+                    <a class="btn" href="#work">See selected work</a>
+                    <span class="avail"><i></i>Booking from January 2027</span>
+                </div>
+            </div>
+
+            <div class="proofs" id="hero-proofs">
+                <a class="stamp" href="#work" aria-label="Jump to selected work">
+                    <svg viewBox="0 0 120 120" aria-hidden="true">
+                        <defs><path id="stamp-ring" d="M60 60 m-46 0 a46 46 0 1 1 92 0 a46 46 0 1 1 -92 0"/></defs>
+                        <text><textPath href="#stamp-ring">Selected work · 2021 – 2026 · </textPath></text>
+                    </svg>
+                    <b>↓</b>
+                </a>
+            </div>
+        </div>
+
+        <div class="colorbar" aria-hidden="true">
+            <div class="swatches">
+                <span style="--c:#00a0e3"></span><span style="--c:#e5007d"></span><span style="--c:#ffe600"></span><span style="--c:#1d1a17"></span>
+                <span style="--c:var(--tomato)"></span><span style="--c:color-mix(in srgb, var(--tomato) 70%, #fff)"></span><span style="--c:color-mix(in srgb, var(--tomato) 40%, #fff)"></span><span style="--c:color-mix(in srgb, var(--tomato) 15%, #fff)"></span>
+                <span style="--c:var(--tangerine)"></span><span style="--c:var(--meadow)"></span><span style="--c:var(--sand)"></span>
+            </div>
+            <span class="slug">Ines Varga · Portfolio 2026 · Sheet 01 of 01</span>
+        </div>
+    </div>
+</header>
+
+<main>
+    <section class="poster" id="work" aria-labelledby="work-title">
+        <div class="poster-head">
+            <div class="roll-wrap">
+                <div class="roll">
+                    <ol id="project-index"></ol>
+                </div>
+                <div class="platen"></div>
+                <div class="carriage"><span>@ines.varga</span></div>
+            </div>
+
+            <div>
+                <div class="meta-row"><span>Lisbon, PT</span><span>Issue no. <b id="issue-count">06</b></span></div>
+                <h2 class="big" id="work-title"><span class="a">Selected</span><span class="a">work</span><span class="b">2021</span><span class="b">—2026</span></h2>
+                <p class="poster-intro">Six projects across identity, print and 3D. Each one lists the format and production method, because that is where most of the decisions were made.</p>
+            </div>
+        </div>
+
+        <div class="work" id="project-grid"></div>
+    </section>
+
+    <section class="section" id="services" aria-labelledby="caps-title">
+        <div class="wrap">
+            <div class="section-head">
+                <h2 id="caps-title">What I do</h2>
+                <p>I take projects from first sketch to the file the printer receives. Most clients hire me for one of these and stay for both.</p>
+            </div>
+            <div class="caps" id="caps"></div>
+        </div>
+    </section>
+
+    <section class="section about" id="about" aria-labelledby="about-title">
+        <div class="wrap about-grid">
+            <div class="portrait" role="img" aria-label="Portrait placeholder"><span>Ines, 2026</span></div>
+            <div class="about-copy">
+                <h2 id="about-title" class="label">About</h2>
+                <p class="lede">I'm a graphic designer and 3D artist in Lisbon. I like work that ends up printed, held, or stuck to a wall.</p>
+                <p>I studied communication design in Lisbon and spent four years in studios before going independent in 2023. Today I work with small labels, food and craft brands, publishers and cultural events.</p>
+                <p>I'm booking projects from January 2027. Tell me what you're making and when you need it.</p>
+                <ol class="timeline" id="timeline"></ol>
+            </div>
+        </div>
+    </section>
+
+    <section class="section contact" id="contact" aria-labelledby="contact-title">
+        <div class="wrap">
+            <h2 id="contact-title">say hello</h2>
+            <div class="contact-row">
+                <div>
+                    <p class="label">Email</p>
+                    <p id="email">hello@inesvarga.studio</p>
+                    <button class="copy" id="copy-email" type="button">Copy email</button>
+                </div>
+                <div>
+                    <p class="label">Phone</p>
+                    <p>+351 912 345 678</p>
+                </div>
+                <div>
+                    <p class="label">Elsewhere</p>
+                    <p><a href="https://www.behance.net/" target="_blank" rel="noopener">Behance</a> · <a href="https://www.instagram.com/" target="_blank" rel="noopener">Instagram</a> · <a href="https://www.are.na/" target="_blank" rel="noopener">Are.na</a></p>
+                </div>
+            </div>
+            <div class="colophon">
+                <span>Set in Gloock, Archivo and Courier Prime.</span>
+                <span>&copy; <span id="year"></span> Ines Varga</span>
+            </div>
+        </div>
+    </section>
+</main>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
