@@ -32,6 +32,7 @@ import aiChat from './ai-chat/template.js';
 import aiImageStudio from './ai-image-studio/template.js';
 import designerPortfolio from './designer-portfolio/template.js';
 import xPlayerCard from './x-player-card/template.js';
+import lawnService from './lawn-service/template.js';
 
 export const TEMPLATES = [
     feedbackBoard,
@@ -40,6 +41,7 @@ export const TEMPLATES = [
     landingPage,
     designerPortfolio,
     xPlayerCard,
+    lawnService,
 ];
 
 export default TEMPLATES;
