@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#12301f">
+<title>Hollis &amp; Sons Lawn Care: Weekly mowing in Alder Creek</title>
+<meta name="description" content="Weekly lawn mowing, edging, hedge trimming and bed care in Alder Creek and 11 nearby towns. Same crew every visit, from $40, no contract. Check your price online.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Instrument+Serif:ital@1&family=DM+Sans:opsz,wght@9..40,400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="topbar">
+    <div class="wrap topbar-inner">
+        <span class="tb-item"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg><span data-bind="areaLine">Alder Creek and 11 nearby towns</span></span>
+        <span class="tb-item tb-hours"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span data-bind="hours">Mon to Sat, 7am to 6pm</span></span>
+        <a class="tb-item tb-phone" data-bind-href="tel" href="tel:+15550142280"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg><span data-bind="phone">(555) 014-2280</span></a>
+    </div>
+</div>
+
+<header class="hero" id="top">
+    <div class="hero-stripes" aria-hidden="true"></div>
+    <div class="wrap">
+        <nav class="nav" aria-label="Main">
+            <a class="brand" href="#top" aria-label="Hollis &amp; Sons Lawn Care, home">
+                <img src="icon.svg" alt="" width="40" height="40">
+                <span><b data-bind="shortName">Hollis &amp; Sons</b><small>Lawn Care · Est. <span data-bind="since">2011</span></small></span>
+            </a>
+            <div class="nav-links" id="nav-links">
+                <a href="#services">Services</a>
+                <a href="#work">Our work</a>
+                <a href="#area">Service area</a>
+                <a href="#prices">Prices</a>
+                <a href="#contact">Contact</a>
+            </div>
+            <div class="nav-cta">
+                <a class="nav-phone" data-bind-href="tel" href="tel:+15550142280"><span data-bind="phone">(555) 014-2280</span></a>
+                <a class="btn btn-lime btn-sm" href="#quote">Get a price</a>
+                <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links" aria-label="Open menu"><span></span><span></span></button>
+            </div>
+        </nav>
+
+        <div class="hero-grid">
+            <div class="hero-copy">
+                <p class="avail-chip"><i></i><span id="hero-avail">Taking new lawns this week</span></p>
+                <h1>Sharp lawns,<br><em>every week.</em></h1>
+                <p class="hero-lede">Mowing, edging, hedges and beds for homes in <span data-bind="baseTown">Alder Creek</span> and nearby towns. The same crew comes on the same day each week, from <b>$40 a visit</b>, with no contract.</p>
+                <div class="hero-actions">
+                    <a class="btn btn-lime" href="#quote">Check my price <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+                    <a class="btn btn-ghost" data-bind-href="tel" href="tel:+15550142280"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg><span>Call <span data-bind="phone">(555) 014-2280</span></span></a>
+                </div>
+                <ul class="hero-proof">
+                    <li><b>4.9</b><span class="stars" aria-hidden="true">★★★★★</span><span><span data-bind="reviewCount">318</span> Google reviews</span></li>
+                    <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>Licensed &amp; insured</li>
+                    <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg><span data-bind="lawnsCount">640</span> lawns on our routes</li>
+                </ul>
+            </div>
+
+            <div class="hero-media">
+                <figure class="hero-photo">
+                    <img src="photos/crew-mowing.jpg" alt="Crew member in a green shirt mowing a striped front lawn beside a curved driveway" width="1024" height="681" fetchpriority="high">
+                </figure>
+                <div class="float-card fc-next">
+                    <span class="fc-label">Next free start</span>
+                    <b id="hero-next">Tue 14 Oct</b>
+                    <span class="fc-sub">We text the evening before</span>
+                </div>
+                <div class="float-card fc-rating">
+                    <div class="avatars" aria-hidden="true"><span>MR</span><span>JT</span><span>AK</span><span>+</span></div>
+                    <div><b>4.9 <span class="stars" aria-hidden="true">★★★★★</span></b><span class="fc-sub">from neighbors on your street</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<section class="quote-wrap" id="quote" aria-labelledby="quote-title">
+    <div class="wrap">
+        <form class="quote" id="quote-form" novalidate>
+            <div class="quote-head">
+                <h2 id="quote-title">Price my lawn</h2>
+                <p>Three answers, no email needed.</p>
+            </div>
+            <div class="q-field q-zip">
+                <label for="q-zip">Your ZIP code</label>
+                <input id="q-zip" name="zip" inputmode="numeric" autocomplete="postal-code" maxlength="5" placeholder="e.g. 40112" required>
+            </div>
+            <fieldset class="q-field">
+                <legend>Lawn size</legend>
+                <div class="seg" id="q-size"></div>
+            </fieldset>
+            <fieldset class="q-field">
+                <legend>How often</legend>
+                <div class="seg" id="q-plan"></div>
+            </fieldset>
+            <button class="btn btn-dark q-go" type="submit">See my price</button>
+            <div class="quote-result" id="quote-result" role="status" aria-live="polite" hidden></div>
+        </form>
+    </div>
+</section>
+
+<section class="perks" aria-label="Why customers stay">
+    <div class="wrap perks-grid" id="perks"></div>
+</section>
+
+<section class="section" id="services" aria-labelledby="services-title">
+    <div class="wrap">
+        <div class="sec-head">
+            <p class="tag">What we do</p>
+            <h2 id="services-title">Everything outside, <em>looked after</em></h2>
+            <p class="sec-lede">Start with weekly mowing and add the rest when you need it. Every price below is per visit and includes clearing clippings off paths and drives.</p>
+        </div>
+        <div class="services" id="services-grid"></div>
+    </div>
+</section>
+
+<section class="section section-dark" id="work" aria-labelledby="work-title">
+    <div class="wrap">
+        <div class="sec-head sec-head-row">
+            <div>
+                <p class="tag tag-lime">Recent jobs</p>
+                <h2 id="work-title">Real yards on <em>our routes</em></h2>
+            </div>
+            <div class="chips" id="work-filter" role="group" aria-label="Filter jobs by service"></div>
+        </div>
+        <div class="jobs" id="jobs"></div>
+        <p class="jobs-note">Photos from our own jobs. Ask and we will show you lawns we look after on your street.</p>
+    </div>
+</section>
+
+<section class="section" id="how" aria-labelledby="how-title">
+    <div class="wrap how">
+        <div class="sec-head">
+            <p class="tag">How it works</p>
+            <h2 id="how-title">From first call to <em>first stripe</em></h2>
+        </div>
+        <ol class="steps" id="steps"></ol>
+    </div>
+</section>
+
+<section class="section section-tint" id="area" aria-labelledby="area-title">
+    <div class="wrap area">
+        <div class="area-copy">
+            <p class="tag">Service area</p>
+            <h2 id="area-title">One crew per town, <em>one day a week</em></h2>
+            <p class="sec-lede">Each town has a fixed crew day, so your lawn is cut on the same weekday all season. Find your town to see your day.</p>
+            <form class="zip-check" id="zip-check" novalidate>
+                <label for="zc-zip" class="sr-only">ZIP code</label>
+                <input id="zc-zip" inputmode="numeric" maxlength="5" placeholder="Enter your ZIP code" autocomplete="postal-code">
+                <button class="btn btn-dark btn-sm" type="submit">Check</button>
+            </form>
+            <p class="zip-out" id="zip-out" role="status" aria-live="polite"></p>
+            <ul class="towns" id="towns"></ul>
+        </div>
+        <div class="map-card">
+            <svg class="map" id="map" viewBox="0 0 520 440" role="img" aria-labelledby="map-title"><title id="map-title">Map of the towns we cover, colored by crew day</title></svg>
+            <div class="legend" id="legend"></div>
+        </div>
+    </div>
+</section>
+
+<section class="section" id="prices" aria-labelledby="prices-title">
+    <div class="wrap">
+        <div class="sec-head sec-head-row">
+            <div>
+                <p class="tag">Prices</p>
+                <h2 id="prices-title">Mowing prices, <em>per visit</em></h2>
+            </div>
+            <div class="seg seg-light" id="price-size" role="group" aria-label="Lawn size"></div>
+        </div>
+        <div class="plans" id="plans"></div>
+        <p class="plans-note">Every visit includes mowing, edging along paths and beds, string trimming and blowing clippings off hard surfaces. Pay after each visit by card or bank transfer.</p>
+    </div>
+</section>
+
+<section class="section section-tint" id="reviews" aria-labelledby="reviews-title">
+    <div class="wrap">
+        <div class="sec-head sec-head-row">
+            <div>
+                <p class="tag">Reviews</p>
+                <h2 id="reviews-title">What the <em>neighbors</em> say</h2>
+            </div>
+            <div class="score"><b>4.9</b><span><span class="stars" aria-hidden="true">★★★★★</span><span><span data-bind="reviewCount">318</span> reviews on Google</span></span></div>
+        </div>
+        <div class="reviews" id="review-list"></div>
+    </div>
+</section>
+
+<section class="section" id="faq" aria-labelledby="faq-title">
+    <div class="wrap faq-wrap">
+        <div class="sec-head">
+            <p class="tag">Questions</p>
+            <h2 id="faq-title">Before you <em>book</em></h2>
+            <p class="sec-lede">Something else on your mind? Call or text <a data-bind-href="tel" href="tel:+15550142280"><span data-bind="phone">(555) 014-2280</span></a> and you get a person, not a menu.</p>
+        </div>
+        <div class="faq" id="faq-list"></div>
+    </div>
+</section>
+
+<section class="section contact-sec" id="contact" aria-labelledby="contact-title">
+    <div class="wrap contact">
+        <div class="contact-card">
+            <div class="hero-stripes" aria-hidden="true"></div>
+            <p class="tag tag-lime">Contact</p>
+            <h2 id="contact-title">Talk to <em>the crew</em></h2>
+            <p>We reply to messages within two working hours. Calls are answered from the truck, so leave a message if we miss you.</p>
+            <ul class="contact-lines">
+                <li><span>Call</span><a data-bind-href="tel" href="tel:+15550142280"><b data-bind="phone">(555) 014-2280</b></a></li>
+                <li><span>Text</span><a data-bind-href="sms" href="sms:+15550142280"><b data-bind="phone">(555) 014-2280</b></a></li>
+                <li><span>Email</span><a data-bind-href="mailto" href="mailto:office@example.com"><b data-bind="email">office@example.com</b></a></li>
+                <li><span>Hours</span><b data-bind="hours">Mon to Sat, 7am to 6pm</b></li>
+                <li><span>Yard</span><b data-bind="address">18 Mill Lane, Alder Creek</b></li>
+            </ul>
+        </div>
+
+        <form class="enquiry" id="enquiry" novalidate>
+            <h3>Send an enquiry</h3>
+            <div class="f-row">
+                <div class="f"><label for="e-name">Name</label><input id="e-name" name="name" autocomplete="name" required></div>
+                <div class="f"><label for="e-phone">Phone</label><input id="e-phone" name="phone" type="tel" autocomplete="tel" required></div>
+            </div>
+            <div class="f"><label for="e-address">Street address</label><input id="e-address" name="address" autocomplete="street-address" placeholder="So we can look at the yard before we call"></div>
+            <div class="f-row">
+                <div class="f"><label for="e-service">What do you need?</label><select id="e-service" name="service"></select></div>
+                <div class="f"><label for="e-zip">ZIP code</label><input id="e-zip" name="zip" inputmode="numeric" maxlength="5" autocomplete="postal-code"></div>
+            </div>
+            <p class="route" id="e-route"></p>
+            <fieldset class="f">
+                <legend>Best way to reach you</legend>
+                <div class="seg seg-light" id="e-reach"></div>
+            </fieldset>
+            <div class="f"><label for="e-msg">Anything we should know?</label><textarea id="e-msg" name="message" rows="3" placeholder="Gate code, dog in the yard, the day you would like us to start"></textarea></div>
+            <button class="btn btn-dark" type="submit">Send enquiry</button>
+            <p class="form-note" id="e-note" role="status" aria-live="polite">Opens your email app with the message filled in.</p>
+        </form>
+    </div>
+</section>
+
+<footer class="footer">
+    <div class="wrap footer-grid">
+        <div>
+            <a class="brand brand-dark" href="#top"><img src="icon.svg" alt="" width="36" height="36"><span><b data-bind="shortName">Hollis &amp; Sons</b><small>Lawn Care</small></span></a>
+            <p class="foot-line"><span data-bind="name">Hollis &amp; Sons Lawn Care</span>, <span data-bind="address">18 Mill Lane, Alder Creek</span>. <span data-bind="license">Licensed and insured, license LC-20418.</span></p>
+        </div>
+        <div>
+            <h4>Services</h4>
+            <ul id="foot-services"></ul>
+        </div>
+        <div>
+            <h4>Towns</h4>
+            <p class="foot-towns" id="foot-towns"></p>
+        </div>
+        <div>
+            <h4>Contact</h4>
+            <ul>
+                <li><a data-bind-href="tel" href="tel:+15550142280"><span data-bind="phone">(555) 014-2280</span></a></li>
+                <li><a data-bind-href="mailto" href="mailto:office@example.com"><span data-bind="email">office@example.com</span></a></li>
+                <li data-bind="hours">Mon to Sat, 7am to 6pm</li>
+            </ul>
+        </div>
+    </div>
+    <div class="wrap foot-base">
+        <span>© <span id="year">2026</span> <span data-bind="name">Hollis &amp; Sons Lawn Care</span></span>
+        <a href="#top">Back to top ↑</a>
+    </div>
+</footer>
+
+<nav class="mobile-bar" aria-label="Quick contact">
+    <a data-bind-href="tel" href="tel:+15550142280"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>Call</a>
+    <a data-bind-href="sms" href="sms:+15550142280"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>Text</a>
+    <a class="mb-main" href="#quote">Get a price</a>
+</nav>
+
+<script src="app.js"></script>
+</body>
+</html>
