@@ -528,3 +528,10 @@ input.invalid, textarea.invalid { border-color: #d8643a; background: #fff6f1; }
     html { scroll-behavior: auto; }
     *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* Shown while SAMPLE_CONTENT is true in app.js. */
+.sample-note {
+    display: inline-block; margin-top: 16px; padding: 6px 12px; border-radius: 10px;
+    border: 1px dashed #d9a63a; background: #fff8e6; color: #7a5310; font-size: 13.5px; font-weight: 500;
+}
+.sample-note[hidden] { display: none; }

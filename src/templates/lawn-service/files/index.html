@@ -33,7 +33,7 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
     <div class="hero-stripes" aria-hidden="true"></div>
     <div class="wrap">
         <nav class="nav" aria-label="Main">
-            <a class="brand" href="#top" aria-label="Hollis &amp; Sons Lawn Care, home">
+            <a class="brand" href="#top">
                 <img src="icon.svg" alt="" width="40" height="40">
                 <span><b data-bind="shortName">Hollis &amp; Sons</b><small>Lawn Care · Est. <span data-bind="since">2011</span></small></span>
             </a>
@@ -55,7 +55,7 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
             <div class="hero-copy">
                 <p class="avail-chip"><i></i><span id="hero-avail">Taking new lawns this week</span></p>
                 <h1>Sharp lawns,<br><em>every week.</em></h1>
-                <p class="hero-lede">Mowing, edging, hedges and beds for homes in <span data-bind="baseTown">Alder Creek</span> and nearby towns. The same crew comes on the same day each week, from <b>$40 a visit</b>, with no contract.</p>
+                <p class="hero-lede">Mowing, edging, hedges and beds for homes in <span data-bind="baseTown">Alder Creek</span> and nearby towns. The same crew comes on the same day each week, from <b data-bind="fromPrice">$40 a visit</b>, with no contract.</p>
                 <div class="hero-actions">
                     <a class="btn btn-lime" href="#quote">Check my price <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
                     <a class="btn btn-ghost" data-bind-href="tel" href="tel:+15550142280"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg><span>Call <span data-bind="phone">(555) 014-2280</span></span></a>
@@ -135,7 +135,7 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
             <div class="chips" id="work-filter" role="group" aria-label="Filter jobs by service"></div>
         </div>
         <div class="jobs" id="jobs"></div>
-        <p class="jobs-note">Photos from our own jobs. Ask and we will show you lawns we look after on your street.</p>
+        <p class="jobs-note" id="jobs-note">Photos from our own jobs. Ask and we will show you lawns we look after on your street.</p>
     </div>
 </section>
 
@@ -190,6 +190,7 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
             <div>
                 <p class="tag">Reviews</p>
                 <h2 id="reviews-title">What the <em>neighbors</em> say</h2>
+                <p class="sample-note" data-sample hidden>Sample reviews and rating. Replace them with your own before publishing.</p>
             </div>
             <div class="score"><b>4.9</b><span><span class="stars" aria-hidden="true">★★★★★</span><span><span data-bind="reviewCount">318</span> reviews on Google</span></span></div>
         </div>

@@ -22,11 +22,11 @@ export default {
     // Kept in every fork's system prompt (see src/templates/index.js).
     instructions: [
         'This project is a website for a local lawn care business. Content lives as data at the top of app.js; keep it there when making changes:',
-        '- BUSINESS holds the name, phone, email, hours, address and license, and fills every place they appear. Change contact details there, not in the HTML.',
+        '- BUSINESS holds the name, phone, email, hours, address and license, and fills every place they appear. Change contact details there, not in the HTML. When the business, towns or prices change, also update the <title> and meta description in index.html, which are static.',
         '- TOWNS is the service area. The ZIP checks, the map, the town list and the crew days all read it. PLANS and SIZES are the price list the price checker uses.',
-        '- Each service names a TEAM member, and the enquiry form sends to that person. Keep this routing when adding services or people.',
-        '- The reviews, the 4.9 rating, the review count and the job photos are placeholders. When the user gives their own, replace them. Never invent reviews, ratings or job details for the user\'s real business; ask for real ones, or remove the section if they have none.',
-        '- The photos in photos/ are stock images standing in for the business\'s own work. Suggest replacing them with real job photos.',
+        '- Each service names a TEAM member, and the enquiry form sends to that person, or to BUSINESS.email when they have no email. Keep this routing when adding services or people.',
+        '- The reviews, the 4.9 rating, the review count, the job photos and the license number are placeholders, and SAMPLE_CONTENT = true labels them as samples on the page. Never invent reviews, ratings, licenses or job details for the user\'s real business; ask for real ones, or remove what they do not have. Set SAMPLE_CONTENT to false only once the reviews, rating and job photos are the user\'s own.',
+        '- The photos in photos/ are stock images. Suggest replacing them with real job photos.',
         '- Keep the call, text and price buttons easy to reach on a phone, including the bar fixed to the bottom of small screens.',
     ].join('\n'),
 

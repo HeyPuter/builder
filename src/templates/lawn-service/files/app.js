@@ -5,14 +5,19 @@
 // TOWNS is the service area: the ZIP checks, the map and the crew days all
 // read it. PLANS × SIZES is the price list the quote bar uses.
 // Enquiries are routed by service: each service names a TEAM member, and the
-// form opens an email to that person.
+// form opens an email to that person (or to BUSINESS.email when the member
+// has no email of their own).
+//
+// SAMPLE_CONTENT marks the reviews, rating and job photos as samples on the
+// page. Set it to false once they are the business's own.
+
+const SAMPLE_CONTENT = true;
 
 const BUSINESS = {
     name: 'Hollis & Sons Lawn Care',
     shortName: 'Hollis & Sons',
     since: 2011,
     phone: '(555) 014-2280',
-    phoneE164: '+15550142280',
     email: 'office@example.com',
     hours: 'Mon to Sat, 7am to 6pm',
     address: '18 Mill Lane, Alder Creek',
@@ -25,9 +30,9 @@ const BUSINESS = {
 };
 
 const TEAM = {
-    sam: { name: 'Sam Hollis', role: 'owner, quotes and mowing', email: 'office@example.com' },
-    maria: { name: 'Maria Ortiz', role: 'beds and planting lead', email: 'office@example.com' },
-    dev: { name: 'Dev Hollis', role: 'seasonal work and cleanups', email: 'office@example.com' },
+    sam: { name: 'Sam Hollis', role: 'owner, quotes and mowing' },
+    maria: { name: 'Maria Ortiz', role: 'beds and planting lead' },
+    dev: { name: 'Dev Hollis', role: 'seasonal work and cleanups' },
 };
 
 // x and y place each town on the map (a 520 × 440 drawing).
@@ -46,8 +51,8 @@ const TOWNS = [
     { name: 'Maple Flats', zips: ['40130'], day: 'Fri', x: 352, y: 74 },
 ];
 
-const DAY_COLORS = { Mon: '#2b7a4b', Tue: '#8cc63f', Wed: '#e3a92b', Thu: '#d8643a', Fri: '#4a8cc4' };
-const DAY_NAMES = { Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thursday', Fri: 'Friday' };
+const DAY_COLORS = { Mon: '#2b7a4b', Tue: '#8cc63f', Wed: '#e3a92b', Thu: '#d8643a', Fri: '#4a8cc4', Sat: '#8a5cc2' };
+const DAY_NAMES = { Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thursday', Fri: 'Friday', Sat: 'Saturday' };
 
 const SIZES = [
     { id: 's', label: 'Small', note: 'under 4,000 sq ft' },
@@ -194,9 +199,18 @@ const planById = (id) => PLANS.find((p) => p.id === id);
 
 // ---- Business details --------------------------------------------------------
 
+// The number for tel: and sms: links, from the displayed one. Ten digits
+// without a country code are read as a US number.
+function phoneLink(phone) {
+    const digits = String(phone).replace(/\D/g, '');
+    if (String(phone).trim().startsWith('+')) return `+${digits}`;
+    return digits.length === 10 ? `+1${digits}` : digits;
+}
+
 function bindBusiness() {
     const values = {
         ...BUSINESS,
+        fromPrice: `$${Math.min(...PLANS.flatMap((p) => Object.values(p.prices)))} a visit`,
         areaLine: `${BUSINESS.baseTown} and ${TOWNS.length - 1} nearby towns`,
         reviewCount: BUSINESS.reviewCount.toLocaleString('en-US'),
         lawnsCount: BUSINESS.lawnsCount.toLocaleString('en-US'),
@@ -205,7 +219,8 @@ function bindBusiness() {
         const v = values[el.dataset.bind];
         if (v !== undefined) el.textContent = v;
     });
-    const hrefs = { tel: `tel:${BUSINESS.phoneE164}`, sms: `sms:${BUSINESS.phoneE164}`, mailto: `mailto:${BUSINESS.email}` };
+    const dial = phoneLink(BUSINESS.phone);
+    const hrefs = { tel: `tel:${dial}`, sms: `sms:${dial}`, mailto: `mailto:${BUSINESS.email}` };
     document.querySelectorAll('[data-bind-href]').forEach((el) => { el.href = hrefs[el.dataset.bindHref]; });
     $('#year').textContent = new Date().getFullYear();
 }
@@ -254,6 +269,7 @@ function showQuote(focus) {
     const out = $('#quote-result');
     if (!/^\d{5}$/.test(zip)) {
         zipInput.classList.add('invalid');
+        out.hidden = true;
         zipInput.focus();
         return;
     }
@@ -503,7 +519,8 @@ let reach = 'Call';
 
 function routeFor(serviceId) {
     const s = SERVICES.find((x) => x.id === serviceId);
-    return TEAM[s ? s.team : 'sam'];
+    const person = TEAM[s ? s.team : 'sam'] || Object.values(TEAM)[0];
+    return { ...person, email: person.email || BUSINESS.email };
 }
 
 function showRoute() {
@@ -572,16 +589,26 @@ function initNav() {
     const toggle = $('.nav-toggle');
     const links = $('#nav-links');
     toggle.addEventListener('click', () => {
-        const open = toggle.getAttribute('aria-expanded') !== 'true';
-        toggle.setAttribute('aria-expanded', String(open));
-        links.classList.toggle('open', open);
+        setOpen(toggle.getAttribute('aria-expanded') !== 'true');
     });
     links.addEventListener('click', (e) => {
-        if (e.target.closest('a')) { toggle.setAttribute('aria-expanded', 'false'); links.classList.remove('open'); }
+        if (e.target.closest('a')) setOpen(false);
     });
+    function setOpen(open) {
+        toggle.setAttribute('aria-expanded', String(open));
+        toggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+        links.classList.toggle('open', open);
+    }
+}
+
+function markSamples() {
+    if (!SAMPLE_CONTENT) return;
+    document.querySelectorAll('[data-sample]').forEach((el) => { el.hidden = false; });
+    $('#jobs-note').textContent = 'Sample photos. Replace them with photos of your own jobs before publishing.';
 }
 
 bindBusiness();
+markSamples();
 renderAvailability();
 initNav();
 initQuote();
