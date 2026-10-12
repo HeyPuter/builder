@@ -252,17 +252,21 @@
                     h += '</button>';
                 });
 
-                // "Something else" custom row (or its inline input) + Skip.
+                // "Something else" custom row (or its inline input) + one action
+                // button: Skip while the input is empty, Submit once it has text.
+                // A separate Submit sat right beside Skip and got misclicked.
                 h += '<div class="clarify-custom-row">';
+                let hasText = false;
                 if (customOpen) {
-                    const prefill = answers[qIndex] && answers[qIndex].type === 'custom' ? htmlEscape(answers[qIndex].value) : '';
+                    const a = answers[qIndex];
+                    const prefill = a && a.type === 'custom' ? a.value : '';
+                    hasText = !!prefill.trim();
                     h += `<span class="clarify-custom-icon">${pencil}</span>`;
-                    h += `<input class="clarify-custom-input" type="text" placeholder="Type your answer…" aria-label="Your answer" value="${prefill}">`;
-                    h += `<button class="clarify-custom-ok" title="Use this answer">${enterKey}</button>`;
+                    h += `<input class="clarify-custom-input" type="text" placeholder="Type your answer…" aria-label="Your answer" value="${htmlEscape(prefill)}">`;
                 } else {
                     h += `<button class="clarify-custom"><span class="clarify-custom-icon">${pencil}</span><span>Something else</span></button>`;
                 }
-                h += `<button class="clarify-skip">Skip</button>`;
+                h += `<button class="clarify-skip${hasText ? ' submit' : ''}">${hasText ? 'Submit' : 'Skip'}</button>`;
                 h += '</div>';
 
                 h += '</div>'; // .clarify-options
@@ -300,9 +304,18 @@
             $card.on('click', '.clarify-prev', () => goTo(qIndex - 1));
             $card.on('click', '.clarify-next', () => goTo(qIndex + 1));
             $card.on('click', '.clarify-close', dismissAll);
-            $card.on('click', '.clarify-skip', skipQuestion);
+            $card.on('click', '.clarify-skip', () => {
+                const text = customOpen ? ($card.find('.clarify-custom-input').val() || '').trim() : '';
+                if (text) chooseCustom(text);
+                else skipQuestion();
+            });
             $card.on('click', '.clarify-custom', () => { customOpen = true; render(); });
-            $card.on('click', '.clarify-custom-ok', () => chooseCustom($card.find('.clarify-custom-input').val()));
+            // Flip Skip ↔ Submit as the user types, without a re-render (which
+            // would rebuild the input and fight the caret).
+            $card.on('input', '.clarify-custom-input', function () {
+                const hasText = !!$(this).val().trim();
+                $card.find('.clarify-skip').toggleClass('submit', hasText).text(hasText ? 'Submit' : 'Skip');
+            });
             $card.on('keydown', '.clarify-custom-input', function (e) {
                 // The Enter that commits an IME composition is not an answer.
                 if (window.isComposingKeyEvent(e)) { e.stopPropagation(); return; }

@@ -1807,22 +1807,6 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
 .clarify-custom-input::placeholder {
     color: #757575;
 }
-.clarify-custom-ok {
-    flex: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border: none;
-    background: #484d51;
-    color: #fff;
-    border-radius: 6px;
-    cursor: pointer;
-}
-.clarify-custom-ok:hover {
-    background: #33373a;
-}
 .clarify-skip {
     flex: none;
     margin-left: auto;
@@ -1840,6 +1824,17 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
     background: #f7f7f7;
     border-color: #bbb;
     color: #222;
+}
+/* Same button once the custom input has text: it submits the answer. */
+.clarify-skip.submit {
+    background: #484d51;
+    border-color: #484d51;
+    color: #fff;
+}
+.clarify-skip.submit:hover {
+    background: #33373a;
+    border-color: #33373a;
+    color: #fff;
 }
 
 /* Compact recap left in the transcript once the card is resolved (also the
@@ -5279,9 +5274,6 @@ html[data-theme="dark"] .clarify-custom { color: var(--text-muted); }
 html[data-theme="dark"] .clarify-custom:hover { color: var(--text-secondary); }
 html[data-theme="dark"] .clarify-custom-input { color: var(--text); }
 html[data-theme="dark"] .clarify-custom-input::placeholder { color: var(--text-muted); }
-/* Same inversion as the Send button above (dark plate → light plate). */
-html[data-theme="dark"] .clarify-custom-ok { background: var(--text); color: var(--bg); }
-html[data-theme="dark"] .clarify-custom-ok:hover { background: #fff; }
 html[data-theme="dark"] .clarify-skip {
     background: var(--surface);
     border-color: var(--border);
@@ -5292,6 +5284,9 @@ html[data-theme="dark"] .clarify-skip:hover {
     border-color: var(--border-strong);
     color: var(--text);
 }
+/* Same inversion as the Send button above (dark plate → light plate). */
+html[data-theme="dark"] .clarify-skip.submit { background: var(--text); border-color: var(--text); color: var(--bg); }
+html[data-theme="dark"] .clarify-skip.submit:hover { background: #fff; border-color: #fff; color: var(--bg); }
 html[data-theme="dark"] .clarify-summary-inner {
     background: var(--surface-subtle);
     border-color: var(--border);
