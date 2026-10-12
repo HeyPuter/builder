@@ -33,6 +33,10 @@ import aiImageStudio from './ai-image-studio/template.js';
 import designerPortfolio from './designer-portfolio/template.js';
 import xPlayerCard from './x-player-card/template.js';
 import lawnService from './lawn-service/template.js';
+import hvacService from './hvac-service/template.js';
+import realEstateAgent from './real-estate-agent/template.js';
+import lawFirm from './law-firm/template.js';
+import dentalPractice from './dental-practice/template.js';
 
 export const TEMPLATES = [
     feedbackBoard,
@@ -42,6 +46,10 @@ export const TEMPLATES = [
     designerPortfolio,
     xPlayerCard,
     lawnService,
+    hvacService,
+    realEstateAgent,
+    lawFirm,
+    dentalPractice,
 ];
 
 export default TEMPLATES;

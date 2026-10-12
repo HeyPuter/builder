@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#fdf8ec">
+<title>Dr. Elena Marsh, DDS: Family and cosmetic dentist in Fairmont</title>
+<meta name="description" content="Checkups, fillings, crowns, whitening, veneers and clear aligners with Dr. Elena Marsh in Fairmont. New patients welcome, most PPO plans accepted, evening hours on Wednesdays.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="topbar">
+    <div class="wrap topbar-inner">
+        <span class="tb-item status"><i></i><span data-status>Open now</span></span>
+        <a class="tb-item tb-addr" data-bind-href="map" href="#" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg><span data-bind="address">240 Linden Avenue, Suite 3, Fairmont</span></a>
+        <a class="tb-item tb-emergency" data-bind-href="emergency" href="tel:+15550134499"><span class="tb-label">Dental emergency?</span><span class="tb-short">Emergency</span> <b data-bind="emergencyPhone">(555) 013-4499</b></a>
+    </div>
+</div>
+
+<header class="hero" id="top">
+    <div class="wrap">
+        <nav class="nav" aria-label="Main">
+            <a class="brand" href="#top">
+                <img src="icon.svg" alt="" width="40" height="40">
+                <b data-bind="shortName">Marsh Dental</b>
+            </a>
+            <div class="nav-links" id="nav-links">
+                <a href="#about">Our dentist</a>
+                <a href="#treatments">Treatments</a>
+                <a href="#smiles">Smiles</a>
+                <a href="#insurance">Insurance</a>
+                <a href="#book">Visit</a>
+            </div>
+            <div class="nav-cta">
+                <a class="btn btn-rust btn-sm" href="#book">Book a visit</a>
+                <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links" aria-label="Open menu"><span></span><span></span></button>
+            </div>
+        </nav>
+
+        <div class="hero-grid">
+            <div class="hero-copy">
+                <p class="hero-who">
+                    <img src="photos/dentist-face.jpg" alt="" width="48" height="48">
+                    <span><b data-bind="dentistFull">Dr. Elena Marsh, DDS</b><small>Family and cosmetic dentist in <span data-bind="city">Fairmont</span></small></span>
+                </p>
+                <h1>Unhurried dentistry for <mark>every smile</mark></h1>
+                <p class="hero-lede">Checkups, fillings and crowns for all ages, and whitening, veneers and clear aligners planned from a scan of your own teeth. You see the cost before any work starts.</p>
+                <div class="hero-actions">
+                    <a class="btn btn-rust" href="#book">Request a visit <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+                    <a class="btn btn-line" data-bind-href="tel" href="tel:+15550134470"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg><span data-bind="phone">(555) 013-4470</span></a>
+                </div>
+                <ul class="hero-facts">
+                    <li><span class="hf-icon" aria-hidden="true">★</span><span><b><span data-bind="rating">4.9</span> rating</b><small>from <span data-bind="reviewCount">412</span> patient reviews</small></span></li>
+                    <li><span class="hf-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg></span><span><b><span data-bind="networkCount">6</span> plans in network</b><small>and a plan for no insurance</small></span></li>
+                </ul>
+            </div>
+
+            <div class="hero-art">
+                <div class="arch-bg" aria-hidden="true"></div>
+                <figure class="arch">
+                    <img src="photos/smile-1.jpg" alt="Close-up of a smiling woman with freckles and red lipstick" width="800" height="1200" fetchpriority="high">
+                </figure>
+                <svg class="badge" viewBox="0 0 200 200" aria-hidden="true">
+                    <defs><path id="badge-circle" d="M100 100m-74 0a74 74 0 1 1 148 0a74 74 0 1 1-148 0"/></defs>
+                    <circle cx="100" cy="100" r="98"/>
+                    <text><textPath href="#badge-circle" id="badge-text">New patients welcome · Fairmont · </textPath></text>
+                    <path class="badge-tooth" d="M86.5 80c-6 0-9.5 4.6-8.8 11.2.7 6 3.3 8.8 4.5 15.6 1.2 7 2.3 12.2 5.4 12.2 3.7 0 3.5-11.5 8.4-11.5s4.7 11.5 8.4 11.5c3.1 0 4.2-5.2 5.4-12.2 1.2-6.8 3.8-9.6 4.5-15.6.7-6.6-2.8-11.2-8.8-11.2-4.4 0-6.2 2.3-9.5 2.3s-5.1-2.3-9.5-2.3z"/>
+                </svg>
+                <div class="hero-next">
+                    <span class="status"><i></i><span data-status>Open now</span></span>
+                    <span class="hn-label">Next new-patient visit</span>
+                    <b id="hero-next">Tue 14 Oct</b>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<div class="ticker" aria-hidden="true"><div class="ticker-track" id="ticker"></div></div>
+
+<section class="checker-wrap" aria-labelledby="checker-title">
+    <div class="wrap">
+        <div class="checker">
+            <div class="checker-head">
+                <h2 id="checker-title">Do you take my insurance?</h2>
+                <p>Pick your plan and see what happens at your visit.</p>
+            </div>
+            <div class="checker-field">
+                <label for="ins-plan" class="sr-only">Your insurance</label>
+                <select id="ins-plan"></select>
+            </div>
+            <div class="ins-result" id="ins-result" role="status" aria-live="polite" hidden></div>
+        </div>
+    </div>
+</section>
+
+<section class="section" id="about" aria-labelledby="about-title">
+    <div class="wrap about">
+        <div class="about-media">
+            <figure class="portrait">
+                <img src="photos/dentist.jpg" alt="A smiling woman with red hair in a light blue shirt, sitting by a window" width="1200" height="800" loading="lazy">
+            </figure>
+            <ul class="facts" id="about-facts"></ul>
+        </div>
+        <div class="about-copy">
+            <p class="tag">Meet your dentist</p>
+            <h2 id="about-title">Hello, I am <em data-bind="dentist">Dr. Elena Marsh</em></h2>
+            <p class="sample-note" data-sample hidden>Sample bio, training and memberships. Replace them with the dentist's own before publishing.</p>
+            <blockquote class="intro" id="about-intro"></blockquote>
+            <div class="bio" id="about-bio"></div>
+            <div class="creds">
+                <div>
+                    <h3>Training</h3>
+                    <ol class="training" id="training"></ol>
+                </div>
+                <div>
+                    <h3>Memberships</h3>
+                    <ul class="memberships" id="memberships"></ul>
+                    <p class="license" data-bind="license">State dental license D-48213.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section section-tint" id="treatments" aria-labelledby="treatments-title">
+    <div class="wrap">
+        <div class="sec-head sec-head-row">
+            <div>
+                <p class="tag">Treatments</p>
+                <h2 id="treatments-title">Everything your teeth need, <em>in one chair</em></h2>
+                <p class="sec-lede">Prices are what you pay without insurance. Your written plan shows the exact cost and what your plan covers before we start.</p>
+            </div>
+            <div class="chips" id="tx-filter" role="group" aria-label="Filter treatments"></div>
+        </div>
+        <div class="treatments" id="tx-grid"></div>
+    </div>
+</section>
+
+<section class="section section-dark" id="smiles" aria-labelledby="smiles-title">
+    <div class="wrap">
+        <div class="sec-head sec-head-row">
+            <div>
+                <p class="tag tag-light">Smile gallery</p>
+                <h2 id="smiles-title">Before and after, <em>side by side</em></h2>
+                <p class="sec-lede">Drag the handle across each photo to compare. Every case is a patient of this practice, shared with their permission.</p>
+                <p class="sample-note sample-dark" data-sample hidden>Sample cases. Each "before" is the same stock photo with a tint, to show how the slider works. Replace them with your patients' own photos, with their written consent.</p>
+            </div>
+        </div>
+        <div class="cases" id="cases"></div>
+    </div>
+</section>
+
+<section class="section" id="insurance" aria-labelledby="insurance-title">
+    <div class="wrap insurance">
+        <div class="ins-copy">
+            <p class="tag">Insurance and fees</p>
+            <h2 id="insurance-title">Clear prices, <em>with or without</em> insurance</h2>
+            <p class="sec-lede">We are in network with these plans and bill them for you. With any other plan, we send the claim and your plan pays you back.</p>
+            <ul class="ins-list" id="ins-list"></ul>
+            <p class="pay-note">We take card, cash, HSA and FSA cards, and offer monthly payments on treatment over $500.</p>
+        </div>
+        <div class="membership" id="membership"></div>
+    </div>
+</section>
+
+<section class="section section-tint" id="first-visit" aria-labelledby="first-title">
+    <div class="wrap first">
+        <div>
+            <div class="sec-head">
+                <p class="tag">Your first visit</p>
+                <h2 id="first-title">What happens <em>when you come in</em></h2>
+            </div>
+            <ol class="steps" id="steps"></ol>
+        </div>
+        <aside class="bring">
+            <img src="photos/office.jpg" alt="A treatment room with a grey dental chair, an overhead light and white cabinets" width="1200" height="800" loading="lazy">
+            <div class="bring-body">
+                <h3>What to bring</h3>
+                <ul id="bring"></ul>
+            </div>
+        </aside>
+    </div>
+</section>
+
+<section class="section" id="reviews" aria-labelledby="reviews-title">
+    <div class="wrap">
+        <div class="sec-head sec-head-row">
+            <div>
+                <p class="tag">Reviews</p>
+                <h2 id="reviews-title">From the <em>patients</em></h2>
+                <p class="sample-note" data-sample hidden>Sample reviews and rating. Replace them with your own before publishing.</p>
+            </div>
+            <div class="score"><b data-bind="rating">4.9</b><span><span class="stars" aria-hidden="true">★★★★★</span><span><span data-bind="reviewCount">412</span> reviews on Google</span></span></div>
+        </div>
+        <div class="reviews" id="review-list"></div>
+    </div>
+</section>
+
+<section class="section section-tint" id="faq" aria-labelledby="faq-title">
+    <div class="wrap faq-wrap">
+        <div class="sec-head">
+            <p class="tag">Questions</p>
+            <h2 id="faq-title">Good to <em>know</em></h2>
+            <p class="sec-lede">Anything else? Call <a data-bind-href="tel" href="tel:+15550134470"><span data-bind="phone">(555) 013-4470</span></a> and Rosa at the front desk will help.</p>
+        </div>
+        <div class="faq" id="faq-list"></div>
+    </div>
+</section>
+
+<section class="section" id="book" aria-labelledby="book-title">
+    <div class="wrap book">
+        <div class="visit-card">
+            <p class="tag tag-light">Visit us</p>
+            <h2 id="book-title">Book a <em>visit</em></h2>
+            <p class="status status-lg"><i></i><span data-status>Open now</span></p>
+            <ul class="hours" id="hours"></ul>
+            <ul class="visit-lines">
+                <li><span>Call</span><a data-bind-href="tel" href="tel:+15550134470"><b data-bind="phone">(555) 013-4470</b></a></li>
+                <li><span>Email</span><a data-bind-href="mailto" href="mailto:hello@example.com"><b data-bind="email">hello@example.com</b></a></li>
+                <li><span>Address</span><a data-bind-href="map" href="#" target="_blank" rel="noopener"><b data-bind="address">240 Linden Avenue, Suite 3, Fairmont</b></a></li>
+            </ul>
+            <p class="parking" data-bind="parking">Free parking behind the building.</p>
+            <a class="emergency" data-bind-href="emergency" href="tel:+15550134499">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.2v.1"/></svg>
+                <span>Dental emergency, day or night<b data-bind="emergencyPhone">(555) 013-4499</b></span>
+            </a>
+        </div>
+
+        <form class="booking" id="booking" novalidate>
+            <h3>Request a visit</h3>
+            <p class="form-lede">Pick a day and a time of day. We confirm the exact time by text or call.</p>
+            <fieldset class="f">
+                <legend class="sr-only">New or returning patient</legend>
+                <div class="seg" id="b-patient"></div>
+            </fieldset>
+            <div class="f-row">
+                <div class="f"><label for="b-name">Name</label><input id="b-name" name="name" autocomplete="name" required></div>
+                <div class="f"><label for="b-phone">Phone</label><input id="b-phone" name="phone" type="tel" autocomplete="tel" required></div>
+            </div>
+            <div class="f-row">
+                <div class="f"><label for="b-reason">Reason for the visit</label><select id="b-reason" name="reason"></select></div>
+                <div class="f"><label for="b-insurance">Insurance</label><select id="b-insurance" name="insurance"></select></div>
+            </div>
+            <p class="route" id="b-route"></p>
+            <div class="urgent" id="b-urgent" hidden>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.2v.1"/></svg>
+                <p>In pain now? Call <a data-bind-href="emergency" href="tel:+15550134499"><b data-bind="emergencyPhone">(555) 013-4499</b></a> instead. We keep time free each day for emergencies.</p>
+            </div>
+            <fieldset class="f">
+                <legend>Preferred day</legend>
+                <div class="seg seg-days" id="b-day"></div>
+            </fieldset>
+            <fieldset class="f">
+                <legend>Time of day</legend>
+                <div class="seg" id="b-slot"></div>
+            </fieldset>
+            <div class="f"><label for="b-email">Email <small>(optional)</small></label><input id="b-email" name="email" type="email" autocomplete="email"></div>
+            <div class="f"><label for="b-msg">Anything we should know? <small>(please leave out health details)</small></label><textarea id="b-msg" name="message" rows="3" placeholder="The times you cannot do, or if you would like a call before the visit"></textarea></div>
+            <button class="btn btn-dark" type="submit">Send request</button>
+            <p class="form-note" id="b-note" role="status" aria-live="polite">Opens your email app with the request filled in.</p>
+        </form>
+    </div>
+</section>
+
+<footer class="footer">
+    <div class="wrap footer-grid">
+        <div>
+            <a class="brand brand-light" href="#top"><img src="icon.svg" alt="" width="36" height="36"><span><b data-bind="shortName">Marsh Dental</b><small data-bind="dentistFull">Dr. Elena Marsh, DDS</small></span></a>
+            <p class="foot-line"><span data-bind="name">Marsh Family Dental</span>, <span data-bind="address">240 Linden Avenue, Suite 3, Fairmont</span>. <span data-bind="license">State dental license D-48213.</span></p>
+        </div>
+        <div>
+            <h4>Treatments</h4>
+            <ul id="foot-treatments"></ul>
+        </div>
+        <div>
+            <h4>Contact</h4>
+            <ul>
+                <li><a data-bind-href="tel" href="tel:+15550134470"><span data-bind="phone">(555) 013-4470</span></a></li>
+                <li><a data-bind-href="mailto" href="mailto:hello@example.com"><span data-bind="email">hello@example.com</span></a></li>
+                <li><a data-bind-href="emergency" href="tel:+15550134499">Emergencies: <span data-bind="emergencyPhone">(555) 013-4499</span></a></li>
+            </ul>
+        </div>
+    </div>
+    <div class="wrap foot-base">
+        <span>© <span id="year">2026</span> <span data-bind="name">Marsh Family Dental</span></span>
+        <a href="#top">Back to top ↑</a>
+    </div>
+</footer>
+
+<nav class="mobile-bar" aria-label="Quick contact">
+    <a data-bind-href="tel" href="tel:+15550134470"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>Call</a>
+    <a data-bind-href="emergency" href="tel:+15550134499"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.2v.1"/></svg>Emergency</a>
+    <a class="mb-main" href="#book">Book a visit</a>
+</nav>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1b2d44">
+<title>Northpoint Heating &amp; Air: Furnace and AC repair in Cedar Falls</title>
+<meta name="description" content="AC repair, furnace repair, tune-ups and new heating and cooling systems in Cedar Falls and 11 nearby towns. $89 diagnostic, waived with the repair. Book online.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@500;600;700;800&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="header">
+    <div class="header-inner">
+        <a class="brand" href="#top" aria-label="Home">
+            <img src="icon.svg" alt="" width="44" height="44">
+            <span><b data-bind="shortName">Northpoint</b><small data-bind="trade">Heating &amp; Air</small></span>
+        </a>
+        <nav class="nav-links" id="nav-links" aria-label="Main">
+            <a href="#services">Services</a>
+            <a href="#pricing">Pricing</a>
+            <a href="#work">Our work</a>
+            <a href="#area">Service area</a>
+            <a href="#schedule">Hours</a>
+        </nav>
+        <a class="h-phone" data-bind-href="tel" href="tel:+15550184470"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg><span data-bind="phone">(555) 018-4470</span></a>
+        <a class="btn btn-orange btn-sm h-cta" href="#request">Request service</a>
+        <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links" aria-label="Open menu"><span></span><span></span></button>
+    </div>
+</header>
+
+<section class="hero" id="top">
+    <img class="hero-bg" src="photos/hero-house.jpg" alt="" width="1024" height="650" fetchpriority="high">
+    <div class="hero-inner">
+        <ul class="hero-badges">
+            <li><span class="stars" aria-hidden="true">★★★★★</span><span><small><span data-bind="ratingSource">Google</span></small><b><span data-bind="rating">4.9</span> rating</b></span></li>
+            <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg><span><small>Licensed</small><b>and insured</b></span></li>
+            <li class="status"><i></i><span><small>Office</small><b data-status>Open now</b></span></li>
+        </ul>
+        <h1>Keeping <span data-bind="region">the Cedar Valley</span> comfortable since <span data-bind="since">2009</span></h1>
+        <p class="hero-sub">Furnace and air conditioning repair, tune-ups and new systems. The diagnostic visit is <b data-bind="diagnosticFee">$89</b>, and free when you go ahead with the repair.</p>
+        <div class="hero-pills">
+            <a class="btn btn-orange" href="#request">Request service</a>
+            <a class="btn btn-orange" href="#area">Check my ZIP</a>
+            <a class="btn btn-orange" href="#pricing">See our prices</a>
+            <a class="btn btn-orange" href="#pricing">Comfort Club</a>
+        </div>
+        <p class="hero-em" data-emergency>24/7 emergency service</p>
+        <p class="sample-note sample-dark" data-sample hidden>Sample business, rating and reviews. Replace them with your own before publishing.</p>
+    </div>
+</section>
+
+<section class="trust" aria-label="Certifications">
+    <svg class="roofline" viewBox="0 0 1440 120" preserveAspectRatio="none" aria-hidden="true"><path d="M0 120V92h70V70l38-30 38 30v22h44V60l52-38 52 38v32h40V80l30-24 30 24v12h60V58l46-34 46 34v34h50V74l34-26 34 26v18h56V52l56-40 56 40v40h40V78l32-26 32 26v14h52V64l44-32 44 32v28h48V82l26-20 26 20v10h60V56l50-36 50 36v36h56V76l34-26 34 26v16h40v28z"/></svg>
+    <ul class="badges" id="badges"></ul>
+    <p class="brands">We service <span id="brands">all major brands</span></p>
+</section>
+
+<section class="intro" id="about" aria-labelledby="intro-title">
+    <div class="wrap intro-grid">
+        <div class="intro-copy">
+            <h2 id="intro-title">Heating and air conditioning in <span data-bind="baseTown">Cedar Falls</span> and nearby towns</h2>
+            <span class="rule" aria-hidden="true"></span>
+            <p><span data-bind="name">Northpoint Heating &amp; Air</span> has fixed and installed furnaces, air conditioners and heat pumps here for <span data-bind="years">17</span> years. Our technicians are on staff, not subcontracted, and the person who diagnoses the problem is the one who fixes it.</p>
+            <p>You get a flat price before any work starts. Most repairs are done on the first visit from parts on the van, and every repair is covered for a year.</p>
+            <ul class="intro-facts">
+                <li><b data-bind="years">17</b><span>years in business</span></li>
+                <li><b data-bind="reviewCount">412</b><span>reviews</span></li>
+                <li><b>1 yr</b><span>repair warranty</span></li>
+            </ul>
+            <p class="intro-call">Need help now? Call <a data-bind-href="tel" href="tel:+15550184470"><span data-bind="phone">(555) 018-4470</span></a>. Outside opening hours the technician on call picks up for no heat, no cooling and leaks.</p>
+        </div>
+
+        <form class="request" id="request" novalidate>
+            <h3>Request service</h3>
+            <p class="request-sub">Tell us what is going on and when suits you. We call to confirm.</p>
+            <fieldset class="f">
+                <legend>What is going on?</legend>
+                <div class="issues" id="f-issues"></div>
+            </fieldset>
+            <div class="f-row">
+                <div class="f"><label for="f-name">Full name</label><input id="f-name" name="name" autocomplete="name" required></div>
+                <div class="f"><label for="f-phone">Phone</label><input id="f-phone" name="phone" type="tel" autocomplete="tel" required></div>
+            </div>
+            <div class="f-row">
+                <div class="f"><label for="f-zip">ZIP code</label><input id="f-zip" name="zip" inputmode="numeric" maxlength="5" autocomplete="postal-code"></div>
+                <div class="f"><label for="f-window">Preferred window</label><select id="f-window" name="window"></select></div>
+            </div>
+            <div class="f"><label for="f-email">Email <small>optional</small></label><input id="f-email" name="email" type="email" autocomplete="email"></div>
+            <div class="f"><label for="f-msg">Anything we should know?</label><textarea id="f-msg" name="message" rows="3" placeholder="Make and age of the system, error codes, pets"></textarea></div>
+            <div class="f-terms" id="f-terms" role="status" aria-live="polite"></div>
+            <button class="btn btn-orange f-send" type="submit">Send request</button>
+            <p class="f-note" id="f-note" role="status" aria-live="polite"><span id="f-dest">Opens your email app with the request filled in.</span></p>
+            <div class="request-rating"><span class="stars" aria-hidden="true">★★★★★</span><span><b data-bind="rating">4.9</b> from <span data-bind="reviewCount">412</span> <span data-bind="ratingSource">Google</span> reviews</span></div>
+        </form>
+    </div>
+</section>
+
+<section class="services" id="services" aria-labelledby="services-title">
+    <div class="wrap">
+        <div class="head-c">
+            <p class="eyebrow">Our services</p>
+            <h2 id="services-title">Repair, replace or maintain</h2>
+            <span class="rule" aria-hidden="true"></span>
+            <p>Every price is what you pay during opening hours. Pick a service to start a request.</p>
+        </div>
+        <div class="svc-grid" id="services-grid"></div>
+        <p class="also" id="also"></p>
+        <div class="cta-pair">
+            <a class="cta-call" data-bind-href="tel" href="tel:+15550184470">Call <span data-bind="phone">(555) 018-4470</span></a>
+            <span>or</span>
+            <a class="btn btn-orange btn-sm" href="#request">Request service</a>
+        </div>
+    </div>
+</section>
+
+<section class="feature" id="pricing" aria-labelledby="pricing-title">
+    <div class="wrap feature-grid">
+        <figure class="feature-photo">
+            <img src="photos/technicians.jpg" alt="Two technicians checking the wiring inside an outdoor air conditioning unit" width="717" height="545" loading="lazy">
+            <figcaption><b data-bind="diagnosticFee">$89</b><span>diagnostic, waived with the repair</span></figcaption>
+        </figure>
+        <div class="feature-copy">
+            <h2 id="pricing-title">The price before the work, every time</h2>
+            <span class="rule" aria-hidden="true"></span>
+            <p>No hourly meter running in your basement. The technician finds the fault, shows it to you and gives you one flat price. If you say no, you pay the diagnostic and nothing else.</p>
+            <ul class="terms" id="terms"></ul>
+            <div class="plan" id="plan"></div>
+        </div>
+    </div>
+</section>
+
+<section class="work" id="work" aria-labelledby="work-title">
+    <div class="wrap">
+        <div class="head-row">
+            <div>
+                <p class="eyebrow">Recent jobs</p>
+                <h2 id="work-title">What we found, and how we fixed it</h2>
+                <span class="rule" aria-hidden="true"></span>
+                <p class="sample-note" data-sample hidden>Sample jobs and stock photos. Replace them with your own jobs before publishing.</p>
+            </div>
+            <div class="chips" id="job-filter" role="group" aria-label="Filter jobs"></div>
+        </div>
+        <div class="jobs" id="jobs"></div>
+    </div>
+</section>
+
+<section class="reviews" id="reviews" aria-labelledby="reviews-title">
+    <div class="wrap">
+        <div class="head-c">
+            <p class="big-stars" aria-hidden="true">★★★★★</p>
+            <p class="eyebrow">Ratings and reviews</p>
+            <h2 id="reviews-title">What our customers say</h2>
+            <span class="rule" aria-hidden="true"></span>
+            <p>Rated <b data-bind="rating">4.9</b> from <b data-bind="reviewCount">412</b> reviews for <b data-bind="ratedFor">upfront prices</b>.</p>
+            <p class="sample-note sample-dark" data-sample hidden>Sample reviews and rating. Replace them with your own before publishing.</p>
+        </div>
+        <div class="review-list" id="review-list"></div>
+    </div>
+</section>
+
+<section class="area" id="area" aria-labelledby="area-title">
+    <div class="wrap area-card">
+        <div class="area-copy">
+            <p class="eyebrow">Areas we serve</p>
+            <h2 id="area-title">Serving <span data-bind="baseTown">Cedar Falls</span> and the towns around it</h2>
+            <span class="rule" aria-hidden="true"></span>
+            <ul class="towns" id="towns"></ul>
+            <form class="zip-check" id="zip-check" novalidate>
+                <label for="zc-zip" class="sr-only">ZIP code</label>
+                <input id="zc-zip" inputmode="numeric" maxlength="5" placeholder="Enter your ZIP code" autocomplete="postal-code">
+                <button class="btn btn-orange btn-sm" type="submit">Check my ZIP</button>
+            </form>
+            <p class="zip-out" id="zip-out" role="status" aria-live="polite"></p>
+        </div>
+        <div class="map-wrap">
+            <svg class="map" id="map" viewBox="0 0 520 440" role="img" aria-labelledby="map-title"><title id="map-title">Map of the towns we cover, by service zone</title></svg>
+            <div class="legend" id="legend"></div>
+        </div>
+    </div>
+</section>
+
+<section class="faq" id="faq" aria-labelledby="faq-title">
+    <div class="wrap faq-grid">
+        <div>
+            <p class="eyebrow">Questions</p>
+            <h2 id="faq-title">Before you call</h2>
+            <span class="rule" aria-hidden="true"></span>
+        </div>
+        <div class="faq-list" id="faq-list"></div>
+    </div>
+</section>
+
+<section class="schedule" id="schedule" aria-labelledby="schedule-title">
+    <div class="wrap">
+        <div class="head-c">
+            <p class="eyebrow">We are here for you</p>
+            <h2 id="schedule-title">Schedule your service today</h2>
+            <span class="rule" aria-hidden="true"></span>
+            <p class="status sched-status"><i></i><span data-status>Open now</span></p>
+        </div>
+        <div class="sched-grid">
+            <div class="sched-card">
+                <h3>Next open visit windows</h3>
+                <p>Pick one and we call to confirm. Windows fill fast in heat waves and cold snaps.</p>
+                <ul class="slots" id="slots"></ul>
+            </div>
+            <div class="sched-card">
+                <h3>Office hours</h3>
+                <ul class="hours" id="hours-list"></ul>
+                <p class="emergency" id="emergency-note"></p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<footer class="footer">
+    <svg class="roofline" viewBox="0 0 1440 120" preserveAspectRatio="none" aria-hidden="true"><path d="M0 120V92h70V70l38-30 38 30v22h44V60l52-38 52 38v32h40V80l30-24 30 24v12h60V58l46-34 46 34v34h50V74l34-26 34 26v18h56V52l56-40 56 40v40h40V78l32-26 32 26v14h52V64l44-32 44 32v28h48V82l26-20 26 20v10h60V56l50-36 50 36v36h56V76l34-26 34 26v16h40v28z"/></svg>
+    <div class="wrap footer-grid">
+        <div>
+            <a class="brand" href="#top"><img src="icon.svg" alt="" width="44" height="44"><span><b data-bind="shortName">Northpoint</b><small data-bind="trade">Heating &amp; Air</small></span></a>
+            <p class="foot-em" data-emergency>24/7 emergency service</p>
+            <p>Since <span data-bind="since">2009</span>, <span data-bind="name">Northpoint Heating &amp; Air</span> has repaired and installed heating and cooling systems of every brand in <span data-bind="region">the Cedar Valley</span>.</p>
+        </div>
+        <div>
+            <h4>Services</h4>
+            <ul id="foot-services"></ul>
+        </div>
+        <div>
+            <h4>Office hours</h4>
+            <ul id="foot-hours"></ul>
+            <h4 class="h4-gap">Towns</h4>
+            <p class="foot-towns" id="foot-towns"></p>
+        </div>
+        <div>
+            <h4>Contact us</h4>
+            <ul>
+                <li><a data-bind-href="tel" href="tel:+15550184470"><span data-bind="phone">(555) 018-4470</span></a></li>
+                <li><a data-bind-href="mailto" href="mailto:service@example.com"><span data-bind="email">service@example.com</span></a></li>
+                <li data-bind="address">412 Foundry Road, Cedar Falls</li>
+                <li data-bind="license">State mechanical contractor license MC-58210</li>
+            </ul>
+            <p class="sample-note sample-dark" data-sample hidden>Sample license number. Replace it with your own.</p>
+        </div>
+    </div>
+    <div class="wrap foot-base">
+        <span>© <span id="year">2026</span> <span data-bind="name">Northpoint Heating &amp; Air</span></span>
+        <a href="#top">Back to top</a>
+    </div>
+</footer>
+
+<nav class="mobile-bar" aria-label="Quick contact">
+    <a data-bind-href="tel" href="tel:+15550184470"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>Call</a>
+    <a data-bind-href="sms" href="sms:+15550184470"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>Text</a>
+    <a class="mb-main" href="#request">Request service</a>
+</nav>
+
+<script src="app.js"></script>
+</body>
+</html>

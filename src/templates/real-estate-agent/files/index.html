@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#171614">
+<title>Maren Ellis, Real Estate Agent in Cedar Bay | Fernway Realty Group</title>
+<meta name="description" content="Maren Ellis helps families buy and sell homes in Cedar Bay, Old Harbor, Westbrook, Juniper Hill, Lakeside and The Orchards. See current listings, neighborhood prices and book a consultation.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400..650&family=Inter:opsz,wght@14..32,400..600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="hero" id="top">
+    <img class="hero-img" src="photos/hero-craftsman.jpg" alt="A two-story craftsman house with a lit front porch and a three-car garage at dusk" width="960" height="640" fetchpriority="high">
+    <div class="hero-shade" aria-hidden="true"></div>
+
+    <nav class="nav" aria-label="Main">
+        <a class="brand" href="#top">
+            <img src="icon.svg" alt="" width="38" height="38">
+            <span><b data-bind="name">Maren Ellis</b><small data-bind="brokerage">Fernway Realty Group</small></span>
+        </a>
+        <div class="nav-links" id="nav-links">
+            <a href="#services" data-nav="services">Services</a>
+            <a href="#listings" data-nav="listings">Properties</a>
+            <a href="#areas" data-nav="areas">Neighborhoods</a>
+            <a href="#proof" data-nav="proof">Clients</a>
+            <a href="#about" data-nav="about">About</a>
+            <a href="#contact">Contact</a>
+            <a class="btn btn-dark nav-menu-book" href="#contact" data-book>Book a consultation</a>
+        </div>
+        <div class="nav-cta">
+            <a class="nav-phone" data-bind-href="tel" href="tel:+15550148820"><span data-bind="phone">(555) 014-8820</span></a>
+            <a class="btn btn-light btn-sm" href="#contact" data-book>Book a consultation</a>
+            <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links" aria-label="Open menu"><span></span><span></span></button>
+        </div>
+    </nav>
+
+    <div class="hero-foot">
+        <div class="hero-intro">
+            <p class="hero-eyebrow"><i aria-hidden="true"></i><span data-bind="role">Real estate agent</span> in <span data-bind="area">Cedar Bay</span></p>
+            <p class="hero-lede" data-bind="specialty">Family homes and first purchases in Cedar Bay and the five neighborhoods around the harbor.</p>
+        </div>
+        <aside class="agent-card" aria-label="Your agent">
+            <img class="agent-face" src="photos/agent-face.jpg" alt="Maren Ellis, smiling" width="240" height="240" data-bind-alt="name">
+            <div class="agent-meta">
+                <b data-bind="name">Maren Ellis</b>
+                <span data-bind="brokerage">Fernway Realty Group</span>
+                <small data-bind="license">License #SA-0193842</small>
+            </div>
+            <a class="btn btn-dark btn-block" href="#contact" data-book>Book a consultation <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+        </aside>
+    </div>
+    <h1 class="hero-name"><span data-bind="name">Maren Ellis</span><span class="sr-only">, <span data-bind="role">Real estate agent</span> in <span data-bind="area">Cedar Bay</span></span></h1>
+</header>
+
+<section class="section intro" aria-label="Introduction">
+    <div class="wrap">
+        <p class="statement" id="statement">I help families buy and sell homes in Cedar Bay <span class="pill" aria-hidden="true"><img src="photos/dining-bright.jpg" alt=""></span> with straight answers, local numbers and a plan you can follow.</p>
+        <dl class="stats" id="stats"></dl>
+        <p class="sample-note" data-sample hidden>Sample figures. Replace them with your own before publishing.</p>
+    </div>
+</section>
+
+<section class="section" id="services" data-section="services" aria-labelledby="services-title">
+    <div class="wrap">
+        <div class="sec-head">
+            <p class="eyebrow">Services</p>
+            <h2 id="services-title">How I can help</h2>
+            <p class="sec-lede">Every move starts with a free consultation. We talk through your timing, your budget and the neighborhoods you are weighing, and you leave with a written plan.</p>
+        </div>
+        <div class="services">
+            <div class="svc-list" id="svc-list"></div>
+            <div class="svc-media" id="svc-media" aria-hidden="true"></div>
+        </div>
+    </div>
+</section>
+
+<section class="section listings-sec" id="listings" data-section="listings" aria-labelledby="listings-title">
+    <div class="wrap">
+        <div class="sec-head">
+            <p class="eyebrow">Featured properties</p>
+            <h2 id="listings-title">Homes I am selling now</h2>
+            <p class="sec-lede">Current listings and a few recent sales. Ask about any of them, or about homes like them that have not come to market yet.</p>
+        </div>
+        <div class="list-bar">
+            <div class="chips" id="list-filter" role="group" aria-label="Filter properties"></div>
+            <div class="list-arrows">
+                <button type="button" class="round-btn" data-dir="-1" aria-label="Previous properties"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></button>
+                <button type="button" class="round-btn" data-dir="1" aria-label="Next properties"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+            </div>
+        </div>
+    </div>
+    <div class="track" id="list-track" tabindex="0" aria-label="Properties"></div>
+    <div class="wrap"><p class="sample-note" data-sample hidden>Sample listings with stock photos. Replace them with your own listings before publishing.</p></div>
+</section>
+
+<section class="section" id="areas" data-section="areas" aria-labelledby="areas-title">
+    <div class="wrap">
+        <div class="sec-head">
+            <p class="eyebrow">Local expertise</p>
+            <h2 id="areas-title">Neighborhoods I know street by street</h2>
+            <p class="sec-lede">Prices, typical homes and the things buyers ask me about most, for each part of <span data-bind="area">Cedar Bay</span> I work in.</p>
+        </div>
+        <div class="areas">
+            <div class="area-tabs" id="area-tabs" role="tablist" aria-label="Neighborhoods"></div>
+            <div class="area-panel" id="area-panel" role="tabpanel"></div>
+        </div>
+        <p class="sample-note" data-sample hidden>Sample neighborhoods and figures. Replace them with your market and your own numbers.</p>
+    </div>
+</section>
+
+<section class="section proof-sec" id="proof" data-section="proof" aria-labelledby="proof-title">
+    <div class="wrap">
+        <div class="sec-head">
+            <p class="eyebrow">Client stories</p>
+            <h2 id="proof-title">In my clients’ words</h2>
+        </div>
+        <div class="quotes" id="quotes"></div>
+        <div class="sales" id="sales-block">
+            <div class="sales-head">
+                <h3>Selected recent sales</h3>
+                <p>Homes I helped buy or sell in the last twelve months.</p>
+            </div>
+            <table class="sales-table">
+                <caption class="sr-only">Selected recent sales</caption>
+                <thead><tr><th scope="col">Home</th><th scope="col">Neighborhood</th><th scope="col">I represented</th><th scope="col">Sold for</th><th scope="col">Days on market</th></tr></thead>
+                <tbody id="sales"></tbody>
+            </table>
+        </div>
+        <p class="sample-note" data-sample hidden>Sample reviews and sales. Replace them with your own clients’ words and your own transactions.</p>
+    </div>
+</section>
+
+<section class="section" id="about" data-section="about" aria-labelledby="about-title">
+    <div class="wrap about">
+        <figure class="about-photo">
+            <img src="photos/agent.jpg" alt="Maren Ellis in the Fernway Realty Group office" width="960" height="640" loading="lazy" id="about-img">
+            <figcaption><b data-bind="name">Maren Ellis</b><span data-bind="years">12 years in Cedar Bay</span></figcaption>
+        </figure>
+        <div class="about-copy">
+            <p class="eyebrow">About</p>
+            <h2 id="about-title">Hi, I’m <span data-bind="firstName">Maren</span></h2>
+            <div class="about-story" id="about-story"></div>
+            <ul class="facts" id="facts"></ul>
+        </div>
+    </div>
+    <div class="wrap">
+        <h3 class="steps-title">What working with me looks like</h3>
+        <ol class="steps" id="steps"></ol>
+    </div>
+</section>
+
+<section class="section" id="faq" data-section="faq" aria-labelledby="faq-title">
+    <div class="wrap faq-wrap">
+        <div class="sec-head">
+            <p class="eyebrow">Questions</p>
+            <h2 id="faq-title">Before we meet</h2>
+            <p class="sec-lede">Something else on your mind? Call or text <a data-bind-href="tel" href="tel:+15550148820"><span data-bind="phone">(555) 014-8820</span></a>.</p>
+        </div>
+        <div class="faq" id="faq-list"></div>
+    </div>
+</section>
+
+<section class="section contact-sec" id="contact" aria-labelledby="contact-title">
+    <div class="wrap contact">
+        <div class="contact-copy">
+            <p class="eyebrow">Contact</p>
+            <h2 id="contact-title">Let’s talk about your move</h2>
+            <p class="sec-lede">A consultation takes about 45 minutes, in person or by video. It is free, and you are under no obligation afterwards.</p>
+            <a class="btn btn-dark" href="#enquiry" data-book>Book a consultation <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+            <ul class="contact-lines">
+                <li><span>Call or text</span><a data-bind-href="tel" href="tel:+15550148820"><b data-bind="phone">(555) 014-8820</b></a></li>
+                <li><span>Email</span><a data-bind-href="mailto" href="mailto:maren@example.com"><b data-bind="email">maren@example.com</b></a></li>
+                <li><span>Office</span><b data-bind="office">Fernway Realty Group, 240 Harbor Street, Cedar Bay</b></li>
+                <li><span>Hours</span><b data-bind="hours">Mon to Sat, 9am to 7pm</b></li>
+            </ul>
+        </div>
+
+        <form class="enquiry" id="enquiry" novalidate>
+            <h3>Send me a message</h3>
+            <div class="f-row">
+                <div class="f"><label for="e-name">Name</label><input id="e-name" name="name" autocomplete="name" required></div>
+                <div class="f"><label for="e-email">Email</label><input id="e-email" name="email" type="email" autocomplete="email" required></div>
+            </div>
+            <div class="f-row">
+                <div class="f"><label for="e-phone">Phone <small>optional</small></label><input id="e-phone" name="phone" type="tel" autocomplete="tel"></div>
+                <div class="f"><label for="e-topic">I would like to</label><select id="e-topic" name="topic"></select></div>
+            </div>
+            <div class="f" id="e-home-field"><label for="e-home">Home I am asking about <small>optional</small></label><select id="e-home" name="home"></select></div>
+            <fieldset class="f">
+                <legend>When are you planning to move?</legend>
+                <div class="seg" id="e-when"></div>
+            </fieldset>
+            <div class="f"><label for="e-msg">Message</label><textarea id="e-msg" name="message" rows="4" placeholder="What you are looking for, or the address of the home you want to sell"></textarea></div>
+            <button class="btn btn-dark btn-block" type="submit">Send message</button>
+            <p class="form-note" id="e-note" role="status" aria-live="polite">Opens your email app with the message filled in.</p>
+        </form>
+    </div>
+</section>
+
+<footer class="footer">
+    <img class="footer-img" src="photos/dusk-rooftops.jpg" alt="" width="960" height="539" loading="lazy">
+    <div class="footer-shade" aria-hidden="true"></div>
+    <div class="footer-inner">
+        <div class="footer-cta">
+            <p class="footer-big">Ready when you are.</p>
+            <p>Buying, selling or just thinking about it, the first conversation is free.</p>
+            <a class="btn btn-light" href="#contact" data-book>Book a consultation <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+        </div>
+        <div class="footer-grid">
+            <div>
+                <a class="brand" href="#top"><img src="icon.svg" alt="" width="34" height="34"><span><b data-bind="name">Maren Ellis</b><small data-bind="role">Real estate agent</small></span></a>
+                <p class="foot-line"><span data-bind="licenseLine">Licensed real estate salesperson, License #SA-0193842.</span></p>
+            </div>
+            <div>
+                <h4>Brokerage</h4>
+                <p class="foot-line"><b data-bind="brokerage">Fernway Realty Group</b><br><span data-bind="office">240 Harbor Street, Cedar Bay</span><br><span data-bind="brokerageLicense">Brokerage license #BR-0044127</span></p>
+            </div>
+            <div>
+                <h4>Contact</h4>
+                <ul>
+                    <li><a data-bind-href="tel" href="tel:+15550148820"><span data-bind="phone">(555) 014-8820</span></a></li>
+                    <li><a data-bind-href="mailto" href="mailto:maren@example.com"><span data-bind="email">maren@example.com</span></a></li>
+                    <li id="foot-socials"></li>
+                </ul>
+            </div>
+        </div>
+        <div class="foot-base">
+            <p class="eho"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/><path d="M9 14h6M9 17h6"/></svg><span data-bind="fairHousing">Equal Housing Opportunity. Fernway Realty Group is committed to the Fair Housing Act.</span></p>
+            <p><span>© <span id="year">2026</span> <span data-bind="name">Maren Ellis</span></span> · <a href="#top">Back to top ↑</a></p>
+        </div>
+    </div>
+</footer>
+
+<nav class="mobile-bar" aria-label="Quick contact">
+    <a data-bind-href="tel" href="tel:+15550148820"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>Call</a>
+    <a class="mb-main" href="#contact" data-book>Book a consultation</a>
+</nav>
+
+<script src="app.js"></script>
+</body>
+</html>
