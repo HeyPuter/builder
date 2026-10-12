@@ -18,7 +18,7 @@ export default {
         { label: 'Add my bio and photo', prompt: 'Replace the sample bio, training and memberships with mine, and use my headshot. I will upload the photo. Here is my background: ' },
         { label: 'Set my treatments and prices', prompt: 'Update the treatments, their "from" prices, chair time and visits, and the membership plan to match my practice: ' },
         { label: 'Use my smile cases', prompt: 'Replace the sample smile gallery with my own cases. I will upload a before and an after photo for each and tell you the treatment, visits and time taken.' },
-        { label: 'Save booking requests', prompt: 'Make the booking form save each request instead of opening an email, and add a private page where only my front desk can read them, filtered by reason and day.' },
+        { label: 'Save booking requests', prompt: 'Make the booking form save each request instead of opening an email, and add a private page where only my front desk can read them, filtered by reason and day, without storing health details.' },
     ],
 
     // Kept in every fork's system prompt (see src/templates/index.js).
@@ -29,6 +29,7 @@ export default {
         '- INSURANCE is the list the insurance checker and the booking form read. Each booking REASON names a TEAM member, and the form sends to that person, or to PRACTICE.email when they have no email. Keep this routing when adding reasons or people.',
         '- The bio, training, memberships, license number, reviews, rating, review count and smile gallery are placeholders, and SAMPLE_CONTENT = true labels them as samples on the page. Never invent credentials, licenses, reviews, ratings or patient results for a real dentist; ask for real ones, or remove what they do not have. Set SAMPLE_CONTENT to false only once these are the dentist\'s own.',
         '- Smile gallery photos must be real patients of the practice, used with their consent. The sample "before" images are the "after" photo with a tint (sampleTint); never fake a before image for real cases.',
+        '- The booking form must not collect health details (symptoms, history, medications), which fall under privacy rules like HIPAA. Keep the note asking visitors to leave them out. If asked to save requests or add health questions, store only contact and scheduling details and tell the user they need a compliant intake system for the rest.',
         '- The photos in photos/ are stock images. Suggest replacing them with the dentist\'s headshot and the office.',
         '- Keep the emergency number visible, and the call, emergency and book buttons easy to reach on a phone, including the bar fixed to the bottom of small screens.',
     ].join('\n'),

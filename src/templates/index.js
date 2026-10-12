@@ -35,8 +35,8 @@ import xPlayerCard from './x-player-card/template.js';
 import lawnService from './lawn-service/template.js';
 import hvacService from './hvac-service/template.js';
 import realEstateAgent from './real-estate-agent/template.js';
-import dentalPractice from './dental-practice/template.js';
 import lawFirm from './law-firm/template.js';
+import dentalPractice from './dental-practice/template.js';
 
 export const TEMPLATES = [
     feedbackBoard,
