@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#2f2618">
+<title>Hale &amp; Okafor: Family and estate lawyers in Brookhaven, Ohio</title>
+<meta name="description" content="Divorce, custody, prenups, wills, trusts and probate in Linden County, Ohio. Your fee in writing before any work starts. Book a 45-minute consultation.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Hanken+Grotesk:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="hero" id="top">
+    <div class="wrap">
+        <nav class="nav" aria-label="Main">
+            <a class="brand" href="#top">
+                <img src="icon.svg" alt="" width="40" height="40">
+                <span><b data-bind="shortName">Hale &amp; Okafor</b><small data-bind="kind">Attorneys at Law</small></span>
+            </a>
+            <div class="nav-links" id="nav-links">
+                <a href="#practice">Practice areas</a>
+                <a href="#attorneys">Attorneys</a>
+                <a href="#process">Consultations</a>
+                <a href="#jurisdiction">Where we practice</a>
+                <a href="#faq">Questions</a>
+            </div>
+            <div class="nav-cta">
+                <a class="nav-phone" data-bind-href="tel" href="tel:+15550147730"><span data-bind="phone">(555) 014-7730</span></a>
+                <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links" aria-label="Open menu"><span></span><span></span></button>
+            </div>
+        </nav>
+
+        <div class="hero-grid">
+            <div class="hero-copy">
+                <p class="eyebrow" id="hero-eyebrow">Family and estate law · Brookhaven, Ohio · Since 2009</p>
+                <h1 id="hero-title">Family and estate law, with the fee <span class="mark">in writing</span> first.</h1>
+                <p class="hero-lede" id="hero-lede">We handle divorce, custody, prenups, wills, trusts and probate in Linden County and the counties around it. You meet the lawyer who will handle your case, and you get a written fee before any work starts.</p>
+                <div class="hero-actions">
+                    <a class="btn btn-gold" href="#contact" data-consult>Book a consultation <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+                    <a class="text-link" href="#finder">What does my case cost? <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg></a>
+                </div>
+                <p class="sample-note" data-sample hidden>Sample firm, lawyers, credentials and reviews. Replace them with your own before publishing.</p>
+            </div>
+
+            <div class="hero-team">
+                <div class="team-stack" id="hero-team"></div>
+                <div class="next-card">
+                    <span class="fc-label">Next consultation</span>
+                    <b id="next-consult">Tue 14 Oct, 10:00am</b>
+                    <span class="fc-sub" id="next-consult-sub">45 minutes, in person or by video</span>
+                </div>
+            </div>
+        </div>
+
+        <ul class="creds" id="creds"></ul>
+    </div>
+</header>
+
+<section class="approach" aria-labelledby="approach-title">
+    <div class="wrap approach-grid">
+        <div>
+            <p class="tag" id="approach-title">Our approach</p>
+            <p class="approach-text" id="statement"></p>
+        </div>
+        <ol class="promises" id="promises"></ol>
+    </div>
+</section>
+
+
+<section class="finder-wrap" id="finder" aria-labelledby="finder-title">
+    <div class="wrap finder">
+        <div class="finder-ask">
+            <p class="tag tag-light">Start here</p>
+            <h2 id="finder-title">What is <em>going on?</em></h2>
+            <p class="finder-lede">Pick the closest match to see who handles it, what it usually costs, and what to bring to a consultation.</p>
+            <div class="situations" id="situations" role="radiogroup" aria-labelledby="finder-title"></div>
+        </div>
+        <div class="finder-out" id="finder-out" aria-live="polite"></div>
+    </div>
+</section>
+
+<section class="section" id="practice" aria-labelledby="practice-title">
+    <div class="wrap">
+        <div class="sec-head sec-head-row">
+            <div>
+                <p class="tag">Practice areas</p>
+                <h2 id="practice-title">What we <em>handle</em></h2>
+            </div>
+            <p class="sec-lede" id="practice-lede">Family and estate matters under Ohio law, and nothing else. If your question is outside these areas, we will tell you on the first call and point you to someone who handles it.</p>
+        </div>
+        <div class="practice" id="practice-grid"></div>
+    </div>
+</section>
+
+<section class="section section-tint" id="attorneys" aria-labelledby="attorneys-title">
+    <div class="wrap">
+        <div class="sec-head sec-head-row">
+            <div>
+                <p class="tag">Attorneys</p>
+                <h2 id="attorneys-title">The lawyers you <em>will work with</em></h2>
+            </div>
+            <p class="sec-lede">The lawyer at your consultation is the lawyer on your case. Each of us answers our own phone and email.</p>
+        </div>
+        <div class="attorneys" id="attorney-list"></div>
+    </div>
+</section>
+
+<section class="section" id="process" aria-labelledby="process-title">
+    <div class="wrap process">
+        <div class="process-copy">
+            <p class="tag">Consultations</p>
+            <h2 id="process-title">From first call to <em>a plan</em></h2>
+            <ol class="steps" id="steps"></ol>
+        </div>
+        <aside class="consult-card" aria-labelledby="consult-card-title">
+            <h3 id="consult-card-title">The consultation</h3>
+            <dl class="consult-facts" id="consult-facts"></dl>
+            <div class="slots">
+                <p class="slots-label">Next openings</p>
+                <ul id="slots"></ul>
+            </div>
+            <a class="btn btn-ink btn-block" href="#contact" data-consult>Book a consultation</a>
+        </aside>
+    </div>
+</section>
+
+<section class="section section-ink" id="jurisdiction" aria-labelledby="jurisdiction-title">
+    <div class="wrap juris">
+        <figure class="juris-photo">
+            <img id="juris-photo" src="photos/building.jpg" alt="Dark red shopfront office with large windows in an old brick row" loading="lazy">
+            <figcaption><span data-bind="address">412 Court Street, Suite 2, Brookhaven, Ohio</span></figcaption>
+        </figure>
+        <div class="juris-copy">
+            <p class="tag tag-light">Where we practice</p>
+            <h2 id="jurisdiction-title">Licensed in <em data-bind="jurisdiction">Ohio</em></h2>
+            <p class="sec-lede" id="juris-lede">We advise on Ohio law only. These are the counties we cover and the courts we appear in most.</p>
+            <div class="juris-cols">
+                <div>
+                    <h3>Counties</h3>
+                    <ul class="county-list" id="counties"></ul>
+                </div>
+                <div>
+                    <h3>Courts</h3>
+                    <ul class="court-list" id="courts"></ul>
+                </div>
+            </div>
+            <p class="juris-note" id="juris-note"></p>
+        </div>
+    </div>
+</section>
+
+<section class="section" id="reviews" aria-labelledby="reviews-title">
+    <div class="wrap">
+        <div class="sec-head">
+            <p class="tag">Clients</p>
+            <h2 id="reviews-title">What clients <em>tell us</em></h2>
+            <p class="sample-note" data-sample hidden>Sample reviews. Replace them with real client reviews, and check your state's rules on testimonials, before publishing.</p>
+        </div>
+        <div class="reviews" id="review-list"></div>
+        <p class="reviews-note" data-bind="resultsDisclaimer">Every case is different. Past results do not guarantee a similar outcome.</p>
+    </div>
+</section>
+
+<section class="section section-tint" id="faq" aria-labelledby="faq-title">
+    <div class="wrap faq-wrap">
+        <div class="sec-head">
+            <p class="tag">Questions</p>
+            <h2 id="faq-title">Before you <em>call</em></h2>
+            <p class="sec-lede">Something else? Call <a data-bind-href="tel" href="tel:+15550147730"><span data-bind="phone">(555) 014-7730</span></a> and the front desk will answer it or find the lawyer who can.</p>
+        </div>
+        <div class="faq" id="faq-list"></div>
+    </div>
+</section>
+
+<section class="section contact-sec" id="contact" aria-labelledby="contact-title">
+    <div class="wrap contact">
+        <div class="contact-card">
+            <p class="tag tag-light">Contact</p>
+            <h2 id="contact-title">Book a <em>consultation</em></h2>
+            <p id="contact-lede">Send the form and we will call you within one business day to run a conflict check and set a time. Or call the office during business hours.</p>
+            <a class="btn btn-gold btn-external" id="consult-external" href="#" target="_blank" rel="noopener" hidden>Pick a time online <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></a>
+            <ul class="contact-lines">
+                <li><span>Call</span><a data-bind-href="tel" href="tel:+15550147730"><b data-bind="phone">(555) 014-7730</b></a></li>
+                <li><span>Email</span><a data-bind-href="mailto" href="mailto:office@example.com"><b data-bind="email">office@example.com</b></a></li>
+                <li><span>Hours</span><b data-bind="hours">Mon to Fri, 8:30am to 5:30pm</b></li>
+                <li><span>Office</span><b data-bind="address">412 Court Street, Suite 2, Brookhaven, Ohio</b></li>
+                <li><span>Parking</span><b data-bind="parking">Free lot behind the building, entrance on Elm Street</b></li>
+            </ul>
+        </div>
+
+        <form class="intake" id="intake" novalidate>
+            <h3>Request a consultation</h3>
+            <p class="intake-warn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M12 8v5M12 16v.5"/></svg><span>Please do not send confidential details yet. A short summary is enough until we have checked for conflicts of interest.</span></p>
+            <div class="f-row">
+                <div class="f"><label for="i-name">Your name</label><input id="i-name" name="name" autocomplete="name" required></div>
+                <div class="f"><label for="i-phone">Phone</label><input id="i-phone" name="phone" type="tel" autocomplete="tel" required></div>
+            </div>
+            <div class="f-row">
+                <div class="f"><label for="i-email">Email</label><input id="i-email" name="email" type="email" autocomplete="email"></div>
+                <div class="f"><label for="i-county">County</label><select id="i-county" name="county"></select></div>
+            </div>
+            <div class="f"><label for="i-area">What is it about?</label><select id="i-area" name="area"></select></div>
+            <p class="route" id="i-route"></p>
+            <div class="f"><label for="i-other">Names of the other people involved <small>for our conflict check</small></label><input id="i-other" name="other" placeholder="For example your spouse, or the person whose estate it is"></div>
+            <fieldset class="f">
+                <legend>Consultation by</legend>
+                <div class="seg" id="i-mode"></div>
+            </fieldset>
+            <div class="f"><label for="i-msg">A short summary</label><textarea id="i-msg" name="message" rows="3" placeholder="One or two sentences, and any court date or deadline you know about"></textarea></div>
+            <label class="ack"><input type="checkbox" name="ack" id="i-ack"><span id="i-ack-text">I understand that sending this form does not make Hale &amp; Okafor my lawyers.</span></label>
+            <button class="btn btn-ink" type="submit">Send request</button>
+            <p class="form-note" id="i-note" role="status" aria-live="polite">Opens your email app with the request filled in.</p>
+        </form>
+    </div>
+</section>
+
+<footer class="footer">
+    <div class="wrap footer-grid">
+        <div>
+            <a class="brand brand-light" href="#top"><img src="icon.svg" alt="" width="38" height="38"><span><b data-bind="shortName">Hale &amp; Okafor</b><small data-bind="kind">Attorneys at Law</small></span></a>
+            <p class="foot-line"><span data-bind="name">Hale &amp; Okafor, Attorneys at Law</span>, <span data-bind="address">412 Court Street, Suite 2, Brookhaven, Ohio</span>.</p>
+            <p class="foot-line" id="foot-admissions"></p>
+        </div>
+        <div>
+            <h4>Practice areas</h4>
+            <ul id="foot-practice"></ul>
+        </div>
+        <div>
+            <h4>Contact</h4>
+            <ul>
+                <li><a data-bind-href="tel" href="tel:+15550147730"><span data-bind="phone">(555) 014-7730</span></a></li>
+                <li><a data-bind-href="mailto" href="mailto:office@example.com"><span data-bind="email">office@example.com</span></a></li>
+                <li data-bind="hours">Mon to Fri, 8:30am to 5:30pm</li>
+            </ul>
+        </div>
+    </div>
+    <div class="wrap disclaimer">
+        <p data-bind="disclaimer">The information on this site is general information, not legal advice for your situation. Contacting us does not create an attorney-client relationship. We become your lawyers only after we have checked for conflicts and we both sign an engagement letter.</p>
+    </div>
+    <div class="wrap foot-base">
+        <span>© <span id="year">2026</span> <span data-bind="name">Hale &amp; Okafor, Attorneys at Law</span>. <span data-bind="advertising">Attorney advertising</span>.</span>
+        <a href="#top">Back to top ↑</a>
+    </div>
+</footer>
+
+<nav class="mobile-bar" aria-label="Quick contact">
+    <a data-bind-href="tel" href="tel:+15550147730"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>Call</a>
+    <a data-bind-href="mailto" href="mailto:office@example.com"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/></svg>Email</a>
+    <a class="mb-main" href="#contact" data-consult>Book a consultation</a>
+</nav>
+
+<script src="app.js"></script>
+</body>
+</html>
