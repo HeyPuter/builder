@@ -117,6 +117,12 @@ export default {
                     ],
                 },
                 {
+                    q: 'What if Stripe is not available in my country?',
+                    a: [
+                        'Use Whop instead. It works in more countries and the builder supports it the same way. See [how to accept payments with Whop](/guides/how-to-accept-payments-with-whop/).',
+                    ],
+                },
+                {
                     q: 'Where do I see orders and refunds?',
                     a: [
                         'In your Stripe Dashboard.',
@@ -134,5 +140,5 @@ export default {
         },
     ],
 
-    related: ['guides/how-to-build-an-app-with-ai', 'guides/how-to-build-a-website-with-ai', 'ai-saas-builder', 'ai-app-builder'],
+    related: ['guides/how-to-accept-payments-with-whop', 'guides/how-to-build-an-app-with-ai', 'guides/how-to-build-a-website-with-ai', 'ai-saas-builder', 'ai-app-builder'],
 };

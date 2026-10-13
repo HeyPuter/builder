@@ -57,6 +57,7 @@ import guideHowAiWebsiteBuilderWorks from './guide-how-ai-website-builder-works.
 import guideWhatIsAiAppBuilder from './guide-what-is-ai-app-builder.js';
 import guideAiAppBuilderFeatures from './guide-ai-app-builder-features.js';
 import guideAcceptPayments from './guide-accept-payments.js';
+import guideAcceptPaymentsWhop from './guide-accept-payments-whop.js';
 import bestAiAppBuilder from './best-ai-app-builder.js';
 import bestAiWebsiteBuilder from './best-ai-website-builder.js';
 
@@ -103,6 +104,7 @@ export const PAGES = [
     guideWhatIsAiAppBuilder,
     guideAiAppBuilderFeatures,
     guideAcceptPayments,
+    guideAcceptPaymentsWhop,
 ];
 
 export const BY_SLUG = new Map(PAGES.map((p) => [p.slug, p]));

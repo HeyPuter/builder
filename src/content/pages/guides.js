@@ -66,6 +66,13 @@ export default {
                         'Take card payments with Stripe. Sign up, copy your secret key, give it to the builder, and try the checkout with a test card. Covers subscriptions too.',
                 },
                 {
+                    icon: 'receipt',
+                    label: 'How to accept payments with Whop',
+                    slug: 'guides/how-to-accept-payments-with-whop',
+                    body:
+                        'Take payments with Whop when Stripe is not available in your country. Start in the Whop sandbox, give the builder your API key, and test with a test card.',
+                },
+                {
                     icon: 'search',
                     label: 'What is an AI app builder?',
                     slug: 'guides/what-is-an-ai-app-builder',
