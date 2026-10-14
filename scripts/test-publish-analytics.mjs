@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 // ---- Project Published analytics payload ------------------------------------
-// doPublish() reports the project's AI usage (token buckets, a coarse band, cost)
+// doPublish() reports the project's AI usage (token buckets, cost, coarse bands)
 // and whether this was the first publish on the Project Published event. The
 // tracking is wrapped so a failure there falls back to a minimal event instead
 // of failing the publish — which also means a broken enriched path would go
@@ -56,6 +56,8 @@ const USAGE_CODE = [
     extract(helpersSource, 'function sumChatCostCents(history) {'),
     extract(helpersSource, 'function sumChatTokenUsage(history) {'),
     extract(helpersSource, 'function tokenBand(n) {'),
+    helpersSource.slice(helpersSource.indexOf('const COST_BANDS = ['), helpersSource.indexOf('function costBand(cents) {')),
+    extract(helpersSource, 'function costBand(cents) {'),
 ].join('\n\n');
 
 const ROOT = '/alice/AppData/builder';
@@ -148,7 +150,8 @@ const HISTORY = [
         && p.tokens_cache_read === 200000 && p.tokens_cache_write === 30000, JSON.stringify(p));
     check('first publish: tokens_total sums every bucket', p && p.tokens_total === 300000, JSON.stringify(p));
     check('first publish: tokens_band from the total', p && p.tokens_band === '100K-500K', JSON.stringify(p));
-    check('first publish: cost_cents summed', p && p.cost_cents === 15.75, JSON.stringify(p));
+    check('first publish: cost_cents summed and rounded to whole cents', p && p.cost_cents === 16, JSON.stringify(p));
+    check('first publish: cost_band from the unrounded cost', p && p.cost_band === '<$0.25', JSON.stringify(p));
 }
 
 // ---- Republish: same totals, flagged as not first ---------------------------
@@ -163,8 +166,9 @@ const HISTORY = [
 {
     const { events } = await run({ published: false, history: HISTORY.slice(0, 2) });
     const p = events[0] && events[0].props;
-    check('no usage: zero totals and the "0" band',
-        p && p.tokens_total === 0 && p.tokens_band === '0' && p.cost_cents === 0, JSON.stringify(p));
+    check('no usage: zero totals and the "0" / "$0" bands',
+        p && p.tokens_total === 0 && p.tokens_band === '0' && p.cost_cents === 0 && p.cost_band === '$0',
+        JSON.stringify(p));
 }
 
 // ---- Usage helpers missing: falls back, publish still succeeds --------------
@@ -177,7 +181,7 @@ const HISTORY = [
         JSON.stringify(events));
 }
 
-// ---- tokenBand boundaries ---------------------------------------------------
+// ---- tokenBand / costBand boundaries -----------------------------------------
 {
     const ctx = vm.createContext({});
     vm.runInContext(USAGE_CODE, ctx);
@@ -187,6 +191,15 @@ const HISTORY = [
     ];
     const bad = cases.filter(([n, want]) => ctx.tokenBand(n) !== want).map(([n, want]) => `${n}: got ${ctx.tokenBand(n)}, want ${want}`);
     check('tokenBand: band boundaries', bad.length === 0, bad.join('; '));
+
+    const costCases = [
+        [0, '$0'], [-1, '$0'], [NaN, '$0'], [0.003, '<$0.25'], [24.9, '<$0.25'], [25, '$0.25-0.50'],
+        [50, '$0.50-1'], [100, '$1-1.50'], [150, '$1.50-2'], [200, '$2-2.50'], [250, '$2.50-3'],
+        [299.9, '$2.50-3'], [300, '$3-4'], [400, '$4-5'], [500, '$5-7.50'], [750, '$7.50-10'],
+        [1000, '$10-20'], [2000, '$20+'], [50000, '$20+'],
+    ];
+    const badCost = costCases.filter(([n, want]) => ctx.costBand(n) !== want).map(([n, want]) => `${n}: got ${ctx.costBand(n)}, want ${want}`);
+    check('costBand: band boundaries', badCost.length === 0, badCost.join('; '));
 }
 
 if (failures) { console.error(failures + ' failure(s)'); process.exit(1); }
