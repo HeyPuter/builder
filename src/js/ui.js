@@ -2441,7 +2441,31 @@ async function doPublish() {
             window.savePublishedFields?.(chatId, fields);
         }
         ok = true;
-        window.track?.('Project Published', { type: isFirst ? 'first' : 'republish' });
+        // Report what the project cost to build up to this publish: the AI usage
+        // summed over the chat history captured at publish start (the chat we
+        // published FOR, even if the user switched away mid-publish). These are
+        // whole-project totals, not "since the last publish". Plausible keeps
+        // props as string dimensions and does not sum them, so the token counts
+        // are rounded into bands that group well in the dashboard. The exact
+        // figures also go out alongside them for export/API breakdowns.
+        // Guarded so analytics can never turn a successful publish into a failure.
+        try {
+            const tokens = sumChatTokenUsage(startHistory);
+            const totalTokens = tokens.input + tokens.output + tokens.cacheRead + tokens.cacheWrite;
+            window.track?.('Project Published', {
+                type: isFirst ? 'first' : 'republish',
+                first_publish: isFirst,
+                tokens_total: totalTokens,
+                tokens_input: tokens.input,
+                tokens_output: tokens.output,
+                tokens_cache_read: tokens.cacheRead,
+                tokens_cache_write: tokens.cacheWrite,
+                tokens_band: tokenBand(totalTokens),
+                cost_cents: Number(sumChatCostCents(startHistory).toFixed(4)),
+            });
+        } catch (e) {
+            window.track?.('Project Published', { type: isFirst ? 'first' : 'republish', first_publish: isFirst });
+        }
     } catch (e) {
         // The release never went live, so remove whatever of it landed. The
         // deployment the public address is still serving is a sibling of this

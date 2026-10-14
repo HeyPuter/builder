@@ -1249,6 +1249,22 @@ function sumChatTokenUsage(history) {
 }
 
 /**
+ * Bucket a token count into a coarse band ("<100K", "100K-500K", ...) for
+ * analytics. Plausible keeps custom props as string dimensions, so raw counts
+ * would each be their own row; bands group them into a usable breakdown.
+ */
+function tokenBand(n) {
+    const v = Number(n) || 0;
+    if (v <= 0) return '0';
+    if (v < 100e3) return '<100K';
+    if (v < 500e3) return '100K-500K';
+    if (v < 1e6) return '500K-1M';
+    if (v < 5e6) return '1M-5M';
+    if (v < 10e6) return '5M-10M';
+    return '10M+';
+}
+
+/**
  * Format a token count compactly with unit suffixes — 1.2K, 3.4M, 1.5B — so the
  * project-info dialog shows readable magnitudes instead of long digit strings
  * (e.g. "1.2M" rather than "1,234,567"). Values under 1000 are shown verbatim;
