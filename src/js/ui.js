@@ -2446,11 +2446,13 @@ async function doPublish() {
         // published FOR, even if the user switched away mid-publish). These are
         // whole-project totals, not "since the last publish". Plausible keeps
         // props as string dimensions and does not sum them, so the token counts
-        // are rounded into bands that group well in the dashboard. The exact
-        // figures also go out alongside them for export/API breakdowns.
+        // and cost are rounded into bands that group well in the dashboard. The
+        // exact figures also go out alongside them for export/API breakdowns
+        // (cost in whole cents, so equal spends share a row).
         // Guarded so analytics can never turn a successful publish into a failure.
         try {
             const tokens = sumChatTokenUsage(startHistory);
+            const costCents = sumChatCostCents(startHistory);
             const totalTokens = tokens.input + tokens.output + tokens.cacheRead + tokens.cacheWrite;
             window.track?.('Project Published', {
                 type: isFirst ? 'first' : 'republish',
@@ -2461,7 +2463,8 @@ async function doPublish() {
                 tokens_cache_read: tokens.cacheRead,
                 tokens_cache_write: tokens.cacheWrite,
                 tokens_band: tokenBand(totalTokens),
-                cost_cents: Number(sumChatCostCents(startHistory).toFixed(4)),
+                cost_cents: Math.round(costCents),
+                cost_band: costBand(costCents),
             });
         } catch (e) {
             window.track?.('Project Published', { type: isFirst ? 'first' : 'republish', first_publish: isFirst });
