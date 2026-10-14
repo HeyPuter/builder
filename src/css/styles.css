@@ -277,6 +277,29 @@ select:focus-visible,
     transition: background 0.15s, border-color 0.15s;
 }
 
+/* Upgrade: the one filled pill in the toolbar, for free signed-in users. */
+.upgrade-btn {
+    flex: 0 0 auto;
+    background: #111;
+    border: 1px solid #111;
+    cursor: pointer;
+    padding: 4px 12px;
+    border-radius: 14px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    color: #fff;
+    white-space: nowrap;
+    transition: background 0.15s;
+}
+.upgrade-btn:hover { background: #000; }
+.upgrade-btn.is-paid {
+    background: none;
+    border-color: #ccc;
+    color: #333;
+}
+.upgrade-btn.is-paid:hover { background: rgba(0,0,0,0.06); border-color: #999; }
+
 .sign-in-btn:hover,
 .feedback-btn:hover {
     background: rgba(0,0,0,0.06);
@@ -1839,6 +1862,36 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
 
 /* Compact recap left in the transcript once the card is resolved (also the
    render path on chat reload — see renderClarifySummary). */
+/* Upgrade card the OfferUpgrade tool puts in the chat. */
+.upgrade-card { animation: suggestionsIn 0.2s ease; }
+.upgrade-card .message-content { padding: 0 !important; }
+.upgrade-card-inner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #fafafa;
+    border: 1px solid #ececec;
+    border-radius: 12px;
+    padding: 10px 12px 10px 16px;
+    font-size: 14px;
+    color: #333;
+}
+.upgrade-card-inner span { flex: 1 1 auto; min-width: 0; }
+.upgrade-card-btn {
+    flex: 0 0 auto;
+    border: none;
+    border-radius: 8px;
+    padding: 7px 14px;
+    background: #111;
+    color: #fff;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+.upgrade-card-btn:hover { background: #000; }
+
 .clarify-summary {
     animation: suggestionsIn 0.2s ease;
 }
@@ -3347,6 +3400,37 @@ body.preview-active .preview-pane {
 .publish-result-copy span,
 .publish-result-visit span { line-height: 1; }
 
+/* Branding note at the foot of the publish popover: the upgrade offer for
+   free users, "publish again" for subscribers whose live site predates it. */
+.publish-branding {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px 9px 12px;
+    border: 1px dashed #d9d9de;
+    border-radius: 8px;
+    font-size: 12px;
+    line-height: 1.35;
+    color: #555;
+    text-align: left;
+}
+.publish-result-success .publish-branding { margin-top: 12px; }
+.publish-branding span { flex: 1 1 auto; min-width: 0; }
+.publish-branding-btn {
+    flex: 0 0 auto;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 11px;
+    background: #111;
+    color: #fff;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+.publish-branding-btn:hover { background: #000; }
+
 /* --- Share-draft popover content (its chrome is shared with the publish
    popover above; the draft URL row reuses .publish-url-row) ----------------- */
 /* Draft status line: same grammar as .publish-live (dot + short bold label)
@@ -4346,7 +4430,8 @@ body.preview-active.chat-hidden .chat {
         padding: 0;
     }
     .sign-in-btn,
-    .feedback-btn {
+    .feedback-btn,
+    .upgrade-btn {
         min-height: 40px;
         padding: 8px 16px;
         font-size: 14px;
@@ -4419,17 +4504,23 @@ body.preview-active.chat-hidden .chat {
 
     /* --- App preview ---
        The side-by-side dock can't fit on a phone, so the preview becomes a
-       full-screen layer and the floating toggle switches between it and chat. */
+       layer over the chat, under the top toolbar, and the toolbar's Chat/View
+       switcher flips between them. The toolbar stays put in both views, so
+       switching never shifts anything vertically. Below the toolbar's layers
+       (the account controls at 1000, an open sidebar at 1001) so the burger's
+       sidebar and the account panel open over the preview. */
     body.preview-active .preview-pane {
         position: fixed;
-        inset: 0;
+        top: var(--toolbar-h);
+        left: 0;
+        right: 0;
+        bottom: 0;
         width: 100%;
-        height: 100vh;
-        height: 100dvh;
+        height: auto;
         margin: 0;
         border: none;
         border-radius: 0;
-        z-index: 1400;
+        z-index: 900;
     }
     body.preview-active.mobile-view-chat .preview-pane {
         display: none;
@@ -4441,12 +4532,6 @@ body.preview-active.chat-hidden .chat {
         width: 100%;
         margin: 0 auto;
         padding-right: 14px;
-    }
-
-    /* The top toolbar's burger has a very high z-index; hide the toolbar while
-       the full-screen preview is the active view so it can't float on top. */
-    body.preview-active:not(.mobile-view-chat) .toolbar {
-        display: none;
     }
 
     /* Desktop-only preview affordance (hide-chat) is meaningless full-screen.
@@ -4526,15 +4611,29 @@ body.preview-active.chat-hidden .chat {
     body.preview-active .view-seg {
         display: inline-flex;
     }
+    /* One switcher on phones: the top toolbar's, which stays visible in both
+       views. The preview toolbar's copy is for nothing else. */
+    body.preview-active .view-seg.view-seg-preview {
+        display: none;
+    }
     /* (Segment sizing/padding is owned by the scoped `.view-seg .view-seg-btn`
        base rule, which already outranks `.preview-toolbar button`.) */
-    /* Chat-view instance: center it in the toolbar's empty middle, between the
-       left controls (burger / new-chat) and the right-hand user menu. */
+    /* The switcher gets its own row under the toolbar's controls. Squeezed
+       into the middle of the one row, it collided with the right-hand cluster
+       (Upgrade / Benefits + GitHub + avatar). The toolbar grows to two rows
+       while a preview is open — --toolbar-h, so the chat column below shrinks
+       to match — and the right cluster stays centred on the first row. */
+    body.preview-active {
+        --toolbar-h: 92px;
+    }
+    body.preview-active .user-menu-container {
+        top: 22px;
+    }
     .view-seg-toolbar {
         position: absolute;
         left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
+        bottom: 6px;
+        transform: translateX(-50%);
     }
 
     /* Phones can't fit the version-history / download buttons beside the centered
@@ -4701,6 +4800,143 @@ body.preview-active.chat-hidden .chat {
     opacity: 0.45;
     cursor: not-allowed;
 }
+
+/* Upgrade dialog — the Properties dialog's card and header. */
+.upgrade-modal { width: 440px; }
+.upgrade-modal:focus,
+.upgrade-modal:focus-visible { outline: none; }
+.upgrade-compare {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 0 0 16px;
+}
+.upgrade-compare figure { margin: 0; }
+.upgrade-compare figcaption {
+    margin-top: 6px;
+    font-size: 12px;
+    color: #76767f;
+    text-align: center;
+}
+.upgrade-site {
+    border: 1px solid #e3e3e8;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+}
+.upgrade-site-bar {
+    display: flex;
+    gap: 4px;
+    padding: 6px 8px;
+    background: #f4f4f6;
+    border-bottom: 1px solid #ececf0;
+}
+.upgrade-site-bar i { width: 6px; height: 6px; border-radius: 50%; background: #d4d4da; }
+.upgrade-site-body {
+    position: relative;
+    height: 104px;
+    padding: 12px;
+    box-sizing: border-box;
+}
+.upgrade-site-body b,
+.upgrade-site-body span {
+    display: block;
+    height: 6px;
+    border-radius: 3px;
+    background: #ececf0;
+    margin-bottom: 7px;
+}
+.upgrade-site-body b { width: 55%; height: 9px; background: #dcdce2; margin-bottom: 10px; }
+.upgrade-site-body span.short { width: 60%; }
+/* Scaled-down copy of the real badge (src/runtime.js). */
+.upgrade-site-badge {
+    position: absolute;
+    right: 7px;
+    bottom: 7px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 7px 3px 4px;
+    border-radius: 999px;
+    background: rgba(23, 28, 36, 0.92);
+    color: rgba(242, 244, 248, 0.92);
+    font-size: 9px;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+}
+.upgrade-site-badge img { width: 11px; height: 11px; border-radius: 3px; }
+.upgrade-lead {
+    margin: 0 0 10px;
+    font-size: 14px;
+    color: #333;
+}
+.upgrade-perks {
+    list-style: none;
+    margin: 0 0 12px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.upgrade-perks li {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 14px;
+    color: #1a1a1a;
+}
+.upgrade-perks svg { width: 16px; height: 16px; flex: 0 0 auto; margin-top: 1px; color: #2d7d46; }
+.upgrade-note { margin: 0; font-size: 12.5px; color: #76767f; }
+.upgrade-actions { gap: 10px; }
+.upgrade-go {
+    background: #111;
+    color: #fff;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+}
+.upgrade-go:hover { background: #000; }
+/* Paid face: a primary Done / Publish again, a success check after an
+   upgrade, and the quieter "need more usage" row. */
+.upgrade-primary { background: #111; color: #fff; }
+.upgrade-primary:hover { background: #000; }
+.upgrade-success-badge {
+    width: 44px;
+    height: 44px;
+    margin: 0 auto 14px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #e8f5ec;
+    color: #2d7d46;
+}
+.upgrade-success-badge svg { width: 22px; height: 22px; }
+.upgrade-more {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: #f6f7f9;
+    font-size: 13px;
+    color: #555;
+}
+.upgrade-more span { flex: 1 1 auto; min-width: 0; }
+/* Shares .upgrade-go (for the click handler), so undo its button fill. */
+a.upgrade-more-link {
+    flex: 0 0 auto;
+    display: inline;
+    padding: 0;
+    background: none;
+    color: #111;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+a.upgrade-more-link:hover { background: none; color: #111; }
 
 /* Project Properties dialog — reuses .confirm-modal-overlay for the backdrop. */
 .properties-modal {
@@ -5497,6 +5733,34 @@ html[data-theme="dark"] .publish-result-copy.copied { color: var(--success); }
 /* Visit site inverts with the theme: black-on-light, white-on-dark. */
 html[data-theme="dark"] .publish-result-visit { background: #eef2f7; color: #0b1118; }
 html[data-theme="dark"] .publish-result-visit:hover { background: #fff; }
+html[data-theme="dark"] .publish-branding { border-color: var(--border); color: var(--text-secondary); }
+html[data-theme="dark"] .upgrade-card-inner { background: var(--surface); border-color: var(--border); color: var(--text); }
+html[data-theme="dark"] .upgrade-card-btn,
+html[data-theme="dark"] .publish-branding-btn,
+html[data-theme="dark"] .upgrade-btn,
+html[data-theme="dark"] a.upgrade-go { background: #eef2f7; border-color: #eef2f7; color: #0b1118; }
+html[data-theme="dark"] .upgrade-card-btn:hover,
+html[data-theme="dark"] .publish-branding-btn:hover,
+html[data-theme="dark"] .upgrade-btn:hover,
+html[data-theme="dark"] a.upgrade-go:hover { background: #fff; }
+html[data-theme="dark"] .upgrade-compare figcaption,
+html[data-theme="dark"] .upgrade-note { color: var(--text-muted); }
+html[data-theme="dark"] .upgrade-site { background: var(--surface); border-color: var(--border); }
+html[data-theme="dark"] .upgrade-site-bar { background: var(--surface-subtle); border-bottom-color: var(--border-subtle); }
+html[data-theme="dark"] .upgrade-site-bar i,
+html[data-theme="dark"] .upgrade-site-body span { background: var(--surface-active); }
+html[data-theme="dark"] .upgrade-site-body b { background: var(--border-strong); }
+html[data-theme="dark"] .upgrade-lead { color: var(--text-secondary); }
+html[data-theme="dark"] .upgrade-perks li { color: var(--text); }
+html[data-theme="dark"] .upgrade-perks svg { color: #8fe3ab; }
+html[data-theme="dark"] .upgrade-btn.is-paid { background: none; border-color: var(--border-strong); color: var(--text); }
+html[data-theme="dark"] .upgrade-btn.is-paid:hover { background: rgba(255, 255, 255, 0.06); border-color: var(--text-muted); }
+html[data-theme="dark"] .upgrade-primary { background: #eef2f7; color: #0b1118; }
+html[data-theme="dark"] .upgrade-primary:hover { background: #fff; }
+html[data-theme="dark"] .upgrade-success-badge { background: var(--success-soft); color: #8fe3ab; }
+html[data-theme="dark"] .upgrade-more { background: var(--surface-subtle); color: var(--text-secondary); }
+html[data-theme="dark"] a.upgrade-more-link,
+html[data-theme="dark"] a.upgrade-more-link:hover { background: none; color: var(--text); }
 /* Share-draft popover content (amber mirrors .publish-live.is-stale). */
 html[data-theme="dark"] .share-draft-status { color: #f0c061; }
 html[data-theme="dark"] .share-publish-handoff { color: var(--text-secondary); }
@@ -5963,15 +6227,12 @@ body.project-loading .chat-copyright {
     .project-loading-overlay.with-preview { justify-content: center; }
     .project-loading-overlay.with-preview .project-loading-inner { max-width: 600px; }
     .project-loading-overlay.with-preview .project-loading-preview { display: none; }
-    /* Full-screen app view: the preview pane becomes a fixed z-1400 layer and
-       the toolbar is hidden, so cover the whole screen and outrank the pane —
-       otherwise a Back/Forward-triggered load would leave the OLD project's
-       app on top of the skeleton for the whole load. The sidebar (z 1000) is
-       unreachable in this state (its burger lives in the hidden toolbar), so
-       sitting above it is moot. */
+    /* App view: the preview pane is a fixed z-900 layer under the toolbar, so
+       outrank it — otherwise a Back/Forward-triggered load would leave the OLD
+       project's app on top of the skeleton for the whole load. Still under the
+       toolbar (it keeps its default top) and below an open sidebar (1001). */
     body.preview-active:not(.mobile-view-chat) .project-loading-overlay {
-        top: 0;
-        z-index: 1450;
+        z-index: 950;
     }
 }
 

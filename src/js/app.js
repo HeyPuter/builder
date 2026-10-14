@@ -1196,6 +1196,10 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
                             // Re-render the static recap of a past clarifying-questions
                             // exchange (the interactive card is never replayed).
                             window.renderClarifySummary?.(toolResponse);
+                        } else if (toolResponse.__upgrade_offer) {
+                            // A past upgrade offer: show its card again, unless
+                            // the user has a paid plan by now.
+                            if (!toolResponse.subscribed && !window.Branding?.isSubscribed(window.user)) window.renderUpgradeCard?.();
                         } else if (toolResponse.success && toolResponse.path && toolResponse.filename) {
                             // Check if it's a video (ends with .mp4) or image
                             const isVideo = toolResponse.path.toLowerCase().endsWith('.mp4') || toolResponse.filename?.toLowerCase().endsWith('.mp4');
