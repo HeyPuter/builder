@@ -46,9 +46,8 @@
         },
         exec: async function (args, state) {
             // Ask Puter, not the copy loaded at page start: the user may have
-            // upgraded in another tab since.
-            let user = window.user;
-            try { user = await puter.auth.getUser(); } catch (e) { /* keep the cached copy */ }
+            // upgraded in another tab since. (Also refreshes that copy.)
+            const user = window.refreshUserPlan ? await window.refreshUserPlan() : window.user;
             const subscribed = window.Branding.isSubscribed(user);
             window.track?.('Badge Removal Requested', { subscribed });
             if (subscribed) {
@@ -58,7 +57,9 @@
                     instruction: "The user has a paid Puter subscription. The badge is removed automatically from their public site each time they publish (the builder preview never shows it). Tell them in one short sentence to publish (or publish again) to remove it. Do not edit the runtime script tag.",
                 };
             }
-            if (!window.isStaleTurn?.(state)) {
+            // The turn may have been stopped, or the chat switched, while the
+            // plan was being fetched: no card for a turn that is gone.
+            if (!window.isAborted?.(state?.abortController) && !window.isStaleTurn?.(state)) {
                 renderUpgradeCard();
                 window.track?.('Upgrade Prompt Shown', { source: 'chat' });
             }

@@ -2296,8 +2296,11 @@ async function stagePublishRelease(chatId, appDir, srcPath) {
         if (!Array.isArray(releaseItems) || releaseItems.length === 0) {
             throw new Error('The copy of your project came back empty, so nothing was published.');
         }
-        // Paid users publish without the "Made with Puter" badge.
-        const branding = window.Branding?.isSubscribed(window.user) ? 'removed' : 'kept';
+        // Paid users publish without the "Made with Puter" badge. Asked of Puter
+        // now, not the copy loaded with the page: the plan may have started or
+        // ended since (another tab, a renewal that failed).
+        const user = window.refreshUserPlan ? await window.refreshUserPlan() : window.user;
+        const branding = window.Branding?.isSubscribed(user) ? 'removed' : 'kept';
         if (branding === 'removed') await stripBrandingFromRelease(releaseDir);
 
         // Give the release its own backend and point it there, BEFORE the public
@@ -4522,6 +4525,9 @@ async function showChatProperties(chatId) {
     // and the publish analytics. Close Settings, open the project if another
     // one is on screen, then open the popover.
     async function publishFromSettings() {
+        // Switching projects stops a running build, so ask first, as every
+        // other project switch does; declining leaves Settings open.
+        if (chatId !== currentChatId && !await confirmLeaveActiveChat()) return;
         close();
         if (chatId !== currentChatId) {
             try { await loadChat(chatId); } catch (e) { return; }
@@ -4925,6 +4931,24 @@ $(document).on('click', '.upgrade-card-btn', function (e) {
     e.preventDefault();
     openUpgradeModal('chat');
 });
+
+// Fetch the user again for a decision that depends on the plan (publishing,
+// the AI's badge tool). Updates the cached window.user and, when the plan
+// changed, the toolbar's Upgrade/Benefits button. Falls back to the cached
+// user when Puter can't be reached, or answers for a different account.
+async function refreshUserPlan() {
+    let user;
+    try { user = await puter.auth.getUser(); } catch (e) { return window.user; }
+    if (!user || !window.user || user.username !== window.user.username) return window.user;
+    const was = window.Branding.isSubscribed(window.user);
+    window.user = user;
+    if (window.Branding.isSubscribed(user) !== was) {
+        updateUserMenu();
+        if (_publishPanelOpen && !publishBusyHere()) renderPublishPanel();
+    }
+    return user;
+}
+window.refreshUserPlan = refreshUserPlan;
 
 // Back from puter.com/#billing: fetch the user again, and if the plan is now
 // paid, swap the Upgrade offers for the paid state and show the success

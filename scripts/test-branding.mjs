@@ -39,6 +39,12 @@ check('leaves other builder.puter.com scripts alone',
     !B.stripRuntimeTags('<script src="https://builder.puter.com/other.js"></script>').changed);
 check('does not eat a following inline script',
     B.stripRuntimeTags(TAG + '<script>window.x=1</script>').text === '<script>window.x=1</script>');
+check('leaves a look-alike filename alone (runtime.js-custom)',
+    !B.stripRuntimeTags('<script src="https://builder.puter.com/runtime.js-custom"></script>').changed);
+check('leaves a data-src attribute alone',
+    !B.stripRuntimeTags('<script data-src="https://builder.puter.com/runtime.js" src="app.js"></script>').changed);
+check('still strips when data-src sits beside the real src',
+    B.stripRuntimeTags('<script data-x="1" src="https://builder.puter.com/runtime.js" defer></script>').text === '');
 check('no tag → unchanged', !B.stripRuntimeTags('<p>hi</p>').changed);
 check('hasRuntimeTag true/false', B.hasRuntimeTag(page) && !B.hasRuntimeTag('<p>hi</p>'));
 check('hasRuntimeTag is stable across calls (global regex lastIndex)',
@@ -52,8 +58,12 @@ check('upgrade url is puter.com billing', B.UPGRADE_URL === 'https://puter.com/#
 
 // Wiring: the module is bundled, and staging a release strips only for subscribers.
 check('branding.js is in the bundle', viteSrc.includes("'js/branding.js'"));
-check('stagePublishRelease strips for subscribers',
-    /const branding = window\.Branding\?\.isSubscribed\(window\.user\) \? 'removed' : 'kept';\s*if \(branding === 'removed'\) await stripBrandingFromRelease\(releaseDir\)/.test(uiSrc));
+check('stagePublishRelease strips for subscribers, on a fresh plan check',
+    /const user = window\.refreshUserPlan \? await window\.refreshUserPlan\(\) : window\.user;\s*const branding = window\.Branding\?\.isSubscribed\(user\) \? 'removed' : 'kept';\s*if \(branding === 'removed'\) await stripBrandingFromRelease\(releaseDir\)/.test(uiSrc));
+check('settings asks before switching away from a running build',
+    /async function publishFromSettings\(\) \{[\s\S]*?confirmLeaveActiveChat\(\)[\s\S]*?close\(\);/.test(uiSrc));
+check('the chat card is skipped for a stopped turn',
+    read('../src/tools/chat_ui/upgrade.js').includes('!window.isAborted?.(state?.abortController) && !window.isStaleTurn?.(state)'));
 
 // The upgrade funnel's analytics: every step and entry point is reported.
 const upgradeToolSrcForTracking = read('../src/tools/chat_ui/upgrade.js');

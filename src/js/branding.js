@@ -18,7 +18,10 @@
 
     // One runtime tag, either path, any attribute order or quoting, plus the
     // whitespace and line break it sat on so no blank line is left behind.
-    const RUNTIME_TAG_RE = /[ \t]*<script\b[^>]*\bsrc\s*=\s*["']?https?:\/\/builder\.puter\.com\/(?:runtime|badge)\.js(?:[?#][^"'\s>]*)?["']?[^>]*>\s*<\/script\s*>[ \t]*(?:\r?\n)?/gi;
+    // The attribute must be exactly `src` (whitespace before it, so never
+    // `data-src`), and the URL must end at runtime.js / badge.js or its query
+    // (so never `runtime.js-custom`): this deletes from a user's release.
+    const RUNTIME_TAG_RE = /[ \t]*<script\b[^>]*?\ssrc\s*=\s*["']?https?:\/\/builder\.puter\.com\/(?:runtime|badge)\.js(?:[?#][^"'\s>]*)?(?=["'\s>])["']?[^>]*>\s*<\/script\s*>[ \t]*(?:\r?\n)?/gi;
 
     function hasRuntimeTag(html) {
         RUNTIME_TAG_RE.lastIndex = 0;
