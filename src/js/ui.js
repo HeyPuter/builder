@@ -89,10 +89,10 @@ function renderSkeleton() {
             h += `<span class="burger-line"></span>`;
             h += `<span class="burger-line"></span>`;
         h += `</button>`;
-        // Mobile chat⇄app switcher, centered in the toolbar's empty middle. Shown
-        // by CSS only on phones while a preview is active and the chat is the
-        // visible view (the preview view shows its own copy in the preview
-        // toolbar). Sits in the gap between the left controls and the user menu.
+        // Mobile chat⇄app switcher, on its own row under the toolbar's controls.
+        // Shown by CSS only on phones while a preview is active, in both views:
+        // the toolbar stays visible over the app view too, so the switcher never
+        // moves (the preview toolbar's copy is hidden on phones).
         h += window.viewSegHtml('view-seg-toolbar');
         // Top-right GitHub link and user menu, populated by updateUserMenu():
         // an account avatar when signed in, otherwise a Sign In button.
@@ -269,7 +269,12 @@ function updateUserMenu() {
     const isApp = !!(window.puter && puter.env === 'app');
 
     const githubLink = `<a class="github-link" href="https://github.com/HeyPuter/builder" target="_blank" rel="noopener noreferrer" title="View source on GitHub" aria-label="View source on GitHub (opens in a new tab)"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 .5C5.37.5 0 5.87 0 12.5c0 5.3 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.725-4.043-1.61-4.043-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.09-.745.083-.73.083-.73 1.205.085 1.838 1.237 1.838 1.237 1.07 1.835 2.807 1.305 3.492.998.108-.776.42-1.305.763-1.605-2.665-.305-5.467-1.333-5.467-5.93 0-1.31.468-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23A11.5 11.5 0 0 1 12 6.3c1.02.005 2.045.138 3.005.405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.295 24 17.795 24 12.5c0-6.63-5.37-12-12-12Z"/></svg></a>`;
-    let h = '';
+    // Signed-in users get the plan button (see openUpgradeModal): Upgrade on
+    // the free plan, Benefits on a paid one.
+    const paidPlan = !!window.Branding?.isSubscribed(window.user);
+    const upgradeBtn = loggedIn
+        ? `<button class="upgrade-btn${paidPlan ? ' is-paid' : ''}" aria-haspopup="dialog">${paidPlan ? 'Benefits' : 'Upgrade'}</button>` : '';
+    let h = upgradeBtn;
     if (loggedIn && !isApp) {
         h += githubLink;
         // Signed in: a single avatar button opens the account panel — the
@@ -303,7 +308,7 @@ function updateUserMenu() {
     // focus and hand it to the replacement.
     const active = document.activeElement;
     const focusedControl = (active && $container[0] && $container[0].contains(active))
-        ? ['github-link', 'theme-toggle-btn', 'user-menu-btn', 'feedback-btn', 'sign-in-btn'].find((c) => active.classList.contains(c))
+        ? ['upgrade-btn', 'github-link', 'theme-toggle-btn', 'user-menu-btn', 'feedback-btn', 'sign-in-btn'].find((c) => active.classList.contains(c))
         : null;
     $container.html(h);
     if (focusedControl) {
@@ -1986,7 +1991,8 @@ function renderPublishPanel() {
                     ? publishWaitingHtml(blocked)
                     : `<button class="publish-action" data-action="publish">${globe}<span>Publish changes</span></button>`)
                 : `<div class="publish-uptodate">${window.check_svg}<span>Up to date</span></div>`) +
-            (ago ? `<div class="publish-meta">Last published ${htmlEscape(ago)}</div>` : '');
+            (ago ? `<div class="publish-meta">Last published ${htmlEscape(ago)}</div>` : '') +
+            publishBrandingHtml({ live: true, dirty: st.dirty });
     }
 
     $panel.find('.publish-panel-header span').text(title);
@@ -2029,6 +2035,7 @@ function openPublishPanel() {
     window.closeIssuesPanel?.();
     window.closeDevicePanel?.();
     _publishPanelOpen = true;
+    _upgradePromptsShown.clear();
     $('.preview-publish-btn').attr('aria-expanded', 'true');
     let $panel = $('.preview-publish-panel');
     if (!$panel.length) {
@@ -2174,12 +2181,87 @@ async function deployPublishedWorkers(chatId, appDir, releaseDir, srcPath = appD
     return renames;
 }
 
+// Remove the runtime tag (and with it the "Made with Puter" badge) from every
+// HTML page of a staged release — see branding.js. The release is a private
+// copy nothing else writes to, so no file locks. assets/ holds the user's own
+// uploads and is left alone. Best effort per file: a page that keeps its badge
+// is not worth failing a publish over.
+async function stripBrandingFromRelease(dir) {
+    let items = [];
+    try { items = await puter.fs.readdir(dir); } catch (e) { return; }
+    for (const item of items) {
+        const fullPath = dir + '/' + item.name;
+        if (item.is_dir) {
+            if (item.name !== 'assets') await stripBrandingFromRelease(fullPath);
+            continue;
+        }
+        if (!/\.html?$/i.test(item.name)) continue;
+        try {
+            const result = window.Branding.stripRuntimeTags(await puter.fs.read(fullPath).then(d => d.text()));
+            if (result.changed) await puter.fs.write(fullPath, result.text);
+        } catch (e) {
+            console.warn('Publish: could not remove the badge from', fullPath, e);
+        }
+    }
+}
+
+// Whether the LIVE release still loads the badge, by path → true/false. Read
+// only for subscribers, who may have published before they upgraded; the
+// popover then offers to publish again. A path is a release directory, and a
+// release never changes once served, so an answer never goes stale.
+const _liveBadgeByPath = new Map();
+function liveReleaseHasBadge(path) {
+    if (!path) return false;
+    if (_liveBadgeByPath.has(path)) return _liveBadgeByPath.get(path);
+    _liveBadgeByPath.set(path, false); // one read per path, even across re-renders
+    puter.fs.read(path + '/index.html').then(d => d.text()).then((html) => {
+        if (!window.Branding.hasRuntimeTag(html)) return;
+        _liveBadgeByPath.set(path, true);
+        if (_publishPanelOpen && window.currentPublishedPath === path) renderPublishPanel();
+    }).catch(() => { /* no index.html or unreadable — say nothing */ });
+    return false;
+}
+
+// 'Upgrade Prompt Shown' once per source per popover open: the popover
+// re-renders often (a turn ending, the publish state changing), and each of
+// those would otherwise count as another impression. Cleared on open.
+const _upgradePromptsShown = new Set();
+function trackUpgradePromptShown(source) {
+    if (_upgradePromptsShown.has(source)) return;
+    _upgradePromptsShown.add(source);
+    window.track?.('Upgrade Prompt Shown', { source });
+}
+
+// The branding note under the publish popover's views. Free users get the
+// upgrade offer; subscribers whose live site predates their upgrade are told
+// to publish again (with a button when there is nothing else to publish).
+function publishBrandingHtml({ live, dirty }) {
+    const user = window.user;
+    if (!user || user.is_temp) return '';
+    if (!window.Branding.isSubscribed(user)) {
+        const source = live ? 'publish_panel' : 'publish_success';
+        trackUpgradePromptShown(source);
+        return '<div class="publish-branding">' +
+            '<span>Your site shows a “Made with Puter” badge. Want to remove it?</span>' +
+            `<button type="button" class="publish-branding-btn" data-action="upgrade" data-source="${source}">Yes, remove it</button>` +
+        '</div>';
+    }
+    if (!live || !liveReleaseHasBadge(window.currentPublishedPath)) return '';
+    if (dirty) {
+        return '<div class="publish-branding"><span>Publishing also removes the “Made with Puter” badge.</span></div>';
+    }
+    return '<div class="publish-branding">' +
+        '<span>Your site still shows the “Made with Puter” badge.</span>' +
+        '<button type="button" class="publish-branding-btn" data-action="republish">Remove it</button>' +
+    '</div>';
+}
+
 // Stage a release for publishing, without serving it: let the writes in flight
 // against the working dir finish, copy the working files into a fresh release
 // directory inside the project's published container, check the copy landed,
-// and give the release its own backend. Shared by every publish entry point
-// (the toolbar's doPublish and the Settings dialog's first publish), so none
-// of them can ship a half-written file, an empty site, or a release still
+// and give the release its own backend. Called by doPublish, which every
+// publish goes through (the Settings dialog hands off to the popover), so no
+// publish can ship a half-written file, an empty site, or a release still
 // calling the draft's workers. If any step fails, whatever landed is removed
 // and the error rethrown; once this resolves, the release is the caller's to
 // serve — or to delete if serving it fails.
@@ -2214,6 +2296,12 @@ async function stagePublishRelease(chatId, appDir, srcPath) {
         if (!Array.isArray(releaseItems) || releaseItems.length === 0) {
             throw new Error('The copy of your project came back empty, so nothing was published.');
         }
+        // Paid users publish without the "Made with Puter" badge. Asked of Puter
+        // now, not the copy loaded with the page: the plan may have started or
+        // ended since (another tab, a renewal that failed).
+        const user = window.refreshUserPlan ? await window.refreshUserPlan() : window.user;
+        const branding = window.Branding?.isSubscribed(user) ? 'removed' : 'kept';
+        if (branding === 'removed') await stripBrandingFromRelease(releaseDir);
 
         // Give the release its own backend and point it there, BEFORE the public
         // address starts serving it: the new frontend may need endpoints the old
@@ -2224,7 +2312,7 @@ async function stagePublishRelease(chatId, appDir, srcPath) {
         // previous release is still served; there is no atomic swap of both
         // halves, and a retry completes the release.)
         const publishedWorkers = await deployPublishedWorkers(chatId, appDir, releaseDir, srcPath);
-        return { pubRoot, releaseName, releaseDir, publishedWorkers };
+        return { pubRoot, releaseName, releaseDir, publishedWorkers, branding };
     } catch (e) {
         // The release never went live, so remove whatever of it landed. The
         // deployment the public address is still serving is a sibling of this
@@ -2257,7 +2345,9 @@ async function retirePublishedWorkers(chatId, keepNames) {
 
 // The core action: push the current working dir to the public subdomain
 // (creating it on first publish), then record + persist the new baseline.
-async function doPublish() {
+// `trigger` is for analytics only: 'remove_badge' when the branding note's
+// "Remove it" button started the publish.
+async function doPublish({ trigger } = {}) {
     // Normally unreachable — the action renders as a disabled "finishing…" row
     // while a turn/restore runs (see renderPublishPanel). This is the race guard
     // for the narrow window where work starts between render and click: no
@@ -2341,7 +2431,7 @@ async function doPublish() {
         //
         // Copy into a fresh release and give it its own backend (see
         // stagePublishRelease, which cleans up after its own failures).
-        const { pubRoot, releaseName, releaseDir, publishedWorkers } = await stagePublishRelease(chatId, appDir, path);
+        const { pubRoot, releaseName, releaseDir, publishedWorkers, branding } = await stagePublishRelease(chatId, appDir, path);
         stagedDir = releaseDir;
 
         let url = startUrl;
@@ -2462,9 +2552,11 @@ async function doPublish() {
                 tokens_cache_write: tokens.cacheWrite,
                 tokens_band: tokenBand(totalTokens),
                 cost_cents: Number(sumChatCostCents(startHistory).toFixed(4)),
+                branding,
+                ...(trigger ? { trigger } : {}),
             });
         } catch (e) {
-            window.track?.('Project Published', { type: isFirst ? 'first' : 'republish', first_publish: isFirst });
+            window.track?.('Project Published', { type: isFirst ? 'first' : 'republish', first_publish: isFirst, branding, ...(trigger ? { trigger } : {}) });
         }
     } catch (e) {
         // The release never went live, so remove whatever of it landed. The
@@ -2530,6 +2622,16 @@ $(document).on('click', '.preview-publish-panel .publish-action', function (e) {
     e.preventDefault();
     e.stopPropagation();
     doPublish();
+});
+
+// The branding note's button: Upgrade opens the upgrade dialog, Remove it
+// republishes (stripping the badge — see stagePublishRelease). stopPropagation
+// for the same reason as .publish-action above.
+$(document).on('click', '.preview-publish-panel .publish-branding-btn', function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if ($(this).attr('data-action') === 'republish') doPublish({ trigger: 'remove_badge' });
+    else openUpgradeModal($(this).attr('data-source') || 'publish_panel');
 });
 
 // First-publish address field: Enter publishes, Escape closes. stopPropagation
@@ -2736,6 +2838,7 @@ function publishSuccessHtml({ url, meta }) {
             `<button type="button" class="publish-result-copy">${copySvg}<span>Copy link</span></button>` +
             `<a class="publish-result-visit" href="${safeUrl}" target="_blank" rel="noopener noreferrer"><span>Visit site</span>${arrowSvg}</a>` +
         '</div>' +
+        publishBrandingHtml({ live: false }) +
     '</div>';
 }
 
@@ -3647,6 +3750,7 @@ $(document).on('click', '.chat-starter-chip', function() {
 
 
 $(document).on('click', '.upgrade-button', function() {
+    window.track?.('Upgrade Clicked', { source: 'usage_limit' });
     puter.ui.requestUpgrade();
 });
 
@@ -4263,8 +4367,6 @@ async function showChatProperties(chatId) {
         path: (chatId === currentChatId ? window.currentPublishedPath : null)
             || saved.publishedPath || null,
     };
-    // The working directory whose files get pushed live on a first publish.
-    const workingDir = `/${window.user?.username}/AppData/${puter.appID}/${chatId}`;
     const ADDR_RE = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 
     // Persist the new published fields — to the live globals + open chat when this
@@ -4318,9 +4420,10 @@ async function showChatProperties(chatId) {
         if (hadFocus) $published.find('.properties-site-btn').trigger('focus');
     }
 
-    // Swap the row for an inline address editor. mode: 'rename' (re-point the
-    // existing subdomain) or 'publish' (first publish — copy working files, mint).
-    function beginAddressEdit(mode) {
+    // Swap the row for an inline address editor that re-points the existing
+    // subdomain at a new name. (A first publish goes through the publish
+    // popover instead — see publishFromSettings.)
+    function beginAddressEdit() {
         const $form = $(
             '<span class="properties-address-edit">' +
                 '<span class="properties-address-fix">https://</span>' +
@@ -4332,9 +4435,7 @@ async function showChatProperties(chatId) {
         );
         $published.empty().addClass('is-editing').append($form);
         const $input = $form.find('.properties-address-input');
-        const initial = mode === 'rename'
-            ? (previewSubdomain(pub.url) || '')
-            : (slugifyTitle(title) || puter.randName('-'));
+        const initial = previewSubdomain(pub.url) || '';
         $input.val(initial).trigger('focus');
         $input[0].select();
 
@@ -4353,10 +4454,10 @@ async function showChatProperties(chatId) {
                 cancel();
             }
         });
-        $form.find('.properties-address-save').on('click', () => submitAddress(mode, $form));
+        $form.find('.properties-address-save').on('click', () => submitAddress($form));
     }
 
-    async function submitAddress(mode, $form) {
+    async function submitAddress($form) {
         const $input = $form.find('.properties-address-input');
         const $save = $form.find('.properties-address-save');
         const newSub = ($input.val() || '').trim().toLowerCase();
@@ -4365,18 +4466,10 @@ async function showChatProperties(chatId) {
             $input.trigger('focus');
             return;
         }
-        // The same gates the toolbar's Publish honours (doPublish). A first
-        // publish copies the working files: while a build turn or a version
-        // restore is rewriting them, that copy would ship half-written files
-        // to the public site. And neither path may run while another publish
-        // or rename of THIS project is still in flight — both delete-and-copy
-        // the same published directory and mint subdomains against it.
-        const blocked = (mode === 'publish' && chatId === currentChatId) ? publishBlockedReason() : null;
-        if (blocked || window.isPublishInFlight(chatId)) {
-            window.showToast?.(
-                blocked === 'restore' ? 'Finishing the restore — you can publish the moment it’s done.'
-                    : blocked === 'task' ? 'Finishing the current task — you can publish the moment it’s done.'
-                        : 'This project is already being published — one moment.',
+        // A rename may not run while a publish of THIS project is still in
+        // flight: both mint subdomains against the same published directory.
+        if (window.isPublishInFlight(chatId)) {
+            window.showToast?.('This project is already being published — one moment.',
                 { type: 'info', key: 'publish-blocked', throttleMs: 3000 });
             $input.trigger('focus');
             return;
@@ -4385,89 +4478,26 @@ async function showChatProperties(chatId) {
         $input.prop('disabled', true);
         setPublishBusy(true, chatId);
         try {
-            if (mode === 'rename') {
-                const oldSub = previewSubdomain(pub.url);
-                if (newSub === oldSub) { renderPublishedCell(); return; }
-                // The frozen published copy only — never the working dir (see
-                // the toolbar's address editor for why).
-                const path = await resolvePublishedDir(pub.path, chatId);
-                if (!path) {
-                    await puter.ui.alert('Cannot change the address: this project’s published files could not be found. Publish it again first.');
-                    renderPublishedCell();
-                    return;
-                }
-                // Create the new subdomain first; only drop the old one once that
-                // succeeds, so a failure leaves the site reachable.
-                await puter.hosting.create(newSub, path);
-                if (oldSub) {
-                    try { await puter.hosting.delete(oldSub); }
-                    catch (e) { console.warn('Failed to remove old published subdomain:', e); }
-                }
-                pub.url = `https://${newSub}.puter.site/`;
-                pub.path = path;
-                await persistPublished({ publishedUrl: pub.url, publishedPath: path });
-            } else {
-                // First publish: copy the working files into a separate, frozen
-                // published dir and serve THAT (never the live working dir — see
-                // doPublish), then mint the subdomain at the chosen address.
-                const pubDir = publishedDirForChat(chatId);
-                const srcPath = (chatId === currentChatId ? publishedRootDir() : workingDir);
-                // The directory is created lazily by the first file write, so a
-                // project whose turns wrote nothing yet (a question, a
-                // clarification) has none: the copy below threw and the generic
-                // catch blamed the address ("may already be taken"), sending the
-                // user through name after name in vain. Check first.
-                let hasFiles = false;
-                if (srcPath) {
-                    try { hasFiles = !!(await puter.fs.stat(srcPath)); }
-                    catch (e) { if (!isNotFoundError(e)) throw e; }
-                }
-                if (!srcPath || !hasFiles) {
-                    await puter.ui.alert("There's nothing to publish yet — build your app first.");
-                    renderPublishedCell();
-                    return;
-                }
-                // Staged exactly as doPublish stages it (stagePublishRelease):
-                // in-flight writes drained, a fresh release directory in the
-                // project's published container, the copy verified, and the
-                // release given its own backend. This path used to copy and go
-                // live with none of that — the public site kept calling the
-                // draft's workers, so the AI's next redeploy changed the live
-                // backend. Never empty the container first — this project may
-                // have been published from the toolbar in the meantime.
-                const { releaseName, releaseDir, publishedWorkers } = await stagePublishRelease(chatId, workingDir, srcPath);
-                let site;
-                try {
-                    site = await puter.hosting.create(newSub, releaseDir);
-                } catch (e) {
-                    // Never served (a taken address, the site cap): remove it.
-                    try { await puter.fs.delete(releaseDir, { recursive: true }); }
-                    catch (e2) { /* best effort — an unserved leftover is harmless */ }
-                    throw e;
-                }
-                await retirePublishedReleases(pubDir, releaseName);
-                try { await retirePublishedWorkers(chatId, publishedWorkers.map(w => w.newName)); }
-                catch (e) { console.warn('Publish: could not retire superseded backends:', e); }
-                const sub = site && site.subdomain ? site.subdomain : newSub;
-                pub.url = `https://${sub}.puter.site/`;
-                pub.path = releaseDir;
-                // Capture un-snapshotted edits as the published baseline, as
-                // doPublish does: otherwise the toolbar flipped straight to
-                // "Publish changes" the moment the toast said the site was live,
-                // and the published bytes had no restorable version.
-                if (chatId === currentChatId && window._projectDirtySinceSnapshot && typeof window.createProjectVersion === 'function') {
-                    try { await window.createProjectVersion({ chatId, appDir: workingDir, label: 'Published' }); }
-                    catch (e) { /* best-effort; publish still proceeds */ }
-                }
-                const versionId = (chatId === currentChatId) ? (window.getCurrentVersionId?.() || null) : null;
-                await persistPublished({
-                    publishedUrl: pub.url,
-                    publishedPath: releaseDir,
-                    publishedVersionId: versionId,
-                    publishedAt: new Date().toISOString(),
-                });
-                window.showToast?.('Your site is live.', { type: 'success' });
+            const oldSub = previewSubdomain(pub.url);
+            if (newSub === oldSub) { renderPublishedCell(); return; }
+            // The frozen published copy only — never the working dir (see
+            // the toolbar's address editor for why).
+            const path = await resolvePublishedDir(pub.path, chatId);
+            if (!path) {
+                await puter.ui.alert('Cannot change the address: this project’s published files could not be found. Publish it again first.');
+                renderPublishedCell();
+                return;
             }
+            // Create the new subdomain first; only drop the old one once that
+            // succeeds, so a failure leaves the site reachable.
+            await puter.hosting.create(newSub, path);
+            if (oldSub) {
+                try { await puter.hosting.delete(oldSub); }
+                catch (e) { console.warn('Failed to remove old published subdomain:', e); }
+            }
+            pub.url = `https://${newSub}.puter.site/`;
+            pub.path = path;
+            await persistPublished({ publishedUrl: pub.url, publishedPath: path });
             renderPublishedCell();
         } catch (e) {
             if (window.isSubdomainLimitErr(e)) {
@@ -4478,7 +4508,7 @@ async function showChatProperties(chatId) {
                 // Anything else is NOT a naming problem — say what actually
                 // failed instead of sending the user through more names.
                 const msg = window.puterErrInfo(e).message;
-                await puter.ui.alert('Couldn’t publish right now.' + (msg ? '\n\n' + msg : ' Please try again.'));
+                await puter.ui.alert('Couldn’t change the address right now.' + (msg ? '\n\n' + msg : ' Please try again.'));
             }
             $save.prop('disabled', false);
             $input.prop('disabled', false).trigger('focus');
@@ -4488,8 +4518,28 @@ async function showChatProperties(chatId) {
         }
     }
 
-    $published.on('click', '.properties-rename-site', () => beginAddressEdit('rename'));
-    $published.on('click', '.properties-publish-site', () => beginAddressEdit('publish'));
+    $published.on('click', '.properties-rename-site', () => beginAddressEdit());
+    // A first publish from here goes through the toolbar's publish popover, so
+    // both entry points share one flow: the same address suggestion and
+    // naming rules (createPublishSubdomain), the progress and success views,
+    // and the publish analytics. Close Settings, open the project if another
+    // one is on screen, then open the popover.
+    async function publishFromSettings() {
+        // Switching projects stops a running build, so ask first, as every
+        // other project switch does; declining leaves Settings open.
+        if (chatId !== currentChatId && !await confirmLeaveActiveChat()) return;
+        close();
+        if (chatId !== currentChatId) {
+            try { await loadChat(chatId); } catch (e) { return; }
+            if (currentChatId !== chatId) return; // the user moved on meanwhile
+        }
+        if (!window.currentPreviewUrl || !$('.preview-publish-btn').length) {
+            await puter.ui.alert("There's nothing to publish yet — build your app first.");
+            return;
+        }
+        openPublishPanel();
+    }
+    $published.on('click', '.properties-publish-site', publishFromSettings);
     renderPublishedCell();
 
     let settled = false;
@@ -4756,6 +4806,172 @@ $(document).on('click', '.sign-in-btn', async function(e) {
         // User dismissed the sign-in dialog — leave the Sign In button in place
     }
 });
+
+// ---- Upgrade (paid Puter subscription) ---------------------------------------
+// Billing lives on puter.com; the builder only explains what a subscription
+// adds here and links out. One dialog, two faces:
+//   * free users — the offer: what a paid plan adds, and an Upgrade link.
+//   * paid users — their benefits, and a link to a higher plan for more usage.
+//     Also the success screen when an upgrade is detected (justUpgraded).
+// Reached from the toolbar's Upgrade/Benefits button, the publish popover's
+// branding note and the chat's upgrade card. `source` is for analytics only.
+// The source of the last Upgrade click, while its return is unconfirmed —
+// 'Upgrade Completed' credits it. null when nothing is pending.
+let _upgradePending = null;
+function openUpgradeModal(source, { justUpgraded = false } = {}) {
+    if (document.querySelector('.upgrade-modal-overlay')) return;
+    window.closePublishPanel?.();
+    const paid = window.Branding.isSubscribed(window.user);
+    const plan = paid ? 'paid' : 'free';
+    source = source || 'unknown';
+    if (!justUpgraded) window.track?.('Upgrade Opened', { source, plan });
+    const check = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
+    const perks =
+        '<ul class="upgrade-perks">' +
+            `<li>${check}<span>More credits for building apps</span></li>` +
+            `<li>${check}<span>No “Made with Puter” badge on your published sites</span></li>` +
+            `<li>${check}<span>Premium features we release in the future</span></li>` +
+        '</ul>';
+    const billing = htmlEscape(window.Branding.UPGRADE_URL);
+    // A sketch of a published site, with and without the badge in its corner.
+    const site = (badge) =>
+        '<div class="upgrade-site">' +
+            '<div class="upgrade-site-bar"><i></i><i></i><i></i></div>' +
+            '<div class="upgrade-site-body"><b></b><span></span><span></span><span class="short"></span>' +
+                (badge ? '<div class="upgrade-site-badge"><img src="/favicons/app-icon.png" alt="">Made with Puter</div>' : '') +
+            '</div>' +
+        '</div>';
+
+    let title, body, actions;
+    if (!paid) {
+        title = 'Upgrade your Puter plan';
+        body =
+            '<div class="upgrade-compare" aria-hidden="true">' +
+                `<figure>${site(true)}<figcaption>Free</figcaption></figure>` +
+                `<figure>${site(false)}<figcaption>Paid</figcaption></figure>` +
+            '</div>' +
+            '<p class="upgrade-lead">A paid Puter subscription unlocks these in Builder:</p>' +
+            perks +
+            '<p class="upgrade-note">After you upgrade, publish your site again to remove the badge.</p>';
+        actions =
+            '<button type="button" class="confirm-modal-btn confirm-modal-cancel upgrade-cancel">Not now</button>' +
+            `<a class="confirm-modal-btn upgrade-go" href="${billing}" target="_blank" rel="noopener noreferrer">Upgrade</a>`;
+    } else {
+        // Just upgraded with a site that is live: its badge only goes on the
+        // next publish, so that is the one step to offer.
+        const republish = justUpgraded && !!window.currentPublishedUrl && !!$('.preview-publish-btn').length;
+        title = justUpgraded ? 'You’re subscribed' : 'Your Puter plan';
+        body =
+            (justUpgraded ? `<div class="upgrade-success-badge" aria-hidden="true">${check}</div>` : '') +
+            `<p class="upgrade-lead">${justUpgraded ? 'Thanks for upgrading. You now have these in Builder:' : 'You’re on a paid Puter plan. You have these in Builder:'}</p>` +
+            perks.replace('<ul class="upgrade-perks">', '<ul class="upgrade-perks is-active">') +
+            (republish ? '<p class="upgrade-note">Publish your site again to remove the badge from it.</p>' : '') +
+            '<div class="upgrade-more">' +
+                '<span>Need more credits? Move to a higher plan on Puter.</span>' +
+                `<a class="upgrade-more-link upgrade-go" href="${billing}" target="_blank" rel="noopener noreferrer">See plans</a>` +
+            '</div>';
+        actions = republish
+            ? '<button type="button" class="confirm-modal-btn confirm-modal-cancel upgrade-cancel">Later</button>' +
+              '<button type="button" class="confirm-modal-btn upgrade-primary upgrade-republish">Publish again</button>'
+            : '<button type="button" class="confirm-modal-btn upgrade-primary upgrade-cancel">Done</button>';
+    }
+
+    const $overlay = $(`
+        <div class="confirm-modal-overlay upgrade-modal-overlay">
+            <div class="properties-modal upgrade-modal${paid ? ' is-paid' : ''}" role="dialog" aria-modal="true" aria-labelledby="upgrade-modal-title" tabindex="-1">
+                <div class="properties-modal-header">
+                    <div class="properties-modal-title" id="upgrade-modal-title">${title}</div>
+                    <button type="button" class="properties-modal-x" title="Close" aria-label="Close">✕</button>
+                </div>
+                ${body}
+                <div class="properties-modal-actions upgrade-actions">${actions}</div>
+            </div>
+        </div>
+    `);
+    let releaseFocus = null;
+    const close = () => {
+        $(document).off('keydown.upgradeModal');
+        $overlay.removeClass('open');
+        setTimeout(() => $overlay.remove(), 150);
+        if (releaseFocus) releaseFocus();
+    };
+    $overlay.find('.properties-modal-x, .upgrade-cancel').on('click', close);
+    $overlay.find('.upgrade-go').on('click', () => {
+        window.track?.('Upgrade Clicked', { source, plan });
+        // A free user's return is re-checked for the upgrade (see below). A
+        // paid user is already subscribed, so there is nothing to detect.
+        if (!paid) _upgradePending = source;
+        close();
+    });
+    $overlay.find('.upgrade-republish').on('click', () => {
+        close();
+        openPublishPanel();
+    });
+    $overlay.on('mousedown', (e) => { if (e.target === $overlay[0]) close(); });
+    $overlay.find('.upgrade-modal').on('mousedown click', (e) => e.stopPropagation());
+    $(document).on('keydown.upgradeModal', (e) => {
+        if (e.key === 'Escape' && keyIsForDialog(e, $overlay[0])) { e.preventDefault(); close(); }
+    });
+    $('body').append($overlay);
+    releaseFocus = trapDialogFocus($overlay);
+    requestAnimationFrame(() => {
+        $overlay.addClass('open');
+        $overlay.find('.upgrade-modal').trigger('focus');
+    });
+}
+window.openUpgradeModal = openUpgradeModal;
+
+$(document).on('click', '.upgrade-btn', function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    openUpgradeModal('toolbar');
+});
+// The card the OfferUpgrade tool puts in the chat (tools/chat_ui/upgrade.js).
+$(document).on('click', '.upgrade-card-btn', function (e) {
+    e.preventDefault();
+    openUpgradeModal('chat');
+});
+
+// Fetch the user again for a decision that depends on the plan (publishing,
+// the AI's badge tool). Updates the cached window.user and, when the plan
+// changed, the toolbar's Upgrade/Benefits button. Falls back to the cached
+// user when Puter can't be reached, or answers for a different account.
+async function refreshUserPlan() {
+    let user;
+    try { user = await puter.auth.getUser(); } catch (e) { return window.user; }
+    if (!user || !window.user || user.username !== window.user.username) return window.user;
+    const was = window.Branding.isSubscribed(window.user);
+    window.user = user;
+    if (window.Branding.isSubscribed(user) !== was) {
+        updateUserMenu();
+        if (_publishPanelOpen && !publishBusyHere()) renderPublishPanel();
+    }
+    return user;
+}
+window.refreshUserPlan = refreshUserPlan;
+
+// Back from puter.com/#billing: fetch the user again, and if the plan is now
+// paid, swap the Upgrade offers for the paid state and show the success
+// dialog. Until then, keep checking each time the tab regains focus.
+// (Focus and visibilitychange usually fire together; one fetch serves both.)
+let _upgradeCheckInFlight = false;
+async function refreshSubscriptionAfterUpgrade() {
+    if (!_upgradePending || _upgradeCheckInFlight || document.visibilityState === 'hidden') return;
+    _upgradeCheckInFlight = true;
+    let user;
+    try { user = await puter.auth.getUser(); } catch (e) { return; }
+    finally { _upgradeCheckInFlight = false; }
+    if (!_upgradePending || !window.Branding.isSubscribed(user)) return;
+    const source = _upgradePending;
+    window.track?.('Upgrade Completed', { source });
+    _upgradePending = null;
+    window.user = user;
+    updateUserMenu();
+    if (_publishPanelOpen) renderPublishPanel();
+    openUpgradeModal(source, { justUpgraded: true });
+}
+window.addEventListener('focus', refreshSubscriptionAfterUpgrade);
+document.addEventListener('visibilitychange', refreshSubscriptionAfterUpgrade);
 
 // Theme toggle (light ⇄ dark). stopPropagation so it neither opens the account
 // dropdown nor is treated as a click-outside.

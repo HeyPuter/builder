@@ -52,7 +52,7 @@ const CODE = [
     extract(source, 'function publishBlockedReason() {'),
     extract(source, 'async function createPublishSubdomain(path, desired'),
     extract(helpersSource, 'function generateChatTitle(history) {'),
-    extract(source, 'async function doPublish() {'),
+    extract(source, 'async function doPublish({ trigger } = {}) {'),
 ].join('\n\n');
 
 const ROOT = '/alice/AppData/builder';

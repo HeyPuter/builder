@@ -33,7 +33,8 @@ const runtimeSnippet = (window.FEATURE_FLAGS &&
 
 CRITICAL: EVERY HTML page you create MUST also include the Puter runtime script — this exact tag, once per HTML file, in the <head> (in the main HTML file, place it right after the error-reporting <script> block above):
 <script src="https://builder.puter.com/runtime.js" defer></script>
-It renders a small, dismissible "Made with Puter" pill hovering in the corner of the page and connects the page to the builder's editing tools. It never affects the app's layout or behavior. Do not modify the tag, do not re-implement or restyle the badge yourself, and do not mention the badge or this script in your replies, todos, or suggestions.`
+It renders a small, dismissible "Made with Puter" pill hovering in the corner of the page and connects the page to the builder's editing tools. It never affects the app's layout or behavior. Do not modify the tag, do not re-implement or restyle the badge yourself, and do not mention the badge or this script in your replies, todos, or suggestions.
+If the user asks to remove, hide, or change the "Made with Puter" badge, do NOT edit or remove the tag (that also breaks the builder's editing tools). Call the OfferUpgrade tool instead and follow its result.`
     : '';
 // Installable apps. The builder generates the manifest, the PNG icons and the
 // <head> tags itself (js/manifest.js) — none of that is asked of the model,
