@@ -22,7 +22,7 @@ const a = APP.indexOf('// ===== usage-limit-unblock (start) =====');
 const b = APP.indexOf('// ===== usage-limit-unblock (end) =====');
 if (a < 0 || b < 0) throw new Error('could not extract usage-limit-unblock block');
 const make = new Function('window', 'localStorage', 'Date',
-    APP.slice(a, b) + '\nreturn { recordUsageLimitHit, reportUnblockAfterLimit, LIMIT_HIT_PREFIX };');
+    APP.slice(a, b) + '\nreturn { recordUsageLimitHit, reportUnblockAfterLimit, LIMIT_HIT_PREFIX, countCompletedBuilds, usageLimitHitProps };');
 
 const HOUR = 36e5;
 const T0 = Date.UTC(2026, 9, 8, 12, 0, 0); // Oct 8 2026, mid-month
@@ -154,6 +154,51 @@ for (const bad of ['not json', 'null', '{}', '{"at":"yesterday"}']) {
     check('blocked storage → no event', h.win._calls.length === 0);
 }
 
+// Completed builds counted from the chat history
+{
+    const { countCompletedBuilds: count, usageLimitHitProps: props } = harness();
+    const sys = { role: 'system', content: 'sp' };
+    const user = t => ({ role: 'user', content: t });
+    const toolUse = { role: 'assistant', content: { type: 'tool_use', id: 't1', name: 'Write', input: {} } };
+    const toolResult = { role: 'user', content: { type: 'tool_result', tool_use_id: 't1', content: '{}' } };
+    const reply = t => ({ role: 'assistant', content: t });
+    check('no history → 0', count(undefined) === 0 && count([sys]) === 0);
+    check('prompt with no reply (limit hit on first build) → 0', count([sys, user('a')]) === 0);
+    check('tool round then reply → 1', count([sys, user('a'), toolUse, toolResult, reply('done')]) === 1);
+    check('interrupted on a tool_use → not counted',
+        count([sys, user('a'), reply('working'), toolUse]) === 0);
+    check('array content holding a tool_use → not counted',
+        count([sys, user('a'), { role: 'assistant', content: [{ type: 'text', text: 'x' }, { type: 'tool_use', id: 't' }] }]) === 0);
+    check('error card → not counted',
+        count([sys, user('a'), { role: 'assistant', content: 'Out of credits', isError: true }]) === 0);
+    check('resumed build counts once',
+        count([sys, user('a'), toolUse, toolResult, { role: 'user', content: 'continue', resumeNudge: true }, reply('done')]) === 1);
+    const restore = { role: 'assistant', content: '*Restored the project to an earlier version ("v2").*', versionNote: true };
+    const legacyRestore = { role: 'assistant', content: '*Restored the project to an earlier version.*' };
+    check('restore note after a failed build → not counted',
+        count([sys, user('a'), { role: 'assistant', content: 'err', isError: true }, restore, user('b')]) === 0);
+    check('restore note after a dangling tool_use → not counted',
+        count([sys, user('a'), toolUse, restore, user('b')]) === 0);
+    check('legacy restore note without the flag → not counted',
+        count([sys, user('a'), toolUse, legacyRestore, user('b')]) === 0);
+    check('restore note after a finished build → still counted once',
+        count([sys, user('a'), reply('ok'), restore, user('b')]) === 1);
+    check('mixed history counts each finished build',
+        count([sys, user('a'), toolUse, toolResult, reply('ok'), user('b'), toolUse, user('c'), reply('ok'), user('d')]) === 2);
+
+    const history = [sys, user('a'), reply('ok')];
+    const p = props(history, [{ id: 'c1' }, { id: 'c2', publishedUrl: 'https://x.puter.site' }], 'c1', null);
+    check('props: current project not published', p.published === false);
+    check('props: another project published', p.any_published === true);
+    check('props: builds_completed', p.builds_completed === 1);
+    check('props: current chat not double-counted in projects', p.projects === 2);
+    const q = props(history, [], 'new', 'https://y.puter.site');
+    check('props: unsaved current chat still counts as a project', q.projects === 1);
+    check('props: published current project', q.published === true && q.any_published === true);
+    const many = Array.from({ length: 12 }, (_, i) => ({ id: 'c' + i }));
+    check('props: project count capped', props(history, many, 'c0', null).projects === '10+');
+}
+
 // Wiring in sendChatMessage
 {
     const send = APP.slice(APP.indexOf('async function sendChatMessage('));
@@ -161,6 +206,8 @@ for (const bad of ['not json', 'null', '{}', '{"at":"yesterday"}']) {
         /'Usage Limit Hit'[^\n]*kind: 'tier'[^\n]*\n\s*recordUsageLimitHit\('tier'\);/.test(send));
     check('credits branch records the limit hit',
         /'Usage Limit Hit'[^\n]*kind: 'credits'[^\n]*\n\s*recordUsageLimitHit\('credits'\);/.test(send));
+    check('both limit branches send the extra props',
+        (send.match(/'Usage Limit Hit'[^\n]*\.\.\.usageLimitHitProps\(turnSaveContext\.chatHistory, savedChats, turnChatId, window\.currentPublishedUrl\)/g) || []).length === 2);
     check('a completed build reports the unblock',
         /'Build Completed',[\s\S]{0,400}reportUnblockAfterLimit\(\);/.test(send));
 }

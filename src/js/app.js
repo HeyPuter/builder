@@ -3379,6 +3379,58 @@ function reportUnblockAfterLimit() {
         });
     } catch (e) { /* analytics must never break the app */ }
 }
+
+// Builds that finished in this chat, read straight from the persisted history so
+// no extra counter has to be stored. A build is a real user prompt plus
+// everything up to the next one; it counts as completed when its last assistant
+// message is a reply (not a dangling tool_use from an interrupted turn, and not
+// an error card). A build stopped mid-reply can still look finished — close
+// enough for a funnel signal. Resume nudges and tool results are not prompts,
+// and a version-restore note is not a build reply (chats saved before the
+// versionNote flag existed are matched by the note's text).
+function isVersionNote(m) {
+    return !!m.versionNote
+        || (typeof m.content === 'string' && m.content.startsWith('*Restored the project to an earlier version'));
+}
+
+function countCompletedBuilds(history) {
+    if (!Array.isArray(history)) return 0;
+    let count = 0, inBuild = false, last = null;
+    const finish = () => {
+        if (inBuild && last && !last.isError && !hasToolUse(last.content)) count++;
+    };
+    for (const m of history) {
+        if (!m) continue;
+        if (m.role === 'user' && !m.resumeNudge && !(m.content && typeof m.content === 'object' && m.content.type === 'tool_result')) {
+            finish();
+            inBuild = true;
+            last = null;
+        } else if (m.role === 'assistant' && !isVersionNote(m)) {
+            last = m;
+        }
+    }
+    finish();
+    return count;
+}
+
+function hasToolUse(content) {
+    if (!content || typeof content !== 'object') return false;
+    if (Array.isArray(content)) return content.some(b => b && b.type === 'tool_use');
+    return content.type === 'tool_use';
+}
+
+// Extra 'Usage Limit Hit' props: did the user get anything out of the builder
+// before being blocked? Counts are capped so the Plausible breakdown stays short.
+function usageLimitHitProps(history, chats, chatId, publishedUrl) {
+    const cap = n => (n >= 10 ? '10+' : n);
+    const others = Array.isArray(chats) ? chats.filter(c => c && c.id !== chatId) : [];
+    return {
+        published: !!publishedUrl,
+        any_published: !!publishedUrl || others.some(c => c.publishedUrl),
+        builds_completed: cap(countCompletedBuilds(history)),
+        projects: cap(others.length + 1),
+    };
+}
 // ===== usage-limit-unblock (end) =====
 
 // ===== transient-retry-classifier (start) =====
@@ -4705,7 +4757,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         if (!shouldStop && !activeTurnInterrupted && turnChatId === currentChatId) {
             turnErrored = true;
             if(error.error?.delegate === "usage-limited-chat"){
-                window.track?.('Usage Limit Hit', { first_build: isFirstBuildTurn, model: MODEL, kind: 'tier' });
+                window.track?.('Usage Limit Hit', { first_build: isFirstBuildTurn, model: MODEL, kind: 'tier', ...usageLimitHitProps(turnSaveContext.chatHistory, savedChats, turnChatId, window.currentPublishedUrl) });
                 recordUsageLimitHit('tier');
                 appendMessage('You have reached the current tier\'s usage limit. Please upgrade your Puter account to continue. <button class="upgrade-button">Upgrade</button>', false, false, false, true);
                 window.announce?.('You have reached the current tier\'s usage limit. Upgrade your Puter account to continue.', { assertive: true });
@@ -4722,7 +4774,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                 if (error.code === 'insufficient_funds' || error.error?.code === 'insufficient_funds' ||
                     (lowerError.includes('insufficient') &&
                         (lowerError.includes('credit') || lowerError.includes('fund') || lowerError.includes('balance')))) {
-                    window.track?.('Usage Limit Hit', { first_build: isFirstBuildTurn, model: MODEL, kind: 'credits' });
+                    window.track?.('Usage Limit Hit', { first_build: isFirstBuildTurn, model: MODEL, kind: 'credits', ...usageLimitHitProps(turnSaveContext.chatHistory, savedChats, turnChatId, window.currentPublishedUrl) });
                     recordUsageLimitHit('credits');
                 }
                 const friendlyError = friendlyErrorMessage(errorText);

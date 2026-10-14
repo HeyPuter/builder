@@ -932,7 +932,8 @@
                 const note = `*Restored the project to an earlier version${safeLabel ? ` ("${safeLabel}")` : ''}.*`;
                 if (typeof chatHistory !== 'undefined' && Array.isArray(chatHistory)) {
                     const messageId = (typeof generateMessageId === 'function') ? generateMessageId() : null;
-                    chatHistory.push({ role: 'assistant', content: note, messageId });
+                    // versionNote: not a build reply (see countCompletedBuilds).
+                    chatHistory.push({ role: 'assistant', content: note, messageId, versionNote: true });
                     if (typeof appendMessage === 'function') appendMessage(note, false);
                     // Best effort: the note is in memory and the next save
                     // carries it. saveCurrentChat is async, so a failed write
