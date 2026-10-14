@@ -1027,6 +1027,11 @@ function prepareHistoryForAI(historyArray) {
         if (msg.resumeNudge) {
             delete msg.resumeNudge;
         }
+        // Marks a version-restore note (versions.js) so build analytics can
+        // skip it; never sent to the chat endpoint.
+        if (msg.versionNote) {
+            delete msg.versionNote;
+        }
         // Where a project forked from a template came from (on its system
         // message, see createFork in templates.js). Read by loadChat for the
         // "Started from" note; never sent to the chat endpoint.

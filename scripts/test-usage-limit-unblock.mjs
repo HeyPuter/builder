@@ -173,6 +173,16 @@ for (const bad of ['not json', 'null', '{}', '{"at":"yesterday"}']) {
         count([sys, user('a'), { role: 'assistant', content: 'Out of credits', isError: true }]) === 0);
     check('resumed build counts once',
         count([sys, user('a'), toolUse, toolResult, { role: 'user', content: 'continue', resumeNudge: true }, reply('done')]) === 1);
+    const restore = { role: 'assistant', content: '*Restored the project to an earlier version ("v2").*', versionNote: true };
+    const legacyRestore = { role: 'assistant', content: '*Restored the project to an earlier version.*' };
+    check('restore note after a failed build → not counted',
+        count([sys, user('a'), { role: 'assistant', content: 'err', isError: true }, restore, user('b')]) === 0);
+    check('restore note after a dangling tool_use → not counted',
+        count([sys, user('a'), toolUse, restore, user('b')]) === 0);
+    check('legacy restore note without the flag → not counted',
+        count([sys, user('a'), toolUse, legacyRestore, user('b')]) === 0);
+    check('restore note after a finished build → still counted once',
+        count([sys, user('a'), reply('ok'), restore, user('b')]) === 1);
     check('mixed history counts each finished build',
         count([sys, user('a'), toolUse, toolResult, reply('ok'), user('b'), toolUse, user('c'), reply('ok'), user('d')]) === 2);
 

@@ -3385,7 +3385,14 @@ function reportUnblockAfterLimit() {
 // everything up to the next one; it counts as completed when its last assistant
 // message is a reply (not a dangling tool_use from an interrupted turn, and not
 // an error card). A build stopped mid-reply can still look finished — close
-// enough for a funnel signal. Resume nudges and tool results are not prompts.
+// enough for a funnel signal. Resume nudges and tool results are not prompts,
+// and a version-restore note is not a build reply (chats saved before the
+// versionNote flag existed are matched by the note's text).
+function isVersionNote(m) {
+    return !!m.versionNote
+        || (typeof m.content === 'string' && m.content.startsWith('*Restored the project to an earlier version'));
+}
+
 function countCompletedBuilds(history) {
     if (!Array.isArray(history)) return 0;
     let count = 0, inBuild = false, last = null;
@@ -3398,7 +3405,7 @@ function countCompletedBuilds(history) {
             finish();
             inBuild = true;
             last = null;
-        } else if (m.role === 'assistant') {
+        } else if (m.role === 'assistant' && !isVersionNote(m)) {
             last = m;
         }
     }
