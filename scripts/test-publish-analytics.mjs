@@ -151,7 +151,7 @@ const HISTORY = [
     check('first publish: tokens_total sums every bucket', p && p.tokens_total === 300000, JSON.stringify(p));
     check('first publish: tokens_band from the total', p && p.tokens_band === '100K-500K', JSON.stringify(p));
     check('first publish: cost_cents summed and rounded to whole cents', p && p.cost_cents === 16, JSON.stringify(p));
-    check('first publish: cost_band from the unrounded cost', p && p.cost_band === '$0.10-0.25', JSON.stringify(p));
+    check('first publish: cost_band from the unrounded cost', p && p.cost_band === '<$0.25', JSON.stringify(p));
 }
 
 // ---- Republish: same totals, flagged as not first ---------------------------
@@ -193,9 +193,10 @@ const HISTORY = [
     check('tokenBand: band boundaries', bad.length === 0, bad.join('; '));
 
     const costCases = [
-        [0, '$0'], [-1, '$0'], [NaN, '$0'], [0.003, '<$0.10'], [9.99, '<$0.10'], [10, '$0.10-0.25'],
-        [25, '$0.25-0.50'], [50, '$0.50-0.75'], [75, '$0.75-1'], [100, '$1-1.50'], [150, '$1.50-2'],
-        [200, '$2-3'], [300, '$3-5'], [499.9, '$3-5'], [500, '$5-10'], [1000, '$10+'], [25000, '$10+'],
+        [0, '$0'], [-1, '$0'], [NaN, '$0'], [0.003, '<$0.25'], [24.9, '<$0.25'], [25, '$0.25-0.50'],
+        [50, '$0.50-1'], [100, '$1-1.50'], [150, '$1.50-2'], [200, '$2-2.50'], [250, '$2.50-3'],
+        [299.9, '$2.50-3'], [300, '$3-4'], [400, '$4-5'], [500, '$5-7.50'], [750, '$7.50-10'],
+        [1000, '$10-20'], [2000, '$20+'], [50000, '$20+'],
     ];
     const badCost = costCases.filter(([n, want]) => ctx.costBand(n) !== want).map(([n, want]) => `${n}: got ${ctx.costBand(n)}, want ${want}`);
     check('costBand: band boundaries', badCost.length === 0, badCost.join('; '));

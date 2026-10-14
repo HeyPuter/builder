@@ -1271,22 +1271,22 @@ function tokenBand(n) {
 
 /**
  * Bucket an AI cost (US cents, as summed by sumChatCostCents) into a dollar band
- * for analytics. Finest at the low end, where the free-credit allowance is
- * decided: the breakdown of first publishes by band shows how much a project
- * costs to get to a publishable state. "$0" is kept separate on purpose — it
- * marks projects with no recorded AI cost (e.g. chats from before usage was
- * tracked).
+ * for analytics. Finest around the free-credit allowance ($3 at the time of
+ * writing), where it's decided: the breakdown of first publishes by band shows
+ * whether projects reach a publishable state within the allowance, and how far
+ * past it the ones that don't go. "$0" is kept separate on purpose — it marks
+ * projects with no recorded AI cost (e.g. chats from before usage was tracked).
  */
 const COST_BANDS = [
-    [10, '<$0.10'], [25, '$0.10-0.25'], [50, '$0.25-0.50'], [75, '$0.50-0.75'],
-    [100, '$0.75-1'], [150, '$1-1.50'], [200, '$1.50-2'], [300, '$2-3'],
-    [500, '$3-5'], [1000, '$5-10'],
+    [25, '<$0.25'], [50, '$0.25-0.50'], [100, '$0.50-1'], [150, '$1-1.50'],
+    [200, '$1.50-2'], [250, '$2-2.50'], [300, '$2.50-3'], [400, '$3-4'],
+    [500, '$4-5'], [750, '$5-7.50'], [1000, '$7.50-10'], [2000, '$10-20'],
 ];
 function costBand(cents) {
     const v = Number(cents) || 0;
     if (v <= 0) return '$0';
     for (const [below, label] of COST_BANDS) if (v < below) return label;
-    return '$10+';
+    return '$20+';
 }
 
 /**

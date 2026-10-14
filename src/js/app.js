@@ -3420,17 +3420,11 @@ function hasToolUse(content) {
 }
 
 // Extra 'Usage Limit Hit' props: did the user get anything out of the builder
-// before being blocked, and what had this project cost so far? cost_band uses
-// the same bands as Project Published, so the spend of users who hit the limit
-// before publishing can be set against what a first publish costs. Counts are
-// capped so the Plausible breakdown stays short.
+// before being blocked? Counts are capped so the Plausible breakdown stays short.
 function usageLimitHitProps(history, chats, chatId, publishedUrl) {
     const cap = n => (n >= 10 ? '10+' : n);
     const others = Array.isArray(chats) ? chats.filter(c => c && c.id !== chatId) : [];
-    const costCents = sumChatCostCents(history);
     return {
-        cost_cents: Math.round(costCents),
-        cost_band: costBand(costCents),
         published: !!publishedUrl,
         any_published: !!publishedUrl || others.some(c => c.publishedUrl),
         builds_completed: cap(countCompletedBuilds(history)),

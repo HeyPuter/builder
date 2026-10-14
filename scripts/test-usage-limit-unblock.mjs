@@ -21,22 +21,8 @@ const APP = fs.readFileSync(new URL('../src/js/app.js', import.meta.url), 'utf8'
 const a = APP.indexOf('// ===== usage-limit-unblock (start) =====');
 const b = APP.indexOf('// ===== usage-limit-unblock (end) =====');
 if (a < 0 || b < 0) throw new Error('could not extract usage-limit-unblock block');
-// usageLimitHitProps reads the cost helpers from helpers.js (loaded before
-// app.js in the page); slice the real ones in rather than re-typing them.
-const HELPERS = fs.readFileSync(new URL('../src/js/helpers.js', import.meta.url), 'utf8');
-function extractFn(src, signature) {
-    const s = src.indexOf(signature);
-    const e = src.indexOf('\n}\n', s);
-    if (s < 0 || e < 0) throw new Error('could not extract ' + signature);
-    return src.slice(s, e + 2);
-}
-const COST_HELPERS = [
-    extractFn(HELPERS, 'function sumChatCostCents(history) {'),
-    HELPERS.slice(HELPERS.indexOf('const COST_BANDS = ['), HELPERS.indexOf('function costBand(cents) {')),
-    extractFn(HELPERS, 'function costBand(cents) {'),
-].join('\n');
 const make = new Function('window', 'localStorage', 'Date',
-    COST_HELPERS + APP.slice(a, b) + '\nreturn { recordUsageLimitHit, reportUnblockAfterLimit, LIMIT_HIT_PREFIX, countCompletedBuilds, usageLimitHitProps };');
+    APP.slice(a, b) + '\nreturn { recordUsageLimitHit, reportUnblockAfterLimit, LIMIT_HIT_PREFIX, countCompletedBuilds, usageLimitHitProps };');
 
 const HOUR = 36e5;
 const T0 = Date.UTC(2026, 9, 8, 12, 0, 0); // Oct 8 2026, mid-month
@@ -209,12 +195,6 @@ for (const bad of ['not json', 'null', '{}', '{"at":"yesterday"}']) {
     const q = props(history, [], 'new', 'https://y.puter.site');
     check('props: unsaved current chat still counts as a project', q.projects === 1);
     check('props: published current project', q.published === true && q.any_published === true);
-    check('props: no recorded cost → $0 band', p.cost_cents === 0 && p.cost_band === '$0');
-    const spent = [sys, user('a'), { role: 'assistant', content: 'ok', costUsdCents: 30.4 },
-        user('b'), { role: 'assistant', content: 'ok', costUsdCents: 12.2 }];
-    const c = props(spent, [], 'c1', null);
-    check('props: project cost summed and rounded to whole cents', c.cost_cents === 43);
-    check('props: cost_band from the project cost', c.cost_band === '$0.25-0.50');
     const many = Array.from({ length: 12 }, (_, i) => ({ id: 'c' + i }));
     check('props: project count capped', props(history, many, 'c0', null).projects === '10+');
 }
