@@ -43,6 +43,7 @@ const SCRIPTS = [
   'js/manifest.js',
   'js/publish-state.js',
   'js/publish-errors.js',
+  'js/branding.js',
   'js/issues-core.js',
   'js/worker-ownership.js',
   // Pure half of the official templates (validation, placeholders, the note a
@@ -74,6 +75,7 @@ const SCRIPTS = [
   'tools/chat_ui/todo.js',
   'tools/chat_ui/clarify.js',
   'tools/chat_ui/suggest.js',
+  'tools/chat_ui/upgrade.js',
   'tools/workers/create_worker.js',
   'tools/workers/delete_worker.js',
   'tools/workers/list_workers.js',

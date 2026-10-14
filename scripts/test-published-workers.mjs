@@ -63,7 +63,7 @@ const CODE = [
     extract(uiSource, 'function publishBlockedReason() {'),
     extract(uiSource, 'async function createPublishSubdomain(path, desired'),
     extract(helpersSource, 'function generateChatTitle(history) {'),
-    extract(uiSource, 'async function doPublish() {'),
+    extract(uiSource, 'async function doPublish({ trigger } = {}) {'),
 ].join('\n\n');
 
 const ROOT = '/alice/AppData/builder';
@@ -294,24 +294,20 @@ function makeWorld({ failDeploy = false, takenLiveName = null } = {}) {
     check('release: no error', w.alerts.length === 0, JSON.stringify(w.alerts));
 }
 
-// ---- The Settings dialog's first publish stages the same way ---------------
-// Its first-publish path copied the working files and went live directly — no
-// drain, no empty-copy check, and no deployPublishedWorkers — so the public
-// site kept calling the draft's workers and the AI's next redeploy changed the
-// live backend. Both entry points must stage through stagePublishRelease.
+// ---- The Settings dialog's first publish goes through the popover ----------
+// Its first-publish path used to be a second copy of the publish flow that
+// drifted from doPublish (it once skipped staging entirely, so the public site
+// kept calling the draft's workers). It now hands off to the publish popover,
+// so there is one flow to keep correct.
 {
-    const a = uiSource.indexOf('async function submitAddress(mode, $form) {');
-    const b = uiSource.indexOf("$published.on('click', '.properties-rename-site'", a);
-    const body = a >= 0 && b > a ? uiSource.slice(a, b) : '';
-    const firstPublish = body.slice(body.indexOf('// First publish:'));
-    check('settings first publish: stages through the shared helper',
-        firstPublish.includes('await stagePublishRelease(chatId, workingDir, srcPath)'));
-    check('settings first publish: copies nothing itself (the helper does)',
-        body.length > 0 && !firstPublish.includes('puter.fs.copy('));
-    check('settings first publish: retires superseded published backends',
-        firstPublish.includes('retirePublishedWorkers(chatId, publishedWorkers.map('));
-    check('settings first publish: removes the staged release if it never went live',
-        /hosting\.create\(newSub, releaseDir\);\s*\} catch \(e\) \{[\s\S]*?puter\.fs\.delete\(releaseDir/.test(firstPublish));
+    const a = uiSource.indexOf('async function publishFromSettings() {');
+    const body = a >= 0 ? uiSource.slice(a, uiSource.indexOf('\n    }\n', a)) : '';
+    check('settings first publish: hands off to the publish popover', body.includes('openPublishPanel()'));
+    check('settings first publish: opens the project first when another is on screen', body.includes('await loadChat(chatId)'));
+    const s = uiSource.indexOf('async function submitAddress($form) {');
+    const submit = s >= 0 ? uiSource.slice(s, uiSource.indexOf("$published.on('click', '.properties-rename-site'", s)) : '';
+    check('settings: no second copy of the publish flow',
+        submit.length > 0 && !submit.includes('stagePublishRelease(') && !submit.includes('puter.fs.copy('));
 }
 
 if (failures) { console.error(failures + ' failure(s)'); process.exit(1); }
