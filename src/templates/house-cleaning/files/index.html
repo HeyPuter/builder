@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#173a33">
+<title>Linen &amp; Lime: House cleaning in Maple Harbor, priced online</title>
+<meta name="description" content="Standard, deep and move-out house cleaning in Maple Harbor and 9 nearby towns. See your price in seconds, the same cleaners every visit, and a free re-clean if we miss anything.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500;1,9..144,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<p class="topline"><span class="spark" aria-hidden="true">✦</span> Next opening <b id="next-open">this week</b><span class="sep" aria-hidden="true">·</span><span class="hide-sm">Insured, bonded and background-checked</span></p>
+
+<header class="header">
+    <div class="header-inner">
+        <a class="brand" href="#top" aria-label="Home">
+            <img src="icon.svg" alt="" width="40" height="40">
+            <span data-bind="name">Linen &amp; Lime</span>
+        </a>
+        <nav class="nav-links" id="nav-links" aria-label="Main">
+            <a href="#services">Services</a>
+            <a href="#included">What we clean</a>
+            <a href="#how">How it works</a>
+            <a href="#area">Areas</a>
+            <a href="#faq">FAQ</a>
+        </nav>
+        <a class="h-phone" data-bind-href="tel" href="tel:+15550137720"><span data-bind="phone">(555) 013-7720</span></a>
+        <a class="btn btn-ink btn-sm h-cta" href="#price">Get my price</a>
+        <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links" aria-label="Open menu"><span></span><span></span></button>
+    </div>
+</header>
+
+<main>
+<section class="hero" id="top">
+    <div class="wrap hero-grid">
+        <div class="hero-copy">
+            <p class="eyebrow">House cleaning in <span data-bind="region">Maple Harbor</span> and nearby</p>
+            <h1>Come home to a <em>clean</em> one.</h1>
+            <p class="hero-sub">The same two cleaners every visit, supplies brought in, and a price you see before you book. Miss a spot and we come back within a day to fix it, free.</p>
+            <div class="hero-actions">
+                <a class="btn btn-ink" href="#price">See my price</a>
+                <a class="btn btn-ghost" href="#included">What we clean</a>
+            </div>
+            <div class="hero-proof">
+                <div class="stars-row"><span class="stars" aria-hidden="true">★★★★★</span><span><b data-bind="rating">4.9</b> from <span data-bind="reviewCount">286</span> reviews</span></div>
+                <ul class="hero-facts">
+                    <li><b data-bind="homes">520</b><span>homes on a schedule</span></li>
+                    <li><b data-bind="years">11</b><span>years cleaning</span></li>
+                    <li><b>24h</b><span>re-clean promise</span></li>
+                </ul>
+            </div>
+            <p class="sample-note" data-sample hidden>Sample business, rating and reviews. Replace them with your own before publishing.</p>
+        </div>
+
+        <form class="quote" id="price" novalidate aria-labelledby="quote-title">
+            <div class="quote-head">
+                <h2 id="quote-title">Your price</h2>
+                <span class="quote-tag">Takes 20 seconds</span>
+            </div>
+            <fieldset class="q-field">
+                <legend>Type of clean</legend>
+                <div class="seg" id="q-type"></div>
+            </fieldset>
+            <div class="q-row">
+                <div class="q-field">
+                    <span class="q-label" id="q-beds-l">Bedrooms</span>
+                    <div class="stepper" role="group" aria-labelledby="q-beds-l">
+                        <button type="button" data-step="beds" data-dir="-1" aria-label="Fewer bedrooms">−</button>
+                        <output id="q-beds" aria-live="polite">2</output>
+                        <button type="button" data-step="beds" data-dir="1" aria-label="More bedrooms">+</button>
+                    </div>
+                </div>
+                <div class="q-field">
+                    <span class="q-label" id="q-baths-l">Bathrooms</span>
+                    <div class="stepper" role="group" aria-labelledby="q-baths-l">
+                        <button type="button" data-step="baths" data-dir="-1" aria-label="Fewer bathrooms">−</button>
+                        <output id="q-baths" aria-live="polite">1</output>
+                        <button type="button" data-step="baths" data-dir="1" aria-label="More bathrooms">+</button>
+                    </div>
+                </div>
+                <div class="q-field q-zip">
+                    <label class="q-label" for="q-zip">ZIP code</label>
+                    <input id="q-zip" inputmode="numeric" maxlength="5" placeholder="e.g. 02810" autocomplete="postal-code" aria-describedby="q-zip-out">
+                </div>
+            </div>
+            <p class="q-zip-out" id="q-zip-out" role="status" aria-live="polite"></p>
+            <fieldset class="q-field" id="q-freq-wrap">
+                <legend>How often</legend>
+                <div class="freq" id="q-freq"></div>
+            </fieldset>
+            <fieldset class="q-field">
+                <legend>Extras</legend>
+                <div class="addons" id="q-addons"></div>
+            </fieldset>
+            <div class="q-total" aria-live="polite">
+                <div>
+                    <span class="q-price" id="q-price">$0</span>
+                    <span class="q-per" id="q-per">per visit</span>
+                </div>
+                <ul class="q-meta" id="q-meta"></ul>
+            </div>
+            <a class="btn btn-lime q-go" href="#book" id="q-go">Request this clean</a>
+            <p class="q-fine">No card needed. We confirm the day by text.</p>
+        </form>
+    </div>
+</section>
+
+<section class="promise" aria-label="Our promise">
+    <ul class="wrap promise-list" id="promise"></ul>
+</section>
+
+<section class="services" id="services" aria-labelledby="services-title">
+    <div class="wrap">
+        <div class="head">
+            <p class="eyebrow">Services</p>
+            <h2 id="services-title">Four ways we clean, <em>one checklist</em></h2>
+            <p>Prices shown are for a two bedroom, one bathroom home. Pick one to price your own.</p>
+        </div>
+        <div class="svc-grid" id="services-grid"></div>
+    </div>
+</section>
+
+<section class="included" id="included" aria-labelledby="included-title">
+    <div class="wrap">
+        <div class="head">
+            <p class="eyebrow">Room by room</p>
+            <h2 id="included-title">Exactly what gets cleaned</h2>
+            <p>Every cleaner works from this list, and it comes back to you ticked after each visit.</p>
+        </div>
+        <div class="rooms">
+            <div class="room-tabs" role="tablist" aria-label="Rooms" id="room-tabs"></div>
+            <div class="room-panel" id="room-panel" role="tabpanel" tabindex="0"></div>
+        </div>
+        <div class="extras-row">
+            <h3>Extras you can add</h3>
+            <ul class="extras" id="extras"></ul>
+        </div>
+    </div>
+</section>
+
+<section class="how" id="how" aria-labelledby="how-title">
+    <div class="wrap how-grid">
+        <div class="how-photo">
+            <img src="photos/supply-caddy.jpg" alt="A cleaning caddy with spray bottles and folded microfibre cloths" width="1024" height="691" loading="lazy">
+        </div>
+        <div>
+            <p class="eyebrow">How it works</p>
+            <h2 id="how-title">Book in two minutes. <em>We do the rest.</em></h2>
+            <ol class="steps" id="steps"></ol>
+        </div>
+    </div>
+</section>
+
+<section class="reviews" id="reviews" aria-labelledby="reviews-title">
+    <div class="wrap">
+        <div class="head head-split">
+            <div>
+                <p class="eyebrow">Reviews</p>
+                <h2 id="reviews-title">What our neighbours say</h2>
+            </div>
+            <div class="rating-card">
+                <b data-bind="rating">4.9</b>
+                <span><span class="stars" aria-hidden="true">★★★★★</span><span><span data-bind="reviewCount">286</span> <span data-bind="ratingSource">Google</span> reviews</span></span>
+            </div>
+        </div>
+        <p class="sample-note" data-sample hidden>Sample reviews and rating. Replace them with your own before publishing.</p>
+        <div class="review-list" id="review-list"></div>
+    </div>
+</section>
+
+<section class="area" id="area" aria-labelledby="area-title">
+    <div class="wrap area-grid">
+        <div>
+            <p class="eyebrow">Where we clean</p>
+            <h2 id="area-title"><span data-bind="baseTown">Maple Harbor</span> and the towns around it</h2>
+            <p>Towns with a travel fee show it here, and it is added to the price above.</p>
+            <form class="zip-check" id="zip-check" novalidate>
+                <label for="zc-zip" class="sr-only">ZIP code</label>
+                <input id="zc-zip" inputmode="numeric" maxlength="5" placeholder="Your ZIP code" autocomplete="postal-code">
+                <button class="btn btn-ink btn-sm" type="submit">Check</button>
+            </form>
+            <p class="zip-out" id="zip-out" role="status" aria-live="polite"></p>
+        </div>
+        <ul class="towns" id="towns"></ul>
+    </div>
+</section>
+
+<section class="book" id="book" aria-labelledby="sum-title">
+    <div class="wrap book-grid">
+        <aside class="summary" aria-labelledby="sum-title">
+            <p class="eyebrow eyebrow-lime">Your clean</p>
+            <h2 id="sum-title">Request a cleaning day</h2>
+            <dl class="sum-list" id="sum-list"></dl>
+            <a class="sum-edit" href="#price">Change the details</a>
+            <div class="sum-contact">
+                <p>Rather talk to someone?</p>
+                <a data-bind-href="tel" href="tel:+15550137720"><span data-bind="phone">(555) 013-7720</span></a>
+                <span id="hours-line">Mon to Fri 8am to 6pm, Sat 9am to 3pm</span>
+            </div>
+        </aside>
+        <form class="book-form" id="book-form" novalidate>
+            <div class="f-row">
+                <div class="f"><label for="f-name">Full name</label><input id="f-name" name="name" autocomplete="name" required></div>
+                <div class="f"><label for="f-phone">Mobile</label><input id="f-phone" name="phone" type="tel" autocomplete="tel" required></div>
+            </div>
+            <div class="f"><label for="f-email">Email <small>optional</small></label><input id="f-email" name="email" type="email" autocomplete="email"></div>
+            <div class="f"><label for="f-address">Street address</label><input id="f-address" name="address" autocomplete="street-address" required></div>
+            <div class="f-row">
+                <div class="f"><label for="f-day">Preferred day</label><select id="f-day" name="day"></select></div>
+                <div class="f"><label for="f-time">Arrival</label>
+                    <select id="f-time" name="time">
+                        <option>Morning, 8am to 11am</option>
+                        <option>Midday, 11am to 1pm</option>
+                        <option>Afternoon, 1pm to 3pm</option>
+                    </select>
+                </div>
+            </div>
+            <fieldset class="f">
+                <legend>How do we get in?</legend>
+                <div class="radios" id="f-access"></div>
+            </fieldset>
+            <div class="f"><label for="f-msg">Anything we should know?</label><textarea id="f-msg" name="message" rows="3" placeholder="Pets, parking, rooms to skip, products you prefer"></textarea></div>
+            <button class="btn btn-ink f-send" type="submit">Send my request</button>
+            <p class="f-note" id="f-note" role="status" aria-live="polite"></p>
+        </form>
+    </div>
+</section>
+
+<section class="faq" id="faq" aria-labelledby="faq-title">
+    <div class="wrap faq-grid">
+        <div>
+            <p class="eyebrow">Questions</p>
+            <h2 id="faq-title">Good to know</h2>
+            <p>Something else? Text us on <a data-bind-href="sms" href="sms:+15550137720"><span data-bind="phone">(555) 013-7720</span></a>.</p>
+        </div>
+        <div class="faq-list" id="faq-list"></div>
+    </div>
+</section>
+
+<section class="cta">
+    <div class="wrap cta-inner">
+        <h2>Your Saturday back, <em>starting next week.</em></h2>
+        <a class="btn btn-lime" href="#price">See my price</a>
+    </div>
+</section>
+</main>
+
+<footer class="footer">
+    <div class="wrap footer-grid">
+        <div>
+            <a class="brand brand-light" href="#top"><img src="icon.svg" alt="" width="40" height="40"><span data-bind="name">Linen &amp; Lime</span></a>
+            <p>Home cleaning in <span data-bind="region">Maple Harbor</span> since <span data-bind="since">2015</span>. <span data-bind="insurance">Insured and bonded.</span></p>
+            <p class="sample-note sample-dark" data-sample hidden>Sample business details. Replace them with your own.</p>
+        </div>
+        <div>
+            <h3>Services</h3>
+            <ul id="foot-services"></ul>
+        </div>
+        <div>
+            <h3>Office hours</h3>
+            <ul id="foot-hours"></ul>
+        </div>
+        <div>
+            <h3>Contact</h3>
+            <ul>
+                <li><a data-bind-href="tel" href="tel:+15550137720"><span data-bind="phone">(555) 013-7720</span></a></li>
+                <li><a data-bind-href="mailto" href="mailto:hello@example.com"><span data-bind="email">hello@example.com</span></a></li>
+                <li data-bind="address">27 Orchard Street, Maple Harbor</li>
+            </ul>
+        </div>
+    </div>
+    <div class="wrap foot-base">
+        <span>© <span id="year">2026</span> <span data-bind="name">Linen &amp; Lime</span></span>
+        <a href="#top">Back to top</a>
+    </div>
+</footer>
+
+<nav class="mobile-bar" aria-label="Quick contact">
+    <a data-bind-href="tel" href="tel:+15550137720">Call</a>
+    <a data-bind-href="sms" href="sms:+15550137720">Text</a>
+    <a class="mb-main" href="#price">Get my price</a>
+</nav>
+
+<script src="app.js"></script>
+</body>
+</html>
