@@ -274,12 +274,18 @@ function renderRooms() {
                 <span class="room-go" aria-hidden="true">→</span>
             </a>
         </li>`).join('');
+    // The photo fades out, swaps, and fades back in. A newer selection
+    // cancels a swap still waiting, so the photo always matches the caption.
+    let swap = null;
     const show = (id) => {
         const r = roomById(id);
         const img = $('#room-photo');
-        if (img.getAttribute('src') !== r.photo) {
+        clearTimeout(swap);
+        if (img.getAttribute('src') === r.photo) {
+            img.classList.remove('swap');
+        } else {
             img.classList.add('swap');
-            setTimeout(() => { img.src = r.photo; img.classList.remove('swap'); }, 160);
+            swap = setTimeout(() => { img.src = r.photo; img.classList.remove('swap'); }, 160);
         }
         $('#room-caption').textContent = r.name;
         $('#room-list').querySelectorAll('.room').forEach((a) => a.toggleAttribute('aria-current', a.dataset.room === id));
@@ -326,9 +332,22 @@ function segButtons(name, items, current) {
         </label>`).join('');
 }
 
+// The room radios are built once and only change their checked state, so
+// keyboard focus stays in the group while arrow keys move between rooms.
+function renderRoomInputs() {
+    $('#p-room').innerHTML = segButtons('room', ROOMS.map((r) => ({ id: r.id, label: r.single })), plan.room);
+}
+
+function setRoom(id) {
+    plan.room = id;
+    $('#p-room').querySelectorAll('input').forEach((i) => { i.checked = i.value === id; });
+    renderPlannerInputs();
+    renderEstimate();
+}
+
+// The controls that depend on the room: sizes, finishes and extras.
 function renderPlannerInputs() {
     const room = roomById(plan.room);
-    $('#p-room').innerHTML = segButtons('room', ROOMS.map((r) => ({ id: r.id, label: r.single })), plan.room);
     if (!room.sizes.some((s) => s.id === plan.size)) plan.size = room.sizes[Math.min(1, room.sizes.length - 1)].id;
     $('#p-size').innerHTML = segButtons('size', room.sizes, plan.size);
     $('#p-finish').innerHTML = segButtons('finish', FINISHES, plan.finish);
@@ -385,11 +404,12 @@ function renderEstimate() {
 }
 
 function initPlanner() {
+    renderRoomInputs();
     renderPlannerInputs();
     renderEstimate();
     $('#planner-form').addEventListener('change', (ev) => {
         const t = ev.target;
-        if (t.name === 'room') { plan.room = t.value; renderPlannerInputs(); }
+        if (t.name === 'room') { setRoom(t.value); return; }
         if (t.name === 'size') plan.size = t.value;
         if (t.name === 'finish') plan.finish = t.value;
         if (t.name === 'extra') t.checked ? plan.extras.add(t.value) : plan.extras.delete(t.value);
@@ -398,10 +418,7 @@ function initPlanner() {
     // A room link anywhere on the page opens it in the planner.
     document.addEventListener('click', (ev) => {
         const a = ev.target.closest('a[data-room]');
-        if (!a) return;
-        plan.room = a.dataset.room;
-        renderPlannerInputs();
-        renderEstimate();
+        if (a) setRoom(a.dataset.room);
     });
 }
 
@@ -533,13 +550,16 @@ function initArea() {
 
 // ---- Visit form -------------------------------------------------------------------------
 
-let attachPlan = false;
+// The planner details as they were when the visitor pressed "Send this to
+// us". A snapshot, so later planner changes cannot alter what the form shows
+// and sends without the visitor seeing it.
+let attachedPlan = null;
 
 function renderPlanChip() {
     const box = $('#f-plan');
-    box.hidden = !attachPlan;
-    if (!attachPlan) return;
-    box.innerHTML = `<span><b>From the planner:</b> ${esc(planSummary().text)}</span><button type="button" aria-label="Remove the planner details">×</button>`;
+    box.hidden = !attachedPlan;
+    if (!attachedPlan) return;
+    box.innerHTML = `<span><b>From the planner:</b> ${esc(attachedPlan)}</span><button type="button" aria-label="Remove the planner details">×</button>`;
 }
 
 function initVisit() {
@@ -550,15 +570,13 @@ function initVisit() {
 
     document.addEventListener('click', (e) => {
         if (e.target.closest('[data-from-planner]')) {
-            attachPlan = true;
+            attachedPlan = planSummary().text;
             $('#f-room').value = plan.room;
             renderPlanChip();
             setTimeout(() => $('#f-name').focus({ preventScroll: true }), 500);
         }
-        if (e.target.closest('#f-plan button')) { attachPlan = false; renderPlanChip(); }
+        if (e.target.closest('#f-plan button')) { attachedPlan = null; renderPlanChip(); }
     });
-    // Keep the attached summary in step with later planner changes.
-    $('#planner-form').addEventListener('change', renderPlanChip);
 
     const note = $('#f-note');
     const dest = () => (ENQUIRY.endpoint
@@ -593,7 +611,7 @@ function initVisit() {
             town: town ? town.name : '',
             project: roomSel.options[roomSel.selectedIndex].text,
             start: val('when'),
-            plan: attachPlan ? planSummary().text : '',
+            plan: attachedPlan || '',
             message: val('message'),
         };
         const subject = `Design visit request: ${data.project}${data.town ? `, ${data.town}` : data.zip ? `, ${data.zip}` : ''}`;
@@ -611,7 +629,7 @@ function initVisit() {
                 });
                 if (!res.ok) throw new Error(String(res.status));
                 form.reset();
-                attachPlan = false;
+                attachedPlan = null;
                 renderPlanChip();
                 note.className = 'f-note ok';
                 note.textContent = `Thanks, ${data.name.split(' ')[0]}. We will call you to set a time for the visit.`;

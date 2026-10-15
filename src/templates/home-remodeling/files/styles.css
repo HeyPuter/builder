@@ -21,6 +21,9 @@
 }
 
 * { box-sizing: border-box; }
+/* Elements styled with a display value still hide when marked hidden (the
+   sample labels when SAMPLE_CONTENT is false, the hero card with no projects). */
+[hidden] { display: none !important; }
 html { scroll-behavior: smooth; scroll-padding-top: 80px; }
 body { margin: 0; background: var(--plaster); color: var(--ink); font: 16.5px/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
 img { display: block; max-width: 100%; height: auto; }
@@ -289,7 +292,6 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--c
 .invalid { border-color: var(--bad); background: #fbeeea; }
 .f-plan { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-radius: 10px; background: var(--clay-soft); font-size: 14px; }
 .f-plan button { margin-left: auto; width: 28px; height: 28px; flex: none; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .7); cursor: pointer; font-size: 18px; line-height: 1; }
-.f-plan[hidden] { display: none; }
 .f-send { margin-top: 4px; }
 .f-note { font-size: 13.5px; color: var(--muted); text-align: center; }
 .f-note.ok { color: var(--ok); }
