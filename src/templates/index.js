@@ -37,6 +37,7 @@ import hvacService from './hvac-service/template.js';
 import realEstateAgent from './real-estate-agent/template.js';
 import lawFirm from './law-firm/template.js';
 import dentalPractice from './dental-practice/template.js';
+import autoRepair from './auto-repair/template.js';
 
 export const TEMPLATES = [
     feedbackBoard,
@@ -50,6 +51,7 @@ export const TEMPLATES = [
     realEstateAgent,
     lawFirm,
     dentalPractice,
+    autoRepair,
 ];
 
 export default TEMPLATES;
