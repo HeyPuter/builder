@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Morrow Coffee · Espresso bar &amp; roastery</title>
+<meta name="description" content="A neighborhood espresso bar and roastery. Coffee roasted out back every Tuesday, pastries from the oven at 7, and a room with big windows.">
+<meta name="theme-color" content="#c4381e">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap">
+<link rel="stylesheet" href="styles.css">
+<script src="app.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<div class="ticker" role="region" aria-label="News from the bar">
+    <div class="ticker-track" data-ticker></div>
+</div>
+
+<header class="nav" data-nav>
+    <div class="wrap nav-inner">
+        <a class="brand" href="#top">
+            <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
+                <rect width="64" height="64" rx="16" fill="#c4381e"/>
+                <path d="M18 30a12 12 0 0 1 24 0z" fill="#f2c75c"/>
+                <path d="M11 33h38v3a16 16 0 0 1-16 16h-6a16 16 0 0 1-16-16z" fill="#fbf7f0"/>
+                <path d="M48.5 37h2a6 6 0 0 1 0 12h-4" fill="none" stroke="#fbf7f0" stroke-width="4.5" stroke-linecap="round"/>
+            </svg>
+            <span class="brand-name" data-shop="shortName">Morrow</span>
+        </a>
+        <nav class="nav-links" id="nav-links" aria-label="Main" data-nav-links>
+            <a href="#menu">Menu</a>
+            <a href="#beans">Beans</a>
+            <a href="#room">The room</a>
+            <a href="#visit">Visit</a>
+        </nav>
+        <div class="nav-actions">
+            <p class="status" data-status><span class="status-dot" aria-hidden="true"></span><span data-status-short>Opening hours</span></p>
+            <a class="btn btn-ink btn-sm" href="#visit" data-order>Order ahead</a>
+            <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links" data-nav-toggle>
+                <span class="sr-only">Open the menu</span>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16M4 16h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
+        </div>
+    </div>
+</header>
+
+<main id="main">
+    <section class="hero" id="top" aria-labelledby="hero-title">
+        <div class="wrap hero-grid">
+            <div class="hero-copy">
+                <p class="eyebrow">Espresso bar &amp; roastery · Since 2016</p>
+                <h1 class="hero-title" id="hero-title">Good coffee,<br><em>slow</em> mornings.</h1>
+                <p class="hero-lead">We roast small batches out back every Tuesday, bake from 6 am and pour until the light goes. Pull up a stool, or grab it to go. Either way, it's made properly.</p>
+                <div class="hero-ctas">
+                    <a class="btn btn-cherry" href="#menu">See the menu</a>
+                    <a class="btn btn-line" href="#visit">Plan a visit</a>
+                </div>
+                <dl class="hero-facts">
+                    <div><dt>Roasted</dt><dd>Tuesdays, in the back room</dd></div>
+                    <div><dt>Baked</dt><dd>From 6 am, twice a day</dd></div>
+                    <div><dt>Milk</dt><dd>Oat &amp; almond at no extra charge</dd></div>
+                </dl>
+            </div>
+            <div class="hero-art">
+                <div class="arch">
+                    <img src="photos/hero-latte.jpg" alt="A barista pouring a leaf of milk into a latte" width="640" height="852" fetchpriority="high">
+                </div>
+                <svg class="stamp" viewBox="0 0 200 200" aria-hidden="true">
+                    <defs><path id="stamp-ring" d="M100 100m-72 0a72 72 0 1 1 144 0a72 72 0 1 1-144 0"/></defs>
+                    <circle cx="100" cy="100" r="98" fill="#f2c75c"/>
+                    <g class="stamp-text">
+                        <text><textPath href="#stamp-ring" textLength="448" lengthAdjust="spacing">ROASTED IN HOUSE · EVERY TUESDAY ·</textPath></text>
+                    </g>
+                    <g transform="translate(100 100) rotate(-28)">
+                        <ellipse rx="22" ry="30" fill="#24170f"/>
+                        <path d="M0-30C-9-14 9 14 0 30" fill="none" stroke="#f2c75c" stroke-width="4" stroke-linecap="round"/>
+                    </g>
+                </svg>
+                <div class="today" data-today>
+                    <p class="today-label" data-today-label>Today</p>
+                    <p class="today-hours" data-today-hours>&nbsp;</p>
+                    <p class="today-note" data-today-note>&nbsp;</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="dayparts" aria-labelledby="now-title">
+        <div class="wrap">
+            <div class="section-head">
+                <p class="eyebrow">All day at Morrow</p>
+                <h2 id="now-title" data-now-title>What's on right now</h2>
+            </div>
+            <ol class="daypart-list" data-dayparts></ol>
+        </div>
+    </section>
+
+    <section class="menu" id="menu" aria-labelledby="menu-title">
+        <div class="wrap menu-grid">
+            <div class="menu-main">
+                <div class="section-head">
+                    <p class="eyebrow">The menu</p>
+                    <h2 id="menu-title">Pulled, poured <em>&amp; baked</em> here.</h2>
+                    <p class="section-lead">Espresso is our house blend, Daybreak. The slow bar rotates through whatever came out of the roaster this week.</p>
+                </div>
+                <div class="menu-controls">
+                    <div class="tabs" role="tablist" aria-label="Menu sections" data-menu-tabs></div>
+                    <div class="sizes" role="radiogroup" aria-label="Cup size" data-sizes></div>
+                </div>
+                <div class="menu-panel" role="tabpanel" tabindex="0" data-menu-panel></div>
+                <p class="menu-note" data-menu-note></p>
+            </div>
+
+            <aside class="finder" aria-labelledby="finder-title">
+                <img class="finder-photo" src="photos/barista-milk.jpg" alt="Steamed milk poured from a jug into a cup" width="900" height="600" loading="lazy">
+                <div class="finder-body">
+                    <h3 id="finder-title">Order like a regular</h3>
+                    <p>Not sure what to get? Three taps and we'll point you to it.</p>
+                    <form class="finder-form" data-finder>
+                        <fieldset>
+                            <legend>Hot or iced?</legend>
+                            <div class="seg">
+                                <label><input type="radio" name="temp" value="hot" checked><span>Hot</span></label>
+                                <label><input type="radio" name="temp" value="iced"><span>Iced</span></label>
+                            </div>
+                        </fieldset>
+                        <fieldset>
+                            <legend>Black or with milk?</legend>
+                            <div class="seg">
+                                <label><input type="radio" name="milk" value="black"><span>Black</span></label>
+                                <label><input type="radio" name="milk" value="milk" checked><span>Milk</span></label>
+                            </div>
+                        </fieldset>
+                        <fieldset>
+                            <legend>Gentle or bold?</legend>
+                            <div class="seg">
+                                <label><input type="radio" name="mood" value="gentle" checked><span>Gentle</span></label>
+                                <label><input type="radio" name="mood" value="bold"><span>Bold</span></label>
+                            </div>
+                        </fieldset>
+                    </form>
+                    <div class="finder-result" aria-live="polite" data-finder-result></div>
+                </div>
+            </aside>
+        </div>
+    </section>
+
+    <section class="beans" id="beans" aria-labelledby="beans-title">
+        <div class="wrap">
+            <div class="beans-head">
+                <div class="section-head">
+                    <p class="eyebrow">On the shelf</p>
+                    <h2 id="beans-title">Roasted Tuesday, <em>gone by Sunday.</em></h2>
+                    <p class="section-lead">Every bag is roasted here and dated by hand. Grab one at the counter, or ask us to set one aside.</p>
+                </div>
+                <div class="roast" data-roast>
+                    <p class="roast-label">Next roast</p>
+                    <p class="roast-when" data-roast-when>&nbsp;</p>
+                    <ol class="roast-week" data-roast-week aria-hidden="true"></ol>
+                </div>
+            </div>
+            <ul class="bags" data-beans></ul>
+        </div>
+    </section>
+
+    <section class="room" id="room" aria-labelledby="room-title">
+        <div class="wrap room-grid">
+            <figure class="room-photo">
+                <img src="photos/room.jpg" alt="Morning light through arched windows over leather booths" width="1200" height="800" loading="lazy">
+                <figcaption>The front room, 7:40 on a Tuesday.</figcaption>
+            </figure>
+            <div class="room-copy">
+                <p class="eyebrow">The room</p>
+                <h2 id="room-title">A small room with <em>big windows.</em></h2>
+                <p>Thirty-two seats, a long bar you can lean on and a patio out front. Stay for one cup or the whole morning. The only thing we ask is that you leave the big table free for groups at the weekend.</p>
+                <ul class="amenities" data-amenities></ul>
+            </div>
+        </div>
+    </section>
+
+    <section class="regulars" aria-labelledby="regulars-title">
+        <div class="wrap regulars-grid">
+            <div class="card-pitch">
+                <p class="eyebrow">For regulars</p>
+                <h2 id="regulars-title">Every tenth cup <em>is on us.</em></h2>
+                <p>Ask for a stamp card at the bar. No app, no account, no email. Just a little card that lives in your wallet.</p>
+                <div class="stamp-card" data-stamps aria-hidden="true"></div>
+            </div>
+            <div class="reviews">
+                <ul class="review-list" data-reviews></ul>
+                <p class="reviews-note" data-reviews-note></p>
+            </div>
+        </div>
+    </section>
+
+    <section class="visit" id="visit" aria-labelledby="visit-title">
+        <div class="wrap visit-grid">
+            <div class="visit-copy">
+                <p class="eyebrow">Visit</p>
+                <h2 id="visit-title">Come by. <em>No booking needed.</em></h2>
+                <address class="visit-address" data-address></address>
+                <div class="visit-actions">
+                    <a class="btn btn-butter" href="#" target="_blank" rel="noopener" data-map-link>Open in Maps</a>
+                    <a class="btn btn-line-light" href="#" data-phone-link>Call the bar</a>
+                </div>
+                <ul class="getting-here" data-getting-here></ul>
+            </div>
+            <div class="hours">
+                <div class="hours-head">
+                    <h3>Opening hours</h3>
+                    <p class="status status-light" data-status-long><span class="status-dot" aria-hidden="true"></span><span data-status-text>&nbsp;</span></p>
+                </div>
+                <table class="hours-table" data-hours>
+                    <caption class="sr-only">Opening hours by day</caption>
+                </table>
+            </div>
+            <figure class="visit-photo">
+                <img src="photos/storefront.jpg" alt="Orange folding chairs on the patio outside the shop" width="720" height="900" loading="lazy">
+            </figure>
+        </div>
+    </section>
+</main>
+
+<footer class="footer">
+    <div class="wrap footer-grid">
+        <div class="letter">
+            <h2>The Tuesday letter</h2>
+            <p>New beans the day they leave the roaster. One short email a week, never more.</p>
+            <form class="letter-form" data-letter novalidate>
+                <label class="sr-only" for="letter-email">Email address</label>
+                <input id="letter-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required>
+                <button class="btn btn-cherry" type="submit">Sign me up</button>
+            </form>
+            <p class="letter-msg" role="status" data-letter-msg></p>
+        </div>
+        <div class="footer-cols">
+            <div>
+                <h3>Find us</h3>
+                <p data-footer-address></p>
+            </div>
+            <div>
+                <h3>Say hello</h3>
+                <p><a href="#" data-phone-link data-shop="phone"></a><br><a href="#" data-email-link data-shop="email"></a></p>
+            </div>
+            <div>
+                <h3>Follow</h3>
+                <ul class="socials" data-socials></ul>
+            </div>
+        </div>
+    </div>
+    <div class="wrap footer-base">
+        <p>© <span data-year></span> <span data-shop="name">Morrow Coffee</span></p>
+        <a href="#top">Back to top</a>
+    </div>
+    <p class="footer-mark" aria-hidden="true" data-shop="shortName">Morrow</p>
+</footer>
+</body>
+</html>
