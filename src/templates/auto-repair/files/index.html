@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#141619">
+<title>Copperhill Auto Works: Car repair and maintenance in Ashby</title>
+<meta name="description" content="Brakes, oil changes, check engine diagnosis, batteries, AC and tires in Ashby. Instant price ranges, photos of every inspection, and a 24-month / 24,000-mile warranty. Book a drop-off online.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="topbar">
+    <div class="wrap topbar-inner">
+        <p class="status"><i></i><span data-status>Open now</span></p>
+        <p class="tb-addr"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg><span data-bind="address">218 Mill Street, Ashby</span></p>
+        <a class="tb-phone" data-bind-href="tel" href="tel:+15550142290"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg><span data-bind="phone">(555) 014-2290</span></a>
+    </div>
+</div>
+
+<header class="header">
+    <div class="wrap header-inner">
+        <a class="brand" href="#top" aria-label="Home">
+            <img src="icon.svg" alt="" width="40" height="40">
+            <span><b data-bind="shortName">Copperhill</b><small data-bind="trade">Auto Works</small></span>
+        </a>
+        <nav class="nav-links" id="nav-links" aria-label="Main">
+            <a href="#services">Services</a>
+            <a href="#lights">Warning lights</a>
+            <a href="#specials">Specials</a>
+            <a href="#shop">The shop</a>
+            <a href="#visit">Hours</a>
+        </nav>
+        <a class="btn btn-yellow btn-sm h-cta" href="#book">Book a drop-off</a>
+        <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links" aria-label="Open menu"><span></span><span></span></button>
+    </div>
+</header>
+
+<section class="hero" id="top">
+    <div class="hero-photo">
+        <img src="photos/hero-lift.jpg" alt="A technician working under a car raised on a lift" width="1024" height="681" fetchpriority="high">
+    </div>
+    <div class="wrap hero-grid">
+        <div class="hero-copy">
+            <p class="kicker"><span>Independent shop</span><span><span data-bind="baseTown">Ashby</span> since <span data-bind="since">1998</span></span></p>
+            <h1>Straight answers.<br>Fair prices.<br><em>Fixed right.</em></h1>
+            <p class="hero-sub">Brakes, engines, electrical, AC and everyday maintenance for every make. You see the price range before you book, photos of what we find, and nothing gets done until you say yes.</p>
+            <div class="hero-ctas">
+                <a class="btn btn-yellow" href="#book">Book a drop-off</a>
+                <a class="btn btn-ghost" href="#lights">A light came on</a>
+            </div>
+            <ul class="hero-trust" id="hero-trust"></ul>
+            <p class="sample-note sample-dark" data-sample hidden>Sample business, rating, offers and reviews. Replace them with your own before publishing.</p>
+        </div>
+
+        <form class="ticket quote" id="quote" aria-labelledby="quote-title">
+            <div class="ticket-head">
+                <h2 id="quote-title">Quick quote</h2>
+                <span class="mono" id="quote-no">RO 0000</span>
+            </div>
+            <fieldset class="q-step">
+                <legend><b>1</b> Your vehicle</legend>
+                <div class="seg" id="q-vehicle"></div>
+            </fieldset>
+            <div class="q-step">
+                <label for="q-service"><b>2</b> The job</label>
+                <select id="q-service"></select>
+            </div>
+            <dl class="q-lines" id="q-lines" aria-live="polite"></dl>
+            <button class="btn btn-dark q-book" type="button" id="q-book">Book this job</button>
+            <p class="q-fine">Typical range for common vehicles. We confirm the exact price after a look, and you approve it before work starts.</p>
+        </form>
+    </div>
+</section>
+
+<div class="makes" aria-label="Makes we work on">
+    <div class="makes-track" id="makes"></div>
+</div>
+
+<section class="services" id="services" aria-labelledby="services-title">
+    <div class="wrap">
+        <div class="head-row">
+            <div>
+                <p class="eyebrow">Services and prices</p>
+                <h2 id="services-title">What we fix, and what it usually costs</h2>
+            </div>
+            <div class="chips" id="svc-filter" role="group" aria-label="Filter services"></div>
+        </div>
+        <div class="svc-grid" id="svc-grid"></div>
+        <p class="svc-note">Prices are for a typical car, parts and labor included. SUVs, trucks and hybrids run a little higher; the quick quote shows the range for yours.</p>
+    </div>
+</section>
+
+<section class="lights" id="lights" aria-labelledby="lights-title">
+    <div class="wrap lights-grid">
+        <div class="lights-intro">
+            <p class="eyebrow">Dashboard warning lights</p>
+            <h2 id="lights-title">A light just came on. Can you keep driving?</h2>
+            <p>Tap the light you see. Red usually means stop, amber means book a check soon. When in doubt, call us and describe it.</p>
+            <div class="cluster" id="cluster" role="group" aria-label="Warning lights"></div>
+        </div>
+        <div class="light-card" id="light-card" aria-live="polite"></div>
+    </div>
+</section>
+
+<section class="process" id="process" aria-labelledby="process-title">
+    <div class="wrap">
+        <p class="eyebrow">How a visit works</p>
+        <h2 id="process-title">You approve every line before we pick up a wrench</h2>
+        <ol class="steps" id="steps"></ol>
+    </div>
+</section>
+
+<section class="specials" id="specials" aria-labelledby="specials-title">
+    <div class="wrap">
+        <div class="head-row">
+            <div>
+                <p class="eyebrow">Current specials</p>
+                <h2 id="specials-title">Save on the jobs that come around every year</h2>
+            </div>
+            <p class="sample-note" data-sample hidden>Sample offers. Replace them with your own, or remove this section.</p>
+        </div>
+        <div class="coupons" id="coupons"></div>
+    </div>
+</section>
+
+<section class="shop" id="shop" aria-labelledby="shop-title">
+    <div class="wrap shop-grid">
+        <figure class="shop-photo">
+            <img src="photos/shop-floor.jpg" alt="Inside the shop: service bays with cars on lifts and a technician at work" width="1000" height="665" loading="lazy">
+            <figcaption>
+                <span><b data-bind="bays">6</b> bays</span>
+                <span><b data-bind="techs">5</b> ASE-certified techs</span>
+                <span><b data-bind="years">28</b> years</span>
+            </figcaption>
+        </figure>
+        <div class="shop-copy">
+            <p class="eyebrow">The shop</p>
+            <h2 id="shop-title">A family garage with dealer-level tools</h2>
+            <p><span data-bind="name">Copperhill Auto Works</span> has kept <span data-bind="region">the Ashby area</span> on the road since <span data-bind="since">1998</span>. We run the same scan tools and service data as the dealers, for less, and you can talk to the tech who worked on your car.</p>
+            <ul class="perks" id="perks"></ul>
+            <div class="warranty" id="warranty"></div>
+        </div>
+    </div>
+</section>
+
+<section class="bays" id="work" aria-labelledby="work-title">
+    <div class="wrap">
+        <div class="head-row">
+            <div>
+                <p class="eyebrow">Recently in the bays</p>
+                <h2 id="work-title">What came in, and what it needed</h2>
+            </div>
+            <p class="sample-note" data-sample hidden>Sample jobs and stock photos. Replace them with your own before publishing.</p>
+        </div>
+        <div class="jobs" id="jobs"></div>
+    </div>
+</section>
+
+<section class="reviews" id="reviews" aria-labelledby="reviews-title">
+    <div class="wrap reviews-grid">
+        <div class="score">
+            <p class="eyebrow">Reviews</p>
+            <h2 id="reviews-title"><span data-bind="rating">4.9</span><small>/5</small></h2>
+            <p class="stars" aria-hidden="true">★★★★★</p>
+            <p>From <b data-bind="reviewCount">638</b> <span data-bind="ratingSource">Google</span> reviews</p>
+            <p class="sample-note" data-sample hidden>Sample reviews and rating.</p>
+        </div>
+        <div class="review-list" id="review-list"></div>
+    </div>
+</section>
+
+<section class="book" id="book" aria-labelledby="book-title">
+    <div class="wrap book-grid">
+        <form class="book-form" id="book-form" novalidate>
+            <p class="eyebrow">Book a drop-off</p>
+            <h2 id="book-title">Pick a day. We will text you when it is ready.</h2>
+
+            <fieldset class="f">
+                <legend>Vehicle</legend>
+                <div class="f-row f-row-3">
+                    <div><label for="f-year">Year</label><select id="f-year" name="year"></select></div>
+                    <div><label for="f-make">Make</label><input id="f-make" name="make" list="make-list" autocomplete="off" placeholder="Honda"><datalist id="make-list"></datalist></div>
+                    <div><label for="f-model">Model</label><input id="f-model" name="model" autocomplete="off" placeholder="CR-V"></div>
+                </div>
+                <div class="seg seg-light" id="f-vehicle" role="radiogroup" aria-label="Vehicle type"></div>
+            </fieldset>
+
+            <fieldset class="f">
+                <legend>What does it need? <small>Pick any</small></legend>
+                <div class="pick" id="f-services"></div>
+            </fieldset>
+
+            <fieldset class="f">
+                <legend>Drop-off day</legend>
+                <div class="days" id="f-days"></div>
+            </fieldset>
+
+            <div class="f-row">
+                <div class="f"><label for="f-drop">Drop-off</label><select id="f-drop" name="drop"></select></div>
+                <div class="f"><label for="f-ride">Getting home</label><select id="f-ride" name="ride"></select></div>
+            </div>
+            <div class="f-row">
+                <div class="f"><label for="f-name">Name</label><input id="f-name" name="name" autocomplete="name" required></div>
+                <div class="f"><label for="f-phone">Mobile <small>for updates</small></label><input id="f-phone" name="phone" type="tel" autocomplete="tel" required></div>
+            </div>
+            <div class="f"><label for="f-email">Email <small>optional</small></label><input id="f-email" name="email" type="email" autocomplete="email"></div>
+            <div class="f"><label for="f-msg">What is it doing?</label><textarea id="f-msg" name="message" rows="3" placeholder="Noises, smells, when it happens, warning lights"></textarea></div>
+        </form>
+
+        <aside class="ticket order" aria-labelledby="order-title">
+            <div class="ticket-head">
+                <h3 id="order-title">Work order</h3>
+                <span class="mono" id="order-no">RO 0000</span>
+            </div>
+            <div class="order-body" id="order" aria-live="polite"></div>
+            <button class="btn btn-yellow order-send" type="submit" form="book-form">Request this drop-off</button>
+            <p class="f-note" id="f-note" role="status" aria-live="polite"><span id="f-dest">Opens your email app with the booking filled in.</span></p>
+        </aside>
+    </div>
+</section>
+
+<section class="visit" id="visit" aria-labelledby="visit-title">
+    <div class="wrap visit-grid">
+        <div>
+            <p class="eyebrow">Hours and location</p>
+            <h2 id="visit-title">Find us on <span data-bind="street">Mill Street</span></h2>
+            <p class="status visit-status"><i></i><span data-status>Open now</span></p>
+            <ul class="hours" id="hours"></ul>
+            <p class="keydrop" id="keydrop"></p>
+        </div>
+        <div class="map-card">
+            <svg class="map" id="map" viewBox="0 0 480 300" role="img" aria-labelledby="map-title"><title id="map-title">Street map around the shop</title></svg>
+            <div class="map-foot">
+                <span><b data-bind="name">Copperhill Auto Works</b><br><span data-bind="address">218 Mill Street, Ashby</span></span>
+                <a class="btn btn-dark btn-sm" id="directions" href="#" target="_blank" rel="noopener">Directions</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="faq" id="faq" aria-labelledby="faq-title">
+    <div class="wrap faq-grid">
+        <div>
+            <p class="eyebrow">Questions</p>
+            <h2 id="faq-title">Good to know before you come in</h2>
+        </div>
+        <div class="faq-list" id="faq-list"></div>
+    </div>
+</section>
+
+<footer class="footer">
+    <div class="wrap footer-grid">
+        <div>
+            <a class="brand" href="#top"><img src="icon.svg" alt="" width="40" height="40"><span><b data-bind="shortName">Copperhill</b><small data-bind="trade">Auto Works</small></span></a>
+            <p>Honest car repair in <span data-bind="region">the Ashby area</span> since <span data-bind="since">1998</span>.</p>
+        </div>
+        <div>
+            <h4>Services</h4>
+            <ul id="foot-services"></ul>
+        </div>
+        <div>
+            <h4>Hours</h4>
+            <ul id="foot-hours"></ul>
+        </div>
+        <div>
+            <h4>Contact</h4>
+            <ul>
+                <li><a data-bind-href="tel" href="tel:+15550142290"><span data-bind="phone">(555) 014-2290</span></a></li>
+                <li><a data-bind-href="mailto" href="mailto:service@example.com"><span data-bind="email">service@example.com</span></a></li>
+                <li data-bind="address">218 Mill Street, Ashby</li>
+                <li data-bind="license">State repair facility no. ARF-40712</li>
+            </ul>
+            <p class="sample-note sample-dark" data-sample hidden>Sample license number. Replace it with your own.</p>
+        </div>
+    </div>
+    <div class="wrap foot-base">
+        <span>© <span id="year">2026</span> <span data-bind="name">Copperhill Auto Works</span></span>
+        <a href="#top">Back to top</a>
+    </div>
+</footer>
+
+<nav class="mobile-bar" aria-label="Quick contact">
+    <a data-bind-href="tel" href="tel:+15550142290"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>Call</a>
+    <a data-bind-href="sms" href="sms:+15550142290"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>Text</a>
+    <a class="mb-main" href="#book">Book a drop-off</a>
+</nav>
+
+<script src="app.js"></script>
+</body>
+</html>
