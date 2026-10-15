@@ -308,7 +308,7 @@ function bindBusiness() {
         const v = values[el.dataset.bind];
         if (v !== undefined) el.textContent = v;
     });
-    const hrefs = { tel: `tel:${phoneLink(BUSINESS.phone)}`, mailto: `mailto:${ENQUIRY.quotes || BUSINESS.email}` };
+    const hrefs = { tel: `tel:${phoneLink(BUSINESS.phone)}`, mailto: `mailto:${BUSINESS.email}` };
     document.querySelectorAll('[data-bind-href]').forEach((el) => { el.href = hrefs[el.dataset.bindHref]; });
     $('#year').textContent = new Date().getFullYear();
     $('#lane-count').textContent = LANES.length;
@@ -433,7 +433,7 @@ function renderLanes() {
             const t = e.target.closest('[data-lane]');
             if (!t || !t.dataset.lane) return;
             setRoute(HOME, t.dataset.lane);
-            openTab('ship', { scroll: true });
+            openTab('ship', { scroll: true, focus: true });
         });
     }
 }
@@ -508,7 +508,7 @@ function openTab(which, { scroll = false, focus = false } = {}) {
         tab.setAttribute('aria-selected', String(on));
         tab.tabIndex = on ? 0 : -1;
         $(`#panel-${id}`).hidden = !on;
-        if (on && focus) tab.focus();
+        if (on && focus) tab.focus({ preventScroll: scroll });
     }
     if (scroll) {
         const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -533,7 +533,7 @@ function initTabs() {
         const a = e.target.closest('[data-tab]');
         if (!a) return;
         e.preventDefault();
-        openTab(a.dataset.tab, { scroll: true });
+        openTab(a.dataset.tab, { scroll: true, focus: true });
     });
 }
 
@@ -550,6 +550,18 @@ function setRoute(from, to) {
     $('#q-from').value = from;
     $('#q-to').value = to;
     refreshEstimate();
+}
+
+// The route and load date the form opens with: HOME to the busiest lane,
+// loading tomorrow. Also restored after a request is sent.
+function resetRoute() {
+    const busiest = LANES.slice().sort((a, b) => b.weekly - a.weekly)[0];
+    const date = $('#q-date');
+    date.min = isoDate(bizNow());
+    const tomorrow = bizNow();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    date.value = isoDate(tomorrow);
+    setRoute(HOME, busiest ? busiest.to : Object.keys(CITIES).find((c) => c !== HOME));
 }
 
 function setEquip(id) {
@@ -579,8 +591,8 @@ function refreshEstimate() {
     const days = transitDays(miles);
     const mid = Math.max(RATES.minimum, miles * e.perMile * (lane ? 1 : 1 + RATES.offLane));
     const round = (n) => Math.round(n / 25) * 25;
-    const lo = round(mid * (1 - RATES.spread));
-    const hi = round(mid * (1 + RATES.spread));
+    const lo = Math.max(RATES.minimum, round(mid * (1 - RATES.spread)));
+    const hi = Math.max(lo, round(mid * (1 + RATES.spread)));
     const w = weightOf();
     const heavy = w > e.maxLb
         ? `<p class="est-line est-bad">${icon('alert')}${num(w)} lb is over the ${num(e.maxLb)} lb a ${esc(e.name.toLowerCase())} takes. Dispatch will suggest a split or another trailer.</p>`
@@ -607,16 +619,10 @@ function initRate() {
     $('#q-equip').innerHTML = EQUIPMENT.map((e) => `
         <label class="pick"><input type="radio" name="equip" value="${esc(e.id)}"${e.id === equip ? ' checked' : ''}><span>${esc(e.name)}</span></label>`).join('');
     $('#q-equip').addEventListener('change', (e) => { if (e.target.name === 'equip') { equip = e.target.value; refreshEstimate(); } });
-    const busiest = LANES.slice().sort((a, b) => b.weekly - a.weekly)[0];
-    setRoute(HOME, busiest ? busiest.to : Object.keys(CITIES).find((c) => c !== HOME));
+    resetRoute();
     for (const id of ['#q-from', '#q-to']) $(id).addEventListener('change', refreshEstimate);
     $('#q-weight').addEventListener('input', refreshEstimate);
     $('#q-swap').addEventListener('click', () => setRoute($('#q-to').value, $('#q-from').value));
-    const date = $('#q-date');
-    date.min = isoDate(bizNow());
-    const tomorrow = bizNow();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    date.value = isoDate(tomorrow);
     $('#ref').textContent = newRef();
     $('#q-note').textContent = ENQUIRY.endpoint
         ? 'Goes straight to dispatch. We call back within the hour.'
@@ -628,16 +634,24 @@ function initRate() {
         if (!a) return;
         e.preventDefault();
         setEquip(a.dataset.equip);
-        openTab('ship', { scroll: true });
+        openTab('ship', { scroll: true, focus: true });
     });
 
     $('#panel-ship').addEventListener('submit', (e) => {
         e.preventDefault();
         const form = e.target;
-        if (!checkRequired(form, ['name', 'phone'], $('#q-note'), 'Add your name and a phone number so dispatch can call you back.')) return;
+        const note = $('#q-note');
+        if (!checkRequired(form, ['name', 'phone'], note, 'Add your name and a phone number so dispatch can call you back.')) return;
+        if (!checkValid(form, note, { email: 'Check the email address.', date: 'Pick a load date from today on.' })) return;
         const val = (n) => form.elements[n].value.trim();
         const from = val('from');
         const to = val('to');
+        if (from === to) {
+            note.textContent = 'Pick a delivery city different from the pick-up city.';
+            note.className = 'f-note miss';
+            form.elements.to.focus();
+            return;
+        }
         const miles = milesBetween(from, to);
         const data = {
             type: 'rate-request',
@@ -669,10 +683,10 @@ function initRate() {
             '',
             data.notes,
         ];
-        send(form, data, subject, lines, ENQUIRY.quotes, $('#q-note'), () => {
+        send(form, data, subject, lines, ENQUIRY.quotes, note, () => {
             setEquip(EQUIPMENT[0].id);
+            resetRoute();
             $('#ref').textContent = newRef();
-            refreshEstimate();
         });
     });
 }
@@ -737,7 +751,7 @@ function initDrive() {
         ];
         send(form, data, subject, lines, ENQUIRY.drivers, $('#d-note'), () => {
             position = DRIVERS.positions[0].id;
-            form.elements.position[0].checked = true;
+            form.querySelector('input[name="position"]').checked = true;
             $('#d-exp').value = (DRIVERS.experience.find((x) => x.months >= DRIVERS.minMonths) || DRIVERS.experience[0]).id;
             refreshFit();
         });
@@ -757,6 +771,20 @@ function checkRequired(form, names, note, message) {
     }
     if (!bad) return true;
     note.textContent = message;
+    note.className = 'f-note miss';
+    bad.focus();
+    return false;
+}
+
+// The browser's own checks (email format, the date's min) for fields the
+// form does not mark required. messages maps a field name to its message.
+function checkValid(form, note, messages) {
+    const bad = [...form.elements].find((el) => el.willValidate && !el.validity.valid);
+    if (!bad) return true;
+    bad.classList.add('invalid');
+    bad.setAttribute('aria-invalid', 'true');
+    bad.addEventListener('input', () => { bad.classList.remove('invalid'); bad.setAttribute('aria-invalid', 'false'); }, { once: true });
+    note.textContent = messages[bad.name] || 'Check the highlighted field.';
     note.className = 'f-note miss';
     bad.focus();
     return false;
