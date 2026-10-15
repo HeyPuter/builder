@@ -385,6 +385,7 @@ function setVehicle(id) {
     renderQuoteOptions();
     renderQuote();
     renderServicePicker();
+    fillDrop();
     renderOrder();
 }
 
@@ -485,7 +486,7 @@ function renderLight(id) {
 
 function initLights() {
     $('#cluster').innerHTML = LIGHTS.map((l) => `
-        <button type="button" class="lamp-btn" data-light="${esc(l.id)}" aria-pressed="false">
+        <button type="button" class="lamp-btn" data-light="${esc(l.id)}" aria-pressed="false" aria-label="${esc(l.name)}">
             <span class="lamp lamp-${esc(l.color)}${l.blink ? ' blink' : ''}">${icon(l.icon)}</span>
             <small>${esc(l.name)}</small>
         </button>`).join('');
@@ -560,9 +561,12 @@ function renderFaq() {
 // ---- Hours and map ------------------------------------------------------------------
 
 function renderHours() {
-    const today = DAYS[bizNow().getDay()];
+    const now = bizNow();
+    const today = DAYS[now.getDay()];
+    // Today's row follows BOOKING.closedDates, like the status and drop-off days.
+    const holiday = HOURS[today] && !hoursOn(now);
     $('#hours').innerHTML = Object.entries(HOURS).map(([d, h]) => `
-        <li${d === today ? ' class="today"' : ''}><span>${DAY_NAMES[d]}</span><b class="mono">${hoursText(h)}</b></li>`).join('');
+        <li${d === today ? ' class="today"' : ''}><span>${DAY_NAMES[d]}</span><b class="mono">${d === today && holiday ? 'Closed today' : hoursText(h)}</b></li>`).join('');
     $('#foot-hours').innerHTML = Object.entries(HOURS).map(([d, h]) => `<li>${d}: ${hoursText(h)}</li>`).join('');
     $('#keydrop').innerHTML = BOOKING.keyDrop ? `${icon('key')}<span>${esc(BOOKING.keyDrop)}</span>` : '';
 }
@@ -717,10 +721,14 @@ function initBooking() {
             if (empty && !bad) bad = el;
         }
         const note = $('#f-note');
-        if (bad) {
-            note.textContent = 'Add your name and a mobile number so we can confirm.';
+        // novalidate keeps the browser's bubbles off, so check the optional email here.
+        const email = form.elements.email;
+        const badEmail = !!email.value.trim() && !email.checkValidity();
+        email.classList.toggle('invalid', badEmail);
+        if (bad || badEmail) {
+            note.textContent = bad ? 'Add your name and a mobile number so we can confirm.' : 'Check the email address, or leave it empty.';
             note.className = 'f-note miss';
-            bad.focus();
+            (bad || email).focus();
             return;
         }
         const v = vehicleById(state.vehicle);
