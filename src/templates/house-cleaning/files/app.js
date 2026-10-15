@@ -339,23 +339,22 @@ function quote({ clean: cleanId, beds, baths, freq: freqId, addons = [], zip = '
     const freq = clean.id === 'standard' ? freqById(freqId) : FREQUENCIES[0];
     const town = townForZip(zip);
     const fee = town ? town.fee : 0;
-    const extras = ADDONS.filter((a) => addons.includes(a.id) && !isIncluded(a, clean.id));
-    const extrasPrice = extras.reduce((s, a) => s + a.price, 0);
-    const visit = (c, off) => Math.max(PRICING.minimum, roundUp(basePrice(c, beds, baths) * (1 - off) + extrasPrice + fee));
+    // Extras are billed per clean: one the first-visit clean includes is free
+    // on that visit even when the regular clean charges for it.
+    const billable = (c) => ADDONS.filter((a) => addons.includes(a.id) && !isIncluded(a, c.id));
+    const sum = (list, key) => list.reduce((s, a) => s + a[key], 0);
+    // The minimum covers the cleaning; the travel fee is always added on top.
+    const visit = (c, off) => Math.max(PRICING.minimum, roundUp(basePrice(c, beds, baths) * (1 - off) + sum(billable(c), 'price'))) + fee;
+    const workMinutes = (c) => c.minutes.base + c.minutes.bed * beds + c.minutes.bath * baths + sum(billable(c), 'minutes');
+    const onSite = (c) => Math.max(1, Math.round((workMinutes(c) / PRICING.teamSize / 60) * 2) / 2);
 
+    const extras = billable(clean);
     const price = visit(clean, freq.off);
-    const workMinutes = (c) => c.minutes.base + c.minutes.bed * beds + c.minutes.bath * baths + extras.reduce((s, a) => s + a.minutes, 0);
-    const hours = Math.max(1, Math.round((workMinutes(clean) / PRICING.teamSize / 60) * 2) / 2);
+    const hours = onSite(clean);
 
     let first = null;
-    const firstClean = PRICING.firstRecurringVisit && freq.off > 0 && CLEANS.find((c) => c.id === PRICING.firstRecurringVisit);
-    if (firstClean) {
-        first = {
-            clean: firstClean,
-            price: visit(firstClean, 0),
-            hours: Math.max(1, Math.round((workMinutes(firstClean) / PRICING.teamSize / 60) * 2) / 2),
-        };
-    }
+    const firstClean = PRICING.firstRecurringVisit && freq.id !== 'once' && CLEANS.find((c) => c.id === PRICING.firstRecurringVisit);
+    if (firstClean) first = { clean: firstClean, price: visit(firstClean, 0), hours: onSite(firstClean) };
     return { clean, freq, town, fee, extras, price, hours, first };
 }
 
@@ -412,7 +411,7 @@ function renderPromises() {
 function renderServices() {
     $('#services-grid').innerHTML = SERVICES.map((s) => {
         const q = quote({ clean: s.clean, beds: 2, baths: 1, freq: s.freq });
-        const per = q.freq.off ? `per visit, ${q.freq.label.toLowerCase()}` : 'one visit';
+        const per = q.freq.id !== 'once' ? `per visit, ${q.freq.label.toLowerCase()}` : 'one visit';
         return `
         <article class="svc">
             <div class="svc-photo"><img src="${esc(s.photo)}" alt="${esc(s.alt)}" width="1024" height="683" loading="lazy">${s.badge ? `<span class="svc-badge">${esc(s.badge)}</span>` : ''}</div>
@@ -467,6 +466,7 @@ function initRoomTabs() {
         if (!b) return;
         activeRoom = b.dataset.room;
         renderRooms();
+        $(`#tab-${activeRoom}`).focus();
     });
     tabs.addEventListener('keydown', (e) => {
         if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
@@ -525,12 +525,12 @@ function renderArea() {
         const m = zip.length === 5 ? zipMessage(zip) : { text: zip ? 'Enter a 5 digit ZIP code.' : '', cls: zip ? 'miss' : '' };
         out.textContent = m.text;
         out.className = `zip-out ${m.cls}`;
-        if (zip.length === 5 && townForZip(zip)) setZip(zip);
+        if (zip.length === 5) setZip(zip);
     };
     input.addEventListener('input', () => {
         input.value = input.value.replace(/\D/g, '');
         if (input.value.length === 5) run();
-        else { out.textContent = ''; out.className = 'zip-out'; }
+        else { out.textContent = ''; out.className = 'zip-out'; setZip(''); }
     });
     $('#zip-check').addEventListener('submit', (e) => { e.preventDefault(); run(); });
 }
@@ -575,7 +575,7 @@ function refreshQuote() {
     const recurring = q.clean.id === 'standard';
     $('#q-freq-wrap').hidden = !recurring;
     $('#q-price').textContent = money(q.price);
-    $('#q-per').textContent = q.freq.off ? `per visit, ${q.freq.label.toLowerCase()}` : 'for the visit';
+    $('#q-per').textContent = q.freq.id !== 'once' ? `per visit, ${q.freq.label.toLowerCase()}` : 'for the visit';
 
     const meta = [
         `${icon('clock')}<span>About ${fmtHours(q.hours)} on site, team of ${PRICING.teamSize}</span>`,
@@ -609,9 +609,15 @@ function setFreq(id) {
     refreshQuote();
 }
 
+// One ZIP drives the quote; both ZIP fields show it.
 function setZip(zip) {
     state.zip = zip;
-    $('#q-zip').value = zip;
+    if ($('#q-zip').value !== zip) $('#q-zip').value = zip;
+    const area = $('#zc-zip');
+    if (area.value !== zip && document.activeElement !== area) {
+        area.value = zip;
+        $('#zip-out').textContent = '';
+    }
     refreshQuote();
 }
 
@@ -637,8 +643,7 @@ function initQuote() {
     const zip = $('#q-zip');
     zip.addEventListener('input', () => {
         zip.value = zip.value.replace(/\D/g, '');
-        state.zip = zip.value.length === 5 ? zip.value : '';
-        refreshQuote();
+        setZip(zip.value.length === 5 ? zip.value : '');
     });
 
     // Any link that names a clean or frequency presets the builder.
@@ -666,7 +671,7 @@ function renderSummary(q) {
     if (q.town) rows.push(['Town', `${q.town.name}${q.fee ? `, +${money(q.fee)} travel` : ''}`]);
     rows.push(['Time on site', `About ${fmtHours(q.hours)}`]);
     $('#sum-list').innerHTML = rows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('') + `
-        <div class="sum-price"><dt>${q.freq.off ? 'Per visit' : 'Price'}</dt><dd>${money(q.price)}</dd></div>
+        <div class="sum-price"><dt>${q.freq.id !== 'once' ? 'Per visit' : 'Price'}</dt><dd>${money(q.price)}</dd></div>
         ${q.first ? `<p class="sum-first">The first visit is a ${esc(q.first.clean.name.toLowerCase())} at ${money(q.first.price)}, about ${esc(fmtHours(q.first.hours))}. Then ${money(q.price)} ${esc(q.freq.label.toLowerCase())}.</p>` : ''}`;
 }
 
@@ -699,6 +704,16 @@ function initBooking() {
             const empty = !el.value.trim();
             el.classList.toggle('invalid', empty);
             if (empty && !bad) bad = el;
+        }
+        // Email is optional, but one that is given must be valid.
+        const email = form.elements.email;
+        const badEmail = !email.checkValidity();
+        email.classList.toggle('invalid', badEmail);
+        if (!bad && badEmail) {
+            note.textContent = 'Check the email address, or leave it blank.';
+            note.className = 'f-note miss';
+            email.focus();
+            return;
         }
         if (bad) {
             note.textContent = 'Add your name, a mobile number and the address so we can confirm the day.';
@@ -763,7 +778,7 @@ function initBooking() {
             `Home: ${data.home}`,
             `How often: ${data.frequency}`,
             `Extras: ${data.extras}`,
-            `Price shown: ${data.price}${q.freq.off ? ' per visit' : ''}`,
+            `Price shown: ${data.price}${q.freq.id !== 'once' ? ' per visit' : ''}`,
             ...(data.firstVisit ? [`First visit: ${data.firstVisit}`] : []),
             '',
             `Preferred day: ${data.day}`,
