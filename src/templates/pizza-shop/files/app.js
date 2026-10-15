@@ -177,6 +177,10 @@ function fmtTime(mins) {
     return m ? `${h12}:${String(m).padStart(2, '0')}${ampm}` : `${h12}${ampm}`;
 }
 
+function fmtDate(d) {
+    return d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '');
+}
+
 // The shop's date and time now. `date` is that calendar day at noon, for day
 // arithmetic and labels; `minutes` is the time of day.
 function shopNow() {
@@ -616,7 +620,14 @@ function saveLines() {
 function lineIsValid(l) {
     if (!l || !(l.qty > 0)) return false;
     if (l.kind === 'menu') { const m = itemById(l.id); return !!m && m.prices[l.size] !== undefined && !m.dineInOnly; }
-    if (l.kind === 'custom') return BUILDER.sizes.some((s) => s.id === l.size) && BUILDER.bases.some((b) => b.id === l.base);
+    if (l.kind === 'custom') {
+        if (!BUILDER.sizes.some((s) => s.id === l.size) || !BUILDER.bases.some((b) => b.id === l.base)) return false;
+        if (!l.tops || typeof l.tops !== 'object' || Array.isArray(l.tops)) return false;
+        return Object.entries(l.tops).every(([id, place]) => {
+            const t = BUILDER.toppings.find((x) => x.id === id);
+            return !!t && PLACES.includes(place) && typeof t.price[l.size] === 'number';
+        });
+    }
     return false;
 }
 
@@ -700,14 +711,17 @@ function renderTotals() {
     }
 }
 
-// Order times: as soon as possible when open now, then 15-minute slots for
-// the next few open days.
+// Order times: as soon as possible when the order can be ready before
+// closing, then 15-minute slots for the next few open days. Slot values carry
+// the date, so a choice made before midnight still means the same day after.
 function orderTimes() {
     const now = shopNow();
     const lead = order.mode === 'delivery' ? SHOP.deliveryMinutes : SHOP.pickupMinutes;
     const out = [];
-    const st = openStatus();
-    if (st.open) out.push({ value: 'asap', label: `As soon as possible (about ${lead} min)` });
+    const today = HOURS[now.day];
+    if (today && now.minutes >= toMinutes(today[0]) && now.minutes + lead <= toMinutes(today[1])) {
+        out.push({ value: 'asap', label: `As soon as possible (about ${lead} min)`, text: 'As soon as possible' });
+    }
     for (let i = 0; i <= SHOP.orderDaysAhead; i++) {
         const d = addDays(now.date, i);
         const h = hoursOn(d);
@@ -718,7 +732,11 @@ function orderTimes() {
         start = Math.ceil(start / 15) * 15;
         const dayLabel = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : DAY_NAMES[DAYS[d.getDay()]];
         const opts = [];
-        for (let m = start; m <= close; m += 15) opts.push({ value: `${dayLabel} at ${fmtTime(m)}`, label: fmtTime(m) });
+        const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const dateText = fmtDate(d);
+        for (let m = start; m <= close; m += 15) {
+            opts.push({ value: `${ymd} ${m}`, label: fmtTime(m), text: `${dateText} at ${fmtTime(m)}` });
+        }
         if (opts.length) out.push({ group: dayLabel, opts });
     }
     return out;
@@ -733,6 +751,11 @@ function renderTimes() {
     if ([...sel.options].some((o) => o.value === prev)) sel.value = prev;
 }
 
+// The current option for a selected value, or undefined once it has passed.
+function timeOption(value) {
+    return orderTimes().flatMap((o) => (o.group ? o.opts : [o])).find((o) => o.value === value);
+}
+
 function orderText() {
     const f = $('#order-form').elements;
     const z = deliveryZone();
@@ -745,7 +768,7 @@ function orderText() {
     out.push('', `Subtotal: ${money(sub)}`);
     if (z) out.push(`Delivery (${z.name}): ${money(z.fee)}`);
     out.push(`Total: ${money(Math.round((sub + (z ? z.fee : 0)) * 100) / 100)}`, '');
-    const time = f.time.value === 'asap' ? 'As soon as possible' : f.time.value;
+    const time = timeOption(f.time.value).text;
     out.push(`${order.mode === 'delivery' ? 'Deliver' : 'Pickup'}: ${time}`);
     if (order.mode === 'delivery') out.push(`Address: ${f.address.value.trim()}, ${f.zip.value.trim()}`);
     out.push(`Name: ${f.name.value.trim()}`, `Phone: ${f.phone.value.trim()}`);
@@ -766,7 +789,14 @@ function checkOrder() {
         if (empty && !bad) bad = f[n];
     }
     if (bad) { bad.focus(); return order.mode === 'delivery' ? 'Add your address, name and phone number.' : 'Add your name and a phone number so we can confirm.'; }
-    if (!f.time.value) return 'We are not taking orders for the next few days. Call the shop.';
+    // The drawer may have sat open past a slot or past closing.
+    if (!timeOption(f.time.value)) {
+        renderTimes();
+        f.time.focus();
+        return f.time.value
+            ? 'That time is no longer available. Pick another time and send again.'
+            : 'We are not taking orders for the next few days. Call the shop.';
+    }
     if (order.mode === 'delivery') {
         const z = deliveryZone();
         if (!z) { f.zip.classList.add('invalid'); f.zip.focus(); return 'That ZIP code is outside our delivery area. Switch to pickup, or call us.'; }
@@ -816,11 +846,22 @@ function initTray() {
     $('#lines').addEventListener('click', (e) => {
         const b = e.target.closest('[data-qty]');
         if (!b) return;
-        const l = lines[Number(b.dataset.i)];
-        l.qty += Number(b.dataset.qty);
-        if (l.qty <= 0) lines.splice(Number(b.dataset.i), 1);
+        const i = Number(b.dataset.i);
+        const step = b.dataset.qty;
+        const l = lines[i];
+        l.qty += Number(step);
+        if (l.qty <= 0) lines.splice(i, 1);
         saveLines();
         renderTray();
+        // The buttons were redrawn, so put keyboard focus back on the same
+        // control, the next row's when this one was removed, or the empty
+        // state's link.
+        if (lines.length) {
+            const row = Math.min(i, lines.length - 1);
+            $(`#lines [data-i="${row}"][data-qty="${lines[row] === l ? step : '-1'}"]`).focus();
+        } else {
+            $('#tray-empty a').focus();
+        }
     });
     const zip = $('#o-zip');
     zip.addEventListener('input', () => { zip.value = zip.value.replace(/\D/g, ''); renderTotals(); });
