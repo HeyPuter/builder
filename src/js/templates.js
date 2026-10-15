@@ -389,7 +389,7 @@
                         <div class="template-modal-eyebrow">Template</div>
                         <h2 class="template-modal-title" id="template-modal-title"></h2>
                         <p class="template-modal-body" id="template-modal-body"></p>
-                        <p class="template-modal-note">It is copied into a new project in your account, where you can change anything by describing it.</p>
+                        <p class="template-modal-note">It opens as a new project, where you can change anything by describing it.</p>
                         <div class="template-modal-actions">
                             <a class="template-modal-details" target="_blank" rel="noopener">About this template</a>
                             <button type="button" class="confirm-modal-btn confirm-modal-cancel template-modal-cancel">Cancel</button>

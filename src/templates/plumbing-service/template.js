@@ -3,12 +3,12 @@
 // steps, towns and zones, jobs, hours, visit windows, reviews, FAQ, the leaky
 // faucet calculator and where bookings go are plain data at the top of
 // files/app.js. Photos are CC0 stock (rawpixel, Wikimedia Commons) standing in
-// for the business's own job photos. See src/templates/index.js for the shape.
+// for the business's own job photos. See scripts/build-templates.mjs for the shape.
 export default {
     slug: 'plumbing-service',
-    name: 'Plumbing Business',
+    name: 'Plumbing Website',
     category: 'Website',
-    description: 'A one-page site for a plumbing business, with flat-rate prices, emergency first-aid steps, a leaky faucet calculator and a booking form.',
+    description: 'Your plumbing business, with flat-rate prices and online booking.',
     updated: '2026-10-15',
     workers: [],
 
@@ -20,7 +20,7 @@ export default {
         { label: 'Save bookings', prompt: 'Make the booking form save each request instead of opening an email, and add a private page where only I can see them, with emergencies first.' },
     ],
 
-    // Kept in every fork's system prompt (see src/templates/index.js).
+    // Kept in every fork's system prompt (see scripts/build-templates.mjs).
     instructions: [
         'This project is a website for a local plumbing business. Content lives as data at the top of app.js; keep it there when making changes:',
         '- BUSINESS is the company identity: name, phone, email, address, region, license, rating, the four stats under the hero and timezone. It fills every place they appear. Change contact details there, not in the HTML. When the business, towns or prices change, also update the <title> and meta description in index.html, which are static.',
@@ -34,12 +34,10 @@ export default {
     ].join('\n'),
 
     page: {
-        title: 'Plumbing Business Website Template, Free to Edit With AI',
+        title: 'Free Plumbing Business Website Template to Edit With AI',
         description:
-            'A one-page plumber website with a flat-rate price list, emergency first-aid steps, a leaky faucet calculator, live opening hours and a booking form.',
+            'Flat-rate prices, emergency first-aid steps, a leaky faucet calculator and online booking, built for a local plumbing business.',
         ogTagline: 'A plumbing website that tells people what to do first',
-        lead:
-            'A one-page site for a local plumbing company, in deep teal and safety yellow. It opens with your flat-rate promise and a live on-call status, then gives panicked visitors what they need most: step-by-step first aid for a burst pipe, an overflowing toilet, a sewer backup, no hot water or a frozen pipe, with your number one tap away. Below that sit a tabbed price list for drains, pipes, water heaters and fixtures, a leaky faucet calculator that shows what a drip costs a year, recent jobs as work tickets, reviews, the towns you cover and a booking form that quotes the service call and next arrival window. Copy it, then describe your business and the page changes to fit.',
         features: [
             { icon: 'phone', title: 'Emergency first aid', body: 'Pick a burst pipe, overflowing toilet, sewer backup, no hot water or a frozen pipe, and see the steps that limit the damage before you arrive.' },
             { icon: 'receipt', title: 'Flat-rate price list', body: 'Drains, pipes, water heaters and fixtures in tabs, with starting prices. Any row starts a booking for that job.' },

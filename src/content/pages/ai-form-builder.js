@@ -8,9 +8,9 @@ export default {
     changefreq: 'weekly',
     navLabel: 'AI form builder',
 
-    title: 'AI Form Builder - Free forms, surveys, and quizzes with AI',
+    title: 'AI Form Builder - Forms, surveys, and quizzes with AI, free to start',
     description:
-        'Build a form with AI, no coding required. Describe it, get a working form that saves every submission to your Puter account, and publish it for free.',
+        'Build a form with AI, no coding required. Describe it, get a working form that saves every submission to your Puter account, and publish it in one click.',
     ogTagline: 'Describe the form. Collect the responses.',
 
     hero: {
@@ -20,7 +20,7 @@ export default {
             'Build a form with AI without writing a line of code. Puter AI Builder turns your description into a working form, with submissions saved to your account and a private view to read them.',
         cta: { label: 'Start building', href: '/' },
         secondary: { label: 'How to write a build prompt', href: '/guides/how-to-write-a-build-prompt/' },
-        note: 'Free with a [Puter](' + LINKS.puter + ') account. Runs in any modern browser, including on a phone.',
+        note: 'Free to start with a [Puter](' + LINKS.puter + ') account. Runs in any modern browser, including on a phone.',
         screenshot: {
             src: '/screenshots/form.webp',
             alt: 'Build a customer feedback form with Puter AI Builder',
@@ -61,7 +61,7 @@ export default {
                 },
                 {
                     icon: 'globe',
-                    title: 'Publish in one click, free hosting included',
+                    title: 'Publish in one click, hosting included',
                     body:
                         'Your form goes live at its own link the moment you want it, ready to share anywhere a link goes. Change it later, publish again, and the same link serves the update.',
                 },
@@ -248,14 +248,14 @@ export default {
                 {
                     q: 'Is Puter AI Builder free to use?',
                     a: [
-                        'Yes. Building and publishing are free with a [Puter](' + LINKS.puter + ') account, and no card is required. Open Puter AI Builder, describe a form, and try it in the preview right away. Nothing is public until you decide to publish.',
-                        'There is no per-form or per-response plan. Very heavy use can hit the free tier\'s storage limits, at which point you can upgrade your Puter account; ordinary forms, surveys, and response volumes do not.',
+                        'It is free to start. Every [Puter](' + LINKS.puter + ') account comes with a free allowance for building and publishing, and when you use it up you can upgrade your account to keep going. Open Puter AI Builder, describe a form, and try it in the preview right away. Nothing is public until you decide to publish.',
+                        'There is no per-form or per-response plan.',
                     ],
                 },
                 {
                     q: 'How much does it cost to run a form?',
                     a: [
-                        'Nothing to keep it online. Hosting is included, and anything visitors use, like sign-in or AI features, is covered by their own [Puter](' + LINKS.puter + ') account. If a form takes off, you don\'t get a surprise bill. [How it works](' + LINKS.userPays + ').',
+                        'Visitors do not add to your costs. Hosting is included, and anything visitors use, like sign-in or AI features, is covered by their own [Puter](' + LINKS.puter + ') account. If a form takes off, you don\'t get a surprise bill. [How it works](' + LINKS.userPays + ').',
                     ],
                 },
                 {

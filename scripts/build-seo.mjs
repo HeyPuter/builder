@@ -348,13 +348,12 @@ function renderFooter() {
         `<div class="footer-about">` +
         `<a class="brand" href="/"><img src="/favicons/app-icon.png" alt="" width="26" height="26" loading="lazy" decoding="async">` +
         `<span>${escapeHtml(BRAND_SHORT)}</span></a>` +
-        `<p>Describe an app or a website and it gets built, verified, and published. Free, in your browser, from the team behind Puter.</p>` +
+        `<p>Describe an app or a website and it gets built, verified, and published. Free to start, in your browser, from the team behind Puter.</p>` +
         `</div>${cols}</div>` +
         `<div class="footer-bottom">` +
         `<span>&copy; 2026 ${escapeHtml(PUBLISHER)}</span>` +
         `<span><a href="${escapeHtml(LINKS.puter)}" rel="noopener">Puter</a> &middot; ` +
-        `<a href="${escapeHtml(LINKS.docs)}" rel="noopener">Docs</a> &middot; ` +
-        `<a href="${escapeHtml(LINKS.discord)}" rel="noopener">Discord</a></span>` +
+        `<a href="${escapeHtml(LINKS.docs)}" rel="noopener">Docs</a></span>` +
         `</div></div></footer>`;
 }
 
@@ -639,7 +638,7 @@ function buildGraph(page, { url, trail }) {
         url: `${ORIGIN}/`,
         name: BRAND,
         description:
-            'Build apps and websites by describing them. Free, in your browser, with hosting and a cloud backend included.',
+            'Build apps and websites by describing them. Free to start, in your browser, with hosting and a cloud backend included.',
         inLanguage: 'en',
         publisher: { '@id': ORGANIZATION['@id'] },
     };
@@ -1009,7 +1008,7 @@ export function renderHomeGraph() {
         url,
         name: BRAND,
         description:
-            'Build apps and websites by describing them. Free, in your browser, with hosting and a cloud backend included.',
+            'Build apps and websites by describing them. Free to start, in your browser, with hosting and a cloud backend included.',
         inLanguage: 'en',
         publisher: { '@id': ORGANIZATION['@id'] },
     };
@@ -1019,7 +1018,7 @@ export function renderHomeGraph() {
         url,
         name: 'AI App Builder: Build Apps and Websites With AI',
         description:
-            'Describe what you want and Puter builds it: a working app or website, running in your browser, publishable to a real URL. Free, no code required.',
+            'Describe what you want and Puter builds it: a working app or website, running in your browser, publishable to a real URL. Free to start, no code required.',
         isPartOf: { '@id': website['@id'] },
         inLanguage: 'en',
         about: { '@id': SOFTWARE_APPLICATION['@id'] },
@@ -1080,7 +1079,7 @@ export function renderLlmsTxt(pages) {
         '',
         '> Build working web apps and websites by describing them in plain English. ' +
         'The AI writes the files, runs the result in a live preview, fixes its own runtime errors, ' +
-        'and publishes to a public URL. Free to use with a Puter account, runs entirely in the browser, ' +
+        'and publishes to a public URL. Free to start with a Puter account, runs entirely in the browser, ' +
         'and the output is standard HTML, CSS, and JavaScript you can download and host anywhere.',
         '',
         'Apps built here can use Puter.js for storage, a key-value database, user sign-in, AI models, ' +

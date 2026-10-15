@@ -139,7 +139,6 @@ export const FOOTER_NAV = [
     {
         heading: 'Community',
         links: [
-            { label: 'Discord', href: LINKS.discord },
             { label: 'X', href: LINKS.x },
             { label: 'AI Builder on GitHub', href: LINKS.builderGithub },
             { label: 'Puter on GitHub', href: LINKS.puterGithub },
@@ -165,7 +164,7 @@ export const ORGANIZATION = {
 };
 
 // The product itself, also referenced by @id. Claims here must stay true of the
-// shipping app: it is free to use with a Puter account and runs in the browser.
+// shipping app: it is free to start with a Puter account and runs in the browser.
 export const SOFTWARE_APPLICATION = {
     '@type': 'WebApplication',
     '@id': `${ORIGIN}/#software`,

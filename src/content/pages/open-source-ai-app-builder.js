@@ -17,7 +17,7 @@ export default {
 
     title: 'Open Source AI App Builder | Puter',
     description:
-        'Build apps with an open source AI app builder. Use Puter free in your browser, fork the Apache 2.0 code, run the interface locally, and export your web apps.',
+        'Build apps with an open source AI app builder. Start free with Puter in your browser, fork the Apache 2.0 code, run the interface locally, and export your web apps.',
     ogTagline: 'Build an app. Own the files. Fork the builder.',
 
     hero: {

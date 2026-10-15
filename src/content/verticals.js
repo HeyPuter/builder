@@ -36,7 +36,7 @@ export function verticalPage(v) {
             lead: v.lead,
             cta: { label: 'Start building free', href: '/' },
             secondary: { label: 'See how it works', href: '/ai-app-builder/' },
-            note: v.note || 'Free with a Puter account. No code, nothing to install, works on your phone.',
+            note: v.note || 'Free to start with a Puter account. No code, nothing to install, works on your phone.',
             demo: v.demo,
         },
 

@@ -2,9 +2,9 @@
 // worker (files/workers/api.js), deployed fresh for every copy.
 export default {
     slug: 'feedback-board',
-    name: 'Feedback Board',
+    name: 'Feedback Board App',
     category: 'App',
-    description: 'A shared board where anyone can post ideas and upvote the ones they want.',
+    description: 'Collect feature ideas from your users and let them vote.',
     updated: '2026-09-28',
     workers: ['api'],
 
@@ -19,10 +19,8 @@ export default {
     page: {
         title: 'Feedback Board Template With Upvotes and a Real Backend',
         description:
-            'A working feedback board where anyone can post ideas and upvote them, with its own serverless backend. Copy it to your account and shape it by describing changes.',
+            'Product teams can collect feature requests on this feedback board, where users post ideas and upvote them, backed by its own serverless API.',
         ogTagline: 'Collect ideas and let people vote',
-        lead:
-            'A public board for ideas and feature requests: post, upvote, sort by top or newest, and search. It ships with its own serverless backend, deployed fresh in your account when you copy it, so the board is live and shared from the first minute.',
         features: [
             { icon: 'users', title: 'Shared by everyone', body: 'Ideas and votes are stored by the app’s backend, so every visitor sees the same board. No sign-in needed to take part.' },
             { icon: 'zap', title: 'Its own backend', body: 'A serverless worker with endpoints to list ideas, post one and toggle an upvote. Your copy gets its own, deployed under your account.' },

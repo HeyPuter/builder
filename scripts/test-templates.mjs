@@ -702,7 +702,7 @@ check('Back from a fork with no messages yet returns to the landing',
 check('the feature flag exists', /^\s*templates: (true|false),/m.test(HELPERS));
 check('the landing section is rendered only with the flag on, inside the feed layout',
     /if \(window\.FEATURE_FLAGS\?\.templates\) \{\s*h \+= `<section class="home-feed home-templates"/.test(UI));
-check('the landing footer links the templates hub', UI.includes("{ href: '/templates/', label: 'Templates' }"));
+check('the landing templates row links the templates hub', TEMPLATES_SRC.includes('<a class="home-feed-sub home-templates-all" href="/templates/"></a>'));
 check('the feed and the templates row share the landing layout switch',
     FEATURED.includes("$('#new-chat').toggleClass('has-feed', $('.home-feed:not([hidden])').length > 0);") &&
     !/\$\('#new-chat'\)\.(add|remove)Class\('has-feed'\)/.test(FEATURED) &&

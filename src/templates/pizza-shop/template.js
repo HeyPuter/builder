@@ -3,12 +3,12 @@
 // weekly specials, reviews and FAQ are plain data at the top of files/app.js.
 // Orders go out as a text message or email to the shop. Photos are CC0 stock
 // (Wikimedia Commons, including Unsplash and Pexels uploads) standing in for
-// the shop's own. See src/templates/index.js for the shape.
+// the shop's own. See scripts/build-templates.mjs for the shape.
 export default {
     slug: 'pizza-shop',
-    name: 'Pizza Shop',
+    name: 'Pizza Shop Website',
     category: 'Website',
-    description: 'A one-page site for a pizzeria, with a menu you order from, a build-your-own pie maker, weekly specials and delivery check.',
+    description: "Let customers order from your pizzeria's menu online.",
     updated: '2026-10-15',
     workers: [],
 
@@ -20,7 +20,7 @@ export default {
         { label: 'Add a deal of the day', prompt: 'Show a banner at the top of the page with today\'s special, and let customers add the special to their order in one tap.' },
     ],
 
-    // Kept in every fork's system prompt (see src/templates/index.js).
+    // Kept in every fork's system prompt (see scripts/build-templates.mjs).
     instructions: [
         'This project is a website for a pizza shop. Content lives as data at the top of app.js; keep it there when making changes:',
         '- SHOP holds the name, phone, the order number, email, address and time zone, and fills every place they appear. Change contact details there, not in the HTML. When the shop or menu changes, also update the <title> and meta description in index.html, which are static.',
@@ -34,12 +34,10 @@ export default {
     ].join('\n'),
 
     page: {
-        title: 'Pizza Shop Website Template, Free to Edit With AI',
+        title: 'Free Pizza Shop Website Template to Edit With AI',
         description:
-            'A one-page website for a pizzeria or pizza shop, with a menu customers order from, a build-your-own pie maker, weekly specials, delivery check and opening hours.',
+            'Let customers order from your menu, build their own pie and check delivery on a pizzeria website that also shows weekly specials and hours.',
         ogTagline: 'A pizzeria website people order from',
-        lead:
-            'A one-page site for a neighborhood pizza shop. Customers browse the menu, tap a price to add it to their order or build their own pie with toppings on either half, then send the order to your phone for pickup or delivery. It also shows whether you are open right now, a special for every day of the week, your delivery area and your hours. Copy it, then describe your shop and the page changes to fit.',
         features: [
             { icon: 'utensils', title: 'A menu customers order from', body: 'Sections for pies, squares, slices, sides and drinks. Tap a size and price to add it to the order. On a computer, hovering a dish shows its photo.' },
             { icon: 'sliders', title: 'Build your own pie', body: 'Pick a size and base, then tap toppings onto the whole pie or one half. The pizza is drawn as you go and the price updates.' },

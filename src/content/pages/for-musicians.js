@@ -6,7 +6,7 @@ export default verticalPage({
 
     title: 'Website Builder for Musicians and Bands | Puter',
     description:
-        'An artist website with your music, shows, press kit, and a mailing list you own, built from a description of your sound and published free. No platform rent.',
+        'An artist website with your music, shows, press kit, and a mailing list you own, built from a description of your sound and published in one click. Free to start.',
     ogTagline: 'Your music, your site, your list',
 
     eyebrow: 'For musicians',
@@ -161,7 +161,7 @@ export default verticalPage({
         {
             q: 'We have no budget. What is the actual cost?',
             a: [
-                'Zero: building, publishing, and hosting on a puter.site address are free with a Puter account. The typical alternative is a website-builder subscription that costs more per year than a run of tour posters. Spend the difference on the posters.',
+                'It is free to start. Every Puter account comes with a free allowance for building and publishing, and when it runs out you can upgrade your account to keep going. The typical alternative is a website-builder subscription that costs more per year than a run of tour posters.',
             ],
         },
     ],

@@ -12,7 +12,7 @@ export default {
 
     title: 'AI App and Website Builder for Small Businesses | Puter',
     description:
-        'Trainers, lawyers, accountants, agents, restaurants, and more use plain English to build the client portals, booking pages, and sites their work needs. Free.',
+        'Trainers, lawyers, accountants, agents, restaurants, and more use plain English to build the client portals, booking pages, and sites their work needs. Free to start.',
     ogTagline: 'Built for the work you actually do',
 
     hero: {
@@ -22,7 +22,7 @@ export default {
             'Most professional software is built for an average of everyone, which is why none of it quite fits you. Here you describe the tool your work actually needs, a portal, a booking page, a tracker, a site, and it gets built, checked, and published while you watch.',
         cta: { label: 'Start building free', href: '/' },
         secondary: { label: 'See what people build', href: '/what-to-build/' },
-        note: 'Free with a Puter account. No code, no templates to fight, nothing to install.',
+        note: 'Free to start with a Puter account. No code, no templates to fight, nothing to install.',
         demo: {
             prompt: 'Build a booking page for my studio with my services, prices, and open slots',
             app: {
@@ -164,7 +164,7 @@ export default {
                     title: 'Because you keep what gets built',
                     art: 'files',
                     body: [
-                        'Everything is ordinary web files: readable, downloadable as a zip, hostable anywhere, including under your own domain. Publishing to a free puter.site address is one click, and so is unpublishing.',
+                        'Everything is ordinary web files: readable, downloadable as a zip, hostable anywhere, including under your own domain. Publishing to a puter.site address is one click, and so is unpublishing.',
                         'Your tools, your client relationships, your data, your files. The word "your" is doing real work in that sentence.',
                     ],
                 },
@@ -191,7 +191,7 @@ export default {
                 {
                     q: 'What does it actually cost?',
                     a: [
-                        'Building, publishing, and hosting on a puter.site address are free with a Puter account, no card required. Where your tools store data for signed-in users, each user\'s storage comes with their own free account, so your costs do not grow with your client list.',
+                        'Puter AI Builder is free to start. Every Puter account comes with a free allowance for building and publishing, and when you use it up you can upgrade your account to keep going. People who sign in to the tools you build cover their own AI and storage usage through their own Puter account, so your costs do not grow with your client list.',
                     ],
                 },
                 {

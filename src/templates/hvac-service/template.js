@@ -3,12 +3,12 @@
 // maintenance plan, towns and zones, jobs, hours, visit windows, reviews, FAQ
 // and where enquiries go are plain data at the top of files/app.js. Photos are
 // CC0 stock (rawpixel, Wikimedia Commons) standing in for the business's own
-// job photos. See src/templates/index.js for the shape.
+// job photos. See scripts/build-templates.mjs for the shape.
 export default {
     slug: 'hvac-service',
-    name: 'HVAC Business',
+    name: 'HVAC Website',
     category: 'Website',
-    description: 'A one-page site for a heating and cooling business, with a service request form that shows fees, live hours and service zones.',
+    description: 'Customers can request heating and cooling repairs from this HVAC site.',
     updated: '2026-10-12',
     workers: [],
 
@@ -20,7 +20,7 @@ export default {
         { label: 'Save requests', prompt: 'Make the booking form save each request instead of opening an email, and add a private page where only I can see them, sorted by visit window.' },
     ],
 
-    // Kept in every fork's system prompt (see src/templates/index.js).
+    // Kept in every fork's system prompt (see scripts/build-templates.mjs).
     instructions: [
         'This project is a website for a local HVAC (heating and cooling) business. Content lives as data at the top of app.js; keep it there when making changes:',
         '- BUSINESS is the company identity: name, phone, email, address, region, license, the round badges under the hero, brands, rating and timezone. It fills every place they appear. Change contact details there, not in the HTML. When the business, towns or prices change, also update the <title> and meta description in index.html, which are static.',
@@ -33,12 +33,10 @@ export default {
     ].join('\n'),
 
     page: {
-        title: 'HVAC Business Website Template, Free to Edit With AI',
+        title: 'Free HVAC Business Website Template to Edit With AI',
         description:
-            'A one-page website for an HVAC company, with a service request form that shows the fee and next visit window, live opening hours, service zones and job photos.',
+            'Customers of your HVAC company see the service fee and next visit window as they fill in a request, along with live hours and service zones.',
         ogTagline: 'An HVAC website that shows the price and the next visit',
-        lead:
-            'A one-page site for a local heating and cooling company, in the classic navy and orange look of an established trade business. The service request form sits next to the intro: a visitor picks the problem and enters a ZIP code, and sees whether you cover them, the fee that applies and the next visit window, then sends it to your own email or form service. The page also shows your AC and heating services with prices, your terms and maintenance plan, recent jobs, reviews, the towns you serve and whether you are open right now. Copy it, then describe your business and the page changes to fit.',
         features: [
             { icon: 'wrench', title: 'Request form that quotes the fee', body: 'A visitor picks no heat, no cooling, a leak or another problem, enters a ZIP code and sees the fee and the first visit window before sending. A gas smell gets safety steps instead.' },
             { icon: 'clock', title: 'Open now and emergency line', body: 'Opening hours, holidays and the after-hours line are worked out in your timezone, so the page says whether you are open right now.' },

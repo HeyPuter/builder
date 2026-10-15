@@ -3,13 +3,13 @@
 // prices, smile gallery cases, insurance plans, membership plan, reviews, FAQ
 // and where booking requests go are plain data at the top of files/app.js.
 // Photos are CC0 stock (Unsplash via Wikimedia Commons) standing in for the
-// dentist's portrait, office and patient photos. See src/templates/index.js
+// dentist's portrait, office and patient photos. See scripts/build-templates.mjs
 // for the shape.
 export default {
     slug: 'dental-practice',
     name: 'Dentist Website',
     category: 'Website',
-    description: 'A one-page site for a dentist, with a bio and credentials, before and after smile gallery, insurance checker and booking request form.',
+    description: 'For dental offices that want patients booking online.',
     updated: '2026-10-12',
     workers: [],
 
@@ -21,7 +21,7 @@ export default {
         { label: 'Save booking requests', prompt: 'Make the booking form save each request instead of opening an email, and add a private page where only my front desk can read them, filtered by reason and day, without storing health details.' },
     ],
 
-    // Kept in every fork's system prompt (see src/templates/index.js).
+    // Kept in every fork's system prompt (see scripts/build-templates.mjs).
     instructions: [
         'This project is a website for a dental practice. Content lives as data at the top of app.js; keep it there when making changes:',
         '- PRACTICE holds the name, dentist, phone, emergency line, email, address, license and time zone, and fills every place they appear. Change contact details there, not in the HTML. When the practice, dentist or treatments change, also update the <title> and meta description in index.html, which are static.',
@@ -35,12 +35,10 @@ export default {
     ].join('\n'),
 
     page: {
-        title: 'Dentist Website Template, Free to Edit With AI',
+        title: 'Free Dentist Website Template to Edit With AI',
         description:
-            'A one-page website for a dentist or dental practice, with a bio and credentials, treatments and prices, a before and after smile gallery and a booking form.',
+            'Made for dentists and dental practices, this site lists treatments and prices, shows before and after smiles and takes appointment requests.',
         ogTagline: 'A dentist website patients can book from',
-        lead:
-            'A one-page site for a dentist. It introduces you with your training and memberships, lists your treatments with prices and chair time, shows before and after cases with a drag slider, tells visitors whether you take their insurance, and takes booking requests for a day and time of day. Copy it, then describe your practice and the page changes to fit.',
         features: [
             { icon: 'users', title: 'About the dentist', body: 'A portrait, a short note in your own words, your training timeline, memberships and license, so patients know who they will see.' },
             { icon: 'camera', title: 'Before and after gallery', body: 'Each case has a slider that patients drag to compare, with the treatment, number of visits and time taken.' },

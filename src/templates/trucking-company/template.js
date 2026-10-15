@@ -4,12 +4,12 @@
 // pay and perks, safety record, reviews, FAQ, office hours and where rate
 // requests and applications go are plain data at the top of files/app.js.
 // Photos are CC0 stock (rawpixel) standing in for the carrier's own trucks
-// and terminal. See src/templates/index.js for the shape.
+// and terminal. See scripts/build-templates.mjs for the shape.
 export default {
     slug: 'trucking-company',
-    name: 'Trucking Company',
+    name: 'Trucking Company Website',
     category: 'Website',
-    description: 'A one-page site for a trucking company, with a rate request that shows miles, transit and a ballpark price, a lanes map and a driver application.',
+    description: 'Freight carriers can quote loads and hire drivers here.',
     updated: '2026-10-15',
     workers: [],
 
@@ -21,7 +21,7 @@ export default {
         { label: 'Save requests', prompt: 'Make the rate request and driver application save each submission instead of opening an email, and add a private page where only I can see them, newest first.' },
     ],
 
-    // Kept in every fork's system prompt (see src/templates/index.js).
+    // Kept in every fork's system prompt (see scripts/build-templates.mjs).
     instructions: [
         'This project is a website for a trucking company (a truckload carrier). Content lives as data at the top of app.js; keep it there when making changes:',
         '- BUSINESS is the company identity: name, phone, email, address, USDOT and MC numbers, insurance amounts and timezone. It fills every place they appear. Change contact details there, not in the HTML. When the company, base city or lanes change, also update the <title> and meta description in index.html, which are static.',
@@ -35,12 +35,10 @@ export default {
     ].join('\n'),
 
     page: {
-        title: 'Trucking Company Website Template, Free to Edit With AI',
+        title: 'Free Trucking Company Website Template to Edit With AI',
         description:
-            'A one-page website for a trucking company, with a rate request that shows miles, transit and a ballpark price, a lanes map and a driver application.',
+            'When shippers request a rate on this trucking company website, they see miles, transit time and a ballpark price, and drivers can apply too.',
         ogTagline: 'A trucking website that prices the lane and hires the driver',
-        lead:
-            'A one-page site for an asset-based truckload carrier, styled like a highway at night: asphalt, sign green and safety amber. The card next to the headline has two tabs. A shipper picks the cities and the trailer and sees the miles, transit days, whether it is a lane you run every week and a ballpark price, then sends it for a firm rate. A driver applies in a minute. The page also shows your trailers with their specs, a map and departures board of your lanes, how a load moves, driver pay with a calculator, your authority and insurance, reviews and FAQ. Copy it, then describe your company and the page changes to fit.',
         features: [
             { icon: 'calculator', title: 'Rate request with a ballpark', body: 'Pick the pick-up and delivery cities and the trailer, and see the miles, transit days and a price range before sending it for a firm rate.' },
             { icon: 'mapPin', title: 'Lanes map and departures board', body: 'Your home terminal and weekly lanes on a map, with a board of miles, trucks a week and transit days. Pick a lane to price it.' },

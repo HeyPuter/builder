@@ -214,7 +214,7 @@ export default {
                 {
                     q: 'How much does an AI website builder cost?',
                     a: [
-                        'Pricing varies by platform. Check generation limits, hosting, and custom-domain costs separately. Puter AI Builder is free with a [Puter](' + LINKS.puter + ') account, including hosting. People who use features of your site that consume storage or AI cover that through their own account. [How that works](' + LINKS.userPays + ').',
+                        'Pricing varies by platform. Check generation limits, hosting, and custom-domain costs separately. Puter AI Builder is free to start with a [Puter](' + LINKS.puter + ') account, with hosting included. People who use features of your site that consume storage or AI cover that through their own account. [How that works](' + LINKS.userPays + ').',
                     ],
                 },
                 {
@@ -241,7 +241,7 @@ export default {
         {
             type: 'cta',
             heading: 'Watch the steps happen',
-            body: 'Describe a site and see each step in this guide play out in the preview. Free with a Puter account.',
+            body: 'Describe a site and see each step in this guide play out in the preview. Free to start with a Puter account.',
             label: 'Open with this prompt',
             href: buildLink(EXAMPLE_PROMPT),
         },

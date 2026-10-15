@@ -17,14 +17,58 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { TEMPLATES } from '../src/templates/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const SRC = path.resolve(__dirname, '../src');
 export const TEMPLATES_DIR = path.join(SRC, 'templates');
 
-export { TEMPLATES };
+// The official templates, found by scanning src/templates/. Each template is a
+// folder there:
+//   <slug>/template.js     the metadata below (data only, no Node APIs)
+//   <slug>/files/          the app itself, copied verbatim into every fork
+//   <slug>/screenshot.png  a 1280x800 capture of the app, for its card and page
+//
+// template.js shape:
+//   slug         the folder name, and /templates/<slug>/
+//   name         shown on the card, the page and as the new project's title
+//   category     short tag on the card ("App", "Website")
+//   description  one short sentence for the card and the dialog
+//   updated      ISO date, for the page and the sitemap
+//   workers      names of the serverless workers the template ships, each at
+//                files/workers/<name>.js. The frontend refers to one only as
+//                {{WORKER_URL:<name>}}; a fork deploys its own and swaps in
+//                the URL (see js/template-core.js).
+//   suggestions  the "what next?" chips a fresh fork opens with
+//   instructions optional rules for the model, in plain text, added to every
+//                fork's system prompt so they hold through the user's later
+//                changes (TemplateCore.buildTemplateNote). Max 2000 chars.
+//   page         copy for the static page (see src/content/templates.js)
+//
+// Adding a template is creating its folder. Apps are listed before websites,
+// each group by name. The build validates every one (below), ships its files
+// and index entry, and renders its page; test-templates.mjs checks the rest.
+const CATEGORY_ORDER = ['App', 'Website'];
+const rank = (t) => {
+    const i = CATEGORY_ORDER.indexOf(t.category);
+    return i === -1 ? CATEGORY_ORDER.length : i;
+};
+
+// Loaded with require() on a path pattern rather than a list, so adding a
+// template never touches a shared file. When Vite bundles vite.config.js (to
+// CommonJS, so no top-level await), esbuild expands the pattern into every
+// matching template.js and Vite restarts the dev server when one changes. Run
+// directly by Node, `require` is the global set here.
+globalThis.require ??= createRequire(import.meta.url);
+export const TEMPLATES = fs.readdirSync(TEMPLATES_DIR, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => {
+        const file = path.join(TEMPLATES_DIR, entry.name, 'template.js');
+        if (!fs.existsSync(file)) throw new Error(`template "${entry.name}": missing template.js`);
+        return require(`../src/templates/${entry.name}/template.js`).default;
+    })
+    .sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
 
 // Card and page images are derived from <slug>/screenshot.png at build time
 // (see templatesPlugin). Their published paths are fixed per slug so the

@@ -7,9 +7,9 @@ export default {
     changefreq: 'weekly',
     navLabel: 'AI app builder',
 
-    title: 'AI App Builder - Build and publish apps for free',
+    title: 'AI App Builder - Build and publish apps, free to start',
     description:
-        'Build apps with AI, no coding required. Turn your idea into a working app and publish it in one click. Get started for free. Hosting and backend included.',
+        'Build apps with AI, no coding required. Turn your idea into a working app and publish it in one click. Free to start, with hosting and backend included.',
     ogTagline: 'From a sentence to a running app',
 
     hero: {
@@ -17,7 +17,7 @@ export default {
         h1: 'AI app builder that hands you a working app',
         lead:
             'Build apps with AI without writing a line of code. Puter AI Builder turns your idea into a working app, complete with a backend.',
-        note: 'Free with a [Puter](' + LINKS.puter + ') account. Runs in any modern browser, including on a phone. Not sure where to start? [See what to build](/what-to-build/).',
+        note: 'Free to start with a [Puter](' + LINKS.puter + ') account. Runs in any modern browser, including on a phone. Not sure where to start? [See what to build](/what-to-build/).',
         composer: {
             submit: 'Start building',
             examples: [
@@ -63,7 +63,7 @@ export default {
                 },
                 {
                     icon: 'globe',
-                    title: 'Publish in one click, free hosting included',
+                    title: 'Publish in one click, hosting included',
                     body:
                         'Your app goes live at its own address the moment you want it, ready to share with a link and install on a home screen.',
                 },
@@ -224,10 +224,10 @@ export default {
                     ],
                 },
                 {
-                    q: 'Can I try Puter AI Builder for free?',
+                    q: 'Is Puter AI Builder free?',
                     a: [
-                        'Yes. Building is free with a [Puter](' + LINKS.puter + ') account, and no card is required. Open Puter AI Builder, describe an app, and use it in the preview right away. Nothing is public until you decide to publish.',
-                        'Very heavy use can hit the free tier\'s limits, at which point you can upgrade your Puter account. Ordinary building, publishing, and iterating do not.',
+                        'Puter AI Builder is free to start. Every [Puter](' + LINKS.puter + ') account comes with a free allowance for building and publishing, and when you use it up you can upgrade your account to keep going.',
+                        'Open Puter AI Builder, describe an app, and use it in the preview right away. Nothing is public until you decide to publish.',
                     ],
                 },
                 {
@@ -273,7 +273,7 @@ export default {
                 {
                     q: 'How much does it cost to operate the app?',
                     a: [
-                        'Nothing. The people who use your app cover their own storage and AI usage through their own [Puter](' + LINKS.puter + ') account. If your app ever goes viral, you don\'t get a surprise bill. [How it works](' + LINKS.userPays + ').',
+                        'Your costs don\'t grow with your users. The people who use your app cover their own storage and AI usage through their own [Puter](' + LINKS.puter + ') account. If your app ever goes viral, you don\'t get a surprise bill. [How it works](' + LINKS.userPays + ').',
                     ],
                 },
                 {

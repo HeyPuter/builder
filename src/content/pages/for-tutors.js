@@ -6,7 +6,7 @@ export default verticalPage({
 
     title: 'App and Website Builder for Tutors and Teachers | Puter',
     description:
-        'Student portals, practice quiz apps, flashcard makers, and a tutoring site parents trust. Describe the tool in plain English and it is built and published free.',
+        'Student portals, practice quiz apps, flashcard makers, and a tutoring site parents trust. Describe the tool in plain English and it is built and published in one click.',
     ogTagline: 'Teaching tools, built by describing them',
 
     eyebrow: 'For tutors',
@@ -150,9 +150,9 @@ export default verticalPage({
             ],
         },
         {
-            q: 'Is this free enough for a teacher\'s budget?',
+            q: 'Does this fit a teacher\'s budget?',
             a: [
-                'Yes, genuinely: building, publishing, and using the tools are free with a Puter account, and there is no per-student pricing. The economics that make edtech subscriptions impossible for one classroom are the reason this page exists.',
+                'It is free to start, and there is no per-student pricing. Every Puter account comes with a free allowance for building and publishing, and when it runs out you can upgrade your account to keep going. Students who sign in use their own Puter accounts, so their usage does not add to your costs. The economics that make edtech subscriptions impossible for one classroom are the reason this page exists.',
             ],
         },
         {

@@ -4,7 +4,7 @@
 // Puter and their usage and storage are their own.
 export default {
     slug: 'ai-image-studio',
-    name: 'AI Image Studio',
+    name: 'AI Image Generator App',
     category: 'App',
     description: 'Turn prompts into images, with styles, shapes and a private gallery.',
     updated: '2026-10-08',
@@ -21,10 +21,8 @@ export default {
     page: {
         title: 'AI Image Generator Template With Styles and a Saved Gallery',
         description:
-            'A ready-made AI image generator with style presets, aspect ratios, prompt enhancement and a gallery saved to each user’s own account. Copy it and make it your own.',
+            'An AI image generator for anyone who wants their own image app, with style presets, aspect ratios, prompt enhancement and a private gallery.',
         ogTagline: 'Your own AI image generator, ready to change',
-        lead:
-            'Describe an image, pick a style and a shape, and watch it appear in a gallery that follows each person across devices. Copy it, then turn it into a logo maker, a sticker studio, a product photo tool or anything else that starts with a picture.',
         features: [
             { icon: 'wand', title: 'Styles and shapes', body: 'Eight style presets from photo to pixel art, four aspect ratios, and three quality levels, all one click away.' },
             { icon: 'sparkles', title: 'Prompt help', body: 'Enhance turns a few words into a detailed prompt with AI, and Surprise me fills in an idea when you need one.' },

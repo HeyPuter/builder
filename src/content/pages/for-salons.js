@@ -6,7 +6,7 @@ export default verticalPage({
 
     title: 'Website Builder for Salons and Barbershops | Puter',
     description:
-        'A salon website with your services, prices, stylists, and booking requests, described in plain English and published free. Update it from your phone between clients.',
+        'A salon website with services, prices, stylists, and booking requests, described in plain English and published in one click. Update it from your phone between clients.',
     ogTagline: 'Updated between clients',
 
     eyebrow: 'For salons',
@@ -161,7 +161,7 @@ export default verticalPage({
         {
             q: 'What does this cost the shop?',
             a: [
-                'Nothing: building, publishing, and hosting on a puter.site address are free with a Puter account, and there is no booking-platform commission taking a cut of every appointment. For a shop that lives on margins per chair, the zero matters.',
+                'It is free to start, and there is no booking-platform commission taking a cut of every appointment. Every Puter account comes with a free allowance for building and publishing, with hosting on a puter.site address included; when it runs out, you can upgrade your account to keep going.',
             ],
         },
     ],

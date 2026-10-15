@@ -2,12 +2,12 @@
 // with no backend. Business details, cleans and prices, extras, towns, the
 // room by room checklist, reviews, FAQ and where booking requests go are plain
 // data at the top of files/app.js. Photos are CC0 stock (rawpixel) standing in
-// for the business's own photos. See src/templates/index.js for the shape.
+// for the business's own photos. See scripts/build-templates.mjs for the shape.
 export default {
     slug: 'house-cleaning',
-    name: 'House Cleaning Business',
+    name: 'House Cleaning Website',
     category: 'Website',
-    description: 'A one-page site for a home cleaning business, with an instant price builder, a room by room checklist and a booking request form.',
+    description: 'Instant quotes and bookings for a home cleaning business.',
     updated: '2026-10-15',
     workers: [],
 
@@ -19,7 +19,7 @@ export default {
         { label: 'Save requests', prompt: 'Make the booking form save each request instead of opening an email, and add a private page where only I can see them, sorted by preferred day.' },
     ],
 
-    // Kept in every fork's system prompt (see src/templates/index.js).
+    // Kept in every fork's system prompt (see scripts/build-templates.mjs).
     instructions: [
         'This project is a website for a local house cleaning business. Content lives as data at the top of app.js; keep it there when making changes:',
         '- BUSINESS is the company identity: name, phone, email, address, region, insurance line, rating, homes count and timezone. It fills every place they appear. Change contact details there, not in the HTML. When the business, towns or prices change, also update the <title> and meta description in index.html, which are static.',
@@ -32,12 +32,10 @@ export default {
     ].join('\n'),
 
     page: {
-        title: 'House Cleaning Business Website Template, Free to Edit With AI',
+        title: 'Free House Cleaning Business Website Template to Edit With AI',
         description:
-            'A one-page website for a house cleaning or maid service, with an instant price builder, a room by room checklist, service area and a booking request form.',
+            'Website template for house cleaning and maid services, with an instant price builder, a room by room checklist and a booking request form.',
         ogTagline: 'A cleaning website that shows the price before the booking',
-        lead:
-            'A one-page site for a local home cleaning business, in a fresh cream, deep green and lime look. A visitor picks a standard, deep or move-out clean, sets bedrooms, bathrooms, how often and any extras, and sees the price per visit, the time on site and the first free day straight away. The page also shows your services, exactly what gets cleaned in each room for each type of clean, your promise, reviews and the towns you cover, and ends in a booking form that carries the price along. Copy it, then describe your business and the page changes to fit.',
         features: [
             { icon: 'calculator', title: 'Instant price builder', body: 'Bedrooms, bathrooms, type of clean, how often and extras give a price per visit, the time on site and the first free day, with recurring discounts.' },
             { icon: 'check', title: 'Room by room checklist', body: 'Kitchen, bathrooms, bedrooms and living areas, with what a standard, deep and move-out clean each include. The clean being priced is highlighted.' },

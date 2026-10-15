@@ -4,12 +4,12 @@
 // steps, reviews, FAQ, towns and where visit requests go are plain data at the
 // top of files/app.js. Photos are CC0 stock (StockSnap, rawpixel, Wikimedia
 // Commons) standing in for the business's own project photos. See
-// src/templates/index.js for the shape.
+// scripts/build-templates.mjs for the shape.
 export default {
     slug: 'home-remodeling',
-    name: 'Home Remodeling Business',
+    name: 'Home Remodeling Website',
     category: 'Website',
-    description: 'A one-page site for a remodeling company, with a project planner that shows a price range and timeline, and a before and after.',
+    description: 'Home remodelers use this to show past projects and price new ones.',
     updated: '2026-10-15',
     workers: [],
 
@@ -21,7 +21,7 @@ export default {
         { label: 'Save visit requests', prompt: 'Make the design visit form save each request, with the planner details, instead of opening an email, and add a private page where only I can see them.' },
     ],
 
-    // Kept in every fork's system prompt (see src/templates/index.js).
+    // Kept in every fork's system prompt (see scripts/build-templates.mjs).
     instructions: [
         'This project is a website for a home remodeling (design-build) company. Content lives as data at the top of app.js; keep it there when making changes:',
         '- BUSINESS holds the name, phone, email, address, hours, license, warranty years and the hero figures, and fills every place they appear. Change contact details there, not in the HTML. When the business, towns or prices change, also update the <title> and meta description in index.html, which are static.',
@@ -34,12 +34,10 @@ export default {
     ].join('\n'),
 
     page: {
-        title: 'Home Remodeling Website Template, Free to Edit With AI',
+        title: 'Free Home Remodeling Website Template to Edit With AI',
         description:
-            'A one-page website for a remodeling company, with a project planner that prices a room and shows the timeline, a before and after and a design visit form.',
+            'Homeowners price a room, see the timeline and book a design visit on this website for remodeling contractors, next to a before and after.',
         ogTagline: 'A remodeling website that prices the project',
-        lead:
-            'A one-page site for a kitchen, bath and whole-home remodeling company, in a warm, editorial look with architectural drawing details. A visitor picks a room, its size, the level of finish and any structural work, and sees a price range and a week-by-week timeline, then sends it with a request for a design visit. The page also shows the rooms you remodel with starting prices, a before and after, recent projects with their budgets, how you work, reviews and the towns you cover. Copy it, then describe your business and the page changes to fit.',
         features: [
             { icon: 'calculator', title: 'Project planner with a price range', body: 'A visitor chooses the room, size, finish and extras such as moving a wall, and sees what similar projects cost, on a scale for that room.' },
             { icon: 'calendar', title: 'Timeline from visit to walkthrough', body: 'Design, permit, crew wait, build and walkthrough as a week-by-week bar chart, and roughly when the room could be finished.' },

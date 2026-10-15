@@ -6,7 +6,7 @@ export default verticalPage({
 
     title: 'Website Builder for Nonprofits and Charities | Puter',
     description:
-        'A nonprofit website with programs, events, and volunteer signups, built from a plain-English description and hosted free. Keep the budget for the mission.',
+        'A nonprofit website with programs, events, and volunteer signups, built from a plain-English description, with hosting included. Keep the budget for the mission.',
     ogTagline: 'Keep the budget for the mission',
 
     eyebrow: 'For nonprofits',
@@ -153,9 +153,9 @@ export default verticalPage({
             ],
         },
         {
-            q: 'Is free really free, or is there a catch a treasurer should know about?',
+            q: 'What does it cost?',
             a: [
-                'Building, publishing, and hosting on a puter.site address cost nothing, with no card on file. Very heavy storage use can hit the free account\'s limits, which matters to almost no nonprofit website. The honest catch is only that your address ends in puter.site unless you download the files and host them on your own domain.',
+                'Puter AI Builder is free to start. Every Puter account comes with a free allowance for building and publishing, and when it is used up you can upgrade the account to keep going. Volunteers and donors who sign in to something you build use their own Puter accounts, so their usage does not land on yours. A treasurer should also know that your address ends in puter.site unless you download the files and host them on your own domain.',
             ],
         },
         {

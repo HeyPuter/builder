@@ -1,11 +1,11 @@
 // X Player Card: a static page whose link, posted on X, shows a box people can
 // use inside the post. index.html carries the card tags and is itself what
-// plays inside the card. No backend. See src/templates/index.js for the shape.
+// plays inside the card. No backend. See scripts/build-templates.mjs for the shape.
 export default {
     slug: 'x-player-card',
-    name: 'X Player Card',
+    name: 'X Player Card Page',
     category: 'Website',
-    description: 'A page that shows something interactive inside an X post when you share its link.',
+    description: 'Make your link play an interactive card inside X posts.',
     updated: '2026-10-09',
     workers: [],
 
@@ -17,7 +17,7 @@ export default {
         { label: 'Use my preview image', prompt: 'Use the image I upload as preview.png, the picture X shows before someone presses play, and keep it square.' },
     ],
 
-    // Kept in every fork's system prompt (see src/templates/index.js), so the
+    // Kept in every fork's system prompt (see scripts/build-templates.mjs), so the
     // page stays a working Player Card whatever the user turns it into.
     instructions: [
         'This project is an X (Twitter) Player Card: when the page\'s link is posted on X, X plays the page itself inside a 480 by 480 card. Whatever the user changes, keep that working:',
@@ -33,10 +33,8 @@ export default {
     page: {
         title: 'X Player Card Template: Put Something Interactive in a Post',
         description:
-            'A free template for an X (Twitter) Player Card. Share one link and your app or video plays inside the post. Copy it, customize it and publish it for free.',
+            'Put an app or video inside an X (Twitter) post with this Player Card template, which plays your page in the timeline when you share the link.',
         ogTagline: 'Something people can use inside an X post',
-        lead:
-            'A page that shows a working card inside an X post. Copy it, put your own app or video in the card, publish, and post the link on X.',
         features: [
             { icon: 'layout', title: 'Plays inside the post', body: 'People use your app or watch your video without leaving X.' },
             { icon: 'wand', title: 'Works as soon as you publish', body: 'The card shows the steps to make your own until you put your own content in it.' },

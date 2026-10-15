@@ -6,7 +6,7 @@ export default verticalPage({
 
     title: 'Website and App Builder for Real Estate Agents | Puter',
     description:
-        'Listing sites, open house sign-in apps, lead trackers, and neighborhood guides for agents. Describe what you need and it is built, verified, and published free.',
+        'Listing sites, open house sign-in apps, lead trackers, and neighborhood guides for agents. Describe what you need and it is built and verified. Free to start.',
     ogTagline: 'Your listings, your leads, your link',
 
     eyebrow: 'For real estate agents',

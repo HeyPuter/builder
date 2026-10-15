@@ -7,17 +7,17 @@ export default {
     changefreq: 'weekly',
     navLabel: 'AI website builder',
 
-    title: 'AI Website Builder - Build a website for free with AI',
+    title: 'AI Website Builder - Build a website with AI, free to start',
     description:
-        'Build a website with AI, no coding required. Turn your idea into a live website with Puter AI Builder. Get started for free, hosting included.',
+        'Build a website with AI, no coding required. Turn your idea into a live website with Puter AI Builder. Free to start, hosting included.',
     ogTagline: 'Describe the site. Publish the site.',
 
     hero: {
         eyebrow: 'AI website builder',
         h1: 'AI website builder that gives you a live website',
         lead:
-            'Build a website with AI without writing a line of code. Puter AI Builder turns your idea into a live website, complete with free hosting.',
-        note: 'Free with a [Puter](' + LINKS.puter + ') account. Runs in any modern browser, including on a phone. New to this? [Read the walkthrough](/guides/how-to-build-a-website-with-ai/).',
+            'Build a website with AI without writing a line of code. Puter AI Builder turns your idea into a live website, with hosting included.',
+        note: 'Free to start with a [Puter](' + LINKS.puter + ') account. Runs in any modern browser, including on a phone. New to this? [Read the walkthrough](/guides/how-to-build-a-website-with-ai/).',
         composer: {
             submit: 'Start building',
             examples: [
@@ -63,7 +63,7 @@ export default {
                 },
                 {
                     icon: 'globe',
-                    title: 'Publish in one click, free hosting included',
+                    title: 'Publish in one click, hosting included',
                     body:
                         'Your site goes live at its own link the moment you want it, ready to share. Update it anytime, publish again, and the same link serves the change.',
                 },
@@ -105,7 +105,7 @@ export default {
                 {
                     title: 'Publish it',
                     body:
-                        'Press Publish to get a live link you can share. Free hosting is included, and you can keep editing after it is live.',
+                        'Press Publish to get a live link you can share. Hosting is included, and you can keep editing after it is live.',
                 },
             ],
         },
@@ -211,15 +211,15 @@ export default {
                     ],
                 },
                 {
-                    q: 'Can I use Puter AI Builder for free?',
+                    q: 'Is Puter AI Builder free?',
                     a: [
-                        'Yes. Building and publishing are free with a [Puter](' + LINKS.puter + ') account, and no card is required. Open Puter AI Builder, describe a site, and see it running right away. Very heavy use can hit the free tier\'s limits, at which point you can upgrade your account; ordinary building and publishing do not.',
+                        'Puter AI Builder is free to start. Every [Puter](' + LINKS.puter + ') account comes with a free allowance for building and publishing, and when you use it up you can upgrade your account to keep going. Open Puter AI Builder, describe a site, and see it running right away.',
                     ],
                 },
                 {
                     q: 'How much does it cost to operate?',
                     a: [
-                        'Nothing. Anything visitors use, like sign-in or AI features, is covered by their own [Puter](' + LINKS.puter + ') account. If your site takes off, you don\'t get a surprise bill. [How it works](' + LINKS.userPays + ').',
+                        'Your costs don\'t grow with your traffic. Anything visitors use, like sign-in or AI features, is covered by their own [Puter](' + LINKS.puter + ') account. If your site takes off, you don\'t get a surprise bill. [How it works](' + LINKS.userPays + ').',
                     ],
                 },
                 {

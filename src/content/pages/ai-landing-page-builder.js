@@ -8,19 +8,19 @@ export default {
     changefreq: 'weekly',
     navLabel: 'AI landing page builder',
 
-    title: 'AI Landing Page Builder - Free, no code, live in minutes',
+    title: 'AI Landing Page Builder - Free to start, no code, live in minutes',
     description:
-        'Build a landing page with AI, no coding required. Describe your offer, get a page with a signup form that saves leads, and publish it for free in minutes.',
+        'Build a landing page with AI, no coding required. Describe your offer, get a page with a signup form that saves leads, and publish it in minutes. Free to start.',
     ogTagline: 'Describe the offer. Publish the page.',
 
     hero: {
         eyebrow: 'AI landing page builder',
         h1: 'AI landing page builder that gets your page live',
         lead:
-            'Build a landing page with AI without writing a line of code. Puter AI Builder turns your offer into a live page, complete with a signup form that saves leads and free hosting.',
+            'Build a landing page with AI without writing a line of code. Puter AI Builder turns your offer into a live page, complete with hosting and a signup form that saves leads.',
         cta: { label: 'Start building', href: '/' },
         secondary: { label: 'How to write the prompt', href: '/guides/how-to-write-a-build-prompt/' },
-        note: 'Free with a [Puter](' + LINKS.puter + ') account. Runs in any modern browser, including on a phone.',
+        note: 'Free to start with a [Puter](' + LINKS.puter + ') account. Runs in any modern browser, including on a phone.',
         screenshot: {
             src: '/screenshots/landing.webp',
             alt: 'Build an event landing page with Puter AI Builder',
@@ -61,7 +61,7 @@ export default {
                 },
                 {
                     icon: 'globe',
-                    title: 'Publish in one click, free hosting included',
+                    title: 'Publish in one click, hosting included',
                     body:
                         'Your page goes live at its own link the moment you want it, ready to put behind an ad or in a bio. Update it anytime, publish again, and the same link serves the change.',
                 },
@@ -137,7 +137,7 @@ export default {
                 {
                     title: 'Publish it',
                     body:
-                        'Press Publish to get a live link you can put behind an ad, in a bio, or in an email. Free hosting is included, and you can keep editing after it is live.',
+                        'Press Publish to get a live link you can put behind an ad, in a bio, or in an email. Hosting is included, and you can keep editing after it is live.',
                 },
             ],
         },
@@ -236,9 +236,9 @@ export default {
                     ],
                 },
                 {
-                    q: 'Is it free to create and publish a landing page?',
+                    q: 'What does it cost to create and publish a landing page?',
                     a: [
-                        'Yes. Building and publishing are free with a [Puter](' + LINKS.puter + ') account, and no card is required. Publishing is not behind a paywall: the page goes live at its own link the moment you press Publish. Very heavy use can hit the free tier\'s limits, at which point you can upgrade your account; ordinary building and publishing do not.',
+                        'Puter AI Builder is free to start. Every [Puter](' + LINKS.puter + ') account comes with a free allowance for building and publishing, and when you use it up you can upgrade your account to keep going. The page goes live at its own link the moment you press Publish.',
                     ],
                 },
                 {
@@ -308,7 +308,7 @@ export default {
                 {
                     q: 'How much does it cost to run the page?',
                     a: [
-                        'Nothing. Hosting is included, and anything visitors use, like sign-in or AI features, is covered by their own [Puter](' + LINKS.puter + ') account. If your campaign takes off, you don\'t get a surprise bill. [How it works](' + LINKS.userPays + ').',
+                        'Your costs don\'t grow with your traffic. Hosting is included, and anything visitors use, like sign-in or AI features, is covered by their own [Puter](' + LINKS.puter + ') account. If your campaign takes off, you don\'t get a surprise bill. [How it works](' + LINKS.userPays + ').',
                     ],
                 },
             ],

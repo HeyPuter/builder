@@ -8,7 +8,7 @@ export default {
     changefreq: 'weekly',
     navLabel: 'AI SaaS builder',
 
-    title: 'AI SaaS Builder - Build and launch a SaaS for free',
+    title: 'AI SaaS Builder - Build and launch a SaaS, free to start',
     description:
         'Build a SaaS with AI, no coding required. Sign-in, per-user data, AI features, and hosting are included, and running costs don\'t grow with your users. Free to start.',
     ogTagline: 'From an idea to a product people can sign in to',
@@ -17,10 +17,10 @@ export default {
         eyebrow: 'AI SaaS builder',
         h1: 'AI SaaS builder that ships a product people can sign in to',
         lead:
-            'Build a SaaS with AI without writing a line of code. Puter AI Builder turns your idea into a working product with sign-in, per-user data, and hosting included, and it costs you nothing to run as your users grow.',
+            'Build a SaaS with AI without writing a line of code. Puter AI Builder turns your idea into a working product with sign-in, per-user data, and hosting included, and your running costs don\'t grow with your users.',
         cta: { label: 'Start building', href: '/' },
         secondary: { label: 'See the use cases', href: '/use-cases/' },
-        note: 'Free with a [Puter](' + LINKS.puter + ') account. Runs in any modern browser, including on a phone.',
+        note: 'Free to start with a [Puter](' + LINKS.puter + ') account. Runs in any modern browser, including on a phone.',
         screenshot: {
             src: '/screenshots/saas.webp',
             alt: 'Build an AI writing assistant SaaS with Puter AI Builder',
@@ -61,7 +61,7 @@ export default {
                 },
                 {
                     icon: 'globe',
-                    title: 'Publish in one click, free hosting included',
+                    title: 'Publish in one click, hosting included',
                     body:
                         'Your product goes live at its own address the moment you want it, served over HTTPS, ready to share with a link and install on a home screen.',
                 },
@@ -245,14 +245,14 @@ export default {
                 {
                     q: 'How much does it cost to build a SaaS?',
                     a: [
-                        'Building is free with a [Puter](' + LINKS.puter + ') account, and no card is required. Open Puter AI Builder, describe a product, and use it in the preview right away. Publishing is free too, and nothing is public until you decide.',
-                        'Very heavy use can hit the free tier\'s limits, at which point you can upgrade your Puter account. Ordinary building, publishing, and iterating do not.',
+                        'Puter AI Builder is free to start. Every [Puter](' + LINKS.puter + ') account comes with a free allowance for building and publishing, and when you use it up you can upgrade your account to keep going.',
+                        'Open Puter AI Builder, describe a product, and use it in the preview right away. Nothing is public until you decide to publish.',
                     ],
                 },
                 {
                     q: 'How much does it cost to run once I have users?',
                     a: [
-                        'Nothing. The people who use your product cover their own storage and AI usage through their own [Puter](' + LINKS.puter + ') account, and hosting is included. Your infrastructure cost does not grow with your user count, so a product that takes off does not come with a surprise bill. [How it works](' + LINKS.userPays + ').',
+                        'Your costs don\'t grow with your user count. The people who use your product cover their own storage and AI usage through their own [Puter](' + LINKS.puter + ') account, and hosting is included, so a product that takes off does not come with a surprise bill. [How it works](' + LINKS.userPays + ').',
                         'This is the opposite of the usual SaaS economics, where every new free user costs you money in database rows and AI calls before they have paid you anything.',
                     ],
                 },

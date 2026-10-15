@@ -86,7 +86,7 @@ export default {
 
     title: 'AI Builder Use Cases: Apps, Websites, Forms, and More | Puter',
     description:
-        'Use cases for Puter AI Builder: apps, websites, landing pages, forms, portfolios, SaaS, decks, games, and more. Describe what you need and get it built, free.',
+        'Use cases for Puter AI Builder: apps, websites, landing pages, forms, portfolios, SaaS, decks, games, and more. Describe what you need and get it built. Free to start.',
     ogTagline: 'One builder, eleven jobs',
 
     hero: {
@@ -96,7 +96,7 @@ export default {
             'Apps, websites, landing pages, forms, and more, all from a plain-English description. Pick a use case below to see how it works for that job.',
         cta: { label: 'Start building free', href: '/' },
         secondary: { label: 'Browse prompts', href: '/what-to-build/' },
-        note: 'Free with a Puter account. No code, no templates to fight, nothing to install.',
+        note: 'Free to start with a Puter account. No code, no templates to fight, nothing to install.',
         demo: {
             prompt: 'Build a landing page for my app with a signup form and pricing',
             app: {
