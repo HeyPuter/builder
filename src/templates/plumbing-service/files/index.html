@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0e3638">
+<title>Kettle Creek Plumbing: Plumber in Millbrook, 24/7 emergency service</title>
+<meta name="description" content="Drain cleaning, leak repair, water heaters and fixtures in Millbrook and 9 nearby towns. Flat-rate prices, $79 service call credited to the repair, plumber on call 24/7.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="topbar">
+    <div class="topbar-inner">
+        <p class="status"><i></i><span data-status>Open now</span></p>
+        <p class="topbar-oncall" data-oncall>Emergency line 24/7</p>
+        <p class="topbar-license" data-bind="license">Master plumber license MP-30417</p>
+    </div>
+</div>
+
+<header class="header">
+    <div class="header-inner">
+        <a class="brand" href="#top" aria-label="Home">
+            <img src="icon.svg" alt="" width="42" height="42">
+            <span><b data-bind="shortName">Kettle Creek</b><small data-bind="trade">Plumbing &amp; Drain</small></span>
+        </a>
+        <nav class="nav-links" id="nav-links" aria-label="Main">
+            <a href="#first-aid">Emergencies</a>
+            <a href="#prices">Prices</a>
+            <a href="#work">Our work</a>
+            <a href="#area">Service area</a>
+            <a href="#faq">FAQ</a>
+        </nav>
+        <a class="h-phone" data-bind-href="tel" href="tel:+15550142290">
+            <span class="h-phone-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg></span>
+            <span><small>Call any time</small><b data-bind="phone">(555) 014-2290</b></span>
+        </a>
+        <a class="btn btn-yellow btn-sm h-cta" href="#book">Book a plumber</a>
+        <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links" aria-label="Open menu"><span></span><span></span></button>
+    </div>
+</header>
+
+<main>
+
+<section class="hero" id="top">
+    <div class="wrap hero-grid">
+        <div class="hero-copy">
+            <p class="hero-tag"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c3.5 4 6 7 6 10.5a6 6 0 0 1-12 0C6 10 8.5 7 12 3z"/></svg><span>Licensed master plumbers in <span data-bind="baseTown">Millbrook</span> since <span data-bind="since">2011</span></span></p>
+            <h1>Leaks, clogs and cold showers. <em>Fixed today.</em></h1>
+            <p class="hero-sub">Drains, pipes, water heaters and fixtures across <span data-bind="region">the Millbrook valley</span>. You see the flat price before we pick up a wrench, and the <b data-bind="serviceCall">$79</b> service call comes off the repair.</p>
+            <div class="hero-ctas">
+                <a class="btn btn-yellow" href="#book">Book a plumber</a>
+                <a class="btn btn-ghost" data-bind-href="tel" href="tel:+15550142290"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg><span data-bind="phone">(555) 014-2290</span></a>
+            </div>
+            <div class="hero-proof">
+                <div class="proof-rating"><span class="stars" aria-hidden="true">★★★★★</span><span><b data-bind="rating">4.9</b> from <span data-bind="reviewCount">286</span> <span data-bind="ratingSource">Google</span> reviews</span></div>
+                <a class="proof-link" href="#first-aid">Water everywhere? What to do first <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+            </div>
+            <p class="sample-note" data-sample hidden>Sample business, rating, numbers and reviews. Replace them with your own before publishing.</p>
+        </div>
+        <div class="hero-visual">
+            <div class="hero-photo">
+                <img src="photos/hero.jpg" alt="Two pipe wrenches gripping a pipe joint, with a pipe cutter and thread tape on the floor" width="600" height="683" fetchpriority="high">
+            </div>
+            <div class="float-card float-oncall status"><i></i><span><small data-oncall>Emergency line 24/7</small><b data-status>Open now</b></span></div>
+            <div class="float-card float-ticket">
+                <p class="ft-head"><span>Price ticket</span><span>Flat rate</span></p>
+                <p class="ft-row"><span id="ft-job">Sink, tub or shower clog</span><b id="ft-price">$149</b></p>
+                <p class="ft-row muted"><span>Service call</span><b>Credited</b></p>
+                <p class="ft-ok"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Approved before we start</p>
+            </div>
+        </div>
+    </div>
+    <div class="wrap">
+        <ul class="stats" id="stats" aria-label="In numbers"></ul>
+    </div>
+</section>
+
+<section class="aid" id="first-aid" aria-labelledby="aid-heading">
+    <div class="wrap">
+        <div class="aid-head">
+            <div>
+                <p class="eyebrow eyebrow-light">Emergency first aid</p>
+                <h2 id="aid-heading">Water where it should not be? Do this first.</h2>
+            </div>
+            <p>Most water damage happens in the first half hour. Pick what is going on for the steps that limit it, then call. We answer around the clock.</p>
+        </div>
+        <div class="aid-grid">
+            <div class="aid-tabs" id="aid-tabs" role="tablist" aria-label="Emergencies" aria-orientation="vertical"></div>
+            <div class="aid-panel" id="aid-panel" role="tabpanel" tabindex="0">
+                <h3 id="aid-title">Burst pipe or flooding</h3>
+                <ol class="aid-steps" id="aid-steps"></ol>
+                <div class="aid-call">
+                    <p id="aid-call">Then call us.</p>
+                    <a class="btn btn-yellow" data-bind-href="tel" href="tel:+15550142290"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>Call <span data-bind="phone">(555) 014-2290</span></a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="prices" id="prices" aria-labelledby="prices-title">
+    <div class="wrap">
+        <div class="head-split">
+            <div>
+                <p class="eyebrow">Flat-rate prices</p>
+                <h2 id="prices-title">Know the price before we start</h2>
+            </div>
+            <p>Starting prices for the jobs we do most, during opening hours. Your plumber confirms the exact price on a written ticket, and nothing starts until you approve it.</p>
+        </div>
+        <div class="prices-grid">
+            <div class="price-card">
+                <div class="price-tabs" id="price-tabs" role="tablist" aria-label="Price categories"></div>
+                <div id="price-panel" role="tabpanel">
+                    <ul class="price-list" id="price-list"></ul>
+                </div>
+            </div>
+            <aside class="promise">
+                <h3>Our promise on every job</h3>
+                <ul class="terms" id="terms"></ul>
+                <a class="btn btn-yellow btn-sm" href="#book">Book a visit</a>
+            </aside>
+        </div>
+    </div>
+</section>
+
+<section class="process" aria-labelledby="process-title">
+    <div class="wrap">
+        <div class="head-c">
+            <p class="eyebrow">How a visit goes</p>
+            <h2 id="process-title">From your call to a dry floor</h2>
+        </div>
+        <div class="pipeline">
+            <svg class="pipe-art" viewBox="0 0 1200 150" preserveAspectRatio="none" aria-hidden="true">
+                <g class="valve"><circle cx="38" cy="70" r="24"/><path d="M38 46v48M14 70h48M21 53l34 34M55 53 21 87"/><circle class="hub" cx="38" cy="70" r="7"/></g>
+                <rect class="pipe-body" x="62" y="58" width="1060" height="24" rx="4"/>
+                <path class="flow" d="M64 70H1120"/>
+                <g class="joints">
+                    <rect x="136" y="50" width="28" height="40" rx="5"/>
+                    <rect x="436" y="50" width="28" height="40" rx="5"/>
+                    <rect x="736" y="50" width="28" height="40" rx="5"/>
+                    <rect x="1036" y="50" width="28" height="40" rx="5"/>
+                </g>
+                <path class="pipe-body spout" d="M1110 58h34a24 24 0 0 1 24 24v26h-24V82h-34z"/>
+                <path class="drop" d="M1156 122c4 5 6 8 6 11a6 6 0 0 1-12 0c0-3 2-6 6-11z"/>
+            </svg>
+            <ol class="steps">
+                <li><span class="step-n">1</span><h3>Call or book</h3><p>A real person answers, day or night. We give you an arrival window, not a whole day.</p></li>
+                <li><span class="step-n">2</span><h3>Find it, price it</h3><p>Your plumber finds the cause, shows you and writes one flat price on the ticket.</p></li>
+                <li><span class="step-n">3</span><h3>Fix and test</h3><p>Most repairs are done the same visit from parts on the van, then tested with you there.</p></li>
+                <li><span class="step-n">4</span><h3>Clean up, covered</h3><p>Shoe covers on, mess gone, and the work under warranty for two years.</p></li>
+            </ol>
+        </div>
+    </div>
+</section>
+
+<section class="drip" aria-labelledby="drip-title">
+    <div class="wrap drip-card">
+        <div class="drip-copy">
+            <p class="eyebrow">Leaky faucet calculator</p>
+            <h2 id="drip-title">What is that drip costing you?</h2>
+            <p>Count the drips for a minute, then slide to match.</p>
+            <label class="drip-label" for="drip-rate"><span>Drip rate</span><b id="drip-out-rate">30 drips a minute</b></label>
+            <input class="drip-range" id="drip-rate" type="range" min="1" max="120" step="1" value="30">
+            <ul class="drip-results" aria-live="polite">
+                <li><b id="drip-gal">1,041</b><span>gallons a year</span></li>
+                <li><b id="drip-cost">$15</b><span>a year on your bill</span></li>
+                <li><b id="drip-showers">65</b><span>showers' worth</span></li>
+            </ul>
+            <p class="drip-note"><span id="drip-rate-note">Estimate.</span> A running toilet can waste far more, up to 200 gallons a day.</p>
+            <a class="btn btn-dark btn-sm" href="#book" data-issue="toilet" data-job="Dripping faucet or running toilet">Book a drip repair</a>
+        </div>
+        <div class="drip-art" aria-hidden="true">
+            <svg viewBox="0 0 260 300">
+                <path class="tap-body" d="M30 70h120a50 50 0 0 1 50 50v26h-36v-26a14 14 0 0 0-14-14H30z"/>
+                <rect class="tap-body" x="70" y="34" width="24" height="40" rx="4"/>
+                <rect class="tap-handle" x="40" y="22" width="84" height="18" rx="9"/>
+                <rect class="tap-ring" x="160" y="146" width="44" height="12" rx="4"/>
+                <ellipse class="basin" cx="182" cy="278" rx="70" ry="10"/>
+            </svg>
+            <span class="drip-drop" id="drip-drop"></span>
+            <span class="drip-ripple" id="drip-ripple"></span>
+        </div>
+    </div>
+</section>
+
+<section class="work" id="work" aria-labelledby="work-title">
+    <div class="wrap">
+        <div class="head-row">
+            <div>
+                <p class="eyebrow">Recent jobs</p>
+                <h2 id="work-title">What we found, and what we did</h2>
+                <p class="sample-note" data-sample hidden>Sample jobs and stock photos. Replace them with your own jobs before publishing.</p>
+            </div>
+            <div class="chips" id="job-filter" role="group" aria-label="Filter jobs"></div>
+        </div>
+        <div class="tickets" id="jobs"></div>
+    </div>
+</section>
+
+<section class="reviews" id="reviews" aria-labelledby="reviews-title">
+    <div class="wrap">
+        <div class="reviews-head">
+            <div class="score">
+                <b data-bind="rating">4.9</b>
+                <span class="stars" aria-hidden="true">★★★★★</span>
+                <small><span data-bind="reviewCount">286</span> <span data-bind="ratingSource">Google</span> reviews</small>
+            </div>
+            <div>
+                <p class="eyebrow">Reviews</p>
+                <h2 id="reviews-title">Neighbors on our work</h2>
+                <p>Rated for <b data-bind="ratedFor">upfront prices</b>.</p>
+                <p class="sample-note" data-sample hidden>Sample reviews and rating. Replace them with your own before publishing.</p>
+            </div>
+        </div>
+        <div class="review-list" id="review-list"></div>
+    </div>
+</section>
+
+<section class="area" id="area" aria-labelledby="area-title">
+    <div class="wrap area-grid">
+        <div class="area-card">
+            <p class="eyebrow">Service area</p>
+            <h2 id="area-title"><span data-bind="baseTown">Millbrook</span> and <span data-bind="nearbyCount">9</span> towns around it</h2>
+            <div class="zones" id="towns"></div>
+            <form class="zip-check" id="zip-check" novalidate>
+                <label for="zc-zip" class="sr-only">ZIP code</label>
+                <input id="zc-zip" inputmode="numeric" maxlength="5" placeholder="Your ZIP code" autocomplete="postal-code">
+                <button class="btn btn-dark btn-sm" type="submit">Check my ZIP</button>
+            </form>
+            <p class="zip-out" id="zip-out" role="status" aria-live="polite"></p>
+        </div>
+        <div class="hours-card">
+            <p class="status hours-status"><i></i><span data-status>Open now</span></p>
+            <h3>Office hours</h3>
+            <ul class="hours" id="hours-list"></ul>
+            <p class="oncall-note" id="oncall-note"></p>
+        </div>
+    </div>
+</section>
+
+<section class="book" id="book" aria-labelledby="book-title">
+    <div class="wrap book-grid">
+        <div class="book-copy">
+            <p class="eyebrow eyebrow-light">Book a plumber</p>
+            <h2 id="book-title">Tell us what is going on</h2>
+            <p>Pick the problem and a time that suits you. We call back to confirm the visit, usually within the hour during opening hours.</p>
+            <ul class="book-points">
+                <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Price on a written ticket before work starts</li>
+                <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span><span data-bind="serviceCall">$79</span> service call, credited to the repair</span></li>
+                <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Two-hour arrival windows</li>
+            </ul>
+            <p class="book-call">Water coming through the ceiling? Do not book, call <a data-bind-href="tel" href="tel:+15550142290"><span data-bind="phone">(555) 014-2290</span></a>.</p>
+        </div>
+
+        <form class="book-form" id="book-form" novalidate>
+            <fieldset class="f">
+                <legend>What is going on?</legend>
+                <div class="issues" id="f-issues"></div>
+            </fieldset>
+            <div class="f-row">
+                <div class="f"><label for="f-name">Full name</label><input id="f-name" name="name" autocomplete="name" required></div>
+                <div class="f"><label for="f-phone">Phone</label><input id="f-phone" name="phone" type="tel" autocomplete="tel" required></div>
+            </div>
+            <div class="f-row">
+                <div class="f"><label for="f-zip">ZIP code</label><input id="f-zip" name="zip" inputmode="numeric" maxlength="5" autocomplete="postal-code"></div>
+                <div class="f"><label for="f-window">Arrival window</label><select id="f-window" name="window"></select></div>
+            </div>
+            <div class="f"><label for="f-email">Email <small>optional</small></label><input id="f-email" name="email" type="email" autocomplete="email"></div>
+            <div class="f"><label for="f-msg">Anything we should know?</label><textarea id="f-msg" name="message" rows="3" placeholder="Where the problem is, how long it has been going on, access or pets"></textarea></div>
+            <div class="f-terms" id="f-terms" role="status" aria-live="polite"></div>
+            <button class="btn btn-yellow f-send" type="submit">Send booking</button>
+            <p class="f-note" id="f-note" role="status" aria-live="polite"><span id="f-dest">Opens your email app with the booking filled in.</span></p>
+        </form>
+    </div>
+</section>
+
+<section class="faq" id="faq" aria-labelledby="faq-title">
+    <div class="wrap faq-grid">
+        <div class="faq-side">
+            <p class="eyebrow">Questions</p>
+            <h2 id="faq-title">Good to know</h2>
+            <figure class="faq-photo">
+                <img src="photos/bath-tap.jpg" alt="A chrome thermostatic bath tap over a white tub" width="900" height="600" loading="lazy">
+            </figure>
+        </div>
+        <div class="faq-list" id="faq-list"></div>
+    </div>
+</section>
+
+</main>
+
+<footer class="footer">
+    <div class="wrap footer-grid">
+        <div>
+            <a class="brand" href="#top"><img src="icon.svg" alt="" width="42" height="42"><span><b data-bind="shortName">Kettle Creek</b><small data-bind="trade">Plumbing &amp; Drain</small></span></a>
+            <p>Since <span data-bind="since">2011</span>, <span data-bind="name">Kettle Creek Plumbing</span> has cleared drains, fixed leaks and installed water heaters in <span data-bind="region">the Millbrook valley</span>.</p>
+            <p class="foot-oncall" data-oncall>Emergency line 24/7</p>
+        </div>
+        <div>
+            <h4>Services</h4>
+            <ul id="foot-services"></ul>
+        </div>
+        <div>
+            <h4>Office hours</h4>
+            <ul id="foot-hours"></ul>
+            <h4 class="h4-gap">Towns</h4>
+            <p class="foot-towns" id="foot-towns"></p>
+        </div>
+        <div>
+            <h4>Contact</h4>
+            <ul>
+                <li><a data-bind-href="tel" href="tel:+15550142290"><span data-bind="phone">(555) 014-2290</span></a></li>
+                <li><a data-bind-href="mailto" href="mailto:hello@example.com"><span data-bind="email">hello@example.com</span></a></li>
+                <li data-bind="address">27 Mill Race Lane, Millbrook</li>
+                <li data-bind="license">Master plumber license MP-30417</li>
+            </ul>
+            <p class="sample-note sample-dark" data-sample hidden>Sample license number. Replace it with your own.</p>
+        </div>
+    </div>
+    <div class="wrap foot-base">
+        <span>© <span id="year">2026</span> <span data-bind="name">Kettle Creek Plumbing</span></span>
+        <a href="#top">Back to top</a>
+    </div>
+</footer>
+
+<nav class="mobile-bar" aria-label="Quick contact">
+    <a data-bind-href="tel" href="tel:+15550142290"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>Call</a>
+    <a data-bind-href="sms" href="sms:+15550142290"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>Text</a>
+    <a class="mb-main" href="#book">Book a plumber</a>
+</nav>
+
+<script src="app.js"></script>
+</body>
+</html>

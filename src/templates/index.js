@@ -39,6 +39,7 @@ import lawFirm from './law-firm/template.js';
 import dentalPractice from './dental-practice/template.js';
 import barbershop from './barbershop/template.js';
 import autoRepair from './auto-repair/template.js';
+import plumbingService from './plumbing-service/template.js';
 
 export const TEMPLATES = [
     feedbackBoard,
@@ -54,6 +55,7 @@ export const TEMPLATES = [
     dentalPractice,
     barbershop,
     autoRepair,
+    plumbingService,
 ];
 
 export default TEMPLATES;
