@@ -1,11 +1,11 @@
 // Designer portfolio: a one-page static site for a graphic designer and 3D
 // artist, with no backend. Projects, services and work history are plain lists
-// at the top of files/app.js. See src/templates/index.js for the shape.
+// at the top of files/app.js. See scripts/build-templates.mjs for the shape.
 export default {
     slug: 'designer-portfolio',
-    name: 'Designer Portfolio',
+    name: 'Graphic Designer Portfolio',
     category: 'Website',
-    description: 'A one-page portfolio for a graphic designer, with project cards, services and contact.',
+    description: 'Graphic designers can show their best work here.',
     updated: '2026-10-09',
     workers: [],
 
@@ -18,12 +18,10 @@ export default {
     ],
 
     page: {
-        title: 'Graphic Designer Portfolio Template, Free to Edit With AI',
+        title: 'Free Graphic Designer Portfolio Template to Edit With AI',
         description:
-            'A one-page portfolio site for graphic designers and 3D artists, with project cards, services, work history and contact. Copy it and make it yours.',
+            'Graphic designers and 3D artists can present projects, services and work history on this portfolio, with a contact section at the end.',
         ogTagline: 'A portfolio site with a point of view',
-        lead:
-            'A hero laid out like a printer’s proof sheet, with your name set large and your best projects fanned out beside it, a work index printed on a typewriter roll, six project cards with print specs, a services list, a short bio and a contact section. Copy it, then describe your own work and the page changes to fit.',
         features: [
             { icon: 'layout', title: 'Every section a portfolio needs', body: 'Hero with contact details, a project index, project cards, services with typical timelines, a bio with work history, and a contact section.' },
             { icon: 'file', title: 'Specs on every project', body: 'Each card lists format, production method and year, the details art directors and printers ask about first.' },

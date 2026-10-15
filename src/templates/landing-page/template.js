@@ -1,10 +1,10 @@
 // Product landing page: a complete static marketing site for a fictional
-// product, with no backend. See src/templates/index.js for the shape.
+// product, with no backend. See scripts/build-templates.mjs for the shape.
 export default {
     slug: 'landing-page',
     name: 'Product Landing Page',
     category: 'Website',
-    description: 'A polished landing page with features, pricing, FAQ and a waitlist form.',
+    description: 'Product launch page with pricing and a waitlist.',
     updated: '2026-09-28',
     workers: [],
 
@@ -19,10 +19,8 @@ export default {
     page: {
         title: 'Free Product Landing Page Template, Ready to Edit With AI',
         description:
-            'A finished product landing page with a hero, features, pricing tiers, FAQ and a waitlist form. Copy it to your account and reshape it by describing changes.',
+            'Launch a product with this landing page, which has a hero, features, pricing tiers, an FAQ and a waitlist form to collect early signups.',
         ogTagline: 'A finished landing page you can reshape',
-        lead:
-            'Hero, features, a three-tier pricing table, an FAQ and a waitlist form, already designed and responsive. Copy it into your account, then describe your own product and watch the page change to fit it.',
         features: [
             { icon: 'layout', title: 'Every section a launch needs', body: 'Navigation, hero, customer logos, a features grid, how it works, pricing, FAQ, a sign-up band and a footer.' },
             { icon: 'phone', title: 'Responsive from the start', body: 'The layout, menu and pricing cards adapt from a wide desktop down to a phone, with a mobile menu included.' },

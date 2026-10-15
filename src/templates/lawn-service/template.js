@@ -2,12 +2,12 @@
 // backend. Business details, towns and crew days, prices, services, job photos,
 // reviews and FAQ are plain data at the top of files/app.js. Photos are CC0
 // stock (rawpixel, StockSnap, WordPress Photo Directory) standing in for the
-// business's own job photos. See src/templates/index.js for the shape.
+// business's own job photos. See scripts/build-templates.mjs for the shape.
 export default {
     slug: 'lawn-service',
-    name: 'Lawn Care Business',
+    name: 'Lawn Care Website',
     category: 'Website',
-    description: 'A one-page site for a local lawn care business, with a price checker, service area map and enquiry form.',
+    description: 'Website for lawn care and landscaping crews.',
     updated: '2026-10-10',
     workers: [],
 
@@ -19,7 +19,7 @@ export default {
         { label: 'Add before and after', prompt: 'Add a before and after slider to the recent jobs section. I will upload a before and an after photo for each job.' },
     ],
 
-    // Kept in every fork's system prompt (see src/templates/index.js).
+    // Kept in every fork's system prompt (see scripts/build-templates.mjs).
     instructions: [
         'This project is a website for a local lawn care business. Content lives as data at the top of app.js; keep it there when making changes:',
         '- BUSINESS holds the name, phone, email, hours, address and license, and fills every place they appear. Change contact details there, not in the HTML. When the business, towns or prices change, also update the <title> and meta description in index.html, which are static.',
@@ -31,12 +31,10 @@ export default {
     ].join('\n'),
 
     page: {
-        title: 'Lawn Care Business Website Template, Free to Edit With AI',
+        title: 'Free Lawn Care Business Website Template to Edit With AI',
         description:
-            'A one-page website for a lawn care or landscaping business, with a price checker, a service area map with crew days, job photos and an enquiry form.',
+            'Run a lawn care or landscaping business? This site has a price checker, a service area map with crew days, job photos and an enquiry form.',
         ogTagline: 'A lawn care website that quotes and books',
-        lead:
-            'A one-page site for a local lawn care business. Visitors enter their ZIP code and lawn size and get a price and a first visit date. The page also shows your services, recent jobs, the towns you cover and the day your crew works each one, and an enquiry form that goes to the right person. Copy it, then describe your business and the page changes to fit.',
         features: [
             { icon: 'calculator', title: 'Price checker in the hero', body: 'A visitor enters a ZIP code, a lawn size and how often, and sees a price per visit and the next date your crew can start.' },
             { icon: 'mapPin', title: 'Service area with crew days', body: 'A map and a list of the towns you cover, each with the weekday your crew works there, and a ZIP code check.' },

@@ -6,7 +6,7 @@ export default verticalPage({
 
     title: 'Website and App Builder for Photographers | Puter',
     description:
-        'Portfolio sites, client proofing galleries, booking forms, and pricing pages for photographers. Describe them in plain English and publish free, no code needed.',
+        'Portfolio sites, client proofing galleries, booking forms, and pricing pages for photographers. Describe them in plain English and publish in one click, no code needed.',
     ogTagline: 'Show the work. Skip the website week.',
 
     eyebrow: 'For photographers',
@@ -105,7 +105,7 @@ export default verticalPage({
             art: 'files',
             body: [
                 'You insist on owning your negatives; the same instinct applies to your website. Everything built here is standard files you can download and host anywhere, under your own domain if you like.',
-                'No monthly platform rent, no template license, no export wall between you and your own portfolio.',
+                'No template license and no export wall between you and your own portfolio.',
             ],
         },
     ],
@@ -161,7 +161,7 @@ export default verticalPage({
         {
             q: 'What is the catch compared to portfolio platforms?',
             a: [
-                'The trade is honest: platforms give you a polished template ecosystem for a monthly fee; this gives you a site you describe, own, and host free on a puter.site address. You give up a template marketplace and gain full control, zero rent, and files you can walk away with.',
+                'The trade is honest: platforms give you a polished template ecosystem for a monthly fee; this gives you a site you describe and own, free to start and published to a puter.site address. You give up a template marketplace and gain full control and files you can walk away with.',
             ],
         },
     ],

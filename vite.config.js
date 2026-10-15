@@ -447,7 +447,7 @@ function featuredFeedPlugin() {
 }
 
 /**
- * The official project templates (src/templates/, see src/templates/index.js
+ * The official project templates (src/templates/, see scripts/build-templates.mjs
  * and js/template-core.js).
  *
  * Build: validates every template (buildTemplates throws, failing the build,
@@ -475,9 +475,20 @@ function templatesPlugin() {
     .toBuffer();
   const IMAGE_SIZES = { '': TEMPLATE_THUMB, '-large': TEMPLATE_SHOT };
 
+  let devServer = null;
+
   return {
     name: 'templates',
+    // An edit to an existing template.js restarts the server on its own (each
+    // is a config dependency, see scripts/build-templates.mjs), but a template
+    // added or removed is not, so restart for those here.
+    watchChange(id, { event }) {
+      if (devServer && event !== 'update' && /\/src\/templates\/[^/]+\/template\.js$/.test(id)) {
+        devServer.restart();
+      }
+    },
     configureServer(server) {
+      devServer = server;
       const imageCache = new Map(); // `${slug}${suffix}@${mtime}` -> Buffer
       server.middlewares.use((req, res, next) => {
         const rawPath = (req.url || '').split('?')[0];

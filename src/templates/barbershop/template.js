@@ -3,12 +3,12 @@
 // cut, lookbook, membership, house rules, reviews and FAQ are plain data at the
 // top of files/app.js. Photos are CC0 stock (from Wikimedia Commons, some via
 // Unsplash) standing in for the shop's own barbers, cuts and interior. See
-// src/templates/index.js for the shape.
+// scripts/build-templates.mjs for the shape.
 export default {
     slug: 'barbershop',
-    name: 'Barbershop',
+    name: 'Barbershop Website',
     category: 'Website',
-    description: 'A one-page site for a barbershop, with a service menu that adds up your visit, barber profiles, a lookbook and a chair request form.',
+    description: 'Barbershop website with services, barbers and chair booking.',
     updated: '2026-10-15',
     workers: [],
 
@@ -20,7 +20,7 @@ export default {
         { label: 'Save requests', prompt: 'Make the booking form save each request instead of opening an email, and add a private page where only my barbers can see them, filtered by barber and day.' },
     ],
 
-    // Kept in every fork's system prompt (see src/templates/index.js).
+    // Kept in every fork's system prompt (see scripts/build-templates.mjs).
     instructions: [
         'This project is a website for a barbershop. Content lives as data at the top of app.js; keep it there when making changes:',
         '- SHOP holds the name, contact details, Instagram, rating, time zone and booking link (bookingUrl), and fills every place they appear. Change them there, not in the HTML. When the shop, its city or its services change, also update the <title>, meta description, hero headline and hero text in index.html, which are static.',
@@ -32,12 +32,10 @@ export default {
     ].join('\n'),
 
     page: {
-        title: 'Barbershop Website Template, Free to Edit With AI',
+        title: 'Free Barbershop Website Template to Edit With AI',
         description:
-            'A one-page website for a barbershop, with a service menu and prices, barber profiles, a lookbook of cuts, walk-in times and a chair request form.',
+            'Show your service menu, barbers, a lookbook of cuts and walk-in times on this barbershop website, and let clients request a chair.',
         ogTagline: 'A barbershop website that fills the chairs',
-        lead:
-            'A one-page site for a barbershop. Visitors add services from your menu and see the time and price add up, meet each barber and the days they cut, find the words to ask for the cut they want, and check whether now is a good time to walk in. Requests go to the barber they picked. Copy it, then describe your shop and the page changes to fit.',
         features: [
             { icon: 'scissors', title: 'A menu that adds up', body: 'Services by category with prices and chair time. Visitors add what they want and see the total time and price before they book.' },
             { icon: 'users', title: 'Barber profiles', body: 'A photo, bio and specialties for each barber, the days they cut, and who is in today.' },

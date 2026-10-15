@@ -6,7 +6,7 @@ export default verticalPage({
 
     title: 'App and Website Builder for Accountants | Puter',
     description:
-        'Client document portals, deadline calendars, engagement trackers, and a practice site for accountants and bookkeepers. Describe it, get working software, free.',
+        'Client document portals, deadline calendars, engagement trackers, and a practice site for accountants and bookkeepers. Describe it, get working software. Free to start.',
     ogTagline: 'Practice tools that reconcile',
 
     eyebrow: 'For accountants',
@@ -162,7 +162,7 @@ export default verticalPage({
         {
             q: 'What does it cost against yet another practice subscription?',
             a: [
-                'Nothing to build, publish, and use with a free Puter account: no per-seat fee and no tax-season surge pricing. The economics matter because these are exactly the tools that never justify a $70-per-month line item, which is why they stay spreadsheets.',
+                'Puter AI Builder is free to start. Each Puter account includes a free allowance for building and publishing, and you can upgrade the account when it runs out. There is no per-seat fee and no tax-season surge pricing, and clients who sign in cover their own usage through their own account. The economics matter because these are exactly the tools that never justify a $70-per-month line item, which is why they stay spreadsheets.',
             ],
         },
     ],

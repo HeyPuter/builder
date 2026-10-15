@@ -156,7 +156,7 @@ export default verticalPage({
         {
             q: 'What does this cost me as my client list grows?',
             a: [
-                'Building is free with a Puter account. Apps built here run on a model where each signed-in user\'s storage comes with their own account, so a portal with thirty clients does not send you a growing hosting bill.',
+                'Your costs do not grow with your client list, because each signed-in client covers their own AI and storage usage through their own Puter account. Building is free to start, and every Puter account comes with a free allowance for building and publishing; when it runs out, you can upgrade your account. A portal with thirty clients does not send you a growing hosting bill.',
             ],
         },
         {

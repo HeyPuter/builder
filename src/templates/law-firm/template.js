@@ -2,12 +2,12 @@
 // backend. The firm's details, jurisdiction, attorneys and their credentials,
 // practice areas, consultation terms, reviews and FAQ are plain data at the top
 // of files/app.js. Photos are free stock images standing in for the firm's own
-// portraits and office. See src/templates/index.js for the shape.
+// portraits and office. See scripts/build-templates.mjs for the shape.
 export default {
     slug: 'law-firm',
-    name: 'Law Firm',
+    name: 'Law Firm Website',
     category: 'Website',
-    description: 'A one-page site for a law firm or solo lawyer, with practice areas, attorney credentials and a consultation request form.',
+    description: 'Law firms and solo lawyers get consultation requests through this site.',
     updated: '2026-10-12',
     workers: [],
 
@@ -19,7 +19,7 @@ export default {
         { label: 'Add a page per area', prompt: 'Give each practice area its own page with a longer explanation, the fee, the usual timeline and its own questions, linked from the practice area cards.' },
     ],
 
-    // Kept in every fork's system prompt (see src/templates/index.js).
+    // Kept in every fork's system prompt (see scripts/build-templates.mjs).
     instructions: [
         'This project is a website for a law firm. Content lives as data at the top of app.js; keep it there when making changes:',
         '- FIRM holds the name, contact details, booking link (consultUrl), the attorney advertising label and the disclaimers, and fills every place they appear. JURISDICTION holds the state, counties and courts. Change them there, not in the HTML. When the firm, its location or its practice areas change, also update the <title>, meta description, hero headline and hero text in index.html, which are static.',
@@ -31,12 +31,10 @@ export default {
     ].join('\n'),
 
     page: {
-        title: 'Law Firm Website Template, Free to Edit With AI',
+        title: 'Free Law Firm Website Template to Edit With AI',
         description:
-            'A one-page website for a law firm or solo lawyer, with practice areas, attorney bios and bar admissions, consultation details and an intake form.',
+            'Law firms and solo lawyers present practice areas, attorney bios and bar admissions here, and take new matters through an intake form.',
         ogTagline: 'A law firm website that books consultations',
-        lead:
-            'A one-page site for a small law firm or a solo lawyer. Visitors pick what is going on and see which lawyer handles it, the usual fee and timeline, and what to bring to a consultation. The page also lists your practice areas with fees, your attorneys with their bar admissions and education, the counties and courts you cover, and a consultation request form with a conflict check. Copy it, then describe your firm and the page changes to fit.',
         features: [
             { icon: 'search', title: 'A "what is going on?" picker', body: 'A visitor picks their situation and sees the practice area, the lawyer who handles it, the fee, a likely timeline and what to bring.' },
             { icon: 'users', title: 'Attorney bios with credentials', body: 'Each lawyer has a portrait, a focus, a short bio, bar admissions, education and memberships.' },

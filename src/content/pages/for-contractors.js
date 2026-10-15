@@ -6,7 +6,7 @@ export default verticalPage({
 
     title: 'Website and App Builder for Contractors | Puter',
     description:
-        'Quote request forms, job photo galleries, and a website that wins local work for contractors and tradespeople. Describe your trade and it is built and live, free.',
+        'Quote request forms, job photo galleries, and a website that wins local work for contractors and tradespeople. Describe your trade and get it built. Free to start.',
     ogTagline: 'Win the job before the site visit',
 
     eyebrow: 'For contractors',
@@ -155,7 +155,7 @@ export default verticalPage({
         {
             q: 'What does it cost against the agency quote in my inbox?',
             a: [
-                'Nothing to build, nothing monthly, free hosting on a puter.site address. The agency quote is buying design meetings and a maintenance retainer; here the maintenance is you typing "add the new water heater brand we install" whenever it comes up.',
+                'It is free to start, with hosting on a puter.site address included and no monthly plan to start. Your Puter account comes with a free allowance for building and publishing, and when it runs out you can upgrade the account. The agency quote is buying design meetings and a maintenance retainer; here the maintenance is you typing "add the new water heater brand we install" whenever it comes up.',
             ],
         },
         {

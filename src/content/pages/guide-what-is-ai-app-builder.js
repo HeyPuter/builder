@@ -276,7 +276,7 @@ export default {
                 {
                     q: 'Are AI app builders free?',
                     a: [
-                        'Many have a free tier with limits on generations or hosting, and paid plans that scale with usage. Puter AI Builder is free with a [Puter](' + LINKS.puter + ') account, including hosting, and people who use your app cover their own storage and AI through their own account. [How that works](' + LINKS.userPays + ').',
+                        'Many have a free tier with limits on generations or hosting, and paid plans that scale with usage. Puter AI Builder is free to start with a [Puter](' + LINKS.puter + ') account, with hosting included, and people who use your app cover their own storage and AI through their own account. [How that works](' + LINKS.userPays + ').',
                     ],
                 },
                 {
@@ -297,7 +297,7 @@ export default {
         {
             type: 'cta',
             heading: 'Describe an app and see what comes back',
-            body: 'Free with a Puter account. Nothing is public until you publish.',
+            body: 'Free to start with a Puter account. Nothing is public until you publish.',
             label: 'Open the builder',
             href: buildLink(''),
         },

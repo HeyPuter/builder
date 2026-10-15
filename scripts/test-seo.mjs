@@ -38,7 +38,7 @@ import {
     FILE_ICON_URL,
 } from './build-seo.mjs';
 import { ORIGIN, HEADER_NAV, FOOTER_NAV, PLAUSIBLE_SRC, LINKS, urlFor, pathFor, buildLink, templateLink } from '../src/content/site.js';
-import { TEMPLATES } from '../src/templates/index.js';
+import { TEMPLATES } from './build-templates.mjs';
 
 const read = (rel) => fs.readFileSync(new URL(rel, import.meta.url), 'utf8');
 const indexHtml = read('../src/index.html');
@@ -645,7 +645,7 @@ for (const page of templatePages) {
         html.includes(JSON.stringify(PUTER_JS_SRC)) &&
         html.indexOf('p.auth.signIn()') < html.indexOf('h.stash({template:slug})') &&
         html.includes("'&handoff='+encodeURIComponent(id)"));
-    check(`${page.slug}: links back to the hub`, (page.related || []).includes('templates'));
+    check(`${page.slug}: links back to the hub`, html.includes('href="/templates/"'));
     check(`${page.slug}: a page restored by Back is usable again`,
         /addEventListener\('pageshow',function\(e\)\{if\(!e\.persisted\)return;busy=false;/.test(html));
 }

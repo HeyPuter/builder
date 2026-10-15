@@ -6,7 +6,7 @@ export default verticalPage({
 
     title: 'Website Builder for Therapists and Counselors | Puter',
     description:
-        'A calm practice website with services, fees, and a contact form, described in plain English and published free. Plus simple practice tools you shape yourself.',
+        'A calm practice website with services, fees, and a contact form, described in plain English and published in one click. Plus simple practice tools you shape yourself.',
     ogTagline: 'A practice site that feels like your office',
 
     eyebrow: 'For therapists',
@@ -155,7 +155,7 @@ export default verticalPage({
         {
             q: 'What does it cost against a directory profile or a site builder plan?',
             a: [
-                'Building and hosting are free with a Puter account. Directory profiles rent you a page in someone else\'s brand; site-builder plans bill monthly for templates. This is your own site, at its own address, at zero, with the files downloadable if you ever want to host elsewhere.',
+                'Puter AI Builder is free to start. Your Puter account includes a free allowance for building and publishing, and you can upgrade it when the allowance runs out. Directory profiles rent you a page in someone else\'s brand; site-builder plans bill monthly for templates. This is your own site, at its own address, with the files downloadable if you ever want to host elsewhere.',
             ],
         },
         {

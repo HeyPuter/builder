@@ -8,9 +8,9 @@ export default {
     changefreq: 'weekly',
     navLabel: 'AI software builder',
 
-    title: 'AI Software Builder - Build business software for free',
+    title: 'AI Software Builder - Build business software, free to start',
     description:
-        'Build internal tools and business software with AI, no coding required. Sign-in, a database, storage, and hosting are included. Free with a Puter account, no lock-in.',
+        'Build internal tools and business software with AI, no coding required. Sign-in, a database, storage, and hosting are included. Free to start, no lock-in.',
     ogTagline: 'Describe the tool. Run the business on it.',
 
     hero: {
@@ -20,7 +20,7 @@ export default {
             'Describe the internal tool, portal, or workflow your team needs and Puter AI Builder writes it, runs it, and fixes its own errors. Sign-in, a database, and hosting are already there.',
         cta: { label: 'Start building', href: '/' },
         secondary: { label: 'Browse use cases', href: '/use-cases/' },
-        note: 'Free with a [Puter](' + LINKS.puter + ') account. Runs in any modern browser, nothing to install.',
+        note: 'Free to start with a [Puter](' + LINKS.puter + ') account. Runs in any modern browser, nothing to install.',
         screenshot: {
             src: '/screenshots/software.webp',
             alt: 'Build expense tracker software with Puter AI Builder',
@@ -245,16 +245,16 @@ export default {
                     ],
                 },
                 {
-                    q: 'Is there a free AI software builder? What is the catch?',
+                    q: 'Is Puter AI Builder free?',
                     a: [
-                        'Puter AI Builder is free to use with a [Puter](' + LINKS.puter + ') account, no card required, and publishing is free too. There is no credit meter to watch while you iterate.',
-                        'The honest limits: very heavy use can reach the free tier\'s limits, at which point you can upgrade your Puter account, and the people who use what you build bring their own Puter account for the storage and AI they consume. Ordinary building, publishing, and iterating do not run into either.',
+                        'Puter AI Builder is free to start. Every [Puter](' + LINKS.puter + ') account comes with a free allowance for building and publishing, and when you use it up you can upgrade your account to keep going.',
+                        'The people who use what you build bring their own Puter account for the storage and AI they consume, so their usage does not draw on yours.',
                     ],
                 },
                 {
                     q: 'How much does it cost to run for my team?',
                     a: [
-                        'Nothing, at any size. Each person using your software covers their own storage and AI usage through their own [Puter](' + LINKS.puter + ') account, so there is no per-seat fee and no bill that grows with adoption. [How the user-pays model works](' + LINKS.userPays + ').',
+                        'Your costs don\'t grow with your team. Each person using your software covers their own storage and AI usage through their own [Puter](' + LINKS.puter + ') account, so there is no per-seat fee and no bill that grows with adoption. [How the user-pays model works](' + LINKS.userPays + ').',
                     ],
                 },
                 {
@@ -325,7 +325,7 @@ export default {
         {
             type: 'cta',
             heading: 'Build the tool your team keeps asking for',
-            body: 'Describe it, and get working software with sign-in, a database, and hosting. Free to build, free to run.',
+            body: 'Describe it, and get working software with sign-in, a database, and hosting. Free to start.',
             label: 'Start building',
             href: buildLink(''),
         },

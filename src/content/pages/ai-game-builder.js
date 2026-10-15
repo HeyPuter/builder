@@ -8,7 +8,7 @@ export default {
     changefreq: 'weekly',
     navLabel: 'AI game builder',
 
-    title: 'AI Game Builder - Make playable browser games for free',
+    title: 'AI Game Builder - Make playable browser games, free to start',
     description:
         'Build a game with AI, no coding required. Describe it, play it in the live preview, and publish a link anyone can play on a phone or desktop. Free to start.',
     ogTagline: 'From a sentence to a playable game',
@@ -20,7 +20,7 @@ export default {
             'Make a game with AI without writing a line of code. Puter AI Builder turns your idea into a browser game you can play right away and share with a link.',
         cta: { label: 'Start building', href: '/' },
         secondary: { label: 'See what to build', href: '/what-to-build/' },
-        note: 'Free with a [Puter](' + LINKS.puter + ') account. Runs in any modern browser, including on a phone.',
+        note: 'Free to start with a [Puter](' + LINKS.puter + ') account. Runs in any modern browser, including on a phone.',
         screenshot: {
             src: '/screenshots/game.webp',
             alt: 'Build a cookie clicker game with Puter AI Builder',
@@ -94,7 +94,7 @@ export default {
                     art: 'history',
                     body: [
                         'Tuning a game means trying things: faster enemies, a double jump, a shorter timer. Every change is saved as a version, so you can try anything and go back in a click if it made the game worse.',
-                        'Nothing is spent on a failed attempt except the minute it took, and the version before it is a click away.',
+                        'If an attempt doesn\'t work out, the version before it is a click away.',
                     ],
                 },
                 {
@@ -247,14 +247,13 @@ export default {
                 {
                     q: 'Is it free to use?',
                     a: [
-                        'Yes. Building and publishing are free with a [Puter](' + LINKS.puter + ') account, and no card is required. Open Puter AI Builder, describe a game, and play it in the preview right away. Nothing is public until you decide to publish.',
-                        'There is no credit meter that a failed attempt eats into. Very heavy use can hit the free tier\'s limits, at which point you can upgrade your Puter account. Ordinary building, tuning, and publishing do not.',
+                        'It is free to start. Every [Puter](' + LINKS.puter + ') account comes with a free allowance for building and publishing, and when you use it up you can upgrade your account to keep going. Open Puter AI Builder, describe a game, and play it in the preview right away. Nothing is public until you decide to publish.',
                     ],
                 },
                 {
                     q: 'How much does it cost to run the game once people are playing it?',
                     a: [
-                        'Nothing. Hosting is included, and anything players use, like saved progress or AI features, is covered by their own [Puter](' + LINKS.puter + ') account. If your game goes viral, you don\'t get a surprise bill. [How it works](' + LINKS.userPays + ').',
+                        'Players do not add to your costs. Hosting is included, and anything players use, like saved progress or AI features, is covered by their own [Puter](' + LINKS.puter + ') account. If your game goes viral, you don\'t get a surprise bill. [How it works](' + LINKS.userPays + ').',
                     ],
                 },
                 {
@@ -313,7 +312,7 @@ export default {
                 {
                     q: 'Can I use it for teaching or with students?',
                     a: [
-                        'Yes. It runs in any modern browser with nothing to install, building is free, and the result is readable code, which makes it a good way to show how a game is put together. Each student builds from their own [Puter](' + LINKS.puter + ') account, and anything they publish is theirs.',
+                        'Yes. It runs in any modern browser with nothing to install, it is free to start, and the result is readable code, which makes it a good way to show how a game is put together. Each student builds from their own [Puter](' + LINKS.puter + ') account, and anything they publish is theirs.',
                     ],
                 },
             ],

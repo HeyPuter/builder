@@ -1,6 +1,6 @@
 // The templates hub: every official template, with a card linking to its page.
-// The cards come from the template registry (src/templates/index.js), so a
-// new template is listed here by adding it there.
+// The cards come from the template registry (scripts/build-templates.mjs), so a
+// new template folder is listed here automatically.
 
 import { templateCards } from '../templates.js';
 
@@ -20,7 +20,7 @@ export default {
         eyebrow: 'Templates',
         h1: 'Templates',
         lead:
-            'Finished apps and websites you can copy into your own account and keep building on. Each one works the moment it is copied, and every part of it can be changed by describing what you want.',
+            'Pick a template, describe your changes, and publish. Websites for local businesses, portfolios, AI apps and more.',
         cta: { label: 'Browse templates', href: '#all' },
         secondary: { label: 'Start from scratch', href: '/' },
     },
@@ -42,7 +42,7 @@ export default {
                     body: 'It does not have to be exact. A template is a working starting point, not a finished product for your case.',
                 },
                 {
-                    title: 'Copy it into your account',
+                    title: 'Start from the template',
                     body: 'Every file lands in a new project of your own, with a live preview. Templates with a backend get their own copy of it, deployed for you.',
                 },
                 {
@@ -65,7 +65,7 @@ export default {
                 {
                     q: 'Who makes these templates?',
                     a: [
-                        'The Puter team. Each one is reviewed and kept working, so what you copy runs the moment it lands in your account.',
+                        'The Puter team. Each one is reviewed and kept working, so it runs the moment you start from it.',
                     ],
                 },
                 {
@@ -84,6 +84,4 @@ export default {
             href: '/',
         },
     ],
-
-    related: ['what-to-build', 'use-cases', 'ai-app-builder'],
 };

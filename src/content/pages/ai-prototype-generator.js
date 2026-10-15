@@ -8,9 +8,9 @@ export default {
     changefreq: 'weekly',
     navLabel: 'AI prototype generator',
 
-    title: 'AI Prototype Generator - Working prototypes in minutes, free',
+    title: 'AI Prototype Generator - Working prototypes, free to start',
     description:
-        'Generate an interactive prototype from a plain-English description. A real working web app, not a mockup: share a link for user testing, edit by pointing, free.',
+        'Generate an interactive prototype from a plain-English description. A working web app, not a mockup: share a link for user testing, edit by pointing. Free to start.',
     ogTagline: 'Prototypes that actually run',
 
     hero: {
@@ -20,7 +20,7 @@ export default {
             'Describe the product and Puter AI Builder generates an interactive prototype you can click through, type into, and share at a link. It is real code with a real backend, so the prototype that wins testing can become the product without a rebuild.',
         cta: { label: 'Start building', href: '/' },
         secondary: { label: 'How to write a build prompt', href: '/guides/how-to-write-a-build-prompt/' },
-        note: 'Free with a [Puter](' + LINKS.puter + ') account. Runs in any modern browser, including on a phone.',
+        note: 'Free to start with a [Puter](' + LINKS.puter + ') account. Runs in any modern browser, including on a phone.',
         screenshot: {
             src: '/screenshots/prototype.webp',
             alt: 'Build a travel booking prototype with Puter AI Builder',
@@ -45,7 +45,7 @@ export default {
                     icon: 'link',
                     title: 'A link for user testing',
                     body:
-                        'Share a private draft link before anything is public, or publish to a free puter.site address. Testers open it on any device with no install and no account on your side to set up.',
+                        'Share a private draft link before anything is public, or publish to a puter.site address. Testers open it on any device with no install and no account on your side to set up.',
                 },
                 {
                     icon: 'cursor',
@@ -102,7 +102,7 @@ export default {
                     art: 'backend',
                     body: [
                         'Because every prototype runs on [Puter](' + LINKS.puter + '), sign-in, a database, storage, and AI models are there from the first version. A signup flow can really create an account; a dashboard can really save data.',
-                        'That means the prototype that wins does not get thrown away and rebuilt. Keep iterating in the same project until it is the product, and the people who use it cover their own storage and AI through their own Puter account, so it costs you nothing to run. [How it works](' + LINKS.userPays + ').',
+                        'That means the prototype that wins does not get thrown away and rebuilt. Keep iterating in the same project until it is the product, and the people who use it cover their own storage and AI through their own Puter account, so your costs don\'t grow with your users. [How it works](' + LINKS.userPays + ').',
                     ],
                 },
             ],
@@ -246,8 +246,7 @@ export default {
                 {
                     q: 'Is the AI prototype generator free?',
                     a: [
-                        'Yes. Generating, editing, and publishing prototypes are free with a [Puter](' + LINKS.puter + ') account, and no card is required. Nothing is public until you decide to share it.',
-                        'Very heavy use can hit the free tier\'s limits, at which point you can upgrade your Puter account. Ordinary prototyping, sharing, and iterating do not.',
+                        'It is free to start. Every [Puter](' + LINKS.puter + ') account comes with a free allowance for building and publishing, and when you use it up you can upgrade your account to keep going. Nothing is public until you decide to share it.',
                     ],
                 },
                 {

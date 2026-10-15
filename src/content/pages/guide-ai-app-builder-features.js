@@ -108,7 +108,7 @@ export default {
             heading: '8. One-click publishing and hosting',
             body: [
                 'The app gets a public address with HTTPS when you decide it should, with no hosting account, deploy pipeline, or build step. Updates go live the same way. A private draft link for showing work in progress is a useful companion.',
-                'The questions to ask are what hosting costs as usage grows and whether a custom domain is included. Puter AI Builder hosts published apps on puter.site for free. A custom domain means pointing your DNS at the published address or hosting the downloaded files yourself.',
+                'The questions to ask are what hosting costs as usage grows and whether a custom domain is included. Puter AI Builder includes hosting for published apps on puter.site. A custom domain means pointing your DNS at the published address or hosting the downloaded files yourself.',
             ],
         },
 
@@ -173,7 +173,7 @@ export default {
             id: 'puter',
             heading: 'Where Puter AI Builder stands',
             body: [
-                'Against that list, Puter AI Builder includes data, accounts, files, and AI models from the first version, edits existing files rather than regenerating, runs the app in a live preview, catches and repairs runtime errors, supports click-to-edit on any element in the preview, snapshots every turn with an undoable restore, publishes free to puter.site, and exports as plain files.',
+                'Against that list, Puter AI Builder includes data, accounts, files, and AI models from the first version, edits existing files rather than regenerating, runs the app in a live preview, catches and repairs runtime errors, supports click-to-edit on any element in the preview, snapshots every turn with an undoable restore, publishes to puter.site in one click, and exports as plain files.',
                 'Where it is weaker, for the record. There is no native iOS or Android build, a custom domain takes DNS work or self-hosting, each project belongs to one account so two people cannot edit it at once, and people using your app\'s backend features sign in with a Puter account. The [features page](/features/) has the complete list, and the [walkthrough](/guides/how-to-build-an-app-with-ai/) shows most of them in use on one example app.',
             ],
         },

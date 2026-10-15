@@ -1,8 +1,7 @@
 // Factory for the template pages under /templates/.
 //
 // Each official template (src/templates/<slug>/template.js) gets a static
-// page built from its own metadata: what is in it, what to ask for once it is
-// yours, and its own questions. This factory contributes the shared skeleton
+// page built from its own metadata: what is in it and its own questions. This factory contributes the shared skeleton
 // (slug shape, parent, section order, the "Use this template" buttons), the
 // same division of labour as the profession pages (verticals.js).
 //
@@ -12,7 +11,7 @@
 // first, so the app copies the template on arrival (TEMPLATE_SCRIPT in
 // scripts/build-seo.mjs, consumeTemplateDeepLink in src/js/templates.js).
 
-import { TEMPLATES } from '../templates/index.js';
+import { TEMPLATES } from '../../scripts/build-templates.mjs';
 import { templateLink } from './site.js';
 
 export const TEMPLATES_HUB_SLUG = 'templates';
@@ -35,9 +34,6 @@ export function templateCards() {
 
 export function templatePage(t) {
     const hasBackend = t.workers.length > 0;
-    // A chip whose prompt ends in a colon is a sentence the user finishes in
-    // the composer ("...match my brand: "). On a page it reads as cut off.
-    const ideas = t.suggestions.filter((s) => !/:\s*$/.test(s.prompt));
 
     return {
         slug: `${TEMPLATES_HUB_SLUG}/${t.slug}`,
@@ -54,10 +50,10 @@ export function templatePage(t) {
         hero: {
             eyebrow: 'Template',
             h1: `${t.name} template`,
-            lead: t.page.lead,
+            lead: t.page.description,
             cta: { label: 'Use this template', href: templateLink(t.slug), template: t.slug },
             secondary: { label: 'All templates', href: `/${TEMPLATES_HUB_SLUG}/` },
-            note: 'Free with a Puter account. Your copy is yours to change, publish or download.',
+            note: 'Free to start with a Puter account. Your copy is yours to change, publish or download.',
             screenshot: {
                 src: templateShot(t.slug),
                 alt: `The ${t.name} template, as it looks when you copy it`,
@@ -81,8 +77,8 @@ export function templatePage(t) {
                 heading: 'How to use it',
                 items: [
                     {
-                        title: 'Copy it into your account',
-                        body: `Press Use this template and sign in with Puter. A new project with every file of the ${t.name} template appears in your account${hasBackend ? ', with its own backend deployed and running' : ''}.`,
+                        title: 'Start from the template',
+                        body: `Press Use this template and sign in with Puter. A new project with every file of the ${t.name} template opens in the builder${hasBackend ? ', with its own backend deployed and running' : ''}.`,
                     },
                     {
                         title: 'Describe what to change',
@@ -94,13 +90,6 @@ export function templatePage(t) {
                     },
                 ],
             },
-            ...(ideas.length ? [{
-                type: 'grid',
-                id: 'ideas',
-                heading: 'Ideas to try once it is yours',
-                intro: 'Your copy opens with these suggestions ready to send. Pick one, or describe a change of your own.',
-                items: ideas.map((s) => ({ icon: 'wand', title: s.label, body: s.prompt })),
-            }] : []),
             {
                 type: 'faq',
                 id: 'faq',
@@ -108,8 +97,8 @@ export function templatePage(t) {
                 items: [
                     ...t.page.faq,
                     {
-                        q: 'Is the template free to use?',
-                        a: ['Yes. Copying a template and building on it is free with a Puter account, and the copy is yours to keep.'],
+                        q: 'Is the template free?',
+                        a: ['Copying a template is free with a Puter account, and the copy is yours to keep. Changing it with AI uses your account\'s free allowance, and when that runs out you can upgrade.'],
                     },
                     {
                         q: 'Will changes to the template affect my copy?',
@@ -120,14 +109,12 @@ export function templatePage(t) {
             {
                 type: 'cta',
                 heading: `Start from the ${t.name}`,
-                body: 'Copy it into your account in a few seconds, then make it yours by describing what you want.',
+                body: 'It opens in the builder in a few seconds. Then make it yours by describing what you want.',
                 label: 'Use this template',
                 href: templateLink(t.slug),
                 template: t.slug,
             },
         ],
-
-        related: [TEMPLATES_HUB_SLUG, 'what-to-build', 'ai-app-builder'],
     };
 }
 

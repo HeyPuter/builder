@@ -8,19 +8,19 @@ export default {
     changefreq: 'weekly',
     navLabel: 'AI portfolio builder',
 
-    title: 'AI Portfolio Builder - Create a portfolio website free with AI',
+    title: 'AI Portfolio Builder - Create a portfolio website with AI',
     description:
-        'Build a portfolio website with AI from your resume, images, and copy. Galleries, case studies, and a contact form that saves messages. Free to publish.',
+        'Build a portfolio website with AI from your resume, images, and copy. Galleries, case studies, and a contact form that saves messages. Free to start.',
     ogTagline: 'Your work, on a site of its own',
 
     hero: {
         eyebrow: 'AI portfolio builder',
         h1: 'AI portfolio builder that turns your work into a live site',
         lead:
-            'Describe what you do, attach your work, and Puter AI Builder designs a portfolio website around it: galleries, case studies, an about page, and a contact form that reaches you. Published in minutes, free.',
+            'Describe what you do, attach your work, and Puter AI Builder designs a portfolio website around it: galleries, case studies, an about page, and a contact form that reaches you. Published in minutes.',
         cta: { label: 'Start building', href: '/' },
         secondary: { label: 'Built for photographers', href: '/for/photographers/' },
-        note: 'Free with a [Puter](' + LINKS.puter + ') account. Runs in any modern browser, including on a phone.',
+        note: 'Free to start with a [Puter](' + LINKS.puter + ') account. Runs in any modern browser, including on a phone.',
         screenshot: {
             src: '/screenshots/portfolio.webp',
             alt: 'Build a florist portfolio site with Puter AI Builder',
@@ -67,9 +67,9 @@ export default {
                 },
                 {
                     icon: 'globe',
-                    title: 'Live in one click, hosted for free',
+                    title: 'Live in one click, hosting included',
                     body:
-                        'Publish puts your portfolio on its own address, served over HTTPS, ready to paste into an application or a bio. Hosting is included, and visitors do not need an account to see it. [How the free model works](' + LINKS.userPays + ').',
+                        'Publish puts your portfolio on its own address, served over HTTPS, ready to paste into an application or a bio. Visitors do not need an account to see it. [How it works](' + LINKS.userPays + ').',
                 },
             ],
         },
@@ -244,7 +244,7 @@ export default {
                 {
                     q: 'Can I build a portfolio with AI for free?',
                     a: [
-                        'Yes. Building, previewing, and publishing a portfolio are free with a [Puter](' + LINKS.puter + ') account, and no card is required. The published site is served on its own puter.site address with HTTPS. Very heavy use can hit the free tier\'s limits, at which point you can upgrade your account; building and publishing a portfolio does not.',
+                        'You can start for free. Every [Puter](' + LINKS.puter + ') account comes with a free allowance for building and publishing, and when you use it up you can upgrade your account to keep going. The published site is served on its own puter.site address with HTTPS.',
                     ],
                 },
                 {
@@ -319,7 +319,7 @@ export default {
                 {
                     q: 'What does it cost to keep the portfolio online?',
                     a: [
-                        'Nothing. Hosting on puter.site is included, and anything a visitor uses that touches the backend, such as sending a message through the form or asking the on-page AI assistant a question, is covered by their own [Puter](' + LINKS.puter + ') account rather than yours. A portfolio that gets a burst of traffic after a viral post does not produce a bill. [How it works](' + LINKS.userPays + ').',
+                        'Visitors do not add to your costs. Hosting on puter.site is included, and anything a visitor uses that touches the backend, such as sending a message through the form or asking the on-page AI assistant a question, is covered by their own [Puter](' + LINKS.puter + ') account rather than yours. A portfolio that gets a burst of traffic after a viral post does not produce a bill. [How it works](' + LINKS.userPays + ').',
                     ],
                 },
             ],
@@ -328,7 +328,7 @@ export default {
         {
             type: 'cta',
             heading: 'Put your work on a site of its own',
-            body: 'Describe what you do, attach your work, and publish a portfolio with AI. Free to build, free to host.',
+            body: 'Describe what you do, attach your work, and publish a portfolio with AI. Free to start, hosting included.',
             label: 'Start building',
             href: buildLink(''),
         },

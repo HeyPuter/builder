@@ -6,7 +6,7 @@ export default verticalPage({
 
     title: 'App and Website Builder for Lawyers and Law Firms | Puter',
     description:
-        'A firm website, client intake, deadline tracking, and small office tools for a solo practice or small firm. Described in plain English, built and published free.',
+        'A firm website, client intake, deadline tracking, and small office tools for a solo practice or small firm. Described in plain English. Free to start.',
     ogTagline: 'Practice tools, minus the agency',
 
     eyebrow: 'For lawyers',
@@ -162,7 +162,7 @@ export default verticalPage({
         {
             q: 'What does it cost a small firm?',
             a: [
-                'Building and publishing are free with a Puter account, with no card required. There is no per-seat license and no annual contract, which is a sentence rarely true of anything else on a law office\'s software list.',
+                'Puter AI Builder is free to start. Your Puter account includes a free allowance for building and publishing, and when it runs out you can upgrade the account to continue. There is no per-seat license and no annual contract, which is a sentence rarely true of anything else on a law office\'s software list.',
             ],
         },
         {

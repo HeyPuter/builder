@@ -193,7 +193,6 @@ function renderSkeleton() {
                         { href: '/ai-website-builder/', label: 'AI website builder' },
                         { href: '/open-source-ai-app-builder/', label: 'Open source' },
                         { href: '/use-cases/', label: 'Use cases' },
-                        { href: '/templates/', label: 'Templates' },
                         { href: '/for/', label: "Who it's for" },
                         { href: '/features/', label: 'Features' },
                         { href: '/guides/', label: 'Guides' },

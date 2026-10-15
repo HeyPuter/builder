@@ -3,7 +3,7 @@
 // usage and storage are their own.
 export default {
     slug: 'ai-chat',
-    name: 'AI Chat Assistant',
+    name: 'AI Chat App',
     category: 'App',
     description: 'A private AI assistant with streaming replies and saved conversations.',
     updated: '2026-09-28',
@@ -20,10 +20,8 @@ export default {
     page: {
         title: 'AI Chat Assistant Template With Saved Conversations',
         description:
-            'A ready-made AI chat app with streaming replies, Markdown, and conversations saved to each user’s own account. Copy it and make it your own assistant.',
+            "Build your own AI assistant from this chat app, which streams replies, renders Markdown and saves every conversation to the user's account.",
         ogTagline: 'Your own AI assistant, ready to change',
-        lead:
-            'A clean chat interface with streaming answers, Markdown and code formatting, and a sidebar of past conversations that follows each person across devices. Copy it, then give the assistant a job, a name and a look of your own.',
         features: [
             { icon: 'zap', title: 'Streaming replies', body: 'Answers appear word by word as they are written, with a typing indicator while the first words arrive.' },
             { icon: 'history', title: 'Saved conversations', body: 'Every chat is kept in the signed-in person’s own Puter storage, with a sidebar to reopen or delete them.' },

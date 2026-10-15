@@ -10,9 +10,9 @@ export default {
     changefreq: 'weekly',
     navLabel: 'AI UI builder',
 
-    title: 'AI UI Builder - Web & Responsive Mobile UI, Free',
+    title: 'AI UI Builder - Web & Responsive Mobile UI, Free to Start',
     description:
-        'Build web and responsive mobile UI with AI. Describe your screens, refine layouts in a live preview, then publish free or export HTML, CSS, and JavaScript.',
+        'Build web and responsive mobile UI with AI. Describe your screens, refine layouts in a live preview, then publish in one click or export HTML, CSS, and JavaScript.',
     ogTagline: 'One interface. Every screen size.',
 
     hero: {
@@ -22,7 +22,7 @@ export default {
             'Describe your screens and get a working web interface that adapts to desktops, tablets, and phones. Click through the UI, refine the layout at each size, and publish it to a link, without writing code.',
         cta: { label: 'Build my UI', href: buildLink(starterPrompt) },
         secondary: { label: 'How to write a good prompt', href: '/guides/how-to-write-a-build-prompt/' },
-        note: 'Free with a [Puter](' + LINKS.puter + ') account. Build responsive web UI for desktop and mobile browsers.',
+        note: 'Free to start with a [Puter](' + LINKS.puter + ') account. Build responsive web UI for desktop and mobile browsers.',
         screenshot: {
             src: '/screenshots/ui.webp',
             alt: 'Build an analytics dashboard UI with Puter AI Builder',
@@ -71,7 +71,7 @@ export default {
                     icon: 'download',
                     title: 'Publish or export, no lock-in',
                     body:
-                        'Publish in one click to a free public link, or download the whole project as a zip. There is no build step and no proprietary format, so the files run on any static host or straight off your disk.',
+                        'Publish in one click to a public link, or download the whole project as a zip. There is no build step and no proprietary format, so the files run on any static host or straight off your disk.',
                 },
             ],
         },
@@ -104,7 +104,7 @@ export default {
                     art: 'files',
                     body: [
                         'The project is a normal folder of HTML, CSS, and JavaScript. Download it as a zip whenever you like, hand it to a developer, or drop it into an existing codebase.',
-                        'Or publish it right here for free. Anything people use inside it, like sign-in or AI features, is covered by their own [Puter](' + LINKS.puter + ') account, so running it costs you nothing at any scale. [How it works](' + LINKS.userPays + ').',
+                        'Or publish it right here, with hosting included. Anything people use inside it, like sign-in or AI features, is covered by their own [Puter](' + LINKS.puter + ') account, so your costs don\'t grow with your users. [How it works](' + LINKS.userPays + ').',
                     ],
                 },
             ],
@@ -139,7 +139,7 @@ export default {
                 {
                     title: 'Publish it, or take the files',
                     body:
-                        'Press Publish to get a public link with free hosting included, then open it on a phone to check touch controls and share it for feedback. Or download the project as a zip and keep working with the web files elsewhere.',
+                        'Press Publish to get a public link with hosting included, then open it on a phone to check touch controls and share it for feedback. Or download the project as a zip and keep working with the web files elsewhere.',
                 },
             ],
         },
@@ -235,8 +235,7 @@ export default {
                 {
                     q: 'Is the AI UI builder free?',
                     a: [
-                        'Yes. Building and publishing are free with a [Puter](' + LINKS.puter + ') account, and no card is required. Open Puter AI Builder, describe an interface, and use it in the preview right away. Nothing is public until you decide to publish.',
-                        'Very heavy use can hit the free tier\'s limits, at which point you can upgrade your Puter account. Ordinary building, iterating, and publishing do not.',
+                        'It is free to start. Every [Puter](' + LINKS.puter + ') account comes with a free allowance for building and publishing, and when you use it up you can upgrade your account to keep going. Open Puter AI Builder, describe an interface, and use it in the preview right away. Nothing is public until you decide to publish.',
                     ],
                 },
                 {
@@ -323,7 +322,7 @@ export default {
                 {
                     q: 'How much does it cost to run what I build?',
                     a: [
-                        'Nothing. Hosting is included, and anything people use inside the interface, like sign-in, storage, or AI features, is covered by their own [Puter](' + LINKS.puter + ') account. There are no credits to watch and no surprise bill if it takes off. [How it works](' + LINKS.userPays + ').',
+                        'Your costs do not grow with your users. Hosting is included, and anything people use inside the interface, like sign-in, storage, or AI features, is covered by their own [Puter](' + LINKS.puter + ') account, so there is no surprise bill if it takes off. [How it works](' + LINKS.userPays + ').',
                     ],
                 },
                 {

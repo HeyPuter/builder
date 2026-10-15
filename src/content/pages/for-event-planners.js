@@ -6,7 +6,7 @@ export default verticalPage({
 
     title: 'Website and App Builder for Event Planners | Puter',
     description:
-        'Client event sites, RSVP pages, vendor trackers, and run-of-show tools for event and wedding planners. Describe the event and it is built and published free.',
+        'Client event sites, RSVP pages, vendor trackers, and run-of-show tools for event and wedding planners. Describe the event and it is built, then published in one click.',
     ogTagline: 'Every event gets its own site',
 
     eyebrow: 'For event planners',
@@ -161,7 +161,7 @@ export default verticalPage({
         {
             q: 'Can I charge clients for this?',
             a: [
-                'Planners do: the event site and RSVP handling become a line item or a differentiator in your package, and since building and hosting cost you nothing, it is pure margin and pure polish. The site is your work product; price it like the rest of your taste.',
+                'Planners do: the event site and RSVP handling become a line item or a differentiator in your package. Building is free to start and hosting is included, so the site adds polish to the package without a separate subscription for each event. The site is your work product; price it like the rest of your taste.',
             ],
         },
     ],

@@ -2,12 +2,12 @@
 // no backend. Agent details, listings, neighborhoods, reviews, sales and FAQ
 // are plain data at the top of files/app.js, and SECTIONS switches parts of the
 // page off. Photos are CC0 stock (StockSnap) standing in for the agent's own
-// headshot and listing photos. See src/templates/index.js for the shape.
+// headshot and listing photos. See scripts/build-templates.mjs for the shape.
 export default {
     slug: 'real-estate-agent',
-    name: 'Real Estate Agent',
+    name: 'Real Estate Agent Website',
     category: 'Website',
-    description: 'A one-page site for a real estate agent, with listings, neighborhood guides, client reviews and a consultation booking button.',
+    description: 'Show your listings and book clients as a real estate agent.',
     updated: '2026-10-12',
     workers: [],
 
@@ -19,7 +19,7 @@ export default {
         { label: 'Save enquiries', prompt: 'Make the contact form save each message instead of opening an email, and add a private page where only I can read them, filtered by buying or selling.' },
     ],
 
-    // Kept in every fork's system prompt (see src/templates/index.js).
+    // Kept in every fork's system prompt (see scripts/build-templates.mjs).
     instructions: [
         'This project is a website for a real estate agent. Content lives as data at the top of app.js; keep it there when making changes:',
         '- AGENT holds the name, brokerage, license numbers, phone, email, office, area and specialty, and fills every place they appear. Change them there, not in the HTML. When they change, also update the <title> and meta description in index.html, which are static.',
@@ -31,12 +31,10 @@ export default {
     ].join('\n'),
 
     page: {
-        title: 'Real Estate Agent Website Template, Free to Edit With AI',
+        title: 'Free Real Estate Agent Website Template to Edit With AI',
         description:
-            'A one-page website for a real estate agent, with featured listings, neighborhood guides, client reviews, recent sales and a Book a consultation button.',
+            'Real estate agents get a site for featured listings, neighborhood guides, recent sales and client reviews, with a button to book a consultation.',
         ogTagline: 'A real estate agent site that books consultations',
-        lead:
-            'A one-page site for a real estate agent. It opens with your name, headshot, brokerage and specialty, then shows your services, a carousel of your listings and recent sales, a guide to each neighborhood you work in, client reviews, your story and a contact form. A Book a consultation button stays in reach on every screen. Copy it, then describe your business and the page changes to fit.',
         features: [
             { icon: 'home', title: 'Featured properties', body: 'A carousel of your listings with price, status, beds, baths and square feet, filtered by for sale, under offer and sold. Each one has an enquiry button.' },
             { icon: 'mapPin', title: 'Neighborhood guides', body: 'Each area you serve gets a median price, typical home, time to sell, commute and the advice you give buyers there.' },

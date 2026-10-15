@@ -3,12 +3,12 @@
 // warning lights, specials, jobs, reviews, hours, booking options and where
 // bookings go are plain data at the top of files/app.js. Photos are CC0 stock
 // (rawpixel public domain, StockSnap) standing in for the shop's own photos.
-// See src/templates/index.js for the shape.
+// See scripts/build-templates.mjs for the shape.
 export default {
     slug: 'auto-repair',
-    name: 'Auto Repair Shop',
+    name: 'Auto Repair Shop Website',
     category: 'Website',
-    description: 'A one-page site for a car repair shop, with an instant quote, a warning light guide and a drop-off booking form.',
+    description: 'Built for auto repair shops taking drop-off bookings.',
     updated: '2026-10-15',
     workers: [],
 
@@ -20,7 +20,7 @@ export default {
         { label: 'Save bookings', prompt: 'Make the booking form save each drop-off instead of opening an email, and add a private page where only I can see them, sorted by drop-off day.' },
     ],
 
-    // Kept in every fork's system prompt (see src/templates/index.js).
+    // Kept in every fork's system prompt (see scripts/build-templates.mjs).
     instructions: [
         'This project is a website for an independent auto repair shop. Content lives as data at the top of app.js; keep it there when making changes:',
         '- BUSINESS holds the name, phone, email, address, street, license, bays, technicians, makes, rating and timezone, and fills every place they appear. Change contact details there, not in the HTML. When the shop, town or prices change, also update the <title> and meta description in index.html, which are static.',
@@ -33,12 +33,10 @@ export default {
     ].join('\n'),
 
     page: {
-        title: 'Auto Repair Shop Website Template, Free to Edit With AI',
+        title: 'Free Auto Repair Shop Website Template to Edit With AI',
         description:
-            'A one-page website for a car repair shop, with an instant price quote, a dashboard warning light guide, specials, and a drop-off booking form that builds a work order.',
+            'This car repair shop website gives instant price quotes, explains dashboard warning lights, lists specials and takes drop-off bookings.',
         ogTagline: 'An auto repair website that quotes before they call',
-        lead:
-            'A one-page site for an independent garage, in a graphite and safety-yellow workshop look. A visitor picks their vehicle and a job in the hero and sees the typical price range, time in the shop and warranty. A warning light guide tells drivers what a light means and whether to keep driving. The booking form builds a work order as they pick services and a drop-off day, then sends it to your email or form service. The page also shows your services and prices, specials, recent jobs, reviews, hours and location. Copy it, then describe your shop and the page changes to fit.',
         features: [
             { icon: 'calculator', title: 'Quick quote in the hero', body: 'Pick a car, SUV, pickup, hybrid or electric car and a job, and see the price range, time in the shop and whether you can wait for it.' },
             { icon: 'zap', title: 'Warning light guide', body: 'Tap a dashboard light to see what it means, how urgent it is and what to do now, with a button to book a check.' },

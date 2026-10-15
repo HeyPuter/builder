@@ -22,7 +22,7 @@ export default {
             'Turn your outline into an online presentation with AI. Present in your browser, send the link to your audience, and edit and republish the deck at the same URL whenever your story changes.',
         cta: { label: 'Build an online deck', href: buildLink(starterPrompt) },
         secondary: { label: 'How to write the prompt', href: '/guides/how-to-write-a-build-prompt/' },
-        note: 'Free with a [Puter](' + LINKS.puter + ') account. Present online, print to PDF, or download web files. No PowerPoint or Google Slides export.',
+        note: 'Free to start with a [Puter](' + LINKS.puter + ') account. Present online, print to PDF, or download web files. No PowerPoint or Google Slides export.',
         screenshot: {
             src: '/screenshots/deck.webp',
             alt: 'Build an online pitch deck with Puter AI Builder',
@@ -69,9 +69,9 @@ export default {
                 },
                 {
                     icon: 'users',
-                    title: 'Free to build, free to share at any scale',
+                    title: 'Free to share at any scale',
                     body:
-                        'Publishing is free, and anything viewers use, like sign-in or an AI feature on a slide, is covered by their own [Puter](' + LINKS.puter + ') account. If the deck gets passed around, you don\'t get a surprise bill. [How it works](' + LINKS.userPays + ').',
+                        'Hosting is included, and anything viewers use, like sign-in or an AI feature on a slide, is covered by their own [Puter](' + LINKS.puter + ') account. If the deck gets passed around, you don\'t get a surprise bill. [How it works](' + LINKS.userPays + ').',
                 },
             ],
         },
@@ -228,7 +228,7 @@ export default {
                 {
                     q: 'Is the online deck builder free?',
                     a: [
-                        'Yes. Building, publishing, and presenting are free with a [Puter](' + LINKS.puter + ') account, and no card is required. There is no watermark on the deck and no cap on how many people can open the link. Very heavy use can hit the free tier\'s limits, at which point you can upgrade your account; ordinary building and iterating do not.',
+                        'It is free to start. Every [Puter](' + LINKS.puter + ') account comes with a free allowance for building and publishing, and when you use it up you can upgrade your account to keep going. There is no watermark on the deck and no cap on how many people can open the link.',
                     ],
                 },
                 {
@@ -318,7 +318,7 @@ export default {
                 {
                     q: 'How much does it cost to share the deck widely?',
                     a: [
-                        'Nothing. Hosting is included, and anything viewers use, like sign-in or an AI feature on a slide, is covered by their own [Puter](' + LINKS.puter + ') account. If the link gets forwarded a thousand times, you don\'t get a surprise bill. [How it works](' + LINKS.userPays + ').',
+                        'Viewers do not add to your costs. Hosting is included, and anything viewers use, like sign-in or an AI feature on a slide, is covered by their own [Puter](' + LINKS.puter + ') account. If the link gets forwarded a thousand times, you don\'t get a surprise bill. [How it works](' + LINKS.userPays + ').',
                     ],
                 },
                 {

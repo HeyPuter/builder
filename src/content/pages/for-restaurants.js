@@ -6,7 +6,7 @@ export default verticalPage({
 
     title: 'Website Builder for Restaurants and Cafes | Puter',
     description:
-        'A restaurant website you can update yourself: menu, hours, specials, and reservation requests. Describe your place in plain English and it is live for free.',
+        'A restaurant website you can update yourself: menu, hours, specials, and reservation requests. Describe your place in plain English and publish it in one click.',
     ogTagline: 'A site you update between rushes',
 
     eyebrow: 'For restaurants',
@@ -155,7 +155,7 @@ export default verticalPage({
         {
             q: 'What does the site cost per month?',
             a: [
-                'Nothing. Building and hosting on a puter.site address are free with a Puter account. For a business whose margins are counted in single percentage points, a website line item at zero is not a rounding error.',
+                'Puter AI Builder is free to start, with hosting on a puter.site address included. Every Puter account comes with a free allowance for building and publishing, and when it is used up you can upgrade your account to keep going.',
             ],
         },
         {

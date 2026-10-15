@@ -14,7 +14,7 @@
 // breadcrumb and routes their crawl path through the hub.
 //
 // Template pages live under /templates/ and are built from the template
-// registry (src/templates/index.js) by the templatePage factory
+// registry (scripts/build-templates.mjs) by the templatePage factory
 // (src/content/templates.js): adding a template adds its page.
 
 import aiAppBuilder from './ai-app-builder.js';
