@@ -38,6 +38,11 @@ import realEstateAgent from './real-estate-agent/template.js';
 import lawFirm from './law-firm/template.js';
 import dentalPractice from './dental-practice/template.js';
 import pizzaShop from './pizza-shop/template.js';
+import homeRemodeling from './home-remodeling/template.js';
+import barbershop from './barbershop/template.js';
+import autoRepair from './auto-repair/template.js';
+import plumbingService from './plumbing-service/template.js';
+import truckingCompany from './trucking-company/template.js';
 
 export const TEMPLATES = [
     feedbackBoard,
@@ -52,6 +57,11 @@ export const TEMPLATES = [
     lawFirm,
     dentalPractice,
     pizzaShop,
+    homeRemodeling,
+    barbershop,
+    autoRepair,
+    plumbingService,
+    truckingCompany,
 ];
 
 export default TEMPLATES;

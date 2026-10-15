@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#16261f">
+<title>Halfmoon Barber Co.: Fades, scissor cuts and hot towel shaves in Fairhaven</title>
+<meta name="description" content="Fades, scissor cuts, beard work and hot towel shaves on Mercer Street, Fairhaven. Walk-ins welcome, or pick your services and barber and request a chair.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=DM+Serif+Display:ital@1&family=Outfit:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="topline">
+    <div class="wrap topline-row">
+        <p class="status" id="status"><span class="status-dot" aria-hidden="true"></span><span data-status>Open now</span></p>
+        <p class="topline-addr"><span data-bind="address">88 Mercer Street, Fairhaven</span></p>
+        <a class="topline-phone" data-bind-href="tel" href="tel:+15550182240"><span data-bind="phone">(555) 018-2240</span></a>
+    </div>
+</div>
+
+<header class="hero" id="top">
+    <div class="wrap">
+        <nav class="nav" aria-label="Main">
+            <a class="brand" href="#top">
+                <img src="icon.svg" alt="" width="42" height="42">
+                <span><b data-bind="shortName">Halfmoon</b><small data-bind="kind">Barber Co.</small></span>
+            </a>
+            <div class="nav-links" id="nav-links">
+                <a href="#menu">Menu</a>
+                <a href="#barbers">Barbers</a>
+                <a href="#lookbook">Lookbook</a>
+                <a href="#visit">Visit</a>
+                <a href="#faq">Questions</a>
+            </div>
+            <div class="nav-cta">
+                <a class="btn btn-red btn-sm" href="#book" data-book>Book a chair</a>
+                <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links" aria-label="Open menu"><span></span><span></span></button>
+            </div>
+        </nav>
+
+        <div class="hero-grid">
+            <div class="hero-copy">
+                <p class="eyebrow" id="hero-eyebrow">Barbershop · Fairhaven · Since 2014</p>
+                <h1 id="hero-title"><span class="h-block">Clean lines,</span> <em>no rush.</em></h1>
+                <p class="hero-lede" id="hero-lede">Fades, scissor cuts, beard work and straight-razor shaves on Mercer Street. Every cut gets a full 45 minutes and a hot towel. Walk in, or pick your services and barber below and we will hold you a chair.</p>
+                <div class="hero-actions">
+                    <a class="btn btn-red" href="#book" data-book>Book a chair <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+                    <a class="btn btn-line" href="#menu">See the menu</a>
+                </div>
+                <ul class="hero-facts" id="hero-facts"></ul>
+                <p class="sample-note" data-sample hidden>Sample shop, barbers, prices and reviews. Replace them with your own before publishing.</p>
+            </div>
+
+            <div class="hero-art">
+                <figure class="hero-photo">
+                    <img src="photos/hero.jpg" alt="A barber in a hat trims a client's curly hair in a dim, warm shop" fetchpriority="high">
+                </figure>
+                <div class="ticket" aria-live="polite">
+                    <span class="ticket-label">Walk-ins right now</span>
+                    <b id="wait-now">About 20 min</b>
+                    <span class="ticket-sub" id="wait-sub">Typical wait at this time of day</span>
+                    <span class="ticket-punch" aria-hidden="true"></span>
+                </div>
+                <div class="rating-badge">
+                    <b><span data-bind="rating">4.9</span> ★</b>
+                    <span><span data-bind="reviewCount">612</span> reviews</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<div class="pole-band" aria-label="House perks">
+    <div class="pole-stripes" aria-hidden="true"></div>
+    <div class="marquee"><ul class="marquee-track" id="perks"></ul></div>
+</div>
+
+<section class="section" id="menu" aria-labelledby="menu-title">
+    <div class="wrap">
+        <div class="sec-head sec-head-row">
+            <div>
+                <p class="tag">The menu</p>
+                <h2 id="menu-title">Cuts, beards <em>&amp; shaves</em></h2>
+            </div>
+            <p class="sec-lede">Prices include the wash, the hot towel and the style. Tap <b>Add</b> on anything you want and your visit adds up on the right, time and all.</p>
+        </div>
+
+        <div class="menu-layout">
+            <div class="menu-board">
+                <div class="menu-tabs" id="menu-tabs" role="tablist" aria-label="Service categories"></div>
+                <div class="menu-list" id="menu-list" role="tabpanel"></div>
+            </div>
+
+            <aside class="visit" id="visit-card" aria-labelledby="visit-title">
+                <div class="visit-head">
+                    <h3 id="visit-title">Your visit</h3>
+                    <button class="visit-clear" type="button" id="visit-clear" hidden>Clear</button>
+                </div>
+                <ul class="visit-items" id="visit-items"></ul>
+                <dl class="visit-total" id="visit-total"></dl>
+                <a class="btn btn-ink btn-block" href="#book" id="visit-book">Request this visit</a>
+                <p class="visit-note">Pay in the shop after your cut. <span data-bind="payment">Cards, cash and tap to pay.</span></p>
+            </aside>
+        </div>
+    </div>
+</section>
+
+<section class="section section-ink" id="barbers" aria-labelledby="barbers-title">
+    <div class="wrap">
+        <div class="sec-head sec-head-row">
+            <div>
+                <p class="tag tag-light">The chairs</p>
+                <h2 id="barbers-title">Meet your <em>barber</em></h2>
+            </div>
+            <p class="sec-lede">Three chairs, three barbers, each with their own speciality. The dots show the days each of us cuts.</p>
+        </div>
+        <div class="barbers" id="barber-list"></div>
+    </div>
+</section>
+
+<section class="section" id="lookbook" aria-labelledby="lookbook-title">
+    <div class="wrap">
+        <div class="sec-head sec-head-row">
+            <div>
+                <p class="tag">Lookbook</p>
+                <h2 id="lookbook-title">Not sure <em>what to ask for?</em></h2>
+            </div>
+            <p class="sec-lede">Pick a look to see the words to use in the chair, how often it needs a touch-up, and who cuts it best.</p>
+        </div>
+        <div class="look-layout">
+            <div class="looks" id="looks" role="radiogroup" aria-labelledby="lookbook-title"></div>
+            <div class="look-out" id="look-out" aria-live="polite"></div>
+        </div>
+        <p class="sample-note" data-sample hidden>Sample photos from free stock libraries. Replace them with cuts from your own chairs.</p>
+    </div>
+</section>
+
+<section class="section section-green" id="club" aria-labelledby="club-title">
+    <div class="wrap club">
+        <div class="club-card">
+            <figure class="club-photo"><img src="photos/pole.jpg" alt="A red, white and blue barber pole on a teal wall" loading="lazy"></figure>
+            <div class="club-body">
+                <p class="tag tag-light">Membership</p>
+                <h2 id="club-title"><span id="club-name">Chair Club</span></h2>
+                <p class="club-price" id="club-price"></p>
+                <ul class="club-perks" id="club-perks"></ul>
+                <p class="club-note" id="club-note"></p>
+                <a class="btn btn-red" href="#book" id="club-join" data-book>Ask about joining</a>
+            </div>
+        </div>
+        <div class="rules">
+            <h3 class="rules-title">House rules</h3>
+            <ol class="rule-list" id="rules"></ol>
+        </div>
+    </div>
+</section>
+
+<section class="section" id="reviews" aria-labelledby="reviews-title">
+    <div class="wrap">
+        <div class="sec-head reviews-head">
+            <div>
+                <p class="tag">Reviews</p>
+                <h2 id="reviews-title">From the <em>chair</em></h2>
+            </div>
+            <div class="score">
+                <b data-bind="rating">4.9</b>
+                <span class="stars" aria-hidden="true">★★★★★</span>
+                <span><span data-bind="reviewCount">612</span> reviews on Google</span>
+            </div>
+        </div>
+        <p class="sample-note" data-sample hidden>Sample reviews and rating. Replace them with your real reviews before publishing.</p>
+        <div class="reviews" id="review-list"></div>
+    </div>
+</section>
+
+<section class="section section-paper" id="visit" aria-labelledby="visit-sec-title">
+    <div class="wrap visit-sec">
+        <figure class="shop-photo">
+            <img src="photos/shop.jpg" alt="Two empty barber chairs facing a long mirror on a checkered floor" loading="lazy">
+            <figcaption><span data-bind="address">88 Mercer Street, Fairhaven</span></figcaption>
+        </figure>
+        <div class="visit-copy">
+            <p class="tag">Visit</p>
+            <h2 id="visit-sec-title">Find the <em>chair</em></h2>
+            <ul class="hours" id="hours"></ul>
+            <ul class="visit-lines">
+                <li><span>Address</span><a data-bind-href="map" href="#" target="_blank" rel="noopener"><b data-bind="address">88 Mercer Street, Fairhaven</b></a></li>
+                <li><span>Parking</span><b data-bind="parking">Free on Mercer Street after 6pm, and in the Dock Lane lot</b></li>
+                <li><span>Walk-ins</span><b id="walkin-policy">Welcome until an hour before close</b></li>
+                <li><span>Call</span><a data-bind-href="tel" href="tel:+15550182240"><b data-bind="phone">(555) 018-2240</b></a></li>
+            </ul>
+            <a class="btn btn-line" data-bind-href="map" href="#" target="_blank" rel="noopener">Get directions <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></a>
+        </div>
+    </div>
+</section>
+
+<section class="section" id="faq" aria-labelledby="faq-title">
+    <div class="wrap faq-wrap">
+        <div class="sec-head">
+            <p class="tag">Questions</p>
+            <h2 id="faq-title">Good to <em>know</em></h2>
+            <p class="sec-lede">Anything else? Call <a data-bind-href="tel" href="tel:+15550182240"><span data-bind="phone">(555) 018-2240</span></a>. Whoever is free picks up.</p>
+        </div>
+        <div class="faq" id="faq-list"></div>
+    </div>
+</section>
+
+<section class="section section-ink book-sec" id="book" aria-labelledby="book-title">
+    <div class="wrap book">
+        <div class="book-copy">
+            <p class="tag tag-light">Book</p>
+            <h2 id="book-title">Hold me <em>a chair</em></h2>
+            <p id="book-lede">Send your request and your barber texts back to confirm the exact time, usually within a couple of hours while we are open.</p>
+            <a class="btn btn-red btn-external" id="book-external" href="#" target="_blank" rel="noopener" hidden>Book online <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></a>
+            <ul class="book-lines">
+                <li><span>Call</span><a data-bind-href="tel" href="tel:+15550182240"><b data-bind="phone">(555) 018-2240</b></a></li>
+                <li><span>Instagram</span><a data-bind-href="instagram" href="#" target="_blank" rel="noopener"><b data-bind="instagram">@halfmoonbarber</b></a></li>
+                <li><span>Email</span><a data-bind-href="mailto" href="mailto:chairs@example.com"><b data-bind="email">chairs@example.com</b></a></li>
+            </ul>
+        </div>
+
+        <form class="book-form" id="book-form" novalidate>
+            <fieldset class="f">
+                <legend>Services</legend>
+                <ul class="chips" id="b-services"></ul>
+                <label class="sr-only" for="b-add">Add a service</label>
+                <select id="b-add"></select>
+            </fieldset>
+            <div class="f-row">
+                <div class="f"><label for="b-barber">Barber</label><select id="b-barber" name="barber"></select></div>
+                <div class="f"><label for="b-day">Day</label><select id="b-day" name="day"></select></div>
+            </div>
+            <fieldset class="f">
+                <legend>Time of day</legend>
+                <div class="seg" id="b-time"></div>
+            </fieldset>
+            <div class="f-row">
+                <div class="f"><label for="b-name">Your name</label><input id="b-name" name="name" autocomplete="name" required></div>
+                <div class="f"><label for="b-phone">Mobile, for the text</label><input id="b-phone" name="phone" type="tel" autocomplete="tel" required></div>
+            </div>
+            <div class="f"><label for="b-note">Anything we should know? <small>optional</small></label><textarea id="b-note" name="note" rows="2" placeholder="For example: first visit, bringing a photo, cutting for a wedding"></textarea></div>
+            <div class="book-sum" id="b-sum"></div>
+            <button class="btn btn-red btn-block" type="submit">Send request</button>
+            <p class="form-note" id="b-note-out" role="status" aria-live="polite">Opens your email app with the request filled in.</p>
+        </form>
+    </div>
+</section>
+
+<footer class="footer">
+    <div class="wrap footer-grid">
+        <div>
+            <a class="brand brand-light" href="#top"><img src="icon.svg" alt="" width="40" height="40"><span><b data-bind="shortName">Halfmoon</b><small data-bind="kind">Barber Co.</small></span></a>
+            <p class="foot-line"><span data-bind="name">Halfmoon Barber Co.</span>, <span data-bind="address">88 Mercer Street, Fairhaven</span>.</p>
+        </div>
+        <div>
+            <h4>Hours</h4>
+            <ul id="foot-hours"></ul>
+        </div>
+        <div>
+            <h4>Contact</h4>
+            <ul>
+                <li><a data-bind-href="tel" href="tel:+15550182240"><span data-bind="phone">(555) 018-2240</span></a></li>
+                <li><a data-bind-href="mailto" href="mailto:chairs@example.com"><span data-bind="email">chairs@example.com</span></a></li>
+                <li><a data-bind-href="instagram" href="#" target="_blank" rel="noopener"><span data-bind="instagram">@halfmoonbarber</span></a></li>
+            </ul>
+        </div>
+    </div>
+    <div class="wrap foot-base">
+        <span>© <span id="year">2026</span> <span data-bind="name">Halfmoon Barber Co.</span></span>
+        <a href="#top">Back to top ↑</a>
+    </div>
+</footer>
+
+<nav class="mobile-bar" aria-label="Quick contact">
+    <a data-bind-href="tel" href="tel:+15550182240"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>Call</a>
+    <a data-bind-href="map" href="#" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>Directions</a>
+    <a class="mb-main" href="#book" data-book>Book a chair</a>
+</nav>
+
+<script src="app.js"></script>
+</body>
+</html>
