@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tallymark Tax Co. | Tax preparation with a flat, upfront fee</title>
+<meta name="description" content="Independent tax preparers for families, freelancers, landlords and small businesses. See your flat fee line by line, get a checklist of what to bring, and book a free intro call.">
+<meta name="theme-color" content="#1f4d3a">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..600&family=IBM+Plex+Mono:wght@400;500;600&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<div class="ribbon" id="deadline-ribbon">
+    <div class="wrap ribbon-inner">
+        <span class="ribbon-dot" aria-hidden="true"></span>
+        <p id="deadline-text">Next federal deadline coming up.</p>
+        <a href="#dates">All key dates</a>
+    </div>
+</div>
+
+<header class="site-header">
+    <div class="wrap header-inner">
+        <a class="brand" href="#top" aria-label="Tallymark Tax Co., home">
+            <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="currentColor"/><g stroke="#f5f0e6" stroke-width="5" stroke-linecap="round"><path d="M18 16v32M27 16v32M36 16v32M45 16v32"/></g><path d="M12 42 52 22" stroke="#f3dc5a" stroke-width="5.5" stroke-linecap="round"/></svg>
+            <span class="brand-name" data-biz="brand-name">Tallymark</span>
+            <span class="brand-tag" data-biz="brand-tag">Tax&nbsp;Co.</span>
+        </a>
+        <nav class="nav" id="site-nav" aria-label="Main">
+            <a href="#help">Who we help</a>
+            <a href="#fees">Fees</a>
+            <a href="#checklist">Checklist</a>
+            <a href="#team">Team</a>
+            <a href="#faq">FAQ</a>
+        </nav>
+        <a class="header-phone" data-biz="phone-link" href="tel:+15550142290">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 3.5h2.7l1.4 4.1-2 1.3a11 11 0 0 0 6.4 6.4l1.3-2 4.1 1.4v2.7a2 2 0 0 1-2.2 2A16.6 16.6 0 0 1 4.6 5.7a2 2 0 0 1 2-2.2Z"/></svg>
+            <span data-biz="phone">(555) 014-2290</span>
+        </a>
+        <a class="btn btn-small" href="#book"><span>Book<span class="hide-sm"> a free intro</span></span></a>
+        <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav">
+            <span class="sr-only">Menu</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+    </div>
+</header>
+
+<main id="main">
+
+    <!-- Hero -->
+    <section class="hero" id="top">
+        <div class="wrap hero-grid">
+            <div class="hero-copy">
+                <p class="eyebrow">Enrolled agents &amp; CPAs · Since 2009</p>
+                <h1>Your taxes, done by <span class="mark">a person</span> who knows your name.</h1>
+                <p class="lead">A flat fee you see line by line before you send a single document. Year-round answers, three years of audit support, and the same preparer every spring.</p>
+                <div class="hero-actions">
+                    <a class="btn" href="#fees">Get your fee estimate</a>
+                    <a class="btn btn-ghost" href="#book">Book a 20-minute intro</a>
+                </div>
+                <ul class="trust">
+                    <li><strong>4.9 <span class="stars" aria-hidden="true">★★★★★</span></strong><span>640 Google reviews</span></li>
+                    <li><strong>IRS e-file</strong><span>Authorized provider</span></li>
+                    <li><strong>3 years</strong><span>Of audit support</span></li>
+                </ul>
+            </div>
+
+            <figure class="tracker" aria-label="Example of a return as it moves through our office">
+                <div class="tracker-head">
+                    <span>Form TM-1 · Return status</span>
+                    <span>Tax year <b data-tax-year>2025</b></span>
+                </div>
+                <div class="tracker-client">
+                    <div>
+                        <small>Client</small>
+                        <strong>The Okafor household</strong>
+                    </div>
+                    <div>
+                        <small>Preparer</small>
+                        <strong>Margaret E., EA</strong>
+                    </div>
+                </div>
+                <ol class="tracker-steps">
+                    <li class="done"><span class="tick" aria-hidden="true"></span><span>Intro call &amp; fee confirmed</span><time>Feb 21</time></li>
+                    <li class="done"><span class="tick" aria-hidden="true"></span><span>Documents in (14 of 14)</span><time>Feb 26</time></li>
+                    <li class="done"><span class="tick" aria-hidden="true"></span><span>Reviewed together on video</span><time>Mar 4</time></li>
+                    <li class="done"><span class="tick" aria-hidden="true"></span><span>Signed &amp; e-filed, accepted by IRS</span><time>Mar 5</time></li>
+                    <li class="next"><span class="tick" aria-hidden="true"></span><span>Refund by direct deposit</span><time>~Mar 26</time></li>
+                </ol>
+                <div class="tracker-total">
+                    <div>
+                        <small>Federal refund</small>
+                        <strong>$2,814.00</strong>
+                        <p class="tracker-fee">Our fee, as quoted: <b>$315.00</b></p>
+                    </div>
+                    <div class="stamp" aria-hidden="true"><span>E-filed</span><small>Accepted</small></div>
+                </div>
+                <figcaption class="sr-only">An example return: intro call, documents, review, e-filing and the refund, with the fee exactly as quoted.</figcaption>
+            </figure>
+        </div>
+    </section>
+
+    <!-- Who we help -->
+    <section class="section" id="help" aria-labelledby="help-title">
+        <div class="wrap">
+            <div class="section-head">
+                <p class="eyebrow">Who we help</p>
+                <h2 id="help-title">Every return is a little different. Pick the one that sounds like yours.</h2>
+            </div>
+            <div class="situations">
+                <div class="situation-tabs" role="tablist" aria-label="Tax situations" id="situation-tabs"></div>
+                <div class="situation-panel" id="situation-panel" role="tabpanel" tabindex="0"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Fee worksheet -->
+    <section class="section section-tint" id="fees" aria-labelledby="fees-title">
+        <div class="wrap">
+            <div class="section-head">
+                <p class="eyebrow">Flat fees</p>
+                <h2 id="fees-title">Know the fee before you send a single document.</h2>
+                <p>We price by the forms your return needs, never by the size of your refund. Tick what applies and the worksheet adds it up.</p>
+            </div>
+            <div class="fees-grid">
+                <form class="fee-options" id="fee-options" aria-label="What is on your return">
+                    <fieldset>
+                        <legend>What is on your return?</legend>
+                        <div id="fee-option-list"></div>
+                    </fieldset>
+                </form>
+                <div class="worksheet" aria-labelledby="worksheet-title">
+                    <div class="worksheet-head">
+                        <span id="worksheet-title">Form TM-2 · Fee worksheet</span>
+                        <span>Tax year <b data-tax-year>2025</b></span>
+                    </div>
+                    <ol class="worksheet-lines" id="worksheet-lines"></ol>
+                    <div class="worksheet-total">
+                        <span>Estimated flat fee</span>
+                        <output id="fee-total" aria-live="polite">$240</output>
+                    </div>
+                    <p class="worksheet-turnaround" id="fee-turnaround">Ready in about 5–7 business days once your documents are in.</p>
+                    <div class="worksheet-actions">
+                        <a class="btn" href="#book" id="book-with-estimate">Book with this estimate</a>
+                        <a class="text-link" href="#checklist">See what to bring →</a>
+                    </div>
+                    <p class="fine">Confirmed at your intro call and never raised without your OK. No percentage of your refund, ever.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How it works -->
+    <section class="section" id="process" aria-labelledby="process-title">
+        <div class="wrap">
+            <div class="section-head">
+                <p class="eyebrow">How it works</p>
+                <h2 id="process-title">Four parts, no surprises.</h2>
+            </div>
+            <ol class="parts">
+                <li>
+                    <span class="part-num">Part I</span>
+                    <h3>Book a free intro</h3>
+                    <p>Twenty minutes to learn your situation and confirm your fee. No documents needed yet.</p>
+                </li>
+                <li>
+                    <span class="part-num">Part II</span>
+                    <h3>Send your documents</h3>
+                    <p>Upload them, drop off a folder or bring them in. Your checklist says exactly what to gather.</p>
+                </li>
+                <li>
+                    <span class="part-num">Part III</span>
+                    <h3>Review it together</h3>
+                    <p>Your preparer walks you through the return line by line before anything is signed.</p>
+                </li>
+                <li>
+                    <span class="part-num">Part IV</span>
+                    <h3>We file and keep watch</h3>
+                    <p>We e-file, track your refund and answer any IRS letter about the return for three years.</p>
+                </li>
+            </ol>
+
+            <div class="meet">
+                <figure class="meet-photo">
+                    <img src="photos/kitchen-table.jpg" alt="A couple going through their paperwork at the kitchen table while their son has breakfast" width="960" height="640" loading="lazy">
+                    <p class="sticky-note">Drop-off box by the front door.<br>Mon–Sat, any time.</p>
+                </figure>
+                <div class="meet-copy">
+                    <h3>Meet the way that suits your week.</h3>
+                    <ul class="meet-list">
+                        <li>
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 10.5 12 4l8.5 6.5V20h-6v-5.5h-5V20h-6z"/></svg>
+                            <div><strong>In the office</strong><p>Coffee's on. Bring the shoebox and we'll sort it at the table.</p></div>
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10.5 5-3v9l-5-3"/></svg>
+                            <div><strong>Video call</strong><p>Upload from your phone, review on screen, sign electronically.</p></div>
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 8.5h17V20h-17zM3.5 8.5 6 4h12l2.5 4.5M9.5 12.5h5"/></svg>
+                            <div><strong>Drop-off</strong><p>Leave a folder and get a call when your return is ready to review.</p></div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Checklist -->
+    <section class="section section-tint" id="checklist" aria-labelledby="checklist-title">
+        <div class="wrap">
+            <div class="checklist-head">
+                <div class="section-head">
+                    <p class="eyebrow">What to bring</p>
+                    <h2 id="checklist-title">Your document checklist, built from your worksheet.</h2>
+                    <p>Change your answers in the fee worksheet and this list follows. Ticks are saved on this device.</p>
+                </div>
+                <div class="checklist-progress">
+                    <p><b id="checklist-count">0 of 0</b> gathered</p>
+                    <div class="meter" role="progressbar" aria-labelledby="checklist-count" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="checklist-meter"><span></span></div>
+                    <div class="checklist-actions">
+                        <button class="btn btn-small" type="button" id="checklist-print">Print checklist</button>
+                        <button class="btn btn-small btn-ghost" type="button" id="checklist-clear">Clear ticks</button>
+                    </div>
+                </div>
+            </div>
+            <div class="checklist-groups" id="checklist-groups"></div>
+        </div>
+    </section>
+
+    <!-- Team -->
+    <section class="section" id="team" aria-labelledby="team-title">
+        <div class="wrap">
+            <div class="section-head">
+                <p class="eyebrow">Your preparers</p>
+                <h2 id="team-title">Three licensed preparers. One of them will be yours, every year.</h2>
+            </div>
+            <div class="team" id="team-list"></div>
+        </div>
+    </section>
+
+    <!-- Promises -->
+    <section class="promises" aria-labelledby="promises-title">
+        <div class="wrap">
+            <h2 id="promises-title" class="promises-title">In writing, on every return.</h2>
+            <ul class="promise-list">
+                <li>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5h14v15H5zM8.5 9h7M8.5 12.5h7M8.5 16h4"/></svg>
+                    <h3>Fee quoted first</h3>
+                    <p>You see the flat fee before we start, and it doesn't move without your OK.</p>
+                </li>
+                <li>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6L12 3Z"/><path d="m8.8 12 2.2 2.2 4.3-4.4"/></svg>
+                    <h3>Accuracy guarantee</h3>
+                    <p>If we make a mistake, we pay the penalty and interest it causes.</p>
+                </li>
+                <li>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5h16v11H4zM4 7l8 6 8-6"/></svg>
+                    <h3>Three years of letters</h3>
+                    <p>Any IRS or state notice about a return we filed, we answer at no charge.</p>
+                </li>
+                <li>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+                    <h3>Answers all year</h3>
+                    <p>Questions in July count too. Call or email and your preparer gets back to you.</p>
+                </li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- Reviews -->
+    <section class="section" id="reviews" aria-labelledby="reviews-title">
+        <div class="wrap">
+            <div class="reviews-head">
+                <div class="section-head">
+                    <p class="eyebrow">Reviews</p>
+                    <h2 id="reviews-title">What clients tell their friends.</h2>
+                </div>
+                <p class="score"><strong>4.9</strong><span class="stars" aria-hidden="true">★★★★★</span><span>average from 640 Google reviews</span></p>
+            </div>
+            <div class="reviews" id="review-list"></div>
+        </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="section section-tint" id="faq" aria-labelledby="faq-title">
+        <div class="wrap faq-grid">
+            <div class="section-head">
+                <p class="eyebrow">Questions</p>
+                <h2 id="faq-title">Good questions we hear every spring.</h2>
+                <p>Not covered here? Call <a data-biz="phone-link" href="tel:+15550142290"><span data-biz="phone">(555) 014-2290</span></a> and ask. It's free.</p>
+            </div>
+            <div class="faq" id="faq-list"></div>
+        </div>
+    </section>
+
+    <!-- Booking -->
+    <section class="section" id="book" aria-labelledby="book-title">
+        <div class="wrap book-grid">
+            <div class="book-info">
+                <p class="eyebrow">Book a free intro</p>
+                <h2 id="book-title">Twenty minutes, no obligation, and you'll leave with your fee.</h2>
+                <dl class="office">
+                    <div>
+                        <dt>Office</dt>
+                        <dd data-biz="address">214 Linden Street, Suite 2<br>Fairhaven, MA 02719</dd>
+                    </div>
+                    <div>
+                        <dt>Call</dt>
+                        <dd><a data-biz="phone-link" href="tel:+15550142290"><span data-biz="phone">(555) 014-2290</span></a></dd>
+                    </div>
+                    <div>
+                        <dt>Email</dt>
+                        <dd><a data-biz="email-link" href="mailto:hello@tallymarktax.com"><span data-biz="email">hello@tallymarktax.com</span></a></dd>
+                    </div>
+                    <div>
+                        <dt>Hours</dt>
+                        <dd id="office-hours"></dd>
+                    </div>
+                </dl>
+                <div class="dates" id="dates">
+                    <h3>Key federal dates</h3>
+                    <ol id="date-list"></ol>
+                    <p class="fine">Dates that land on a weekend move to the next business day. Holidays can move them too.</p>
+                </div>
+            </div>
+
+            <div class="book-card">
+                <form id="book-form" novalidate>
+                    <div class="field-row">
+                        <label class="field">
+                            <span>Your name</span>
+                            <input name="name" autocomplete="name" required>
+                        </label>
+                        <label class="field">
+                            <span>Email</span>
+                            <input name="email" type="email" autocomplete="email" required>
+                        </label>
+                    </div>
+                    <div class="field-row">
+                        <label class="field">
+                            <span>Phone <em>(optional)</em></span>
+                            <input name="phone" type="tel" autocomplete="tel">
+                        </label>
+                        <label class="field">
+                            <span>Your situation</span>
+                            <select name="situation" id="book-situation"></select>
+                        </label>
+                    </div>
+                    <fieldset class="field">
+                        <legend>How would you like to meet?</legend>
+                        <div class="choice-row">
+                            <label class="choice"><input type="radio" name="meet" value="In the office" checked><span>In the office</span></label>
+                            <label class="choice"><input type="radio" name="meet" value="Video call"><span>Video call</span></label>
+                            <label class="choice"><input type="radio" name="meet" value="Drop-off"><span>Drop-off</span></label>
+                        </div>
+                    </fieldset>
+                    <label class="field">
+                        <span>Best time to reach you</span>
+                        <select name="when">
+                            <option>Weekday mornings</option>
+                            <option>Weekday afternoons</option>
+                            <option>Weekday evenings</option>
+                            <option>Saturdays</option>
+                        </select>
+                    </label>
+                    <label class="field">
+                        <span>Anything we should know? <em>(optional)</em></span>
+                        <textarea name="notes" rows="3" placeholder="e.g. we had a baby this year and I started freelancing in June"></textarea>
+                    </label>
+                    <label class="attach">
+                        <input type="checkbox" name="attach" id="attach-estimate" checked>
+                        <span>Include my fee estimate: <b id="attach-total">$240</b></span>
+                    </label>
+                    <p class="form-error" id="book-error" role="alert" hidden></p>
+                    <button class="btn btn-wide" type="submit">Request my intro call</button>
+                    <p class="fine">We reply within one business day. Please don't send tax documents by email; we'll share a secure upload link.</p>
+                </form>
+                <div class="book-done" id="book-done" hidden tabindex="-1">
+                    <div class="stamp stamp-inline" aria-hidden="true"><span>Received</span></div>
+                    <h3 id="book-done-title">Request ready.</h3>
+                    <p id="book-done-text"></p>
+                    <pre class="book-summary" id="book-summary"></pre>
+                    <div class="worksheet-actions">
+                        <a class="btn btn-small" id="book-mail" href="#">Open email draft</a>
+                        <button class="btn btn-small btn-ghost" type="button" id="book-again">Edit request</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</main>
+
+<footer class="site-footer">
+    <div class="wrap footer-grid">
+        <div>
+            <a class="brand brand-light" href="#top">
+                <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="currentColor"/><g stroke="#1f4d3a" stroke-width="5" stroke-linecap="round"><path d="M18 16v32M27 16v32M36 16v32M45 16v32"/></g><path d="M12 42 52 22" stroke="#c4462f" stroke-width="5.5" stroke-linecap="round"/></svg>
+                <span class="brand-name" data-biz="brand-name">Tallymark</span>
+                <span class="brand-tag" data-biz="brand-tag">Tax&nbsp;Co.</span>
+            </a>
+            <p class="footer-blurb">Independent tax preparation for households and small businesses since 2009.</p>
+        </div>
+        <nav aria-label="Footer">
+            <h3>On this page</h3>
+            <a href="#help">Who we help</a>
+            <a href="#fees">Fee worksheet</a>
+            <a href="#checklist">Document checklist</a>
+            <a href="#book">Book a free intro</a>
+        </nav>
+        <nav aria-label="IRS tools">
+            <h3>Handy IRS tools</h3>
+            <a href="https://www.irs.gov/wheres-my-refund" target="_blank" rel="noopener">Where's my refund?</a>
+            <a href="https://www.irs.gov/payments" target="_blank" rel="noopener">Make a payment</a>
+            <a href="https://www.irs.gov/payments/your-online-account" target="_blank" rel="noopener">Your IRS online account</a>
+        </nav>
+        <div>
+            <h3>Visit</h3>
+            <p data-biz="address">214 Linden Street, Suite 2<br>Fairhaven, MA 02719</p>
+            <p><a data-biz="phone-link" href="tel:+15550142290"><span data-biz="phone">(555) 014-2290</span></a></p>
+        </div>
+    </div>
+    <div class="wrap footer-legal">
+        <p>© <span id="year">2026</span> <span data-biz="legal-name">Tallymark Tax Co.</span> Fee estimates are a starting point, confirmed at your intro call. Nothing on this site is tax advice for your situation. Not affiliated with the IRS.</p>
+    </div>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
