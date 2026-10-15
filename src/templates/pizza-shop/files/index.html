@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f7f0e4">
+<title>Calder Street Pizza: Wood-fired pies and slices in Northgate</title>
+<meta name="description" content="Wood-fired pizza on Calder Street, Northgate. 48-hour dough, whole pies, grandma squares and slices at the counter. Order ahead for pickup or delivery.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=DM+Sans:opsz,wght@9..40,400..700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<a class="skip" href="#menu">Skip to the menu</a>
+
+<header class="site-head" id="top">
+    <div class="wrap nav">
+        <a class="brand" href="#top">
+            <img src="icon.svg" alt="" width="40" height="40">
+            <span><b data-bind="shortName">Calder St.</b><small>Pizza · since <span data-bind="since">2014</span></small></span>
+        </a>
+        <nav class="nav-links" id="nav-links" aria-label="Main">
+            <a href="#menu">Menu</a>
+            <a href="#build">Build a pie</a>
+            <a href="#week">This week</a>
+            <a href="#story">The oven</a>
+            <a href="#visit">Visit</a>
+        </nav>
+        <div class="nav-cta">
+            <button class="btn btn-tomato btn-sm tray-open" type="button" aria-haspopup="dialog">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16l-1.5 12.5a1 1 0 0 1-1 .9H6.5a1 1 0 0 1-1-.9z"/><path d="M9 7V5.5a3 3 0 0 1 6 0V7"/></svg>
+                <span>Order</span><b class="tray-count" data-tray-count hidden>0</b>
+            </button>
+            <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links" aria-label="Open menu"><span></span><span></span></button>
+        </div>
+    </div>
+</header>
+
+<main>
+
+<section class="hero">
+    <div class="wrap hero-grid">
+        <div class="hero-copy">
+            <p class="status" data-status-wrap><i></i><span data-status>Open now</span></p>
+            <h1>Blistered, saucy and <span class="scrawl">still hot<svg viewBox="0 0 300 24" preserveAspectRatio="none" aria-hidden="true"><path d="M4 16c50-10 110-12 170-8s90 6 122-2"/></svg></span></h1>
+            <p class="lede">Dough rested for 48 hours, baked for 90 seconds in a wood-fired oven on <span data-bind="street">Calder Street</span>. Grab a slice at the counter, or order a whole pie for pickup or delivery.</p>
+            <div class="hero-actions">
+                <a class="btn btn-tomato" href="#menu">See the menu <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+                <a class="btn btn-ink-line" data-bind-href="tel" href="tel:+15550173380"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg><span data-bind="phone">(555) 017-3380</span></a>
+            </div>
+            <ul class="hero-facts">
+                <li><b><span data-bind="rating">4.8</span>★</b><span><span data-bind="reviewCount">1,260</span> reviews<span class="sample-tag" data-sample hidden>sample</span></span></li>
+                <li><b data-bind="pickupLine">20 min</b><span>pickup, most nights</span></li>
+                <li><b data-bind="sliceFrom">$4</b><span>a slice, all day</span></li>
+            </ul>
+        </div>
+
+        <div class="hero-art">
+            <div class="plate">
+                <svg class="ring" viewBox="0 0 400 400" aria-hidden="true">
+                    <defs><path id="ring-path" d="M200 200m-182 0a182 182 0 1 1 364 0a182 182 0 1 1-364 0"/></defs>
+                    <text><textPath href="#ring-path" id="ring-text">Wood-fired · Northgate · Since 2014 · Slices all day · </textPath></text>
+                </svg>
+                <img src="photos/hero.jpg" alt="A sliced pizza with peppers and olives on a dark table, seen from above" width="1280" height="853" fetchpriority="high">
+            </div>
+            <div class="sticker sticker-today" id="today-sticker">
+                <small>Today</small>
+                <b>Two-slice Tuesday</b>
+            </div>
+            <div class="sticker sticker-heat" aria-hidden="true">
+                <b>800°</b><small>oven</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="ticker" aria-hidden="true"><div class="ticker-track" id="ticker"></div></div>
+</section>
+
+<section class="menu-sec" id="menu">
+    <div class="wrap">
+        <div class="sec-head">
+            <p class="kicker">The menu</p>
+            <h2>Pies, squares and <em>slices</em></h2>
+            <p class="sec-sub">Tap a price to add it to your order. Every pie can go half and half, just ask in the notes.</p>
+        </div>
+        <div class="menu-tabs" id="menu-tabs" role="group" aria-label="Menu sections"></div>
+        <p class="menu-intro" id="menu-intro"></p>
+        <div class="menu-list" id="menu-list"></div>
+        <p class="menu-legend" id="menu-legend"></p>
+    </div>
+    <figure class="peek" id="peek" aria-hidden="true"><img alt="" src="photos/margherita.jpg"></figure>
+</section>
+
+<section class="build-sec" id="build">
+    <div class="wrap build-grid">
+        <div class="build-art">
+            <svg id="pie" viewBox="-160 -160 320 320" role="img" aria-labelledby="pie-label"><title id="pie-label">Your pizza</title></svg>
+            <p class="pie-caption" id="pie-caption">Red sauce, mozzarella</p>
+        </div>
+        <form class="build-panel" id="builder" novalidate>
+            <p class="kicker">Build a pie</p>
+            <h2>Your pie, <em>your way</em></h2>
+            <fieldset>
+                <legend>Size</legend>
+                <div class="seg" id="b-size"></div>
+            </fieldset>
+            <fieldset>
+                <legend>Base</legend>
+                <div class="seg" id="b-sauce"></div>
+            </fieldset>
+            <fieldset>
+                <legend>Toppings <small>Tap again to put a topping on one half</small></legend>
+                <div class="toppings" id="b-tops"></div>
+            </fieldset>
+            <div class="build-foot">
+                <p class="build-price"><b id="b-price">$13</b><span id="b-detail">12″ pie</span></p>
+                <button class="btn btn-tomato" type="submit">Add to order</button>
+            </div>
+        </form>
+    </div>
+</section>
+
+<section class="week-sec" id="week">
+    <div class="wrap">
+        <div class="sec-head sec-head-row">
+            <div>
+                <p class="kicker">This week</p>
+                <h2>Something on <em>every night</em></h2>
+            </div>
+            <p class="sec-sub">Specials run all day, while the dough lasts.</p>
+        </div>
+        <ol class="week" id="week-list"></ol>
+    </div>
+</section>
+
+<section class="story-sec" id="story">
+    <div class="wrap story-grid">
+        <figure class="story-photo story-photo-a">
+            <img src="photos/oven-fire.jpg" alt="Flames curling across the dome of a brick pizza oven" width="1280" height="854" loading="lazy">
+        </figure>
+        <div class="story-copy">
+            <p class="kicker kicker-light">The oven</p>
+            <h2>One oven, one fire, <em>no shortcuts</em></h2>
+            <p>We light the oven at 9 every morning with seasoned oak and keep feeding it until the last pie leaves. The dough is flour, water, salt and a starter we have kept alive since we opened, folded by hand and rested for two days.</p>
+            <p>Tomatoes are crushed in the shop every morning. Mozzarella comes from a dairy two hours north, and the basil grows in boxes on the roof in summer.</p>
+            <ul class="stats" id="stats"></ul>
+        </div>
+        <figure class="story-photo story-photo-b">
+            <img src="photos/pizzaiolo.jpg" alt="A cook working beside a domed brick pizza oven with a fire burning inside" width="1280" height="853" loading="lazy">
+        </figure>
+        <aside class="catering">
+            <h3>Feeding a crowd?</h3>
+            <p>Full trays, pies by the dozen and a slice table for parties and offices. Give us a day's notice for 10 pies or more.</p>
+            <a class="btn btn-mustard" data-bind-href="catering" href="mailto:orders@example.com">Ask about catering</a>
+        </aside>
+    </div>
+</section>
+
+<section class="reviews-sec" id="reviews">
+    <div class="wrap">
+        <div class="sec-head">
+            <p class="kicker">Regulars say</p>
+            <h2><span data-bind="rating">4.8</span> stars from <span data-bind="reviewCount">1,260</span> reviews</h2>
+            <p class="sample-note" data-sample hidden>Sample reviews and rating. Replace them with your own before publishing.</p>
+        </div>
+        <div class="reviews" id="review-list"></div>
+    </div>
+</section>
+
+<section class="visit-sec" id="visit">
+    <div class="wrap visit-grid">
+        <div class="visit-card">
+            <p class="kicker">Visit</p>
+            <h2 data-bind="street">Calder Street</h2>
+            <p class="addr"><a data-bind-href="map" href="#" target="_blank" rel="noopener"><span data-bind="address">418 Calder Street, Northgate</span></a></p>
+            <p class="visit-note" data-bind="seating">Twenty seats, a counter by the oven and a bench out front.</p>
+            <table class="hours" id="hours"><caption>Opening hours</caption><tbody></tbody></table>
+            <div class="visit-actions">
+                <a class="btn btn-tomato" data-bind-href="map" href="#" target="_blank" rel="noopener">Directions</a>
+                <a class="btn btn-ink-line" data-bind-href="tel" href="tel:+15550173380">Call the shop</a>
+            </div>
+        </div>
+        <div class="delivery-card">
+            <h3>Delivery</h3>
+            <p>We deliver ourselves, on bikes and one small car, so the pie arrives the way it left the oven.</p>
+            <form class="zip-check" id="zip-check" novalidate>
+                <label for="zc-zip">Check your ZIP code</label>
+                <div class="zip-row">
+                    <input id="zc-zip" inputmode="numeric" maxlength="5" autocomplete="postal-code" placeholder="e.g. 02140">
+                    <button class="btn btn-ink btn-sm" type="submit">Check</button>
+                </div>
+                <p class="zip-out" id="zip-out" role="status"></p>
+            </form>
+            <ul class="zones" id="zones"></ul>
+        </div>
+    </div>
+</section>
+
+<section class="faq-sec" id="faq">
+    <div class="wrap faq-grid">
+        <div class="sec-head">
+            <p class="kicker">Questions</p>
+            <h2>Good to <em>know</em></h2>
+        </div>
+        <div class="faq" id="faq-list"></div>
+    </div>
+</section>
+
+</main>
+
+<footer class="foot">
+    <div class="wrap foot-grid">
+        <div>
+            <p class="foot-brand"><img src="icon.svg" alt="" width="36" height="36"><b data-bind="name">Calder Street Pizza</b></p>
+            <p><span data-bind="address">418 Calder Street, Northgate</span><br><a data-bind-href="tel" href="tel:+15550173380" data-bind="phone">(555) 017-3380</a> · <a data-bind-href="mailto" href="mailto:orders@example.com" data-bind="email">orders@example.com</a></p>
+        </div>
+        <nav class="foot-links" aria-label="Footer">
+            <a href="#menu">Menu</a>
+            <a href="#build">Build a pie</a>
+            <a href="#week">This week</a>
+            <a href="#visit">Hours and delivery</a>
+            <a href="#faq">Questions</a>
+        </nav>
+        <p class="foot-small">© <span id="year">2026</span> <span data-bind="name">Calder Street Pizza</span>. Prices before tax. Menu and hours can change with the season.</p>
+    </div>
+</footer>
+
+<div class="mobile-bar">
+    <a data-bind-href="tel" href="tel:+15550173380"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>Call</a>
+    <a href="#menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14M5 12h14M5 19h9"/></svg>Menu</a>
+    <button type="button" class="tray-open mb-order"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16l-1.5 12.5a1 1 0 0 1-1 .9H6.5a1 1 0 0 1-1-.9z"/><path d="M9 7V5.5a3 3 0 0 1 6 0V7"/></svg>Order <b class="tray-count" data-tray-count hidden>0</b></button>
+</div>
+
+<dialog class="tray" id="tray" aria-labelledby="tray-title">
+    <form class="tray-inner" id="order-form" method="dialog" novalidate>
+        <header class="tray-head">
+            <h2 id="tray-title">Your order</h2>
+            <button class="tray-close" type="button" aria-label="Close" data-close><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+        </header>
+        <div class="tray-body">
+            <ul class="lines" id="lines"></ul>
+            <div class="tray-empty" id="tray-empty">
+                <p>Nothing here yet.</p>
+                <a class="btn btn-ink-line btn-sm" href="#menu" data-close>Pick something from the menu</a>
+            </div>
+
+            <div class="checkout" id="checkout">
+                <fieldset>
+                    <legend>How do you want it?</legend>
+                    <div class="seg" id="o-mode"></div>
+                </fieldset>
+                <div class="field" id="o-zip-field" hidden>
+                    <label for="o-zip">Delivery ZIP code</label>
+                    <input id="o-zip" name="zip" inputmode="numeric" maxlength="5" autocomplete="postal-code">
+                    <label for="o-addr">Street address</label>
+                    <input id="o-addr" name="address" autocomplete="street-address">
+                    <p class="hint" id="o-zip-out"></p>
+                </div>
+                <div class="field">
+                    <label for="o-time">When</label>
+                    <select id="o-time" name="time"></select>
+                </div>
+                <div class="field-row">
+                    <div class="field"><label for="o-name">Name</label><input id="o-name" name="name" autocomplete="name"></div>
+                    <div class="field"><label for="o-phone">Phone</label><input id="o-phone" name="phone" type="tel" autocomplete="tel"></div>
+                </div>
+                <div class="field">
+                    <label for="o-notes">Notes <small>optional</small></label>
+                    <textarea id="o-notes" name="notes" rows="2" placeholder="Half and half, well done, buzzer code…"></textarea>
+                </div>
+            </div>
+        </div>
+        <footer class="tray-foot" id="tray-foot">
+            <dl class="totals" id="totals"></dl>
+            <button class="btn btn-tomato btn-block" type="submit" id="send-text">Send order by text</button>
+            <button class="link-btn" type="button" id="send-email">or send it by email</button>
+            <p class="form-note" id="o-note" role="status"></p>
+        </footer>
+    </form>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
