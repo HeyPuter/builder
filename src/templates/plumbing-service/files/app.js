@@ -374,7 +374,12 @@ function nextWindows(count, { sameDay = true } = {}) {
         for (const w of AVAILABILITY.windows) {
             if (w.start < hrs[0] || w.end > hrs[1]) continue;
             if (i === 0 && w.start < earliest) continue;
-            out.push({ id: `${isoDate(d)}-${w.id}`, day: dayLabel(d, now), label: w.label });
+            out.push({
+                id: `${isoDate(d)}-${w.id}`, day: dayLabel(d, now), label: w.label,
+                // The absolute date, for the booking itself: "Today" means
+                // nothing once the email is read the next morning.
+                date: d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }),
+            });
             if (out.length === count) break;
         }
     }
@@ -410,7 +415,7 @@ function bindBusiness() {
         if (v !== undefined) el.textContent = v;
     });
     const dial = phoneLink(BUSINESS.phone);
-    const hrefs = { tel: `tel:${dial}`, sms: `sms:${dial}`, mailto: `mailto:${ENQUIRY.email || BUSINESS.email}` };
+    const hrefs = { tel: `tel:${dial}`, sms: `sms:${dial}`, mailto: `mailto:${BUSINESS.email}` };
     document.querySelectorAll('[data-bind-href]').forEach((el) => { el.href = hrefs[el.dataset.bindHref]; });
     $('#year').textContent = new Date().getFullYear();
 
@@ -683,7 +688,7 @@ function fillWindowOptions() {
     const sel = $('#f-window');
     const keep = sel.value;
     const zone = zoneOf(townForZip($('#f-zip').value.trim()));
-    sel.innerHTML = nextWindows(8, { sameDay: zone.sameDay }).map((w) => `<option value="${esc(w.id)}">${esc(windowText(w))}</option>`).join('') +
+    sel.innerHTML = nextWindows(8, { sameDay: zone.sameDay }).map((w) => `<option value="${esc(w.id)}" data-full="${esc(`${w.date}, ${w.label} (${BUSINESS.timezone})`)}">${esc(windowText(w))}</option>`).join('') +
         '<option value="any">First available</option>';
     if ([...sel.options].some((o) => o.value === keep)) sel.value = keep;
 }
@@ -718,7 +723,10 @@ function refreshBooking() {
     let urgent = '';
     if (it.kind === 'urgent') {
         const aid = aidById(it.aid);
-        urgent = `<div class="f-urgent">${icon('phone')}<div><b>Do not wait for a reply: call ${telLink()}.</b>${aid ? `<span>First: ${esc(aid.steps[0])}</span>` : ''}</div></div>`;
+        const fee = !openState().open && AVAILABILITY.onCall.on
+            ? `<span>A plumber on call answers now. Visits outside opening hours add ${money(AVAILABILITY.onCall.fee)}.</span>`
+            : '';
+        urgent = `<div class="f-urgent">${icon('phone')}<div><b>Do not wait for a reply: call ${telLink()}.</b>${aid ? `<span>First: ${esc(aid.steps[0])}</span>` : ''}${fee}</div></div>`;
     } else if (!openState().open && AVAILABILITY.onCall.on && it.kind === 'repair') {
         urgent = `<p class="f-after">${icon('clock')}<span>Water going where it should not? Call ${telLink()} now. Visits outside opening hours add ${money(AVAILABILITY.onCall.fee)}.</span></p>`;
     }
@@ -778,7 +786,7 @@ function initBooking() {
             zip: val('zip'),
             town: town ? town.name : '',
             issue: issueById(issue).label,
-            window: win.options[win.selectedIndex].text,
+            window: win.options[win.selectedIndex].dataset.full || win.options[win.selectedIndex].text,
             message: val('message'),
         };
         const subject = `Booking: ${data.issue}${data.zip ? `, ${data.zip}` : ''}`;

@@ -344,7 +344,7 @@ textarea { resize: vertical; }
 .issue input:checked + span { background: var(--teal); border-color: var(--teal); color: #fff; }
 .issue input:focus-visible + span { outline: 3px solid var(--water); outline-offset: 2px; }
 .issue-urgent span { border-color: #f1d08a; }
-.issue-urgent input:checked + span { background: #b9770e; border-color: #b9770e; }
+.issue-urgent input:checked + span { background: #a1660b; border-color: #a1660b; }
 .issue-danger span { border-color: #f0b4a8; color: var(--bad); }
 .issue-danger input:checked + span { background: var(--bad); border-color: var(--bad); color: #fff; }
 .f-terms { margin: 4px 0 16px; padding: 14px 16px; border-radius: 14px; background: var(--cream); font-size: 14.5px; }
