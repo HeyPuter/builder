@@ -350,10 +350,31 @@ let visit = ['signature'];
 let category = CATEGORIES[0].id;
 
 function toggleService(id, on = !visit.includes(id)) {
-    visit = on ? [...visit.filter((v) => v !== id), id] : visit.filter((v) => v !== id);
+    setVisit(on ? [...visit.filter((v) => v !== id), id] : visit.filter((v) => v !== id));
+}
+
+// Every view of the visit re-renders, and keyboard focus stays where it was:
+// on the same Add button, or on the next remove button left in its list.
+function setVisit(next) {
+    const active = document.activeElement;
+    const addId = active && active.dataset && active.dataset.add;
+    const list = active && active.dataset && active.dataset.remove ? active.closest('#visit-items, #b-services') : null;
+    const index = list ? [...list.querySelectorAll('[data-remove]')].indexOf(active) : -1;
+    const cleared = active && active.id === 'visit-clear';
+    visit = next;
     renderMenu();
     renderVisit();
     renderBookServices();
+    renderDays();
+    if (addId) {
+        $(`#menu-list [data-add="${CSS.escape(addId)}"]`)?.focus();
+    } else if (list) {
+        const left = list.querySelectorAll('[data-remove]');
+        const fallback = list.id === 'b-services' ? $('#b-add') : $('#menu-tabs [aria-selected="true"]');
+        (left[Math.min(index, left.length - 1)] || fallback).focus();
+    } else if (cleared) {
+        $('#menu-tabs [aria-selected="true"]').focus();
+    }
 }
 
 function initMenu() {
@@ -389,7 +410,7 @@ function initMenu() {
         const b = e.target.closest('[data-remove]');
         if (b) toggleService(b.dataset.remove, false);
     });
-    $('#visit-clear').addEventListener('click', () => { visit = []; renderMenu(); renderVisit(); renderBookServices(); });
+    $('#visit-clear').addEventListener('click', () => setVisit([]));
     renderMenu();
     renderVisit();
 }
@@ -533,10 +554,7 @@ function renderLook() {
     $('#look-book').addEventListener('click', () => {
         if (SHOP.bookingUrl) { window.open(SHOP.bookingUrl, '_blank', 'noopener'); return; }
         // The look's services become the visit.
-        visit = svcs.map((s) => s.id);
-        renderMenu();
-        renderVisit();
-        renderBookServices();
+        setVisit(svcs.map((s) => s.id));
         goToBooking({ barber: l.barber, note: `Looking for: ${l.name}` });
     });
 }
@@ -594,37 +612,38 @@ function renderFaq() {
 
 let timeOfDay = '';
 
-// The next open days, within two weeks, that the chosen barber cuts. "Any
-// barber" offers every open day.
+// The next open days, within two weeks, that the chosen barber cuts and that
+// still have room for the whole visit. "Any barber" offers every open day.
 function bookableDays(barberId, count = 8) {
     const b = barberById(barberId);
     const now = shopNow();
     const out = [];
     for (let i = 0; out.length < count && i < 14; i++) {
         const d = addDays(now.date, i);
-        const h = hoursOn(d);
-        if (!h || (b && !b.days.includes(DAYS[d.getDay()]))) continue;
-        // Today only while there is still time for a cut.
-        if (i === 0 && now.minutes > toMinutes(h[1]) - 60) continue;
-        out.push(d);
+        if (b && !b.days.includes(DAYS[d.getDay()])) continue;
+        if (slotsFor(d).length) out.push(d);
     }
     return out;
 }
 
-// Morning, afternoon and evening, where the day's hours allow. Today drops
-// the parts of the day that are already over.
+// Morning, afternoon and evening, where the visit can start in that part of
+// the day and still finish by closing. Today starts 30 minutes from now.
 function slotsFor(d) {
     const h = d && hoursOn(d);
     if (!h) return [];
     const open = toMinutes(h[0]);
     const close = toMinutes(h[1]);
     const now = shopNow();
-    const left = isoDay(d) === isoDay(now.date) ? now.minutes + 30 : 0;
+    const earliest = isoDay(d) === isoDay(now.date) ? now.minutes + 30 : open;
+    const length = visitTotals().minutes || 30;
     return [
         { label: 'Morning', from: open, to: 12 * 60 },
         { label: 'Afternoon', from: Math.max(open, 12 * 60), to: Math.min(close, 17 * 60) },
         { label: 'Evening', from: 17 * 60, to: close },
-    ].filter((s) => s.to - s.from >= 45 && s.to > left).map((s) => s.label);
+    ].filter((s) => {
+        const start = Math.max(s.from, earliest);
+        return s.to - s.from >= 45 && start < s.to && start + length <= close;
+    }).map((s) => s.label);
 }
 
 function renderBookServices() {
@@ -699,6 +718,17 @@ function initBookForm() {
             note.textContent = 'Add at least one service.';
             note.className = 'form-note miss';
             $('#b-add').focus();
+            return;
+        }
+        // The page may have been open a while: today's morning, or yesterday,
+        // may be gone. Refresh the choices and ask again if they changed.
+        const day = val('day');
+        const time = timeOfDay;
+        renderDays();
+        if (day && (val('day') !== day || timeOfDay !== time)) {
+            note.textContent = 'That time has passed, so we updated the day and time. Check them and send again.';
+            note.className = 'form-note miss';
+            $('#b-day').focus();
             return;
         }
         if (bad || !val('day')) {
