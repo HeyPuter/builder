@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f3eee6">
+<title>Larkspur Remodeling: Kitchens, bathrooms and basements in Oak Hollow</title>
+<meta name="description" content="Kitchen, bathroom, basement and whole-home remodeling in Oak Hollow and nearby towns. Plan your project online for a price range and timeline, then book a free design visit.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="header">
+    <div class="wrap header-inner">
+        <a class="brand" href="#top" aria-label="Home">
+            <img src="icon.svg" alt="" width="38" height="38">
+            <span><b data-bind="shortName">Larkspur</b><small data-bind="trade">Remodeling Co.</small></span>
+        </a>
+        <nav class="nav-links" id="nav-links" aria-label="Main">
+            <a href="#rooms">What we remodel</a>
+            <a href="#planner">Plan a project</a>
+            <a href="#work">Our work</a>
+            <a href="#process">How it works</a>
+            <a href="#faq">Questions</a>
+        </nav>
+        <a class="h-phone" data-bind-href="tel" href="tel:+15550142290"><span data-bind="phone">(555) 014-2290</span></a>
+        <a class="btn btn-dark btn-sm h-cta" href="#visit">Book a design visit</a>
+        <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links" aria-label="Open menu"><span></span><span></span></button>
+    </div>
+</header>
+
+<main id="top">
+
+<section class="hero" aria-labelledby="hero-title">
+    <div class="wrap hero-grid">
+        <div class="hero-copy">
+            <p class="tag"><span class="tag-dot" aria-hidden="true"></span><span>Design and build under one roof<span class="tag-region"> · <span data-bind="region">Oak Hollow and the river towns</span></span></span></p>
+            <h1 id="hero-title">Make the house you have <em>fit the life</em> you live now.</h1>
+            <p class="hero-sub">Kitchens, bathrooms, basements and additions, designed and built by one team with one fixed price. See a price range and timeline for your project in a minute.</p>
+            <div class="hero-ctas">
+                <a class="btn btn-accent" href="#planner">Plan my project</a>
+                <a class="btn btn-ghost" href="#work">See finished rooms</a>
+            </div>
+            <ul class="hero-facts">
+                <li><b data-bind="years">16</b><span>years remodeling</span></li>
+                <li><b data-bind="projects">380</b><span>rooms finished</span></li>
+                <li><b><span data-bind="rating">4.9</span><span class="star" aria-hidden="true">★</span></b><span><span data-bind="reviewCount">126</span> reviews</span></li>
+            </ul>
+            <p class="sample-note" data-sample hidden>Sample business, figures and reviews. Replace them with your own before publishing.</p>
+        </div>
+        <figure class="hero-visual">
+            <div class="dim dim-top" aria-hidden="true"><span>14'-6"</span></div>
+            <div class="dim dim-side" aria-hidden="true"><span>9'-0"</span></div>
+            <img id="hero-img" src="photos/hero-kitchen.jpg" alt="A bright white kitchen with a teal island, pendant lights and blue bar stools" width="960" height="640" fetchpriority="high">
+            <figcaption class="hero-card" id="hero-card"></figcaption>
+        </figure>
+    </div>
+    <div class="wrap trust">
+        <span>Licensed and insured</span>
+        <span>Fixed-price contracts</span>
+        <span data-bind="warrantyLine">5-year workmanship warranty</span>
+        <span>One project lead, start to finish</span>
+    </div>
+</section>
+
+<section class="rooms" id="rooms" aria-labelledby="rooms-title">
+    <div class="wrap">
+        <div class="sec-head">
+            <p class="eyebrow"><span>01</span>What we remodel</p>
+            <h2 id="rooms-title">One team for every room in the house</h2>
+            <p class="sec-lead">Typical starting prices and build times from our recent projects. Pick a room to price it in the planner.</p>
+        </div>
+        <div class="rooms-grid">
+            <ol class="room-list" id="room-list"></ol>
+            <figure class="room-preview" aria-hidden="true">
+                <img id="room-photo" src="photos/kitchen-island.jpg" alt="" width="960" height="947" loading="lazy">
+                <figcaption id="room-caption"></figcaption>
+            </figure>
+        </div>
+    </div>
+</section>
+
+<section class="planner" id="planner" aria-labelledby="planner-title">
+    <div class="wrap">
+        <div class="sec-head sec-head-light">
+            <p class="eyebrow"><span>02</span>Project planner</p>
+            <h2 id="planner-title">Price your project before anyone visits</h2>
+            <p class="sec-lead">Choose the room, its size and the level of finish. The range comes from what similar projects cost us last year, materials and labor included.</p>
+        </div>
+        <div class="planner-grid">
+            <form class="planner-form" id="planner-form" novalidate>
+                <fieldset>
+                    <legend><span class="step-n">1</span>Which room?</legend>
+                    <div class="seg seg-wrap" id="p-room"></div>
+                </fieldset>
+                <fieldset>
+                    <legend><span class="step-n">2</span>How big is it?</legend>
+                    <div class="seg" id="p-size"></div>
+                </fieldset>
+                <fieldset>
+                    <legend><span class="step-n">3</span>Level of finish</legend>
+                    <div class="finish" id="p-finish"></div>
+                </fieldset>
+                <fieldset>
+                    <legend><span class="step-n">4</span>Anything structural?</legend>
+                    <div class="extras" id="p-extras"></div>
+                </fieldset>
+            </form>
+            <aside class="estimate" id="estimate" aria-live="polite">
+                <p class="est-label">Estimated investment</p>
+                <p class="est-range" id="est-range">$38,000 to $52,000</p>
+                <div class="est-bar" aria-hidden="true"><i id="est-fill"></i></div>
+                <p class="est-scale" id="est-scale" aria-hidden="true"></p>
+                <p class="est-label est-gap">Timeline, from first visit to walkthrough</p>
+                <p class="est-weeks" id="est-weeks">14 weeks</p>
+                <ol class="gantt" id="gantt"></ol>
+                <p class="est-start" id="est-start"></p>
+                <a class="btn btn-accent est-cta" href="#visit" data-from-planner>Send this to us</a>
+                <p class="est-fine">A range, not a quote. Your fixed price comes after the design visit.</p>
+            </aside>
+        </div>
+    </div>
+</section>
+
+<section class="ba" id="before-after" aria-labelledby="ba-title">
+    <div class="wrap ba-grid">
+        <div class="ba-copy">
+            <p class="eyebrow"><span>03</span>Before and after</p>
+            <h2 id="ba-title">A tired kitchen, taken back to the walls</h2>
+            <p id="ba-body"></p>
+            <dl class="ba-facts" id="ba-facts"></dl>
+            <div class="ba-toggle" role="group" aria-label="Show the room">
+                <button type="button" data-ba="before" aria-pressed="false">Before</button>
+                <button type="button" data-ba="after" aria-pressed="true">After</button>
+            </div>
+            <p class="sample-note" data-sample hidden>Sample project. Photos are free stock images of a real renovation. Replace them with your own.</p>
+        </div>
+        <figure class="ba-frame" id="ba-frame" data-show="after">
+            <img class="ba-img ba-before" id="ba-before" src="photos/kitchen-before.jpg" alt="" width="500" height="375" loading="lazy">
+            <img class="ba-img ba-after" id="ba-after" src="photos/kitchen-after.jpg" alt="" width="960" height="766" loading="lazy">
+            <figcaption class="ba-stamp" id="ba-stamp">After</figcaption>
+        </figure>
+    </div>
+</section>
+
+<section class="work" id="work" aria-labelledby="work-title">
+    <div class="wrap">
+        <div class="sec-head sec-head-row">
+            <div>
+                <p class="eyebrow"><span>04</span>Recent work</p>
+                <h2 id="work-title">Finished rooms, real budgets</h2>
+                <p class="sample-note" data-sample hidden>Sample projects and stock photos. Replace them with your own work before publishing.</p>
+            </div>
+            <div class="chips" id="work-filter" role="group" aria-label="Filter projects"></div>
+        </div>
+        <div class="projects" id="projects"></div>
+    </div>
+</section>
+
+<section class="process" id="process" aria-labelledby="process-title">
+    <div class="wrap process-grid">
+        <div class="process-side">
+            <p class="eyebrow"><span>05</span>How it works</p>
+            <h2 id="process-title">Five steps, one project lead</h2>
+            <p class="sec-lead">You talk to the same person from the first visit to the final walkthrough. No handoffs, no surprises on the invoice.</p>
+            <figure class="process-photo">
+                <img src="photos/level-tile.jpg" alt="Hands holding a red spirit level on a freshly laid tile floor" width="960" height="639" loading="lazy">
+            </figure>
+        </div>
+        <ol class="steps" id="steps"></ol>
+    </div>
+</section>
+
+<section class="reviews" id="reviews" aria-labelledby="reviews-title">
+    <div class="wrap">
+        <div class="sec-head">
+            <p class="eyebrow"><span>06</span>From our clients</p>
+            <h2 id="reviews-title">Rated <span data-bind="rating">4.9</span> from <span data-bind="reviewCount">126</span> <span data-bind="ratingSource">Google</span> reviews</h2>
+            <p class="sample-note" data-sample hidden>Sample reviews and rating. Replace them with your own before publishing.</p>
+        </div>
+        <div class="review-grid" id="review-grid"></div>
+    </div>
+</section>
+
+<section class="visit" id="visit" aria-labelledby="visit-title">
+    <div class="wrap visit-grid">
+        <div class="visit-copy">
+            <p class="eyebrow"><span>07</span>Free design visit</p>
+            <h2 id="visit-title">Let's walk through your space</h2>
+            <p class="visit-lead">A designer and a project lead come to your home, measure the room and talk through what you want. Within a week you get drawings and a fixed price. The visit is free and there is no obligation.</p>
+            <ul class="visit-points">
+                <li>About an hour, at your home</li>
+                <li>Bring photos of rooms you like</li>
+                <li>Drawings and a fixed price within <span data-bind="proposalDays">7</span> days</li>
+            </ul>
+            <div class="area">
+                <h3>Where we work</h3>
+                <ul class="towns" id="towns"></ul>
+                <form class="zip-check" id="zip-check" novalidate>
+                    <label for="zc-zip" class="sr-only">ZIP code</label>
+                    <input id="zc-zip" inputmode="numeric" maxlength="5" placeholder="Your ZIP code" autocomplete="postal-code">
+                    <button class="btn btn-dark btn-sm" type="submit">Check</button>
+                </form>
+                <p class="zip-out" id="zip-out" role="status" aria-live="polite"></p>
+            </div>
+        </div>
+        <form class="visit-form" id="visit-form" novalidate>
+            <h3>Request a design visit</h3>
+            <div class="f-plan" id="f-plan" hidden></div>
+            <div class="f-row">
+                <div class="f"><label for="f-name">Full name</label><input id="f-name" name="name" autocomplete="name" required></div>
+                <div class="f"><label for="f-phone">Phone</label><input id="f-phone" name="phone" type="tel" autocomplete="tel" required></div>
+            </div>
+            <div class="f-row">
+                <div class="f"><label for="f-email">Email</label><input id="f-email" name="email" type="email" autocomplete="email"></div>
+                <div class="f"><label for="f-zip">ZIP code</label><input id="f-zip" name="zip" inputmode="numeric" maxlength="5" autocomplete="postal-code"></div>
+            </div>
+            <div class="f-row">
+                <div class="f"><label for="f-room">Project</label><select id="f-room" name="room"></select></div>
+                <div class="f"><label for="f-when">When would you like to start?</label><select id="f-when" name="when"></select></div>
+            </div>
+            <div class="f"><label for="f-msg">Tell us about the space</label><textarea id="f-msg" name="message" rows="4" placeholder="What bothers you about it now, and what would you change?"></textarea></div>
+            <button class="btn btn-accent f-send" type="submit">Request my visit</button>
+            <p class="f-note" id="f-note" role="status" aria-live="polite"></p>
+        </form>
+    </div>
+</section>
+
+<section class="faq" id="faq" aria-labelledby="faq-title">
+    <div class="wrap faq-grid">
+        <div>
+            <p class="eyebrow"><span>08</span>Questions</p>
+            <h2 id="faq-title">Before you start</h2>
+            <figure class="faq-photo">
+                <img src="photos/floor-plan.jpg" alt="A printed floor plan of a house with dimensions" width="960" height="630" loading="lazy">
+            </figure>
+        </div>
+        <div class="faq-list" id="faq-list"></div>
+    </div>
+</section>
+
+</main>
+
+<footer class="footer">
+    <div class="wrap footer-grid">
+        <div class="foot-brand">
+            <a class="brand" href="#top"><img src="icon.svg" alt="" width="38" height="38"><span><b data-bind="shortName">Larkspur</b><small data-bind="trade">Remodeling Co.</small></span></a>
+            <p>Design and build remodeling in <span data-bind="region">Oak Hollow and the river towns</span> since <span data-bind="since">2010</span>.</p>
+        </div>
+        <div>
+            <h4>Rooms</h4>
+            <ul id="foot-rooms"></ul>
+        </div>
+        <div>
+            <h4>Visit us</h4>
+            <ul>
+                <li data-bind="address">27 Millrace Lane, Oak Hollow</li>
+                <li data-bind="hours">Showroom Mon to Fri 8 to 5, Sat 9 to 1</li>
+            </ul>
+        </div>
+        <div>
+            <h4>Contact</h4>
+            <ul>
+                <li><a data-bind-href="tel" href="tel:+15550142290"><span data-bind="phone">(555) 014-2290</span></a></li>
+                <li><a data-bind-href="mailto" href="mailto:hello@example.com"><span data-bind="email">hello@example.com</span></a></li>
+                <li data-bind="license">Home improvement contractor license HIC-0471182</li>
+            </ul>
+            <p class="sample-note" data-sample hidden>Sample license number. Replace it with your own.</p>
+        </div>
+    </div>
+    <div class="wrap foot-base">
+        <span>© <span id="year">2026</span> <span data-bind="name">Larkspur Remodeling Co.</span></span>
+        <a href="#top">Back to top</a>
+    </div>
+</footer>
+
+<nav class="mobile-bar" aria-label="Quick contact">
+    <a data-bind-href="tel" href="tel:+15550142290">Call</a>
+    <a href="#planner">Price it</a>
+    <a class="mb-main" href="#visit">Book a visit</a>
+</nav>
+
+<script src="app.js"></script>
+</body>
+</html>
