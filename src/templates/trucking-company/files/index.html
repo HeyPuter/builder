@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#14171b">
+<title>Ridgeway Freight Lines: Truckload carrier in Springfield, Missouri</title>
+<meta name="description" content="Dry van, refrigerated and flatbed truckload service from Springfield, Missouri to 14 cities across the central US. Get a rate in minutes, or drive for us.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="header">
+    <div class="header-inner">
+        <a class="brand" href="#top" aria-label="Home">
+            <img src="icon.svg" alt="" width="40" height="40">
+            <span><b data-bind="shortName">Ridgeway</b><small data-bind="trade">Freight Lines</small></span>
+        </a>
+        <nav class="nav-links" id="nav-links" aria-label="Main">
+            <a href="#equipment">Equipment</a>
+            <a href="#lanes">Lanes</a>
+            <a href="#process">How it works</a>
+            <a href="#drivers">Drivers</a>
+            <a href="#safety">Safety</a>
+            <a href="#faq">FAQ</a>
+        </nav>
+        <a class="h-dispatch" data-bind-href="tel" href="tel:+15550192040">
+            <small><i class="pulse" aria-hidden="true"></i>Dispatch 24/7</small>
+            <b data-bind="phone">(555) 019-2040</b>
+        </a>
+        <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links" aria-label="Open menu"><span></span><span></span></button>
+    </div>
+</header>
+
+<section class="hero" id="top">
+    <img class="hero-bg" src="photos/night-highway.jpg" alt="" width="1024" height="683" fetchpriority="high">
+    <div class="wrap hero-grid">
+        <div class="hero-copy">
+            <p class="kicker"><span>Asset-based truckload carrier</span><span>Since <span data-bind="since">1998</span></span></p>
+            <h1>Your freight. Our trucks. <em>Our drivers.</em></h1>
+            <p class="hero-sub">Dry van, refrigerated and flatbed loads out of <span data-bind="baseCity">Springfield, Missouri</span>, on <b id="lane-count">14</b> lanes we run every week. No brokers in the middle: the truck that picks up your freight is one of ours.</p>
+            <div class="decal" aria-label="Operating authority">
+                <span><small>USDOT</small><b data-bind="usdot">3104471</b></span>
+                <span><small>MC</small><b data-bind="mc">108452</b></span>
+                <span><small>Cargo cover</small><b data-bind="cargoCover">$100,000</b></span>
+            </div>
+            <p class="sample-note sample-dark" data-sample hidden>Sample carrier, numbers and reviews. Replace them with your own before publishing.</p>
+        </div>
+
+        <div class="ticket" id="request">
+            <div class="ticket-tabs" role="tablist" aria-label="What do you need?">
+                <button type="button" role="tab" id="tab-ship" aria-controls="panel-ship" aria-selected="true">Ship with us</button>
+                <button type="button" role="tab" id="tab-drive" aria-controls="panel-drive" aria-selected="false" tabindex="-1">Drive for us</button>
+            </div>
+
+            <form class="panel" id="panel-ship" role="tabpanel" aria-labelledby="tab-ship" novalidate>
+                <p class="ticket-ref"><span>Rate request</span><span id="ref">RQ-0000-0000</span></p>
+                <div class="f-row">
+                    <div class="f"><label for="q-from">Pick up in</label><select id="q-from" name="from"></select></div>
+                    <button type="button" class="swap" id="q-swap" aria-label="Swap pick-up and delivery"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v14M3 14l4 4 4-4M17 20V6M13 10l4-4 4 4"/></svg></button>
+                    <div class="f"><label for="q-to">Deliver to</label><select id="q-to" name="to"></select></div>
+                </div>
+                <fieldset class="f">
+                    <legend>Equipment</legend>
+                    <div class="equip-pick" id="q-equip"></div>
+                </fieldset>
+                <div class="f-row f-row-2">
+                    <div class="f"><label for="q-date">Ready to load</label><input id="q-date" name="date" type="date"></div>
+                    <div class="f"><label for="q-weight">Weight <small>lb</small></label><input id="q-weight" name="weight" inputmode="numeric" placeholder="38,000"></div>
+                </div>
+                <div class="estimate" id="q-estimate" role="status" aria-live="polite"></div>
+                <div class="f-row f-row-2">
+                    <div class="f"><label for="q-name">Your name</label><input id="q-name" name="name" autocomplete="name" required></div>
+                    <div class="f"><label for="q-company">Company</label><input id="q-company" name="company" autocomplete="organization"></div>
+                </div>
+                <div class="f-row f-row-2">
+                    <div class="f"><label for="q-phone">Phone</label><input id="q-phone" name="phone" type="tel" autocomplete="tel" required></div>
+                    <div class="f"><label for="q-email">Email</label><input id="q-email" name="email" type="email" autocomplete="email"></div>
+                </div>
+                <div class="f"><label for="q-notes">Commodity and notes</label><input id="q-notes" name="notes" placeholder="Palletized canned goods, dock to dock, appointment 8am"></div>
+                <button class="btn btn-amber f-send" type="submit">Send for a firm rate</button>
+                <p class="f-note" id="q-note" role="status" aria-live="polite"></p>
+            </form>
+
+            <form class="panel" id="panel-drive" role="tabpanel" aria-labelledby="tab-drive" novalidate hidden>
+                <p class="ticket-ref"><span>Driver application</span><span>Takes 1 minute</span></p>
+                <fieldset class="f">
+                    <legend>Position</legend>
+                    <div class="equip-pick" id="d-position"></div>
+                </fieldset>
+                <div class="f-row f-row-2">
+                    <div class="f"><label for="d-name">Full name</label><input id="d-name" name="name" autocomplete="name" required></div>
+                    <div class="f"><label for="d-phone">Phone</label><input id="d-phone" name="phone" type="tel" autocomplete="tel" required></div>
+                </div>
+                <div class="f-row f-row-2">
+                    <div class="f"><label for="d-exp">Class A experience</label><select id="d-exp" name="experience"></select></div>
+                    <div class="f"><label for="d-zip">Home ZIP</label><input id="d-zip" name="zip" inputmode="numeric" maxlength="5" autocomplete="postal-code"></div>
+                </div>
+                <fieldset class="f">
+                    <legend>Endorsements <small>optional</small></legend>
+                    <div class="chips" id="d-endorse"></div>
+                </fieldset>
+                <div class="estimate" id="d-fit" role="status" aria-live="polite"></div>
+                <button class="btn btn-amber f-send" type="submit">Send my application</button>
+                <p class="f-note" id="d-note" role="status" aria-live="polite"></p>
+            </form>
+        </div>
+    </div>
+</section>
+
+<section class="odometer" aria-label="Fleet in numbers">
+    <ul class="wrap odo" id="stats"></ul>
+</section>
+
+<section class="equipment" id="equipment" aria-labelledby="equipment-title">
+    <div class="wrap">
+        <div class="head">
+            <span class="mile" aria-hidden="true"><small>Mile</small>01</span>
+            <div>
+                <h2 id="equipment-title">Three trailers, one standard</h2>
+                <p>Every tractor is company-owned, under five years old and tracked by ELD. Pick a trailer to start a rate request.</p>
+            </div>
+        </div>
+        <div class="equip-grid" id="equip-grid"></div>
+        <p class="also" id="also"></p>
+    </div>
+</section>
+
+<section class="lanes" id="lanes" aria-labelledby="lanes-title">
+    <div class="wrap">
+        <div class="head head-dark">
+            <span class="mile" aria-hidden="true"><small>Mile</small>02</span>
+            <div>
+                <h2 id="lanes-title">Lanes we run every week</h2>
+                <p>Freight on these lanes rides with trucks already headed your way, so it moves sooner and costs less. Pick a lane to price it.</p>
+            </div>
+        </div>
+        <div class="lanes-grid">
+            <div class="map-wrap">
+                <svg class="map" id="map" viewBox="0 0 640 420" role="img" aria-labelledby="map-title"><title id="map-title">Map of our regular lanes out of our home terminal</title></svg>
+                <p class="map-key"><span class="k-home"></span>Home terminal<span class="k-lane"></span>Thicker line, more trucks a week</p>
+            </div>
+            <div class="board" role="region" aria-label="Departures board">
+                <div class="board-head"><span>Departures from <b data-bind="baseShort">Springfield</b></span><span class="board-clock" id="board-clock">00:00</span></div>
+                <div class="board-cols" aria-hidden="true"><span>Lane</span><span>Miles</span><span>Per wk</span><span>Transit</span></div>
+                <ul class="board-rows" id="board"></ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="process" id="process" aria-labelledby="process-title">
+    <div class="wrap">
+        <div class="head">
+            <span class="mile" aria-hidden="true"><small>Mile</small>03</span>
+            <div>
+                <h2 id="process-title">How a load moves with us</h2>
+                <p>One dispatcher owns your load from the rate to the signed delivery receipt.</p>
+            </div>
+        </div>
+        <ol class="road" id="steps"></ol>
+    </div>
+</section>
+
+<section class="drivers" id="drivers" aria-labelledby="drivers-title">
+    <div class="wrap drivers-grid">
+        <figure class="drivers-photo">
+            <img src="photos/cab-view.jpg" alt="A driver's view through the windshield of a truck on a winding highway through green hills" width="1024" height="768" loading="lazy">
+            <figcaption id="home-time">Home every weekend</figcaption>
+        </figure>
+        <div class="drivers-copy">
+            <span class="mile" aria-hidden="true"><small>Mile</small>04</span>
+            <h2 id="drivers-title">Drive for a carrier that knows your name</h2>
+            <p>Regional runs on lanes you will learn by heart, a dispatcher who answers, and trucks that get fixed the day you write them up.</p>
+            <div class="calc">
+                <div class="calc-top">
+                    <label for="calc-miles">Miles in a week</label>
+                    <output id="calc-miles-out" for="calc-miles">2,400</output>
+                </div>
+                <input type="range" id="calc-miles" min="1800" max="3000" step="100" value="2400">
+                <dl class="calc-out">
+                    <div><dt>Per week</dt><dd id="calc-week">$1,488</dd></div>
+                    <div><dt>Per year</dt><dd id="calc-year">$74,400</dd></div>
+                    <div><dt>Per mile</dt><dd id="calc-cpm">62¢</dd></div>
+                </dl>
+                <p class="calc-note" id="calc-note"></p>
+            </div>
+            <ul class="perks" id="perks"></ul>
+            <button type="button" class="btn btn-amber" data-tab="drive">Apply in a minute</button>
+        </div>
+    </div>
+</section>
+
+<section class="safety" id="safety" aria-labelledby="safety-title">
+    <div class="wrap safety-grid">
+        <div class="safety-copy">
+            <span class="mile" aria-hidden="true"><small>Mile</small>05</span>
+            <h2 id="safety-title">Safety you can look up</h2>
+            <p>Our authority, insurance and inspection record are public. Check them before you tender a load, and ask for our certificate of insurance any time.</p>
+            <dl class="creds" id="creds"></dl>
+            <p class="sample-note" data-sample hidden>Sample authority numbers, insurance and safety record. Replace them with your own; never publish numbers that are not yours.</p>
+            <a class="verify" id="verify" href="#" target="_blank" rel="noopener" hidden>Look us up on FMCSA SAFER</a>
+        </div>
+        <figure class="safety-photo">
+            <img src="photos/driver-training.jpg" alt="The front of a white truck with a large side mirror, beside a row of orange cones on a training course" width="681" height="1024" loading="lazy">
+        </figure>
+    </div>
+</section>
+
+<section class="reviews" id="reviews" aria-labelledby="reviews-title">
+    <div class="wrap">
+        <div class="head">
+            <span class="mile" aria-hidden="true"><small>Mile</small>06</span>
+            <div>
+                <h2 id="reviews-title">Signed for, on time</h2>
+                <p>What shipping managers and receivers say after a season with us.</p>
+                <p class="sample-note" data-sample hidden>Sample reviews. Replace them with real ones from your customers before publishing.</p>
+            </div>
+        </div>
+        <div class="review-list" id="review-list"></div>
+    </div>
+</section>
+
+<section class="faq" id="faq" aria-labelledby="faq-title">
+    <div class="wrap faq-grid">
+        <div>
+            <span class="mile" aria-hidden="true"><small>Mile</small>07</span>
+            <h2 id="faq-title">Before you tender</h2>
+            <p>Still unsure? Call dispatch at <a data-bind-href="tel" href="tel:+15550192040"><span data-bind="phone">(555) 019-2040</span></a>, any hour.</p>
+        </div>
+        <div class="faq-list" id="faq-list"></div>
+    </div>
+</section>
+
+<section class="cta">
+    <div class="wrap cta-inner">
+        <h2>Have a load ready?</h2>
+        <p><span data-office>Office open now</span>. Dispatch answers around the clock.</p>
+        <div class="cta-actions">
+            <a class="btn btn-dark" href="#request" data-tab="ship">Get a rate</a>
+            <a class="cta-phone" data-bind-href="tel" href="tel:+15550192040"><span data-bind="phone">(555) 019-2040</span></a>
+        </div>
+    </div>
+</section>
+
+<footer class="footer">
+    <div class="wrap footer-grid">
+        <div>
+            <a class="brand" href="#top"><img src="icon.svg" alt="" width="40" height="40"><span><b data-bind="shortName">Ridgeway</b><small data-bind="trade">Freight Lines</small></span></a>
+            <p class="foot-about"><span data-bind="name">Ridgeway Freight Lines</span> has hauled truckload freight out of <span data-bind="baseCity">Springfield, Missouri</span> since <span data-bind="since">1998</span>.</p>
+            <p class="foot-codes"><span>USDOT <b data-bind="usdot">3104471</b></span><span>MC <b data-bind="mc">108452</b></span></p>
+        </div>
+        <div>
+            <h4>Office hours</h4>
+            <ul id="foot-hours"></ul>
+            <p class="foot-em">Dispatch: 24 hours, 7 days</p>
+        </div>
+        <div>
+            <h4>Lanes</h4>
+            <p class="foot-lanes" id="foot-lanes"></p>
+        </div>
+        <div>
+            <h4>Contact</h4>
+            <ul>
+                <li><a data-bind-href="tel" href="tel:+15550192040"><span data-bind="phone">(555) 019-2040</span></a></li>
+                <li><a data-bind-href="mailto" href="mailto:dispatch@example.com"><span data-bind="email">dispatch@example.com</span></a></li>
+                <li data-bind="address">2200 Terminal Drive, Springfield, MO</li>
+            </ul>
+        </div>
+    </div>
+    <div class="wrap foot-base">
+        <span>© <span id="year">2026</span> <span data-bind="name">Ridgeway Freight Lines</span></span>
+        <a href="#top">Back to top</a>
+    </div>
+</footer>
+
+<nav class="mobile-bar" aria-label="Quick contact">
+    <a data-bind-href="tel" href="tel:+15550192040"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>Dispatch</a>
+    <a class="mb-main" href="#request" data-tab="ship">Get a rate</a>
+</nav>
+
+<script src="app.js"></script>
+</body>
+</html>
