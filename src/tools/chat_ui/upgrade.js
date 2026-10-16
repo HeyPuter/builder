@@ -2,12 +2,12 @@
 //
 // The "Made with Puter" badge comes from the runtime tag every page carries
 // (see prompt.js and src/runtime.js), and removing it is a paid perk: the
-// publish flow strips the tag for subscribers (branding.js). A free user who
+// publish flow strips the tag when a subscriber ticks the box (branding.js). A free user who
 // asks the AI to remove the badge would otherwise get it done for free by an
 // edit to the tag, so the prompt tells the model to call this tool instead.
 // For a free user it puts an Upgrade card in the chat whose button opens the
-// upgrade dialog; for a subscriber it shows nothing and tells the model the
-// badge comes off when they publish.
+// upgrade dialog; for a subscriber it shows nothing and tells the model how
+// to turn the badge off in Publish.
 //
 // The result carries __upgrade_offer so a reloaded chat can show the card
 // again (see loadChat in app.js).
@@ -54,7 +54,7 @@
                 return {
                     __upgrade_offer: true,
                     subscribed: true,
-                    instruction: "The user has a paid Puter subscription. The badge is removed automatically from their public site each time they publish (the builder preview never shows it). Tell them in one short sentence to publish (or publish again) to remove it. Do not edit the runtime script tag.",
+                    instruction: "The user has a paid Puter subscription. They can remove the badge from their public site themselves (the builder preview never shows it). Tell them in one or two short sentences to open Publish, tick \"Remove the 'Made with Puter' badge\", and publish. Do not edit the runtime script tag.",
                 };
             }
             // The turn may have been stopped, or the chat switched, while the
@@ -66,7 +66,7 @@
             return {
                 __upgrade_offer: true,
                 subscribed: false,
-                instruction: "An Upgrade button is now showing in the chat. Tell the user in one or two short sentences that removing the badge needs a paid Puter subscription, and that after upgrading they publish their site again to remove it. Do not edit the runtime script tag.",
+                instruction: "An Upgrade button is now showing in the chat. Tell the user in one or two short sentences that removing the badge needs a paid Puter subscription, and that after upgrading they tick \"Remove the 'Made with Puter' badge\" in Publish and publish their site. Do not edit the runtime script tag.",
             };
         }
     });

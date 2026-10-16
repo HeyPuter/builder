@@ -1826,6 +1826,12 @@ window.refreshPublishButton = function () {
         dirtySinceSnapshot: window._projectDirtySinceSnapshot,
     });
     $btn.attr('data-state', st.state);
+    // Read whether the live site has the badge now, not when the popover
+    // opens, so the badge box shows its real state from the first frame. One
+    // read per release (cached). Free users' box is always unticked.
+    if (window.currentPublishedPath && window.Branding?.isSubscribed(window.user)) {
+        readLiveBadge(window.currentPublishedPath);
+    }
     $btn.attr('title',
         st.state === 'clean' ? 'Your site is live — view or update it'
             : st.state === 'dirty' ? 'Publish your latest changes'
@@ -1962,6 +1968,7 @@ function renderPublishPanel() {
                 `<input type="text" class="publish-name-input" value="${suggested}" placeholder="your-app" aria-label="Site address (before .puter.site)" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off">` +
                 '<span class="publish-address-fix">.puter.site</span>' +
             '</div>' +
+            publishBadgeToggleHtml() +
             (blocked
                 ? publishWaitingHtml(blocked)
                 : `<button class="publish-action" data-action="publish">${globe}<span>Publish</span></button>`);
@@ -1985,13 +1992,13 @@ function renderPublishPanel() {
                 `<button class="publish-address-save" title="Save address">${window.check_svg}</button>` +
                 `<button class="publish-address-cancel" title="Cancel">${window.x_svg}</button>` +
             '</div>' +
-            (st.dirty
+            publishBadgeToggleHtml() +
+            (st.dirty || badgeChangePending(currentChatId, window.currentPublishedPath)
                 ? (blocked
                     ? publishWaitingHtml(blocked)
                     : `<button class="publish-action" data-action="publish">${globe}<span>Publish changes</span></button>`)
                 : `<div class="publish-uptodate">${window.check_svg}<span>Up to date</span></div>`) +
-            (ago ? `<div class="publish-meta">Last published ${htmlEscape(ago)}</div>` : '') +
-            publishBrandingHtml({ live: true, dirty: st.dirty });
+            (ago ? `<div class="publish-meta">Last published ${htmlEscape(ago)}</div>` : '');
     }
 
     $panel.find('.publish-panel-header span').text(title);
@@ -2054,6 +2061,9 @@ function openPublishPanel() {
     const $nameInput = $panel.find('.publish-name-input');
     if ($nameInput.length) { $nameInput.trigger('focus'); $nameInput[0].select(); }
     else $panel.trigger('focus');
+    // The badge box is locked or not by plan. Ask Puter again: the user may
+    // have upgraded in another tab. A changed plan re-renders the popover.
+    refreshUserPlan();
 }
 
 function closePublishPanel() {
@@ -2204,21 +2214,49 @@ async function stripBrandingFromRelease(dir) {
     }
 }
 
-// Whether the LIVE release still loads the badge, by path → true/false. Read
-// only for subscribers, who may have published before they upgraded; the
-// popover then offers to publish again. A path is a release directory, and a
-// release never changes once served, so an answer never goes stale.
+// Whether the LIVE release loads the badge, by path → 'badge' | 'none'. A path
+// is a release directory, and a release never changes once served, so an
+// answer never goes stale. Missing while the read is in flight (or when it
+// failed); the popover re-renders when it lands.
 const _liveBadgeByPath = new Map();
-function liveReleaseHasBadge(path) {
-    if (!path) return false;
-    if (_liveBadgeByPath.has(path)) return _liveBadgeByPath.get(path);
-    _liveBadgeByPath.set(path, false); // one read per path, even across re-renders
-    puter.fs.read(path + '/index.html').then(d => d.text()).then((html) => {
-        if (!window.Branding.hasRuntimeTag(html)) return;
-        _liveBadgeByPath.set(path, true);
-        if (_publishPanelOpen && window.currentPublishedPath === path) renderPublishPanel();
-    }).catch(() => { /* no index.html or unreadable — say nothing */ });
-    return false;
+const _liveBadgeReads = new Map();
+function readLiveBadge(path) {
+    if (!path) return Promise.resolve(null);
+    if (!_liveBadgeReads.has(path)) {
+        _liveBadgeReads.set(path, Promise.resolve().then(() => puter.fs.read(path + '/index.html')).then(d => d.text()).then((html) => {
+            const state = window.Branding.hasRuntimeTag(html) ? 'badge' : 'none';
+            _liveBadgeByPath.set(path, state);
+            if (_publishPanelOpen && window.currentPublishedPath === path) renderPublishPanel();
+            return state;
+        }).catch(() => null)); // no index.html or unreadable — say nothing
+    }
+    return _liveBadgeReads.get(path);
+}
+
+// The "Remove the badge" box as the user left it, by chat id, until the next
+// publish of that chat. Without a pick the box follows the live site: checked
+// when it already has no badge, so publishing again never brings back a badge
+// the user removed.
+const _removeBadgeChoice = new Map();
+function removeBadgeWanted(chatId, path) {
+    if (_removeBadgeChoice.has(chatId)) return Promise.resolve(_removeBadgeChoice.get(chatId));
+    return readLiveBadge(path).then(state => state === 'none');
+}
+function removeBadgeChecked(chatId, path) {
+    if (_removeBadgeChoice.has(chatId)) return _removeBadgeChoice.get(chatId);
+    readLiveBadge(path);
+    return _liveBadgeByPath.get(path) === 'none';
+}
+
+// True when the box asks for something the live site doesn't have yet, so
+// the popover offers to publish even with no other changes. When the live
+// site couldn't be read, any pick the user made counts, so a failed read
+// never blocks publishing it.
+function badgeChangePending(chatId, path) {
+    if (!window.Branding.isSubscribed(window.user)) return false;
+    const live = _liveBadgeByPath.get(path);
+    if (!live) return _removeBadgeChoice.has(chatId);
+    return removeBadgeChecked(chatId, path) !== (live === 'none');
 }
 
 // 'Upgrade Prompt Shown' once per source per popover open: the popover
@@ -2231,27 +2269,30 @@ function trackUpgradePromptShown(source) {
     window.track?.('Upgrade Prompt Shown', { source });
 }
 
-// The branding note under the publish popover's views. Free users get the
-// upgrade offer; subscribers whose live site predates their upgrade are told
-// to publish again (with a button when there is nothing else to publish).
-function publishBrandingHtml({ live, dirty }) {
+// The "Remove the badge" box above the popover's Publish button. Subscribers
+// pick per publish; free users see it locked, with an Upgrade button beside it.
+function publishBadgeToggleHtml() {
     const user = window.user;
     if (!user || user.is_temp) return '';
-    if (!window.Branding.isSubscribed(user)) {
-        const source = live ? 'publish_panel' : 'publish_success';
-        trackUpgradePromptShown(source);
-        return '<div class="publish-branding">' +
-            '<span>Your site shows a “Made with Puter” badge. Want to remove it?</span>' +
-            `<button type="button" class="publish-branding-btn" data-action="upgrade" data-source="${source}">Yes, remove it</button>` +
-        '</div>';
-    }
-    if (!live || !liveReleaseHasBadge(window.currentPublishedPath)) return '';
-    if (dirty) {
-        return '<div class="publish-branding"><span>Publishing also removes the “Made with Puter” badge.</span></div>';
-    }
+    const paid = window.Branding.isSubscribed(user);
+    if (!paid) trackUpgradePromptShown('publish_panel');
+    const checked = paid && removeBadgeChecked(currentChatId, window.currentPublishedPath);
+    return `<div class="publish-badge-toggle${paid ? '' : ' is-locked'}">` +
+        `<label><input type="checkbox" class="publish-remove-badge"${checked ? ' checked' : ''}${paid ? '' : ' disabled'}>` +
+            '<span>Remove the “Made with Puter” badge</span>' +
+        '</label>' +
+        (paid ? '' : '<button type="button" class="publish-branding-btn" data-action="upgrade" data-source="publish_panel">Upgrade</button>') +
+    '</div>';
+}
+
+// The upgrade offer under the share view, for free users.
+function publishBrandingHtml() {
+    const user = window.user;
+    if (!user || user.is_temp || window.Branding.isSubscribed(user)) return '';
+    trackUpgradePromptShown('publish_success');
     return '<div class="publish-branding">' +
-        '<span>Your site still shows the “Made with Puter” badge.</span>' +
-        '<button type="button" class="publish-branding-btn" data-action="republish">Remove it</button>' +
+        '<span>Your site shows a “Made with Puter” badge. Want to remove it?</span>' +
+        '<button type="button" class="publish-branding-btn" data-action="upgrade" data-source="publish_success">Yes, remove it</button>' +
     '</div>';
 }
 
@@ -2264,7 +2305,7 @@ function publishBrandingHtml({ live, dirty }) {
 // calling the draft's workers. If any step fails, whatever landed is removed
 // and the error rethrown; once this resolves, the release is the caller's to
 // serve — or to delete if serving it fails.
-async function stagePublishRelease(chatId, appDir, srcPath) {
+async function stagePublishRelease(chatId, appDir, srcPath, { removeBadge = false } = {}) {
     // Let the writes already in flight against the working directory finish
     // first. The per-path locks every app-dir writer takes cannot be taken
     // by a whole-directory copy, and the post-turn preview refresh
@@ -2295,11 +2336,12 @@ async function stagePublishRelease(chatId, appDir, srcPath) {
         if (!Array.isArray(releaseItems) || releaseItems.length === 0) {
             throw new Error('The copy of your project came back empty, so nothing was published.');
         }
-        // Paid users publish without the "Made with Puter" badge. Asked of Puter
-        // now, not the copy loaded with the page: the plan may have started or
-        // ended since (another tab, a renewal that failed).
+        // The "Made with Puter" badge comes off only when the user ticked the
+        // box in the popover AND has a paid plan. The plan is asked of Puter
+        // now, not the copy loaded with the page: it may have started or ended
+        // since (another tab, a renewal that failed).
         const user = window.refreshUserPlan ? await window.refreshUserPlan() : window.user;
-        const branding = window.Branding?.isSubscribed(user) ? 'removed' : 'kept';
+        const branding = removeBadge && window.Branding?.isSubscribed(user) ? 'removed' : 'kept';
         if (branding === 'removed') await stripBrandingFromRelease(releaseDir);
 
         // Give the release its own backend and point it there, BEFORE the public
@@ -2344,9 +2386,7 @@ async function retirePublishedWorkers(chatId, keepNames) {
 
 // The core action: push the current working dir to the public subdomain
 // (creating it on first publish), then record + persist the new baseline.
-// `trigger` is for analytics only: 'remove_badge' when the branding note's
-// "Remove it" button started the publish.
-async function doPublish({ trigger } = {}) {
+async function doPublish() {
     // Normally unreachable — the action renders as a disabled "finishing…" row
     // while a turn/restore runs (see renderPublishPanel). This is the race guard
     // for the narrow window where work starts between render and click: no
@@ -2391,6 +2431,9 @@ async function doPublish({ trigger } = {}) {
     // popover while the publish runs (the progress note invites them to), and
     // reading the field later would silently publish under a random name.
     const desiredName = ($('.preview-publish-panel .publish-name-input').val() || '').trim().toLowerCase();
+    // The badge box, for the same reason: the live release it falls back to
+    // is this project's only while it is still open.
+    const removeBadgePromise = removeBadgeWanted(chatId, window.currentPublishedPath);
     // Site metadata for the success card, read in parallel with the publish so
     // the card is ready the moment the site is. Never rejects.
     const siteMetaPromise = loadPublishedSiteMeta(path);
@@ -2430,7 +2473,8 @@ async function doPublish({ trigger } = {}) {
         //
         // Copy into a fresh release and give it its own backend (see
         // stagePublishRelease, which cleans up after its own failures).
-        const { pubRoot, releaseName, releaseDir, publishedWorkers, branding } = await stagePublishRelease(chatId, appDir, path);
+        const removeBadge = await removeBadgePromise;
+        const { pubRoot, releaseName, releaseDir, publishedWorkers, branding } = await stagePublishRelease(chatId, appDir, path, { removeBadge });
         stagedDir = releaseDir;
 
         let url = startUrl;
@@ -2449,6 +2493,10 @@ async function doPublish({ trigger } = {}) {
         // Live from here on — no longer ours to delete on failure.
         const pubDir = releaseDir;
         stagedDir = null;
+        // The new release is what the badge box follows from now on. Its
+        // state is read from the release itself, not taken from `branding`:
+        // stripping is best effort, so a page may still carry the badge.
+        _removeBadgeChoice.delete(chatId);
         // Now that the public address serves the new release, drop the one it
         // replaced (and, on a project published before releases existed, the
         // files that used to sit directly in the container), along with any
@@ -2555,10 +2603,9 @@ async function doPublish({ trigger } = {}) {
                 cost_cents: Math.round(costCents),
                 cost_band: costBand(costCents),
                 branding,
-                ...(trigger ? { trigger } : {}),
             });
         } catch (e) {
-            window.track?.('Project Published', { type: isFirst ? 'first' : 'republish', first_publish: isFirst, branding, ...(trigger ? { trigger } : {}) });
+            window.track?.('Project Published', { type: isFirst ? 'first' : 'republish', first_publish: isFirst, branding });
         }
     } catch (e) {
         // The release never went live, so remove whatever of it landed. The
@@ -2626,14 +2673,20 @@ $(document).on('click', '.preview-publish-panel .publish-action', function (e) {
     doPublish();
 });
 
-// The branding note's button: Upgrade opens the upgrade dialog, Remove it
-// republishes (stripping the badge — see stagePublishRelease). stopPropagation
-// for the same reason as .publish-action above.
+// The Upgrade buttons beside the locked badge box and under the share view.
+// stopPropagation for the same reason as .publish-action above.
 $(document).on('click', '.preview-publish-panel .publish-branding-btn', function (e) {
     e.preventDefault();
     e.stopPropagation();
-    if ($(this).attr('data-action') === 'republish') doPublish({ trigger: 'remove_badge' });
-    else openUpgradeModal($(this).attr('data-source') || 'publish_panel');
+    openUpgradeModal($(this).attr('data-source') || 'publish_panel');
+});
+
+// The badge box: remember the pick for this chat, and re-render so a live,
+// up-to-date site gets its Publish changes button (or loses it).
+$(document).on('change', '.preview-publish-panel .publish-remove-badge', function (e) {
+    e.stopPropagation();
+    _removeBadgeChoice.set(currentChatId, this.checked);
+    renderPublishPanel();
 });
 
 // First-publish address field: Enter publishes, Escape closes. stopPropagation
@@ -2840,7 +2893,7 @@ function publishSuccessHtml({ url, meta }) {
             `<button type="button" class="publish-result-copy">${copySvg}<span>Copy link</span></button>` +
             `<a class="publish-result-visit" href="${safeUrl}" target="_blank" rel="noopener noreferrer"><span>Visit site</span>${arrowSvg}</a>` +
         '</div>' +
-        publishBrandingHtml({ live: false }) +
+        publishBrandingHtml() +
     '</div>';
 }
 
@@ -4831,7 +4884,7 @@ function openUpgradeModal(source, { justUpgraded = false } = {}) {
     const perks =
         '<ul class="upgrade-perks">' +
             `<li>${check}<span>More credits for building apps</span></li>` +
-            `<li>${check}<span>No “Made with Puter” badge on your published sites</span></li>` +
+            `<li>${check}<span>Remove “Made with Puter” badge on your sites</span></li>` +
             `<li>${check}<span>Premium features we release in the future</span></li>` +
         '</ul>';
     const billing = htmlEscape(window.Branding.UPGRADE_URL);
@@ -4853,21 +4906,20 @@ function openUpgradeModal(source, { justUpgraded = false } = {}) {
                 `<figure>${site(false)}<figcaption>Paid</figcaption></figure>` +
             '</div>' +
             '<p class="upgrade-lead">A paid Puter subscription unlocks these in Builder:</p>' +
-            perks +
-            '<p class="upgrade-note">After you upgrade, publish your site again to remove the badge.</p>';
+            perks;
         actions =
             '<button type="button" class="confirm-modal-btn confirm-modal-cancel upgrade-cancel">Not now</button>' +
             `<a class="confirm-modal-btn upgrade-go" href="${billing}" target="_blank" rel="noopener noreferrer">Upgrade</a>`;
     } else {
-        // Just upgraded with a site that is live: its badge only goes on the
-        // next publish, so that is the one step to offer.
+        // Just upgraded with a site that is live: its badge only goes when the
+        // user ticks the box and publishes, so that is the one step to offer.
         const republish = justUpgraded && !!window.currentPublishedUrl && !!$('.preview-publish-btn').length;
         title = justUpgraded ? 'You’re subscribed' : 'Your Puter plan';
         body =
             (justUpgraded ? `<div class="upgrade-success-badge" aria-hidden="true">${check}</div>` : '') +
             `<p class="upgrade-lead">${justUpgraded ? 'Thanks for upgrading. You now have these in Builder:' : 'You’re on a paid Puter plan. You have these in Builder:'}</p>` +
             perks.replace('<ul class="upgrade-perks">', '<ul class="upgrade-perks is-active">') +
-            (republish ? '<p class="upgrade-note">Publish your site again to remove the badge from it.</p>' : '') +
+            (republish ? '<p class="upgrade-note">To take the badge off your site, tick the badge option in Publish and publish again.</p>' : '') +
             '<div class="upgrade-more">' +
                 '<span>Need more credits? Move to a higher plan on Puter.</span>' +
                 `<a class="upgrade-more-link upgrade-go" href="${billing}" target="_blank" rel="noopener noreferrer">See plans</a>` +

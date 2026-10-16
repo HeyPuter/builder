@@ -4,8 +4,9 @@
 // (<script src="https://builder.puter.com/runtime.js" defer></script>, or the
 // legacy /badge.js path — see src/runtime.js), and that script draws the
 // "Made with Puter" badge. Removing the branding means publishing without that
-// tag: the publish flow strips it from the release's HTML when the user has a
-// paid Puter subscription (stripBrandingFromRelease in ui.js). Only the
+// tag: the publish flow strips it from the release's HTML when the user ticks
+// "Remove the badge" in the publish popover and has a paid Puter subscription
+// (stripBrandingFromRelease in ui.js). Only the
 // published copy is edited; the working files keep the tag, so the builder's
 // preview keeps its click-to-edit bridge (half 2 of the same script).
 //

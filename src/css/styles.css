@@ -3400,8 +3400,7 @@ body.preview-active .preview-pane {
 .publish-result-copy span,
 .publish-result-visit span { line-height: 1; }
 
-/* Branding note at the foot of the publish popover: the upgrade offer for
-   free users, "publish again" for subscribers whose live site predates it. */
+/* Upgrade offer under the publish share view, for free users. */
 .publish-branding {
     display: flex;
     align-items: center;
@@ -3430,6 +3429,31 @@ body.preview-active .preview-pane {
     transition: background-color 0.15s ease;
 }
 .publish-branding-btn:hover { background: #000; }
+
+/* "Remove the badge" box above the Publish button. Free users see it locked,
+   with an Upgrade button beside it. */
+.publish-badge-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: #333;
+    text-align: left;
+}
+.publish-badge-toggle label {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+.publish-badge-toggle input { margin: 0; flex: 0 0 auto; cursor: pointer; }
+.publish-badge-toggle.is-locked label { color: #888; cursor: default; }
+.publish-badge-toggle.is-locked input { cursor: default; }
+/* Hidden while the address is being edited: a pick re-renders the popover,
+   which would drop the typed address. */
+.preview-publish-panel.editing-address .publish-badge-toggle { display: none; }
 
 /* --- Share-draft popover content (its chrome is shared with the publish
    popover above; the draft URL row reuses .publish-url-row) ----------------- */
@@ -5734,6 +5758,8 @@ html[data-theme="dark"] .publish-result-copy.copied { color: var(--success); }
 html[data-theme="dark"] .publish-result-visit { background: #eef2f7; color: #0b1118; }
 html[data-theme="dark"] .publish-result-visit:hover { background: #fff; }
 html[data-theme="dark"] .publish-branding { border-color: var(--border); color: var(--text-secondary); }
+html[data-theme="dark"] .publish-badge-toggle { color: var(--text); }
+html[data-theme="dark"] .publish-badge-toggle.is-locked label { color: var(--text-secondary); }
 html[data-theme="dark"] .upgrade-card-inner { background: var(--surface); border-color: var(--border); color: var(--text); }
 html[data-theme="dark"] .upgrade-card-btn,
 html[data-theme="dark"] .publish-branding-btn,

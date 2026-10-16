@@ -1,9 +1,9 @@
 import fs from 'node:fs';
 
 // ---- Regression guard for the paid "remove branding" perk -------------------
-// Subscribers publish without the "Made with Puter" badge: the publish flow
-// strips the runtime tag from the release's HTML (see src/js/branding.js and
-// stagePublishRelease in ui.js). A regex that misses a tag variant leaves a
+// Subscribers who tick "Remove the badge" publish without the "Made with
+// Puter" badge: the publish flow strips the runtime tag from the release's
+// HTML (see src/js/branding.js and stagePublishRelease in ui.js). A regex that misses a tag variant leaves a
 // paying user's badge up; one that over-matches deletes the user's own scripts.
 
 const read = (rel) => fs.readFileSync(new URL(rel, import.meta.url), 'utf8');
@@ -56,10 +56,18 @@ check('isSubscribed: truthy non-boolean is not enough', !B.isSubscribed({ subscr
 check('isSubscribed: temp user never counts', !B.isSubscribed({ is_temp: true, subscribed: true }));
 check('upgrade url is puter.com billing', B.UPGRADE_URL === 'https://puter.com/#billing');
 
-// Wiring: the module is bundled, and staging a release strips only for subscribers.
+// Wiring: the module is bundled, and staging a release strips only when a
+// subscriber ticked the box. Never automatically.
 check('branding.js is in the bundle', viteSrc.includes("'js/branding.js'"));
-check('stagePublishRelease strips for subscribers, on a fresh plan check',
-    /const user = window\.refreshUserPlan \? await window\.refreshUserPlan\(\) : window\.user;\s*const branding = window\.Branding\?\.isSubscribed\(user\) \? 'removed' : 'kept';\s*if \(branding === 'removed'\) await stripBrandingFromRelease\(releaseDir\)/.test(uiSrc));
+check('stagePublishRelease strips only when ticked by a subscriber, on a fresh plan check',
+    /const user = window\.refreshUserPlan \? await window\.refreshUserPlan\(\) : window\.user;\s*const branding = removeBadge && window\.Branding\?\.isSubscribed\(user\) \? 'removed' : 'kept';\s*if \(branding === 'removed'\) await stripBrandingFromRelease\(releaseDir\)/.test(uiSrc));
+check('removeBadge defaults to off', uiSrc.includes('async function stagePublishRelease(chatId, appDir, srcPath, { removeBadge = false } = {})'));
+check('doPublish passes the box state to staging', uiSrc.includes('stagePublishRelease(chatId, appDir, path, { removeBadge })'));
+check('the box is locked for free users, with an Upgrade button',
+    /class="publish-remove-badge"\$\{checked \? ' checked' : ''\}\$\{paid \? '' : ' disabled'\}/.test(uiSrc) &&
+    uiSrc.includes('data-action="upgrade" data-source="publish_panel">Upgrade</button>'));
+check('the box is shown in both the first-publish and live views',
+    (uiSrc.match(/publishBadgeToggleHtml\(\) \+/g) || []).length === 2);
 check('settings asks before switching away from a running build',
     /async function publishFromSettings\(\) \{[\s\S]*?confirmLeaveActiveChat\(\)[\s\S]*?close\(\);/.test(uiSrc));
 check('the chat card is skipped for a stopped turn',

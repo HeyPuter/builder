@@ -61,7 +61,7 @@ const CODE = [
     extract(source, 'function publishBlockedReason() {'),
     extract(source, 'async function createPublishSubdomain(path, desired'),
     extract(helpersSource, 'function generateChatTitle(history) {'),
-    extract(source, 'async function doPublish({ trigger } = {}) {'),
+    extract(source, 'async function doPublish() {'),
 ].join('\n\n');
 
 check('doPublish captures the destination before awaiting', /const startUrl = window\.currentPublishedUrl/.test(source));
