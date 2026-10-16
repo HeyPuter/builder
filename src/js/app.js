@@ -2682,7 +2682,7 @@ $(document).ready(async function(){
     // Sign In button).
     updateUserMenu();
     // A limit hit before a reload: the user may have paid in the meantime.
-    if (window.user) checkPaidAfterLimit(window.user);
+    if (window.user) checkPaidAfterLimit();
 
     // If already authenticated, eagerly initialise user-dependent state
     if (window.user && !window.user.is_temp) {
@@ -3421,24 +3421,49 @@ function planChange(before, after) {
 
 async function recordPlanAtLimit(kind) {
     try {
-        const key = limitPayKey();
-        if (!key) return;
+        const id = window.user && window.user.uuid;
+        if (!id) return;
         const at = Date.now();
-        const plan = await readPlanSnapshot(window.user);
-        localStorage.setItem(key, JSON.stringify({ at, kind, plan }));
+        // A fresh user, not the cached window.user. That one is from page load,
+        // so a subscription bought in another tab since then would go into the
+        // baseline as free, and the next check would report it as
+        // started_paying for a payment made before the limit. No fresh user
+        // (offline, or another account answering) means no baseline.
+        const user = await puter.auth.getUser();
+        if (!user || user.uuid !== id) return;
+        const plan = await readPlanSnapshot(user);
+        localStorage.setItem(LIMIT_PAY_PREFIX + id, JSON.stringify({ at, kind, plan }));
     } catch (e) {}
 }
 
 // Called on page load and whenever the tab comes back into view, which is when
 // someone returns from paying on puter.com. Does nothing (no requests) unless
-// a limit hit from the last 24 hours is waiting. `user` skips the getUser
-// fetch when the caller has just made one.
+// a limit hit from the last 24 hours is waiting.
+//
+// Two tabs can check at once, so the record is consumed under a per-account
+// Web Lock. A tab that finds it taken skips, since the tab holding it reports.
+// Without Web Locks (very old browsers) it runs unlocked, and the re-read
+// before removing is the only guard.
 let _paidCheckInFlight = false;
-async function checkPaidAfterLimit(user) {
+async function checkPaidAfterLimit() {
     if (_paidCheckInFlight) return;
     try {
         const key = limitPayKey();
-        if (!key) return;
+        if (!key || !localStorage.getItem(key)) return;
+        _paidCheckInFlight = true;
+        if (navigator.locks && navigator.locks.request) {
+            await navigator.locks.request(key, { ifAvailable: true }, lock => lock && consumePaidAfterLimit(key));
+        } else {
+            await consumePaidAfterLimit(key);
+        }
+    } catch (e) { /* analytics must never break the app */ }
+    finally { _paidCheckInFlight = false; }
+}
+
+async function consumePaidAfterLimit(key) {
+    try {
+        // Read again under the lock: a tab that held it before may have reported
+        // and removed this record.
         const raw = localStorage.getItem(key);
         if (!raw) return;
         const hit = JSON.parse(raw);
@@ -3447,14 +3472,17 @@ async function checkPaidAfterLimit(user) {
             localStorage.removeItem(key);
             return;
         }
-        _paidCheckInFlight = true;
-        // refreshUserPlan also swaps the toolbar's Upgrade button when the
-        // plan changed; it falls back to the cached user when Puter can't be
-        // reached, which just finds no change this time.
-        if (!user) user = window.refreshUserPlan ? await window.refreshUserPlan() : await puter.auth.getUser();
+        // refreshUserPlan also swaps the toolbar's Upgrade button when the plan
+        // changed; it falls back to the cached user when Puter can't be reached,
+        // which just finds no change this time.
+        const user = window.refreshUserPlan ? await window.refreshUserPlan() : await puter.auth.getUser();
         if (!user || user.uuid !== (window.user && window.user.uuid)) return;
         const found = planChange(hit.plan, await readPlanSnapshot(user));
         if (!found) return;
+        // A new limit hit saved while this check was waiting on Puter is a new
+        // baseline; leave it for the next check.
+        const now = JSON.parse(localStorage.getItem(key) || 'null');
+        if (!now || now.at !== hit.at) return;
         localStorage.removeItem(key);
         const mins = (Date.now() - hit.at) / 6e4;
         window.track?.('Upgrade After Limit', {
@@ -3464,7 +3492,6 @@ async function checkPaidAfterLimit(user) {
             since_limit: mins < 10 ? '<10m' : mins < 60 ? '10-60m' : '1-24h',
         });
     } catch (e) { /* analytics must never break the app */ }
-    finally { _paidCheckInFlight = false; }
 }
 
 // True for the errors puter.js answers with its Low Balance prompt. Mirrors the

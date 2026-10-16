@@ -22,7 +22,7 @@ const APP = fs.readFileSync(new URL('../src/js/app.js', import.meta.url), 'utf8'
 const a = APP.indexOf('// ===== usage-limit-unblock (start) =====');
 const b = APP.indexOf('// ===== usage-limit-unblock (end) =====');
 if (a < 0 || b < 0) throw new Error('could not extract usage-limit-unblock block');
-const make = new Function('window', 'localStorage', 'Date', 'puter',
+const make = new Function('window', 'localStorage', 'Date', 'puter', 'navigator',
     APP.slice(a, b) + '\nreturn { recordUsageLimitHit, reportUnblockAfterLimit, LIMIT_HIT_PREFIX, countCompletedBuilds, usageLimitHitProps, isLowBalanceRefusal, planChange, recordPlanAtLimit, checkPaidAfterLimit, LIMIT_PAY_PREFIX };');
 
 const HOUR = 36e5;
@@ -38,7 +38,7 @@ function memStorage() {
     };
 }
 
-function harness({ storage = memStorage(), uuid = 'user-a', puter = null } = {}) {
+function harness({ storage = memStorage(), uuid = 'user-a', puter = null, navigator = {} } = {}) {
     let now = T0;
     const RealDate = globalThis.Date;
     class FakeDate extends RealDate {
@@ -47,7 +47,7 @@ function harness({ storage = memStorage(), uuid = 'user-a', puter = null } = {})
     }
     const win = { user: uuid ? { uuid } : null, _calls: [] };
     win.track = (event, props) => { win._calls.push([event, props]); };
-    const api = make(win, storage, FakeDate, puter);
+    const api = make(win, storage, FakeDate, puter, navigator);
     return { ...api, win, storage, setNow: t => { now = t; } };
 }
 
@@ -247,18 +247,46 @@ for (const bad of ['not json', 'null', '{}', '{"at":"yesterday"}']) {
 }
 
 // Upgrade After Limit end to end, with a fake Puter
-async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, sameUser = true } = {}) {
-    let state = before;
-    const puter = {
-        auth: {
-            getMonthlyUsage: async () => ({ allowanceInfo: { monthUsageAllowance: state.allowance, addons: { purchasedCredits: state.purchased } } }),
-            getUser: async () => ({ uuid: sameUser ? 'user-a' : 'user-b', subscribed: state.subscribed, paid_storage: state.paid_storage }),
+// A Web Locks stand-in for { ifAvailable: true }: a held name hands the
+// callback null instead of waiting.
+function lockManager() {
+    const held = new Set(), names = [];
+    return {
+        names,
+        async request(name, opts, cb) {
+            names.push(name);
+            if (!opts || opts.ifAvailable !== true) throw new Error('expected ifAvailable');
+            if (held.has(name)) return cb(null);
+            held.add(name);
+            try { return await cb({ name }); } finally { held.delete(name); }
         },
     };
-    const h = harness({ puter });
-    h.win.user = { uuid: 'user-a', subscribed: before.subscribed, paid_storage: before.paid_storage };
+}
+// `state` is what Puter reports; `cached` is window.user from page load.
+function fakePuter(box) {
+    return {
+        auth: {
+            getMonthlyUsage: async () => ({ allowanceInfo: { monthUsageAllowance: box.state.allowance, addons: { purchasedCredits: box.state.purchased } } }),
+            getUser: async () => {
+                if (box.failUser) throw new Error('offline');
+                return { uuid: box.uuid || 'user-a', subscribed: box.state.subscribed, paid_storage: box.state.paid_storage };
+            },
+        },
+    };
+}
+function tab(box, storage, navigator) {
+    const h = harness({ puter: fakePuter(box), storage, navigator });
+    const c = box.cached || box.state;
+    h.win.user = { uuid: 'user-a', subscribed: c.subscribed, paid_storage: c.paid_storage };
+    return h;
+}
+async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, otherAccountLater = false, failUserAtHit = false } = {}) {
+    const box = { state: before, cached, failUser: failUserAtHit };
+    const h = tab(box, memStorage(), { locks: lockManager() });
     await h.recordPlanAtLimit('credits');
-    state = after;
+    box.state = after;
+    box.failUser = false;
+    if (otherAccountLater) box.uuid = 'user-b';
     h.setNow(T0 + ageMs);
     await h.checkPaidAfterLimit();
     return h;
@@ -288,13 +316,35 @@ async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, sameUser = tr
     h = await paidHarness({ before: free, after: paid, ageMs: 24 * HOUR });
     check('past 24h → not reported, record dropped', paidCalls(h).length === 0 && !h.storage._m.has(h.LIMIT_PAY_PREFIX + 'user-a'));
 
-    h = await paidHarness({ before: free, after: paid, sameUser: false });
+    h = await paidHarness({ before: free, after: paid, otherAccountLater: true });
     check('a different account answering → not reported', paidCalls(h).length === 0);
+
+    // Subscribed in another tab before the limit, page-load user still free
+    h = await paidHarness({ before: paid, after: paid, cached: free });
+    check('stale cached user → baseline from a fresh fetch, no false started_paying', paidCalls(h).length === 0);
+
+    h = await paidHarness({ before: free, after: paid, failUserAtHit: true });
+    check('no fresh user at the hit → no baseline saved', paidCalls(h).length === 0 && !h.storage._m.has(h.LIMIT_PAY_PREFIX + 'user-a'));
 
     const quiet = harness({ puter: { auth: { getUser: async () => { throw new Error('should not fetch'); }, getMonthlyUsage: async () => { throw new Error('should not fetch'); } } } });
     let threw = false;
     try { await quiet.checkPaidAfterLimit(); } catch (e) { threw = true; }
     check('no pending limit hit → no requests, no throw', !threw && quiet.win._calls.length === 0);
+
+    // Two tabs return from paying at once
+    async function twoTabs(navigator) {
+        const box = { state: free };
+        const storage = memStorage();
+        const a = tab(box, storage, navigator), b = tab(box, storage, navigator);
+        await a.recordPlanAtLimit('credits');
+        box.state = paid;
+        await Promise.all([a.checkPaidAfterLimit(), b.checkPaidAfterLimit()]);
+        return paidCalls(a).length + paidCalls(b).length;
+    }
+    const locks = lockManager();
+    check('two tabs sharing the Web Lock report once', await twoTabs({ locks }) === 1);
+    check('the lock is per account', locks.names.length === 2 && locks.names.every(n => n === 'usage_limit_pay:user-a'));
+    check('no Web Locks → the re-read still reports once', await twoTabs({}) === 1);
 }
 
 // Wiring in sendChatMessage
@@ -314,7 +364,7 @@ async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, sameUser = tr
     check('paid check runs on focus, on return to the tab and on load',
         /addEventListener\('focus', \(\) => \{ checkPaidAfterLimit\(\); \}\)/.test(APP) &&
         /visibilitychange[\s\S]{0,120}checkPaidAfterLimit\(\)/.test(APP) &&
-        /await initializeUser\(\);[\s\S]{0,400}checkPaidAfterLimit\(window\.user\)/.test(APP));
+        /await initializeUser\(\);[\s\S]{0,400}checkPaidAfterLimit\(\)/.test(APP));
 }
 
 if (failures) { console.error('\n' + failures + ' check(s) failed'); process.exit(1); }
