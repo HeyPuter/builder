@@ -2681,6 +2681,8 @@ $(document).ready(async function(){
     // Reflect the resolved auth state in the top-right (profile circle vs.
     // Sign In button).
     updateUserMenu();
+    // A limit hit before a reload: the user may have paid in the meantime.
+    if (window.user) checkPaidAfterLimit(window.user);
 
     // If already authenticated, eagerly initialise user-dependent state
     if (window.user && !window.user.is_temp) {
@@ -3359,6 +3361,125 @@ function recordUsageLimitHit(kind) {
         const key = limitHitKey();
         if (key) localStorage.setItem(key, JSON.stringify({ at: Date.now(), kind }));
     } catch (e) {}
+    recordPlanAtLimit(kind);
+}
+
+// ---- Upgrade After Limit ---------------------------------------------------
+// The limit hit also saves the account's plan at that moment, and a later look
+// at the plan that finds the user paid reports 'Upgrade After Limit' once. Unlike
+// a build succeeding, nothing but a payment changes these, so the record only
+// lives 24 hours and since_limit is bucketed tightly.
+//   started_paying  subscribed went from false to true
+//   plan_up         still subscribed, on a bigger monthly allowance
+//                   (paid_storage when the allowance couldn't be read)
+//   bought_credits  purchasedCredits went up, which only a purchase does
+// bought_credits rides along as a flag when it comes with a plan change, so
+// one payment visit is one event.
+const LIMIT_PAY_PREFIX = 'usage_limit_pay:';
+const LIMIT_PAY_WINDOW_MS = 24 * 36e5;
+
+function limitPayKey() {
+    const id = window.user && window.user.uuid;
+    return id ? LIMIT_PAY_PREFIX + id : null;
+}
+
+// What a payment changes. subscribed and paid_storage come from getUser; the
+// monthly allowance and lifetime purchased credits from getMonthlyUsage, which
+// reports them for the whole account. A field that couldn't be read is null
+// and never compared.
+async function readPlanSnapshot(user) {
+    let allowance = null, purchased = null;
+    try {
+        const usage = await puter.auth.getMonthlyUsage();
+        const info = usage && usage.allowanceInfo;
+        if (info && typeof info.monthUsageAllowance === 'number') {
+            allowance = info.monthUsageAllowance;
+            const p = info.addons && info.addons.purchasedCredits;
+            purchased = typeof p === 'number' ? p : 0;
+        }
+    } catch (e) {}
+    return {
+        subscribed: !!(user && user.subscribed === true),
+        paid_storage: user && typeof user.paid_storage === 'number' ? user.paid_storage : null,
+        allowance,
+        purchased,
+    };
+}
+
+function planChange(before, after) {
+    const up = (a, b) => typeof a === 'number' && typeof b === 'number' && b > a;
+    const bought = up(before.purchased, after.purchased);
+    let change = null;
+    if (!before.subscribed && after.subscribed) change = 'started_paying';
+    else if (before.subscribed && after.subscribed &&
+        (before.allowance != null && after.allowance != null
+            ? up(before.allowance, after.allowance)
+            : up(before.paid_storage, after.paid_storage))) change = 'plan_up';
+    else if (bought) change = 'bought_credits';
+    return change ? { change, bought_credits: bought } : null;
+}
+
+async function recordPlanAtLimit(kind) {
+    try {
+        const key = limitPayKey();
+        if (!key) return;
+        const at = Date.now();
+        const plan = await readPlanSnapshot(window.user);
+        localStorage.setItem(key, JSON.stringify({ at, kind, plan }));
+    } catch (e) {}
+}
+
+// Called on page load and whenever the tab comes back into view, which is when
+// someone returns from paying on puter.com. Does nothing (no requests) unless
+// a limit hit from the last 24 hours is waiting. `user` skips the getUser
+// fetch when the caller has just made one.
+let _paidCheckInFlight = false;
+async function checkPaidAfterLimit(user) {
+    if (_paidCheckInFlight) return;
+    try {
+        const key = limitPayKey();
+        if (!key) return;
+        const raw = localStorage.getItem(key);
+        if (!raw) return;
+        const hit = JSON.parse(raw);
+        const age = hit && typeof hit.at === 'number' ? Date.now() - hit.at : -1;
+        if (!hit || !hit.plan || age < 0 || age >= LIMIT_PAY_WINDOW_MS) {
+            localStorage.removeItem(key);
+            return;
+        }
+        _paidCheckInFlight = true;
+        // refreshUserPlan also swaps the toolbar's Upgrade button when the
+        // plan changed; it falls back to the cached user when Puter can't be
+        // reached, which just finds no change this time.
+        if (!user) user = window.refreshUserPlan ? await window.refreshUserPlan() : await puter.auth.getUser();
+        if (!user || user.uuid !== (window.user && window.user.uuid)) return;
+        const found = planChange(hit.plan, await readPlanSnapshot(user));
+        if (!found) return;
+        localStorage.removeItem(key);
+        const mins = (Date.now() - hit.at) / 6e4;
+        window.track?.('Upgrade After Limit', {
+            change: found.change,
+            bought_credits: found.bought_credits,
+            kind: hit.kind,
+            since_limit: mins < 10 ? '<10m' : mins < 60 ? '10-60m' : '1-24h',
+        });
+    } catch (e) { /* analytics must never break the app */ }
+    finally { _paidCheckInFlight = false; }
+}
+
+// True for the errors puter.js answers with its Low Balance prompt. Mirrors the
+// 'funds' case of classifyUpgradeRefusal in puter.js (lib/upgradePrompt.js):
+// code insufficient_funds or status 402, unless the code names a plan gate or a
+// storage limit, which get their own prompts. The mid-stream cutoff (a usage
+// line with metadata.usage_limited) is caught in handleMessageStream instead.
+function isLowBalanceRefusal(error) {
+    if (!error || typeof error !== 'object') return false;
+    const nested = error.error && typeof error.error === 'object' ? error.error : {};
+    const codes = [error.code, nested.code];
+    const statuses = [error.status, nested.status];
+    if (codes.includes('subscription_required')) return false;
+    if (codes.includes('storage_limit_reached') || codes.includes('NOT_ENOUGH_SPACE') || statuses.includes(413)) return false;
+    return codes.includes('insufficient_funds') || statuses.includes(402);
 }
 
 function reportUnblockAfterLimit() {
@@ -3436,6 +3557,11 @@ function usageLimitHitProps(history, chats, chatId, publishedUrl) {
     };
 }
 // ===== usage-limit-unblock (end) =====
+
+window.addEventListener('focus', () => { checkPaidAfterLimit(); });
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'hidden') checkPaidAfterLimit();
+});
 
 // ===== transient-retry-classifier (start) =====
 // True only for failures a retry can plausibly fix. Allowlist-based: the default
@@ -4744,7 +4870,15 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                 costCents > 0 ? { currency: 'USD', amount: -(costCents / 100) } : undefined,
             );
             if (attempt > 0) window.track?.('Build Recovered', { attempts: attempt });
-            reportUnblockAfterLimit();
+            // A stream Puter cut short for lack of credits still ends cleanly, so
+            // it lands here, not in the catch below. puter.js shows Low Balance
+            // for it, so count the limit hit, and don't take it as an unblock.
+            if (context && context.usageLimited) {
+                window.track?.('Usage Limit Hit', { first_build: isFirstBuildTurn, model: MODEL, kind: 'credits', ...usageLimitHitProps(turnSaveContext.chatHistory, savedChats, turnChatId, window.currentPublishedUrl) });
+                recordUsageLimitHit('credits');
+            } else {
+                reportUnblockAfterLimit();
+            }
         }
     } catch (error) {
         if(spinner)
@@ -4771,13 +4905,10 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                 // with a raw "messages.0.content..." field path). Persist it with an
                 // isError marker so a chat reload re-renders the same card.
                 const errorText = extractErrorText(error);
-                // Out of credits can also arrive as a plain error (Puter's 402
-                // insufficient_funds, or the text of a mid-stream failure) rather
-                // than the usage-limited-chat delegate above; count both as one event.
-                const lowerError = errorText.toLowerCase();
-                if (error.code === 'insufficient_funds' || error.error?.code === 'insufficient_funds' ||
-                    (lowerError.includes('insufficient') &&
-                        (lowerError.includes('credit') || lowerError.includes('fund') || lowerError.includes('balance')))) {
+                // Out of credits arrives as Puter's 402 insufficient_funds, before
+                // the stream or as a stream error line. Counted only when puter.js
+                // would show its Low Balance prompt for it.
+                if (isLowBalanceRefusal(error)) {
                     window.track?.('Usage Limit Hit', { first_build: isFirstBuildTurn, model: MODEL, kind: 'credits', ...usageLimitHitProps(turnSaveContext.chatHistory, savedChats, turnChatId, window.currentPublishedUrl) });
                     recordUsageLimitHit('credits');
                 }

@@ -117,11 +117,15 @@ function flushTurnUsage(context) {
 // message out of whatever shape the chunk carries (including a wrapped
 // '400 {...}' envelope). The structured `.error` payload is preserved on the
 // thrown object so downstream checks (e.g. the usage-limit delegate branch)
-// keep working; friendlyErrorMessage() rewrites the text at display time.
+// keep working, and so are the chunk's own code and status, which
+// isLowBalanceRefusal reads; friendlyErrorMessage() rewrites the text at
+// display time.
 function normalizeStreamError(completion) {
     const err = new Error(extractErrorText(completion));
-    if (completion && typeof completion === 'object' && completion.error != null) {
-        err.error = completion.error;
+    if (completion && typeof completion === 'object') {
+        if (completion.error != null) err.error = completion.error;
+        if (completion.code != null) err.code = completion.code;
+        if (completion.status != null) err.status = completion.status;
     }
     return err;
 }
@@ -309,6 +313,11 @@ async function handleMessageStream(stream, context) {
             }
             if (completion.type === "usage") {
                 recordUsageChunk(context, completion);
+                // Puter capped this response at what the balance could pay for
+                // and puter.js showed Low Balance. Read by sendChatMessage.
+                if (completion.metadata && completion.metadata.usage_limited === true) {
+                    context.usageLimited = true;
+                }
             }
             if (completion.type === "tool_use") {
                 clearThinking();

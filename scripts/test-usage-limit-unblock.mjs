@@ -8,7 +8,8 @@ import fs from 'node:fs';
 //     localStorage and clock, covering the one-shot clearing, the three time
 //     buckets, the seven-day expiry, same_month, per-account scoping, and
 //     malformed / blocked storage, then
-//   * text-asserts the wiring: both limit branches record, Build Completed reports.
+//   * text-asserts the wiring: every limit branch records, Build Completed reports
+//     unless the stream was cut short for credits.
 // Mirrors scripts/test-ai-cost-tracking.mjs.
 
 let failures = 0;
@@ -21,8 +22,8 @@ const APP = fs.readFileSync(new URL('../src/js/app.js', import.meta.url), 'utf8'
 const a = APP.indexOf('// ===== usage-limit-unblock (start) =====');
 const b = APP.indexOf('// ===== usage-limit-unblock (end) =====');
 if (a < 0 || b < 0) throw new Error('could not extract usage-limit-unblock block');
-const make = new Function('window', 'localStorage', 'Date',
-    APP.slice(a, b) + '\nreturn { recordUsageLimitHit, reportUnblockAfterLimit, LIMIT_HIT_PREFIX, countCompletedBuilds, usageLimitHitProps };');
+const make = new Function('window', 'localStorage', 'Date', 'puter',
+    APP.slice(a, b) + '\nreturn { recordUsageLimitHit, reportUnblockAfterLimit, LIMIT_HIT_PREFIX, countCompletedBuilds, usageLimitHitProps, isLowBalanceRefusal, planChange, recordPlanAtLimit, checkPaidAfterLimit, LIMIT_PAY_PREFIX };');
 
 const HOUR = 36e5;
 const T0 = Date.UTC(2026, 9, 8, 12, 0, 0); // Oct 8 2026, mid-month
@@ -37,7 +38,7 @@ function memStorage() {
     };
 }
 
-function harness({ storage = memStorage(), uuid = 'user-a' } = {}) {
+function harness({ storage = memStorage(), uuid = 'user-a', puter = null } = {}) {
     let now = T0;
     const RealDate = globalThis.Date;
     class FakeDate extends RealDate {
@@ -46,7 +47,7 @@ function harness({ storage = memStorage(), uuid = 'user-a' } = {}) {
     }
     const win = { user: uuid ? { uuid } : null, _calls: [] };
     win.track = (event, props) => { win._calls.push([event, props]); };
-    const api = make(win, storage, FakeDate);
+    const api = make(win, storage, FakeDate, puter);
     return { ...api, win, storage, setNow: t => { now = t; } };
 }
 
@@ -199,6 +200,103 @@ for (const bad of ['not json', 'null', '{}', '{"at":"yesterday"}']) {
     check('props: project count capped', props(history, many, 'c0', null).projects === '10+');
 }
 
+// Low Balance refusals, matching the 'funds' case of puter.js's classifyUpgradeRefusal
+{
+    const { isLowBalanceRefusal: low } = harness();
+    check('402 body code → low balance', low({ error: 'x', message: 'x', code: 'insufficient_funds' }));
+    check('nested code → low balance', low({ error: { code: 'insufficient_funds' } }));
+    check('bare 402 → low balance', low({ status: 402 }));
+    check('nested 402 → low balance', low({ error: { status: 402 } }));
+    check('402 subscription_required → not low balance', !low({ status: 402, code: 'subscription_required' }));
+    check('storage limit → not low balance', !low({ code: 'storage_limit_reached' }) && !low({ status: 413 }));
+    check('429 credits_reserved → not low balance',
+        !low({ code: 'too_many_requests', errorCode: 'credits_reserved', message: 'Usage is reserved by requests still running.' }));
+    check('provider "insufficient balance" text alone → not low balance', !low(new Error('Insufficient balance on upstream account')));
+    check('nothing → false', !low(null) && !low(undefined) && !low('insufficient_funds'));
+}
+
+// Stream helpers keep what the checks above read
+{
+    const STREAM = fs.readFileSync(new URL('../src/js/handleMessageStream.js', import.meta.url), 'utf8');
+    const s = STREAM.indexOf('function normalizeStreamError(');
+    const e = STREAM.indexOf('\n}\n', s);
+    const normalize = new Function('extractErrorText', STREAM.slice(s, e + 2) + '\nreturn normalizeStreamError;')(c => String(c && c.message || ''));
+    const err = normalize({ type: 'error', code: 'insufficient_funds', status: 402, message: 'm' });
+    check('stream error keeps code', err.code === 'insufficient_funds');
+    check('stream error keeps status', err.status === 402);
+    check('usage line with usage_limited flags the turn',
+        /completion\.type === "usage"\)[\s\S]{0,400}completion\.metadata\.usage_limited === true[\s\S]{0,40}context\.usageLimited = true;/.test(STREAM));
+}
+
+// Upgrade After Limit: which change a payment made
+{
+    const { planChange: pc } = harness();
+    const free = { subscribed: false, paid_storage: 0, allowance: 1000, purchased: 0 };
+    const paid = { subscribed: true, paid_storage: 500, allowance: 45000, purchased: 0 };
+    check('free → subscribed is started_paying', pc(free, paid).change === 'started_paying' && pc(free, paid).bought_credits === false);
+    check('bigger allowance is plan_up', pc(paid, { ...paid, allowance: 90000 }).change === 'plan_up');
+    check('more paid_storage alone is not plan_up when allowance was read', pc(paid, { ...paid, paid_storage: 1000 }) === null);
+    check('paid_storage is the fallback without the allowance',
+        pc({ ...paid, allowance: null }, { ...paid, allowance: null, paid_storage: 1000 }).change === 'plan_up');
+    check('bought credits on the same plan', pc(free, { ...free, purchased: 5000 }).change === 'bought_credits');
+    check('plan change and credits in one visit is one change plus the flag',
+        pc(free, { ...paid, purchased: 5000 }).change === 'started_paying' && pc(free, { ...paid, purchased: 5000 }).bought_credits === true);
+    check('nothing changed → null', pc(paid, { ...paid }) === null);
+    check('downgrade → null', pc({ ...paid, allowance: 90000 }, paid) === null && pc(paid, free) === null);
+    check('unreadable credits never count as a purchase', pc({ ...free, purchased: null }, { ...free, purchased: 5000 }) === null);
+}
+
+// Upgrade After Limit end to end, with a fake Puter
+async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, sameUser = true } = {}) {
+    let state = before;
+    const puter = {
+        auth: {
+            getMonthlyUsage: async () => ({ allowanceInfo: { monthUsageAllowance: state.allowance, addons: { purchasedCredits: state.purchased } } }),
+            getUser: async () => ({ uuid: sameUser ? 'user-a' : 'user-b', subscribed: state.subscribed, paid_storage: state.paid_storage }),
+        },
+    };
+    const h = harness({ puter });
+    h.win.user = { uuid: 'user-a', subscribed: before.subscribed, paid_storage: before.paid_storage };
+    await h.recordPlanAtLimit('credits');
+    state = after;
+    h.setNow(T0 + ageMs);
+    await h.checkPaidAfterLimit();
+    return h;
+}
+{
+    const free = { subscribed: false, paid_storage: 0, allowance: 1000, purchased: 0 };
+    const paid = { subscribed: true, paid_storage: 500, allowance: 45000, purchased: 0 };
+    const paidCalls = h => h.win._calls.filter(c => c[0] === 'Upgrade After Limit');
+
+    let h = await paidHarness({ before: free, after: paid });
+    let c = paidCalls(h);
+    check('paid after limit → one event', c.length === 1);
+    check('paid after limit → props', c[0] && c[0][1].change === 'started_paying' && c[0][1].kind === 'credits' && c[0][1].since_limit === '<10m' && c[0][1].bought_credits === false);
+    check('paid after limit → record cleared', !h.storage._m.has(h.LIMIT_PAY_PREFIX + 'user-a'));
+    await h.checkPaidAfterLimit();
+    check('paid after limit → reported once', paidCalls(h).length === 1);
+
+    for (const [mins, bucket] of [[30, '10-60m'], [5 * 60, '1-24h']]) {
+        h = await paidHarness({ before: free, after: { ...free, purchased: 5000 }, ageMs: mins * 60 * 1000 });
+        c = paidCalls(h);
+        check(`${mins}m → since_limit ${bucket}`, c.length === 1 && c[0][1].since_limit === bucket && c[0][1].change === 'bought_credits');
+    }
+
+    h = await paidHarness({ before: free, after: free });
+    check('no payment → no event, record kept', paidCalls(h).length === 0 && h.storage._m.has(h.LIMIT_PAY_PREFIX + 'user-a'));
+
+    h = await paidHarness({ before: free, after: paid, ageMs: 24 * HOUR });
+    check('past 24h → not reported, record dropped', paidCalls(h).length === 0 && !h.storage._m.has(h.LIMIT_PAY_PREFIX + 'user-a'));
+
+    h = await paidHarness({ before: free, after: paid, sameUser: false });
+    check('a different account answering → not reported', paidCalls(h).length === 0);
+
+    const quiet = harness({ puter: { auth: { getUser: async () => { throw new Error('should not fetch'); }, getMonthlyUsage: async () => { throw new Error('should not fetch'); } } } });
+    let threw = false;
+    try { await quiet.checkPaidAfterLimit(); } catch (e) { threw = true; }
+    check('no pending limit hit → no requests, no throw', !threw && quiet.win._calls.length === 0);
+}
+
 // Wiring in sendChatMessage
 {
     const send = APP.slice(APP.indexOf('async function sendChatMessage('));
@@ -206,10 +304,17 @@ for (const bad of ['not json', 'null', '{}', '{"at":"yesterday"}']) {
         /'Usage Limit Hit'[^\n]*kind: 'tier'[^\n]*\n\s*recordUsageLimitHit\('tier'\);/.test(send));
     check('credits branch records the limit hit',
         /'Usage Limit Hit'[^\n]*kind: 'credits'[^\n]*\n\s*recordUsageLimitHit\('credits'\);/.test(send));
-    check('both limit branches send the extra props',
-        (send.match(/'Usage Limit Hit'[^\n]*\.\.\.usageLimitHitProps\(turnSaveContext\.chatHistory, savedChats, turnChatId, window\.currentPublishedUrl\)/g) || []).length === 2);
-    check('a completed build reports the unblock',
-        /'Build Completed',[\s\S]{0,400}reportUnblockAfterLimit\(\);/.test(send));
+    check('every limit branch sends the extra props',
+        (send.match(/'Usage Limit Hit'[^\n]*\.\.\.usageLimitHitProps\(turnSaveContext\.chatHistory, savedChats, turnChatId, window\.currentPublishedUrl\)/g) || []).length === 3);
+    check('error branch counts only Low Balance refusals',
+        /if \(isLowBalanceRefusal\(error\)\) \{\s*window\.track\?\.\('Usage Limit Hit'/.test(send));
+    check('a stream cut short for credits records the hit instead of an unblock',
+        /'Build Completed',[\s\S]{0,800}if \(context && context\.usageLimited\) \{\s*window\.track\?\.\('Usage Limit Hit'[^\n]*kind: 'credits'[^\n]*\n\s*recordUsageLimitHit\('credits'\);\s*\} else \{\s*reportUnblockAfterLimit\(\);/.test(send));
+    check('the limit hit also saves the plan', /function recordUsageLimitHit\(kind\) \{[\s\S]{0,300}recordPlanAtLimit\(kind\);/.test(APP));
+    check('paid check runs on focus, on return to the tab and on load',
+        /addEventListener\('focus', \(\) => \{ checkPaidAfterLimit\(\); \}\)/.test(APP) &&
+        /visibilitychange[\s\S]{0,120}checkPaidAfterLimit\(\)/.test(APP) &&
+        /await initializeUser\(\);[\s\S]{0,400}checkPaidAfterLimit\(window\.user\)/.test(APP));
 }
 
 if (failures) { console.error('\n' + failures + ' check(s) failed'); process.exit(1); }
