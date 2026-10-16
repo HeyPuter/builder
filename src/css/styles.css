@@ -3451,6 +3451,9 @@ body.preview-active .preview-pane {
 .publish-badge-toggle input { margin: 0; flex: 0 0 auto; cursor: pointer; }
 .publish-badge-toggle.is-locked label { color: #888; cursor: default; }
 .publish-badge-toggle.is-locked input { cursor: default; }
+/* Hidden while the address is being edited: a pick re-renders the popover,
+   which would drop the typed address. */
+.preview-publish-panel.editing-address .publish-badge-toggle { display: none; }
 
 /* --- Share-draft popover content (its chrome is shared with the publish
    popover above; the draft URL row reuses .publish-url-row) ----------------- */

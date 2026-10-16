@@ -1826,6 +1826,12 @@ window.refreshPublishButton = function () {
         dirtySinceSnapshot: window._projectDirtySinceSnapshot,
     });
     $btn.attr('data-state', st.state);
+    // Read whether the live site has the badge now, not when the popover
+    // opens, so the badge box shows its real state from the first frame. One
+    // read per release (cached). Free users' box is always unticked.
+    if (window.currentPublishedPath && window.Branding?.isSubscribed(window.user)) {
+        readLiveBadge(window.currentPublishedPath);
+    }
     $btn.attr('title',
         st.state === 'clean' ? 'Your site is live — view or update it'
             : st.state === 'dirty' ? 'Publish your latest changes'
@@ -2243,11 +2249,13 @@ function removeBadgeChecked(chatId, path) {
 }
 
 // True when the box asks for something the live site doesn't have yet, so
-// the popover offers to publish even with no other changes.
+// the popover offers to publish even with no other changes. When the live
+// site couldn't be read, any pick the user made counts, so a failed read
+// never blocks publishing it.
 function badgeChangePending(chatId, path) {
     if (!window.Branding.isSubscribed(window.user)) return false;
     const live = _liveBadgeByPath.get(path);
-    if (!live) return false;
+    if (!live) return _removeBadgeChoice.has(chatId);
     return removeBadgeChecked(chatId, path) !== (live === 'none');
 }
 
@@ -2270,8 +2278,7 @@ function publishBadgeToggleHtml() {
     if (!paid) trackUpgradePromptShown('publish_panel');
     const checked = paid && removeBadgeChecked(currentChatId, window.currentPublishedPath);
     return `<div class="publish-badge-toggle${paid ? '' : ' is-locked'}">` +
-        '<label>' +
-            `<input type="checkbox" class="publish-remove-badge"${checked ? ' checked' : ''}${paid ? '' : ' disabled'}>` +
+        `<label><input type="checkbox" class="publish-remove-badge"${checked ? ' checked' : ''}${paid ? '' : ' disabled'}>` +
             '<span>Remove the “Made with Puter” badge</span>' +
         '</label>' +
         (paid ? '' : '<button type="button" class="publish-branding-btn" data-action="upgrade" data-source="publish_panel">Upgrade</button>') +
@@ -2486,9 +2493,9 @@ async function doPublish() {
         // Live from here on — no longer ours to delete on failure.
         const pubDir = releaseDir;
         stagedDir = null;
-        // The new release is what the badge box follows from now on.
-        _liveBadgeByPath.set(pubDir, branding === 'removed' ? 'none' : 'badge');
-        _liveBadgeReads.set(pubDir, Promise.resolve(_liveBadgeByPath.get(pubDir)));
+        // The new release is what the badge box follows from now on. Its
+        // state is read from the release itself, not taken from `branding`:
+        // stripping is best effort, so a page may still carry the badge.
         _removeBadgeChoice.delete(chatId);
         // Now that the public address serves the new release, drop the one it
         // replaced (and, on a project published before releases existed, the
