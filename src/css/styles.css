@@ -4962,6 +4962,32 @@ a.upgrade-more-link {
 }
 a.upgrade-more-link:hover { background: none; color: #111; }
 
+/* Out-of-credits dialog (openLimitModal). The Upgrade dialog's card, with the
+   project's screenshot and checklist progress on top. */
+.limit-modal { width: 420px; }
+.limit-modal:focus,
+.limit-modal:focus-visible { outline: none; }
+.limit-shot {
+    margin: 0 0 14px;
+    border: 1px solid #e3e3e8;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #f4f4f6;
+    aspect-ratio: 16 / 10;
+}
+.limit-shot img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.limit-progress {
+    height: 6px;
+    margin: 0 0 14px;
+    border-radius: 3px;
+    background: #ececf0;
+    overflow: hidden;
+}
+.limit-progress span { display: block; height: 100%; border-radius: 3px; background: #2d7d46; }
+.limit-body { margin: 0 0 10px; font-size: 14px; line-height: 1.5; color: #333; }
+.limit-lead { color: #1a1a1a; font-weight: 600; }
+.limit-live { margin: 0 0 10px; font-size: 13px; color: #555; overflow-wrap: anywhere; }
+
 /* Project Properties dialog — reuses .confirm-modal-overlay for the backdrop. */
 .properties-modal {
     width: 420px;
@@ -5787,6 +5813,12 @@ html[data-theme="dark"] .upgrade-success-badge { background: var(--success-soft)
 html[data-theme="dark"] .upgrade-more { background: var(--surface-subtle); color: var(--text-secondary); }
 html[data-theme="dark"] a.upgrade-more-link,
 html[data-theme="dark"] a.upgrade-more-link:hover { background: none; color: var(--text); }
+html[data-theme="dark"] .limit-shot { background: var(--surface-subtle); border-color: var(--border); }
+html[data-theme="dark"] .limit-progress { background: var(--surface-active); }
+html[data-theme="dark"] .limit-progress span { background: #8fe3ab; }
+html[data-theme="dark"] .limit-body { color: var(--text-secondary); }
+html[data-theme="dark"] .limit-lead { color: var(--text); }
+html[data-theme="dark"] .limit-live { color: var(--text-muted); }
 /* Share-draft popover content (amber mirrors .publish-live.is-stale). */
 html[data-theme="dark"] .share-draft-status { color: #f0c061; }
 html[data-theme="dark"] .share-publish-handoff { color: var(--text-secondary); }

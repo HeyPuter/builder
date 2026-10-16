@@ -118,7 +118,7 @@ function flushTurnUsage(context) {
 // '400 {...}' envelope). The structured `.error` payload is preserved on the
 // thrown object so downstream checks (e.g. the usage-limit delegate branch)
 // keep working, and so are the chunk's own code and status, which
-// isLowBalanceRefusal reads; friendlyErrorMessage() rewrites the text at
+// isLowBalanceRefusal reads. friendlyErrorMessage() rewrites the text at
 // display time.
 function normalizeStreamError(completion) {
     const err = new Error(extractErrorText(completion));
