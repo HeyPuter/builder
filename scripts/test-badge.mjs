@@ -141,8 +141,8 @@ function makeDom(opts = {}, srcText = runtimeSrc) {
         }
     }
 
-    // window.self/.top model top-level vs framed documents (the badge must
-    // never show inside a frame — that's the builder's preview pane). The
+    // window.self/.top model top-level vs framed documents (a framed page is
+    // the builder's preview pane, which shows the badge too). The
     // listener registry is here so the FRAMED runs exercise the same file's
     // half 2 (the picker bridge) instead of silently no-op'ing on a missing
     // window.addEventListener; that half's own behavior is covered by
@@ -155,6 +155,7 @@ function makeDom(opts = {}, srcText = runtimeSrc) {
     };
     win.self = win;
     win.top = opts.framed ? { framedParent: true } : win;
+    win.name = opts.name || '';
 
     const env = {
         window: win,
@@ -237,17 +238,38 @@ function runBehavioralChecks(label, srcText) {
         check(`[${label}] persisted dismissal suppresses the badge entirely`, dom.appended.length === 0);
     }
 
-    // Framed document (the builder's preview iframe): never shows the badge.
-    // The two halves of the file are mutually exclusive by context, so this is
-    // also where we pin that: framed gets the picker bridge and no badge...
+    // Framed document (the builder's preview iframe): shows the badge, so a
+    // free user sees what visitors see, and gets the picker bridge as well...
     {
         const dom = makeDom({ framed: true }, srcText);
         dom.exec();
         dom.run();
-        check(`[${label}] framed page (builder preview) never mounts the badge`,
-            dom.appended.length === 0 && !dom.defs.has('puter-badge'));
-        check(`[${label}] framed page gets the picker bridge instead`,
+        check(`[${label}] framed page (builder preview) mounts the badge`,
+            dom.appended.length === 1 && dom.appended[0].getAttribute('data-in') !== null);
+        check(`[${label}] framed page gets the picker bridge too`,
             (dom.winListeners.message || []).length === 1);
+    }
+
+    // ...unless the builder named the frame for a site published without the
+    // badge. The picker still works there.
+    {
+        const dom = makeDom({ framed: true, name: 'puter-preview-no-badge' }, srcText);
+        dom.exec();
+        dom.run();
+        check(`[${label}] preview of a site published without the badge shows none`,
+            dom.appended.length === 0 && !dom.defs.has('puter-badge'));
+        check(`[${label}] that preview still gets the picker bridge`,
+            (dom.winListeners.message || []).length === 1);
+    }
+
+    // The name only counts in a frame: a top-level window named the same
+    // (window.open, a link with that target) still gets the badge.
+    {
+        const dom = makeDom({ name: 'puter-preview-no-badge' }, srcText);
+        dom.exec();
+        dom.run();
+        check(`[${label}] a top-level window can't use the name to drop the badge`,
+            dom.appended.length === 1);
     }
 
     // ...and a top-level page (a published app in real use) gets the badge and

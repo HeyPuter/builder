@@ -3,14 +3,13 @@
 //
 //   1. The "Made with Puter" attribution badge — a small dismissible pill
 //      hovering in the page's bottom-right corner that links back to the
-//      builder. TOP-LEVEL documents only.
+//      builder. Framed pages too, unless the builder's preview says not to.
 //   2. The builder's element-picker bridge (click-to-edit) — outlines the
 //      hovered element and posts its locator to the builder. FRAMED documents
 //      only, i.e. the builder's own live-preview pane.
 //
-// The halves are mutually exclusive by context, so on any given page exactly
-// one of them does anything; each is a self-contained IIFE with its own guard,
-// and half 1 runs first so it can never be affected by half 2.
+// Each half is a self-contained IIFE with its own guard, and half 1 runs first
+// so it can never be affected by half 2. A framed page can run both.
 //
 // Generated apps load this file with a single baked
 // <script src="https://builder.puter.com/runtime.js" defer></script> tag — the
@@ -51,7 +50,7 @@
 // any change here.
 
 // ===========================================================================
-//  Half 1 — the "Made with Puter" badge (top-level documents only)
+//  Half 1 — the "Made with Puter" badge
 // ===========================================================================
 // Contract with the pages it runs on:
 //   * Zero dependencies, zero layout impact: one fixed-position custom
@@ -62,8 +61,8 @@
 //   * The visitor can dismiss it with the × — the choice is remembered per
 //     app origin via localStorage and respected on every future visit.
 //   * Idempotent: a page that ends up with the tag twice still gets one badge.
-//   * Top-level documents only: a framed page (most importantly the builder's
-//     own preview pane) never shows the badge.
+//   * Framed pages show it too, so the builder's preview shows what visitors
+//     see, except a frame the builder named 'puter-preview-no-badge'.
 (function () {
     'use strict';
 
@@ -72,12 +71,12 @@
     var REVEAL_DELAY_MS = 900; // let the app paint first; the badge slides in after
     var DISMISS_MS = 240;      // matches the exit transition below
 
-    // The badge is for real visits only. The builder's live-preview pane loads
-    // the app in an iframe, so a framed page never shows it — this covers the
-    // preview across reloads and in-app navigation with no builder⇄app
-    // messaging, at the accepted cost of also hiding it when a published app
-    // is embedded elsewhere. (Comparing window refs is safe cross-origin.)
-    if (window.top !== window.self) return;
+    // Framed pages show the badge too, the builder's preview included, so a
+    // free user sees what visitors see. The builder names the preview frame
+    // 'puter-preview-no-badge' once the site is published without the badge
+    // (syncPreviewBadge in js/ui.js). The name lasts across reloads and links
+    // inside the app.
+    try { if (window.top !== window.self && window.name === 'puter-preview-no-badge') return; } catch (e) {}
 
     // Capability + double-include guards. Anything too old for custom
     // elements / shadow DOM silently gets no badge.
@@ -242,7 +241,7 @@
 (function () {
     'use strict';
 
-    // The badge's inverse guard: this half is for the builder's preview pane.
+    // This half is for the builder's preview pane only.
     // (Comparing window refs is safe cross-origin.)
     if (window.top === window.self) return;
 

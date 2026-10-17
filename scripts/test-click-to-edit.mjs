@@ -107,8 +107,8 @@ check('appDir embedded in rendered prompt',
 //  2. The bridge: behavior against a stub DOM (source AND minified)
 // ===========================================================================
 // src/runtime.js only touches the globals injected below. Half 1 (the badge) bails
-// out on its first line in a framed document, so a framed run needs no
-// badge-side stubs at all — if half 1 ever reached for localStorage/customElements
+// out at its capability guard when customElements is missing, so a framed run
+// needs no badge-side stubs at all — if half 1 ever reached for localStorage
 // before that guard, these runs would throw ReferenceError and fail loudly.
 
 function makeStyle() {
