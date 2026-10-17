@@ -1819,6 +1819,7 @@ let _suggestedPublishName = null;
 window.refreshPublishButton = function () {
     const $btn = $('.preview-publish-btn');
     if (!$btn.length) return;
+    window.syncPreviewBadge?.();
     const st = window.computePublishState({
         publishedUrl: window.currentPublishedUrl,
         publishedVersionId: window.currentPublishedVersionId,
@@ -2232,6 +2233,28 @@ function readLiveBadge(path) {
     }
     return _liveBadgeReads.get(path);
 }
+
+// The preview shows the "Made with Puter" badge like the live site does, so a
+// free user sees what the upgrade removes (see runtime.js). Once the site is
+// published without it, the preview drops it too: runtime.js skips the badge
+// in a frame with this name. A frame keeps its name across reloads and links
+// inside the app, but Chrome reads the name only when the frame is created,
+// so a change re-inserts the iframe and then reloads it.
+const PREVIEW_NO_BADGE = 'puter-preview-no-badge';
+function syncPreviewBadge() {
+    const path = window.currentPublishedPath;
+    readLiveBadge(path).then(() => {
+        const frame = $('.preview-frame')[0];
+        if (!frame || window.currentPublishedPath !== path) return;
+        const name = _liveBadgeByPath.get(path) === 'none' ? PREVIEW_NO_BADGE : '';
+        if (frame.name === name) return;
+        frame.name = name;
+        frame.src = 'about:blank';
+        frame.parentNode.insertBefore(frame, frame.nextSibling);
+        reloadPreviewFrame(null, { keepPendingUpdate: true });
+    });
+}
+window.syncPreviewBadge = syncPreviewBadge;
 
 // The "Remove the badge" box as the user left it, by chat id, until the next
 // publish of that chat. Without a pick the box follows the live site: checked
