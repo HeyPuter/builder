@@ -19,11 +19,15 @@ function check(name, cond) {
 }
 
 const APP = fs.readFileSync(new URL('../src/js/app.js', import.meta.url), 'utf8');
+// The real costBand, from helpers.js, which app.js uses as a global.
+const HELPERS = fs.readFileSync(new URL('../src/js/helpers.js', import.meta.url), 'utf8');
+const bandSrc = HELPERS.slice(HELPERS.indexOf('const COST_BANDS = ['));
+const costBand = new Function(bandSrc.slice(0, bandSrc.indexOf('\n}\n', bandSrc.indexOf('function costBand(')) + 3) + 'return costBand;')();
 const a = APP.indexOf('// ===== usage-limit-unblock (start) =====');
 const b = APP.indexOf('// ===== usage-limit-unblock (end) =====');
 if (a < 0 || b < 0) throw new Error('could not extract usage-limit-unblock block');
-const make = new Function('window', 'localStorage', 'Date', 'puter', 'navigator',
-    APP.slice(a, b) + '\nreturn { recordUsageLimitHit, reportUnblockAfterLimit, LIMIT_HIT_PREFIX, countCompletedBuilds, usageLimitHitProps, isLowBalanceRefusal, planChange, recordPlanAtLimit, checkPaidAfterLimit, LIMIT_PAY_PREFIX };');
+const make = new Function('window', 'localStorage', 'Date', 'puter', 'navigator', 'costBand',
+    APP.slice(a, b) + '\nreturn { recordUsageLimitHit, reportUnblockAfterLimit, LIMIT_HIT_PREFIX, countCompletedBuilds, usageLimitHitProps, isLowBalanceRefusal, planChange, recordPlanAtLimit, checkPaidAfterLimit, LIMIT_PAY_PREFIX, creditsAtStart, readTurnAccount, limitHitTurnProps, afterAccountRead };');
 
 const HOUR = 36e5;
 const T0 = Date.UTC(2026, 9, 8, 12, 0, 0); // Oct 8 2026, mid-month
@@ -47,7 +51,7 @@ function harness({ storage = memStorage(), uuid = 'user-a', puter = null, naviga
     }
     const win = { user: uuid ? { uuid } : null, _calls: [] };
     win.track = (event, props) => { win._calls.push([event, props]); };
-    const api = make(win, storage, FakeDate, puter, navigator);
+    const api = make(win, storage, FakeDate, puter, navigator, costBand);
     return { ...api, win, storage, setNow: t => { now = t; } };
 }
 
@@ -347,19 +351,98 @@ async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, other
     check('no Web Locks → the re-read still reports once', await twoTabs({}) === 1);
 }
 
+// Credits and plan at turn start, and how far the turn got
+{
+    const { creditsAtStart: credits, limitHitTurnProps: props } = harness();
+    const mc = dollars => ({ remaining: dollars * 1e8, monthUsageAllowance: 3e8 });
+    check('credits: banded in dollars like cost_band',
+        credits(mc(3)) === '$3-4' && credits(mc(2.99)) === '$2.50-3' && credits(mc(0.4)) === '$0.25-0.50' && credits(mc(0.1)) === '<$0.25');
+    check('credits: nothing left → $0', credits(mc(0)) === '$0' && credits({ remaining: -5 }) === '$0');
+    check('credits: a credit-multiplier deployment → whole credits', credits({ remaining: 212.6, unit: 'credits' }) === 213);
+    check('credits: missing → unknown', credits(null) === 'unknown' && credits({}) === 'unknown' && credits({ remaining: NaN }) === 'unknown');
+
+    const account = { credits: 300, plan: 'free' };
+    const stats = (calls, previewChecks) => ({ calls, previewChecks });
+    const p0 = props(account, stats(0, 0));
+    check('turn props: nothing went through', p0.calls === 0 && p0.preview_checks === '0' && p0.credits_at_start === 300);
+    check('turn props: calls sent as is, capped at 30+',
+        props(account, stats(7, 0)).calls === 7 && props(account, stats(29, 0)).calls === 29 && props(account, stats(30, 0)).calls === '30+');
+    check('turn props: preview checks cap at 3+',
+        props(account, stats(1, 2)).preview_checks === '2' && props(account, stats(1, 3)).preview_checks === '3+' &&
+        props(account, stats(1, 7)).preview_checks === '3+');
+}
+
+{
+    const puter = {
+        auth: {
+            getMonthlyUsage: async () => ({ allowanceInfo: { remaining: 0, monthUsageAllowance: 3e8 } }),
+            getUser: async () => ({ uuid: 'user-a', subscribed: true }),
+        },
+    };
+    const h = harness({ puter });
+    h.win.Branding = { isSubscribed: u => !!(u && u.subscribed) };
+    const a = await h.readTurnAccount();
+    check('account: credits and plan read fresh', a.credits === '$0' && a.plan === 'paid');
+    const failing = harness({ puter: { auth: { getMonthlyUsage: async () => { throw new Error('x'); }, getUser: async () => { throw new Error('x'); } } } });
+    const f = await failing.readTurnAccount();
+    check('account: failed reads → unknown', f.credits === 'unknown' && f.plan === 'unknown');
+}
+
+// Calls and preview checks counted into the turn stats
+{
+    const TOOLS = fs.readFileSync(new URL('../src/js/tools.js', import.meta.url), 'utf8');
+    const STREAM = fs.readFileSync(new URL('../src/js/handleMessageStream.js', import.meta.url), 'utf8');
+    check('the tool loop counts preview checks',
+        /if \(c\.turnStats && toolCall\.name === 'update_preview'\) c\.turnStats\.previewChecks\+\+;/.test(TOOLS));
+    check('each call is counted at its first tool_use or usage (behavior: test-limit-hit-call-count)',
+        /completion\.type === "usage"\) \{\s*countCall\(\);/.test(STREAM) && /completion\.type === "tool_use"\) \{\s*countCall\(\);/.test(STREAM));
+}
+
+// The limit hit waits for the account read, but not forever
+{
+    const { afterAccountRead } = harness();
+    let calls = 0, release;
+    const read = new Promise(r => { release = r; });
+    afterAccountRead(read, () => calls++);
+    await new Promise(r => setTimeout(r, 10));
+    check('waits while the read is pending', calls === 0);
+    release();
+    await new Promise(r => setTimeout(r, 10));
+    check('runs once the read lands', calls === 1);
+    let none = 0;
+    afterAccountRead(null, () => none++);
+    await new Promise(r => setTimeout(r, 10));
+    check('no read started → runs right away', none === 1);
+    let failed = 0;
+    afterAccountRead(Promise.reject(new Error('x')), () => failed++);
+    await new Promise(r => setTimeout(r, 10));
+    check('a failed read still runs it', failed === 1);
+    let hung = 0;
+    const t0 = Date.now();
+    await new Promise(r => afterAccountRead(new Promise(() => {}), () => { hung++; r(); }));
+    check('a hung read runs it after about 3s, once', hung === 1 && Date.now() - t0 >= 2900);
+}
+
 // Wiring in sendChatMessage
 {
     const send = APP.slice(APP.indexOf('async function sendChatMessage('));
     check('tier branch records the limit hit',
-        /'Usage Limit Hit'[^\n]*kind: 'tier'[^\n]*\n\s*recordUsageLimitHit\('tier'\);/.test(send));
+        /trackLimitHit\([^\n]*kind: 'tier'[^\n]*\n\s*recordUsageLimitHit\('tier'\);/.test(send));
     check('credits branch records the limit hit',
-        /'Usage Limit Hit'[^\n]*kind: 'credits'[^\n]*\n\s*recordUsageLimitHit\('credits'\);/.test(send));
+        /trackLimitHit\([^\n]*kind: 'credits'[^\n]*\n\s*recordUsageLimitHit\('credits'\);/.test(send));
     check('every limit branch sends the extra props',
-        (send.match(/'Usage Limit Hit'[^\n]*\.\.\.usageLimitHitProps\(turnSaveContext\.chatHistory, savedChats, turnChatId, window\.currentPublishedUrl\)/g) || []).length === 3);
+        (send.match(/trackLimitHit\([^\n]*\.\.\.usageLimitHitProps\(turnSaveContext\.chatHistory, savedChats, turnChatId, window\.currentPublishedUrl\)/g) || []).length === 3);
+    check('the limit hit waits for the account read, then adds the turn props',
+        /const trackLimitHit = props => afterAccountRead\(turnAccountRead,\s*\(\) => window\.track\?\.\('Usage Limit Hit', \{ \.\.\.props, \.\.\.limitHitTurnProps\(turnAccount, turnStats\) \}\)\);/.test(send));
+    check('the account is read once per turn, before the attempts',
+        /turnAccountRead = readTurnAccount\(\)\.then\(a => \{ turnAccount = a; \}, \(\) => \{\}\);\s*while \(true\)/.test(send));
+    check('every attempt shares the turn stats', /interrupted: true, turnStats\}/.test(send));
+    check('Build Completed carries cost band, plan and credits',
+        /'Build Completed',[\s\S]{0,300}cost_band: costBand\(costCents\), plan: turnAccount\.plan, credits_at_start: turnAccount\.credits/.test(send));
     check('error branch counts only Low Balance refusals',
-        /if \(isLowBalanceRefusal\(error\)\) \{\s*window\.track\?\.\('Usage Limit Hit'/.test(send));
+        /if \(isLowBalanceRefusal\(error\)\) \{\s*trackLimitHit\(/.test(send));
     check('a stream cut short for credits records the hit instead of an unblock',
-        /'Build Completed',[\s\S]{0,800}if \(context && context\.usageLimited\) \{\s*window\.track\?\.\('Usage Limit Hit'[^\n]*kind: 'credits'[^\n]*\n\s*recordUsageLimitHit\('credits'\);\s*\} else \{\s*reportUnblockAfterLimit\(\);/.test(send));
+        /'Build Completed',[\s\S]{0,800}if \(context && context\.usageLimited\) \{\s*trackLimitHit\([^\n]*kind: 'credits'[^\n]*\n\s*recordUsageLimitHit\('credits'\);\s*\} else \{\s*reportUnblockAfterLimit\(\);/.test(send));
     check('the limit hit also saves the plan', /function recordUsageLimitHit\(kind\) \{[\s\S]{0,300}recordPlanAtLimit\(kind\);/.test(APP));
     check('paid check runs on focus, on return to the tab and on load',
         /addEventListener\('focus', \(\) => \{ checkPaidAfterLimit\(\); \}\)/.test(APP) &&

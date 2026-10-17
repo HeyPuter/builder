@@ -209,6 +209,31 @@ async function* abortableStream(stream, signal) {
 }
 // ===== abortable-stream (end) =====
 
+// A later call in this turn failed (refused for credits, errored, or the turn
+// was stopped) while this stream sat in its tool round. Puter sends a call's
+// usage chunk last, after its tool_use, so it's still unread here, and without
+// it the call's cost never reaches the chat's saved total. Read what's left of
+// the stream for usage before unwinding. It's normally already buffered; one
+// shared deadline per turn keeps a dead connection from stalling the unwind
+// once per tool round.
+const DRAIN_USAGE_MS = 1500;
+async function drainUsage(stream, context) {
+    try {
+        const it = stream && stream[Symbol.asyncIterator] && stream[Symbol.asyncIterator]();
+        if (!it || !it.next) return;
+        if (!context.drainDeadline) context.drainDeadline = Date.now() + DRAIN_USAGE_MS;
+        while (true) {
+            const left = context.drainDeadline - Date.now();
+            if (left <= 0) return;
+            let timer;
+            const timeout = new Promise(resolve => { timer = setTimeout(() => resolve(null), left); });
+            const r = await Promise.race([it.next(), timeout]).finally(() => clearTimeout(timer));
+            if (!r || r.done) return;
+            if (r.value && r.value.type === 'usage') recordUsageChunk(context, r.value);
+        }
+    } catch (_) { /* best-effort: the turn's own error is what surfaces */ }
+}
+
 /**
  *
  * @param {*} stream
@@ -228,6 +253,17 @@ async function handleMessageStream(stream, context) {
 
     // Local ownership matters: recursive tool rounds and stale turns must not
     // tear down another stream's preview. Always dispose before a tool handoff.
+    // This model call, counted once into the turn's stats (the Usage Limit Hit
+    // event's calls) at its first tool_use or its usage chunk. Not at usage
+    // alone: usage comes last, after the tool rounds this stream recursed into,
+    // so a later call refused for credits would leave every earlier one
+    // uncounted.
+    let callCounted = false;
+    const countCall = () => {
+        if (callCounted || !context.turnStats) return;
+        callCounted = true;
+        context.turnStats.calls++;
+    };
     let thinkingPreview = null;
     const clearThinking = () => {
         thinkingPreview?.remove();
@@ -312,6 +348,7 @@ async function handleMessageStream(stream, context) {
                 autoScrollTrigger(context);
             }
             if (completion.type === "usage") {
+                countCall();
                 recordUsageChunk(context, completion);
                 // Puter capped this response at what the balance could pay for
                 // and puter.js showed Low Balance. Read by sendChatMessage.
@@ -320,12 +357,19 @@ async function handleMessageStream(stream, context) {
                 }
             }
             if (completion.type === "tool_use") {
+                countCall();
                 clearThinking();
                 startSpinnerStub();
 
                 // Save before and after a tool call incase the user quits
                 saveCurrentMessage(context);
-                const result = await handleToolCalls(completion, true, context);
+                let result;
+                try {
+                    result = await handleToolCalls(completion, true, context);
+                } catch (err) {
+                    await drainUsage(stream, context);
+                    throw err;
+                }
                 saveCurrentMessage(context);
                 if (result.error || shouldStop) {
                     break;

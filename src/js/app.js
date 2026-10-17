@@ -3583,6 +3583,54 @@ function usageLimitHitProps(history, chats, chatId, publishedUrl) {
         projects: cap(others.length + 1),
     };
 }
+
+// The account's credits and plan when a turn starts, for its Build Completed or
+// Usage Limit Hit event. Credits are what getMonthlyUsage says is left
+// (remaining includes purchased credits), banded in dollars like cost_band, so
+// a build that ran out of a full allowance reads apart from one that started
+// near empty. remaining is in microcents ($0.01 = 1,000,000). A deployment with
+// a credit multiplier reports credits instead, an unknown scale, sent as the
+// whole number. A fresh user, not the cached window.user, so a plan bought
+// since page load counts.
+function creditsAtStart(info) {
+    const r = info && info.remaining;
+    if (typeof r !== 'number' || !isFinite(r)) return 'unknown';
+    const v = Math.max(0, r);
+    if (info.unit === 'credits') return Math.round(v);
+    return costBand(v / 1e6);
+}
+
+async function readTurnAccount() {
+    const [usage, user] = await Promise.all([
+        puter.auth.getMonthlyUsage().catch(() => null),
+        puter.auth.getUser().catch(() => null),
+    ]);
+    return {
+        credits: creditsAtStart(usage && usage.allowanceInfo),
+        plan: user ? (window.Branding.isSubscribed(user) ? 'paid' : 'free') : 'unknown',
+    };
+}
+
+// Runs fn once the turn-start account read settles, or after 3s if it hangs.
+// A build refused on its very first call comes back fast, often before the
+// read does, and that's the case credits_at_start is there for.
+function afterAccountRead(read, fn) {
+    let done = false;
+    const run = () => { if (!done) { done = true; fn(); } };
+    Promise.resolve(read).then(run, run);
+    setTimeout(run, 3000);
+}
+
+// How far a turn got before the limit stopped it: model calls that went through
+// (a refused one sends no usage, so isn't counted), and update_preview calls
+// (3+ means it was stuck fixing errors).
+function limitHitTurnProps(account, stats) {
+    return {
+        credits_at_start: account.credits,
+        calls: stats.calls >= 30 ? '30+' : stats.calls,
+        preview_checks: stats.previewChecks >= 3 ? '3+' : String(stats.previewChecks),
+    };
+}
 // ===== usage-limit-unblock (end) =====
 
 window.addEventListener('focus', () => { checkPaidAfterLimit(); });
@@ -4435,6 +4483,14 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // The current attempt's stream context (built in the retry loop below);
     // declared out here so the catch and finally can reach it.
     let context = null;
+    // Credits and plan at turn start (readTurnAccount), and what the turn wrote
+    // and verified across all its attempts, for the analytics events. The read
+    // is never awaited; an event that fires before it lands says 'unknown'.
+    let turnAccount = { credits: 'unknown', plan: 'unknown' };
+    let turnAccountRead = null;
+    const turnStats = { calls: 0, previewChecks: 0 };
+    const trackLimitHit = props => afterAccountRead(turnAccountRead,
+        () => window.track?.('Usage Limit Hit', { ...props, ...limitHitTurnProps(turnAccount, turnStats) }));
     // Transient-failure auto-retry state (see the retry loop below). `attempt`
     // counts retries used this turn; `retryGaveUp` is set once they're exhausted,
     // which routes the turn to the calm resume banner instead of an error card.
@@ -4722,6 +4778,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // redone. `context` is declared out here so the catch below can clean up a
         // partial bubble. See the MAX_TURN_RETRIES / isTransientTurnError block.
         const turnTools = window.getTurnTools();
+        turnAccountRead = readTurnAccount().then(a => { turnAccount = a; }, () => {});
         while (true) {
             // A fresh AbortController per attempt. This is also the guard for a chat
             // switch during turn setup — terminateActiveTurn() may have run before
@@ -4761,7 +4818,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                 // (handleToolCalls) keep the chat flagged in-progress until the
                 // end-of-turn save clears it — this is what makes a refresh during a
                 // long multi-round build resumable.
-                context = {abortController, tools: turnTools, chatHistory: turnSaveContext.chatHistory, currentMessage: null, currentMessageContent: '', currentChatId: turnChatId, appDir: turnAppDir, interrupted: true};
+                context = {abortController, tools: turnTools, chatHistory: turnSaveContext.chatHistory, currentMessage: null, currentMessageContent: '', currentChatId: turnChatId, appDir: turnAppDir, interrupted: true, turnStats};
                 await handleMessageStream(stream, context);
                 if (abortController === attemptController) _turnAwaitingStream = false;
                 break; // stream drained (completed, or aborted/switched — handled below)
@@ -4893,7 +4950,8 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             const costCents = u && typeof u.cents === 'number' && u.cents > 0 ? u.cents : 0;
             window.track?.(
                 'Build Completed',
-                { first_build: isFirstBuildTurn, model: MODEL, cost_cents: Number(costCents.toFixed(4)) },
+                { first_build: isFirstBuildTurn, model: MODEL, cost_cents: Number(costCents.toFixed(4)),
+                    cost_band: costBand(costCents), plan: turnAccount.plan, credits_at_start: turnAccount.credits },
                 costCents > 0 ? { currency: 'USD', amount: -(costCents / 100) } : undefined,
             );
             if (attempt > 0) window.track?.('Build Recovered', { attempts: attempt });
@@ -4901,7 +4959,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             // it lands here, not in the catch below. puter.js shows Low Balance
             // for it, so count the limit hit, and don't take it as an unblock.
             if (context && context.usageLimited) {
-                window.track?.('Usage Limit Hit', { first_build: isFirstBuildTurn, model: MODEL, kind: 'credits', ...usageLimitHitProps(turnSaveContext.chatHistory, savedChats, turnChatId, window.currentPublishedUrl) });
+                trackLimitHit({ first_build: isFirstBuildTurn, model: MODEL, kind: 'credits', ...usageLimitHitProps(turnSaveContext.chatHistory, savedChats, turnChatId, window.currentPublishedUrl) });
                 recordUsageLimitHit('credits');
             } else {
                 reportUnblockAfterLimit();
@@ -4922,7 +4980,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         if (!shouldStop && !activeTurnInterrupted && turnChatId === currentChatId) {
             turnErrored = true;
             if(error.error?.delegate === "usage-limited-chat"){
-                window.track?.('Usage Limit Hit', { first_build: isFirstBuildTurn, model: MODEL, kind: 'tier', ...usageLimitHitProps(turnSaveContext.chatHistory, savedChats, turnChatId, window.currentPublishedUrl) });
+                trackLimitHit({ first_build: isFirstBuildTurn, model: MODEL, kind: 'tier', ...usageLimitHitProps(turnSaveContext.chatHistory, savedChats, turnChatId, window.currentPublishedUrl) });
                 recordUsageLimitHit('tier');
                 appendMessage('You have reached the current tier\'s usage limit. Please upgrade your Puter account to continue. <button class="upgrade-button">Upgrade</button>', false, false, false, true);
                 window.announce?.('You have reached the current tier\'s usage limit. Upgrade your Puter account to continue.', { assertive: true });
@@ -4936,7 +4994,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                 // the stream or as a stream error line. Counted only when puter.js
                 // would show its Low Balance prompt for it.
                 if (isLowBalanceRefusal(error)) {
-                    window.track?.('Usage Limit Hit', { first_build: isFirstBuildTurn, model: MODEL, kind: 'credits', ...usageLimitHitProps(turnSaveContext.chatHistory, savedChats, turnChatId, window.currentPublishedUrl) });
+                    trackLimitHit({ first_build: isFirstBuildTurn, model: MODEL, kind: 'credits', ...usageLimitHitProps(turnSaveContext.chatHistory, savedChats, turnChatId, window.currentPublishedUrl) });
                     recordUsageLimitHit('credits');
                 }
                 const friendlyError = friendlyErrorMessage(errorText);
