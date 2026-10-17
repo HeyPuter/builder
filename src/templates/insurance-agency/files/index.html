@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Harlow &amp; Finch Insurance · Independent insurance agents in Riverton</title>
+<meta name="description" content="An independent insurance agency that compares 14 carriers for your home, car, life and business, and stays with you through every claim. Free quotes, local agents.">
+<meta name="theme-color" content="#2a49c8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..800,0..100;1,9..144,300..800,0..100&family=Figtree:ital,wght@0,400..700;1,400..700&display=swap">
+<link rel="stylesheet" href="styles.css">
+<script type="module" src="app.js"></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<div class="topbar">
+    <div class="wrap topbar-in">
+        <p class="topbar-status" data-open-status>
+            <span class="status-dot" aria-hidden="true"></span>
+            <span data-open-text>Mon–Fri 8:30–5:30 · Sat 9–12</span>
+        </p>
+        <p class="topbar-claims">
+            <i data-lucide="life-buoy" aria-hidden="true"></i>
+            <span class="claims-long">Had a loss? Our claims line answers 24/7:</span><span class="claims-short">24/7 claims:</span>
+            <a data-agency-link="claimsPhone" href="tel:+16145550199">(614) 555-0199</a>
+        </p>
+    </div>
+</div>
+
+<header class="site-header" data-header>
+    <div class="wrap header-in">
+        <a class="brand" href="#top" aria-label="Harlow and Finch Insurance, back to top">
+            <svg class="brand-mark" viewBox="0 0 48 48" aria-hidden="true">
+                <rect width="48" height="48" rx="14" fill="#2a49c8"/>
+                <path d="M24 9.5 36 14v9.6c0 7.4-5.1 12.9-12 15.4-6.9-2.5-12-8-12-15.4V14z" fill="none" stroke="#fffdf8" stroke-width="3" stroke-linejoin="round"/>
+                <path d="m17.5 25.5 6.5-5.5 6.5 5.5" fill="none" stroke="#f4b740" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span class="brand-name">
+                <span class="brand-word">Harlow <em>&amp;</em> Finch</span>
+                <small>Independent insurance</small>
+            </span>
+        </a>
+
+        <nav class="nav" id="site-nav" aria-label="Main">
+            <a href="#coverage">Coverage</a>
+            <a href="#checkup">Checkup</a>
+            <a href="#how">How we work</a>
+            <a href="#claims">Claims</a>
+            <a href="#team">Agents</a>
+            <a href="#reviews">Reviews</a>
+            <a class="nav-quote" href="#quote">Get a free quote</a>
+        </nav>
+
+        <div class="header-actions">
+            <a class="header-phone" data-agency-link="phone" href="tel:+16145550142">
+                <i data-lucide="phone" aria-hidden="true"></i><span>(614) 555-0142</span>
+            </a>
+            <a class="btn btn-primary" href="#quote">Get a quote</a>
+            <button class="menu-btn" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Open menu" data-menu-btn>
+                <i data-lucide="menu" aria-hidden="true"></i>
+            </button>
+        </div>
+    </div>
+</header>
+
+<main id="main">
+
+<!-- Hero -->
+<section class="hero" id="top">
+    <div class="wrap hero-in">
+        <div class="hero-copy">
+            <p class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span>Independent agents in Riverton since 1994</p>
+            <h1>Insurance that’s
+                <span class="scribble">shopped<svg viewBox="0 0 300 30" preserveAspectRatio="none" aria-hidden="true"><path d="M4 20c42-9 98-14 150-13 52 1 96 5 142 12-36-3-88-6-138-5-38 1-74 4-104 9"/></svg></span>,
+                not sold.</h1>
+            <p class="lead">We don’t work for one insurance company. Tell us what you want to protect and we’ll compare 14 A-rated carriers, explain the trade-offs in plain English, and still be the ones who answer when you need to make a claim.</p>
+
+            <form class="starter" data-starter novalidate>
+                <fieldset class="starter-set">
+                    <legend>What do you want to protect?</legend>
+                    <div class="chip-row" data-starter-chips></div>
+                </fieldset>
+                <div class="starter-row">
+                    <label class="zip-field">
+                        <i data-lucide="map-pin" aria-hidden="true"></i>
+                        <span class="sr-only">ZIP code</span>
+                        <input type="text" inputmode="numeric" autocomplete="postal-code" maxlength="5" placeholder="ZIP code" data-starter-zip>
+                    </label>
+                    <button class="btn btn-primary btn-lg" type="submit">Compare my options <i data-lucide="arrow-right" aria-hidden="true"></i></button>
+                </div>
+                <p class="starter-note" data-starter-note role="status" aria-live="polite"></p>
+            </form>
+
+            <ul class="hero-proof">
+                <li><span class="stars" aria-hidden="true">★★★★★</span><span><strong data-agency="rating">4.9</strong> from <span data-agency="reviewCount">380+</span> Google reviews</span></li>
+                <li><i data-lucide="badge-check" aria-hidden="true"></i><span>Licensed in <span data-agency="states">OH, KY &amp; IN</span></span></li>
+                <li><i data-lucide="hand-heart" aria-hidden="true"></i><span>Free quotes</span></li>
+            </ul>
+        </div>
+
+        <div class="hero-visual">
+            <div class="hero-sun" aria-hidden="true"></div>
+            <figure class="hero-arch">
+                <img src="photos/hero.jpg" alt="A father lifts his laughing child into the air while the mother reaches up beside them" width="760" height="950">
+            </figure>
+            <div class="compare-card" aria-label="Example of a quote comparison">
+                <p class="compare-title"><i data-lucide="scale" aria-hidden="true"></i>Compared for the Okafor family</p>
+                <ul class="compare-list">
+                    <li><span>Keystone General</span><b>$2,140</b></li>
+                    <li class="is-best"><span>Northwind Mutual <em>Best fit</em></span><b>$1,612</b></li>
+                    <li><span>Bluepeak <small>Half the liability cover</small></span><b>$1,488</b></li>
+                </ul>
+                <p class="compare-foot">Home + 2 cars · per year · 14 carriers checked</p>
+            </div>
+            <p class="claim-pill"><i data-lucide="circle-check" aria-hidden="true"></i>Hail claim paid in 9 days</p>
+        </div>
+    </div>
+</section>
+
+<!-- Carriers -->
+<section class="carriers" aria-labelledby="carriers-title">
+    <div class="wrap carriers-in">
+        <p class="carriers-title" id="carriers-title">We shop these carriers, and <span data-carrier-more>8</span> more, for every quote</p>
+        <div class="marquee" data-marquee>
+            <ul class="marquee-track" data-carriers></ul>
+        </div>
+    </div>
+</section>
+
+<!-- Coverage -->
+<section class="section coverage" id="coverage" aria-labelledby="coverage-title">
+    <div class="wrap">
+        <div class="section-head split-head">
+            <div>
+                <p class="kicker">Coverage</p>
+                <h2 id="coverage-title">Protection for the things you’d <em>hate</em> to replace.</h2>
+            </div>
+            <div class="split-side">
+                <p>Pick what you need and we’ll quote it together. Bundling home and auto with one carrier usually costs less than buying them apart.</p>
+                <div class="toggle" role="tablist" aria-label="Coverage for">
+                    <button type="button" role="tab" id="tab-personal" aria-selected="true" aria-controls="coverage-grid" data-line="personal">For you &amp; family</button>
+                    <button type="button" role="tab" id="tab-business" aria-selected="false" aria-controls="coverage-grid" data-line="business" tabindex="-1">For your business</button>
+                </div>
+            </div>
+        </div>
+        <div class="coverage-grid" id="coverage-grid" role="tabpanel" aria-labelledby="tab-personal" data-coverage-grid></div>
+    </div>
+</section>
+
+<!-- Coverage checkup -->
+<section class="section checkup" id="checkup" aria-labelledby="checkup-title">
+    <div class="wrap">
+        <div class="section-head">
+            <p class="kicker kicker-light">The 2-minute coverage checkup</p>
+            <h2 id="checkup-title">Find the gaps <em>before</em> a claim does.</h2>
+            <p class="section-lead">Six quick questions. Your answers stay in this browser; we see them only if you send them to us.</p>
+        </div>
+        <div class="checkup-grid">
+            <form class="checkup-form" data-checkup novalidate></form>
+            <aside class="checkup-result" aria-live="polite" data-checkup-result></aside>
+        </div>
+    </div>
+</section>
+
+<!-- How we work -->
+<section class="section how" id="how" aria-labelledby="how-title">
+    <div class="wrap">
+        <div class="section-head center">
+            <p class="kicker">How an independent agency works</p>
+            <h2 id="how-title">One conversation. Fourteen quotes. One <em>honest</em> recommendation.</h2>
+        </div>
+
+        <div class="funnel" aria-hidden="true">
+            <div class="funnel-you">
+                <span class="funnel-icon"><i data-lucide="user-round"></i></span>
+                <b>You</b>
+                <small>15-minute call</small>
+            </div>
+            <div class="funnel-lines">
+                <svg viewBox="0 0 560 220" preserveAspectRatio="none">
+                    <path d="M0 110 C120 110 140 20 280 20"/>
+                    <path d="M0 110 C120 110 140 65 280 65"/>
+                    <path d="M0 110 C120 110 140 110 280 110"/>
+                    <path d="M0 110 C120 110 140 155 280 155"/>
+                    <path d="M0 110 C120 110 140 200 280 200"/>
+                    <path class="hot" d="M280 20 C420 20 440 110 560 110"/>
+                    <path d="M280 65 C420 65 440 110 560 110"/>
+                    <path class="hot" d="M280 110 C420 110 440 110 560 110"/>
+                    <path d="M280 155 C420 155 440 110 560 110"/>
+                    <path d="M280 200 C420 200 440 110 560 110"/>
+                </svg>
+                <ul class="funnel-carriers" data-funnel-carriers></ul>
+            </div>
+            <div class="funnel-pick">
+                <span class="funnel-icon"><i data-lucide="shield-check"></i></span>
+                <b>Your best fit</b>
+                <small>Explained side by side</small>
+            </div>
+        </div>
+
+        <ol class="steps">
+            <li>
+                <span class="step-num">1</span>
+                <h3>Tell us what matters</h3>
+                <p>A short call or a visit to the office. What you own, who drives, what keeps you up at night.</p>
+            </li>
+            <li>
+                <span class="step-num">2</span>
+                <h3>We shop the market</h3>
+                <p>Same coverage, same limits, quoted with every carrier that fits. No guessing which site to try next.</p>
+            </li>
+            <li>
+                <span class="step-num">3</span>
+                <h3>Compare side by side</h3>
+                <p>Price, deductibles and the fine print on one page, with a recommendation and the reason for it.</p>
+            </li>
+            <li>
+                <span class="step-num">4</span>
+                <h3>We check in every renewal</h3>
+                <p>If your rate jumps or your life changes, we re-shop it. You never have to start over.</p>
+            </li>
+        </ol>
+
+        <div class="versus" role="table" aria-label="How we compare with other ways to buy insurance">
+            <div class="versus-row versus-head" role="row">
+                <span role="columnheader"><span class="sr-only">Question</span></span>
+                <span role="columnheader">Captive agent</span>
+                <span role="columnheader">Buying online</span>
+                <span role="columnheader" class="versus-us">Harlow &amp; Finch</span>
+            </div>
+            <div class="versus-row" role="row">
+                <span role="rowheader">Companies compared</span>
+                <span role="cell">One</span>
+                <span role="cell">Whichever you find</span>
+                <span role="cell" class="versus-us"><i data-lucide="check" aria-hidden="true"></i>14, side by side</span>
+            </div>
+            <div class="versus-row" role="row">
+                <span role="rowheader">Who helps with a claim</span>
+                <span role="cell">Sometimes your agent</span>
+                <span role="cell">A call center</span>
+                <span role="cell" class="versus-us"><i data-lucide="check" aria-hidden="true"></i>Your agent, by name</span>
+            </div>
+            <div class="versus-row" role="row">
+                <span role="rowheader">Re-shopped at renewal</span>
+                <span role="cell">Rarely</span>
+                <span role="cell">Only if you do it</span>
+                <span role="cell" class="versus-us"><i data-lucide="check" aria-hidden="true"></i>Every year</span>
+            </div>
+            <div class="versus-row" role="row">
+                <span role="rowheader">Cost to you</span>
+                <span role="cell">Free</span>
+                <span role="cell">Free</span>
+                <span role="cell" class="versus-us"><i data-lucide="check" aria-hidden="true"></i>Free. Carriers pay us</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Claims -->
+<section class="section claims" id="claims" aria-labelledby="claims-title">
+    <div class="wrap claims-in">
+        <div class="claims-copy">
+            <p class="kicker">Claims</p>
+            <h2 id="claims-title">When something goes wrong, call us <em>first</em>.</h2>
+            <p>We file the claim with your carrier, chase the adjuster, and stay on it until it’s paid. You shouldn’t have to learn insurance on the worst day of your year.</p>
+            <div class="claims-card">
+                <span class="claims-icon"><i data-lucide="siren" aria-hidden="true"></i></span>
+                <div>
+                    <p class="claims-label">24/7 claims line</p>
+                    <a class="claims-phone" data-agency-link="claimsPhone" href="tel:+16145550199">(614) 555-0199</a>
+                    <p class="claims-sub">After hours you reach an on-call agent, not a voicemail.</p>
+                </div>
+            </div>
+            <ul class="claims-facts">
+                <li><b>9 days</b><span>median time from first call to payment last year</span></li>
+                <li><b>1 person</b><span>handles your claim from start to finish</span></li>
+            </ul>
+        </div>
+        <div class="guide">
+            <p class="guide-title">What to do right now</p>
+            <div class="guide-tabs" role="tablist" aria-label="Type of loss" data-guide-tabs></div>
+            <div class="guide-panel" role="tabpanel" data-guide-panel></div>
+        </div>
+    </div>
+</section>
+
+<!-- Team -->
+<section class="section team" id="team" aria-labelledby="team-title">
+    <div class="wrap">
+        <div class="section-head split-head">
+            <div>
+                <p class="kicker">Your agents</p>
+                <h2 id="team-title">Real people, a real office, and a <em>direct</em> line.</h2>
+            </div>
+            <p class="split-side">Every client has a named agent. Call them, text them or stop by. The coffee’s on us.</p>
+        </div>
+        <div class="team-grid" data-team></div>
+    </div>
+</section>
+
+<!-- Reviews -->
+<section class="section reviews" id="reviews" aria-labelledby="reviews-title">
+    <div class="wrap">
+        <div class="section-head center">
+            <p class="kicker">Reviews</p>
+            <h2 id="reviews-title">Neighbors who switched, and stayed.</h2>
+            <p class="rating-line"><span class="stars" aria-hidden="true">★★★★★</span><span><strong data-agency="rating">4.9</strong> average from <span data-agency="reviewCount">380+</span> Google reviews</span></p>
+        </div>
+        <div class="review-grid" data-reviews></div>
+    </div>
+</section>
+
+<!-- FAQ -->
+<section class="section faq" id="faq" aria-labelledby="faq-title">
+    <div class="wrap faq-in">
+        <div class="faq-side">
+            <p class="kicker">Questions</p>
+            <h2 id="faq-title">Straight answers, no fine print.</h2>
+            <p>Something else on your mind? Call <a data-agency-link="phone" href="tel:+16145550142">(614) 555-0142</a> and ask a licensed agent. There’s no sales script.</p>
+        </div>
+        <div class="faq-list" data-faq></div>
+    </div>
+</section>
+
+<!-- Quote -->
+<section class="section quote" id="quote" aria-labelledby="quote-title">
+    <div class="wrap quote-in">
+        <div class="quote-side">
+            <p class="kicker kicker-light">Free quote</p>
+            <h2 id="quote-title">Let’s see what you could <em>save</em>.</h2>
+            <p>Tell us a little about you. An agent calls back within one business day with quotes from every carrier that fits, side by side.</p>
+            <dl class="office">
+                <div>
+                    <dt><i data-lucide="map-pin" aria-hidden="true"></i>Office</dt>
+                    <dd><span data-agency="street">118 Elm Street, Suite 2</span><br><span data-agency="city">Riverton, OH 45001</span><br><a data-agency-link="maps" href="#" target="_blank" rel="noopener">Get directions</a></dd>
+                </div>
+                <div>
+                    <dt><i data-lucide="clock" aria-hidden="true"></i>Hours</dt>
+                    <dd><ul class="hours" data-hours></ul></dd>
+                </div>
+                <div>
+                    <dt><i data-lucide="phone" aria-hidden="true"></i>Talk to us</dt>
+                    <dd><a data-agency-link="phone" href="tel:+16145550142">(614) 555-0142</a><br><a data-agency-link="email" href="mailto:hello@harlowfinch.example">hello@harlowfinch.example</a></dd>
+                </div>
+            </dl>
+        </div>
+
+        <div class="quote-card">
+            <ol class="quote-progress" data-quote-progress aria-label="Quote request steps">
+                <li class="is-current"><span>1</span>Coverage</li>
+                <li><span>2</span>About you</li>
+                <li><span>3</span>Contact</li>
+            </ol>
+            <form class="quote-form" data-quote-form novalidate>
+                <fieldset class="quote-step" data-step="1">
+                    <legend>What should we quote?</legend>
+                    <p class="field-hint">Choose everything you’d like compared. You can change it later.</p>
+                    <div class="chip-groups" data-quote-chips></div>
+                    <p class="field-error" data-error="coverage" role="alert"></p>
+                </fieldset>
+
+                <fieldset class="quote-step" data-step="2" hidden>
+                    <legend>A little about you</legend>
+                    <div class="field-grid">
+                        <label class="field">
+                            <span>Full name</span>
+                            <input type="text" name="name" autocomplete="name" required>
+                        </label>
+                        <label class="field">
+                            <span>ZIP code</span>
+                            <input type="text" name="zip" inputmode="numeric" maxlength="5" autocomplete="postal-code" required>
+                        </label>
+                        <label class="field">
+                            <span>Current carrier <small>(optional)</small></span>
+                            <input type="text" name="carrier" placeholder="Not insured right now? Leave blank.">
+                        </label>
+                        <label class="field">
+                            <span>Renewal date <small>(optional)</small></span>
+                            <input type="date" name="renewal">
+                        </label>
+                    </div>
+                    <p class="field-error" data-error="about" role="alert"></p>
+                </fieldset>
+
+                <fieldset class="quote-step" data-step="3" hidden>
+                    <legend>How should we reach you?</legend>
+                    <div class="field-grid">
+                        <label class="field">
+                            <span>Phone</span>
+                            <input type="tel" name="phone" autocomplete="tel">
+                        </label>
+                        <label class="field">
+                            <span>Email</span>
+                            <input type="email" name="email" autocomplete="email">
+                        </label>
+                    </div>
+                    <div class="pref" role="radiogroup" aria-label="Best way to reach you">
+                        <label><input type="radio" name="contact" value="Call" checked><span><i data-lucide="phone" aria-hidden="true"></i>Call</span></label>
+                        <label><input type="radio" name="contact" value="Text"><span><i data-lucide="message-square" aria-hidden="true"></i>Text</span></label>
+                        <label><input type="radio" name="contact" value="Email"><span><i data-lucide="mail" aria-hidden="true"></i>Email</span></label>
+                    </div>
+                    <label class="field">
+                        <span>Anything we should know? <small>(optional)</small></span>
+                        <textarea name="notes" rows="3" placeholder="New teen driver, a home office, a recent claim…" data-quote-notes></textarea>
+                    </label>
+                    <p class="field-error" data-error="contact" role="alert"></p>
+                </fieldset>
+
+                <div class="quote-nav">
+                    <button class="btn btn-ghost" type="button" data-quote-back hidden><i data-lucide="arrow-left" aria-hidden="true"></i>Back</button>
+                    <button class="btn btn-primary btn-lg" type="submit" data-quote-next>Continue <i data-lucide="arrow-right" aria-hidden="true"></i></button>
+                </div>
+                <p class="quote-legal"><i data-lucide="lock" aria-hidden="true"></i>We never sell your details. A quote doesn’t affect your credit score or commit you to anything.</p>
+            </form>
+
+            <div class="quote-done" data-quote-done hidden tabindex="-1">
+                <span class="done-icon"><i data-lucide="party-popper" aria-hidden="true"></i></span>
+                <h3>Thanks, <span data-done-name>there</span>! We’re on it.</h3>
+                <p data-done-text>Your request is ready to send.</p>
+                <button class="btn btn-ghost" type="button" data-quote-reset>Start another quote</button>
+            </div>
+        </div>
+    </div>
+</section>
+
+</main>
+
+<footer class="footer">
+    <div class="wrap footer-in">
+        <div class="footer-brand">
+            <a class="brand brand-light" href="#top" aria-label="Harlow and Finch Insurance, back to top">
+                <svg class="brand-mark" viewBox="0 0 48 48" aria-hidden="true">
+                    <rect width="48" height="48" rx="14" fill="#fffdf8"/>
+                    <path d="M24 9.5 36 14v9.6c0 7.4-5.1 12.9-12 15.4-6.9-2.5-12-8-12-15.4V14z" fill="none" stroke="#2a49c8" stroke-width="3" stroke-linejoin="round"/>
+                    <path d="m17.5 25.5 6.5-5.5 6.5 5.5" fill="none" stroke="#f4b740" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span class="brand-name"><span class="brand-word">Harlow <em>&amp;</em> Finch</span><small>Independent insurance</small></span>
+            </a>
+            <p>A family-owned, independent insurance agency serving Riverton and the Ohio River valley since 1994.</p>
+        </div>
+        <nav class="footer-nav" aria-label="Footer">
+            <p>Coverage</p>
+            <a href="#coverage" data-footer-line="personal">Home &amp; auto</a>
+            <a href="#coverage" data-footer-line="business">Business</a>
+            <a href="#checkup">Coverage checkup</a>
+            <a href="#quote">Free quote</a>
+        </nav>
+        <nav class="footer-nav" aria-label="Agency">
+            <p>Agency</p>
+            <a href="#how">How we work</a>
+            <a href="#claims">Report a claim</a>
+            <a href="#team">Our agents</a>
+            <a href="#faq">Questions</a>
+        </nav>
+        <div class="footer-contact">
+            <p>Visit</p>
+            <span data-agency="street">118 Elm Street, Suite 2</span>
+            <span data-agency="city">Riverton, OH 45001</span>
+            <a data-agency-link="phone" href="tel:+16145550142">(614) 555-0142</a>
+        </div>
+    </div>
+    <div class="wrap footer-legal">
+        <p>© <span data-year>2026</span> Harlow &amp; Finch Insurance Agency, LLC. <span data-agency="license">Ohio agency license #1234567.</span></p>
+        <p>Coverage is subject to the terms, conditions and exclusions of each policy. Savings and examples are illustrations, not quotes.</p>
+    </div>
+</footer>
+
+<div class="tray is-hidden" data-tray>
+    <p><i data-lucide="clipboard-list" aria-hidden="true"></i><span>Your quote: <b data-tray-list></b></span></p>
+    <a class="btn btn-marigold" href="#quote">Continue <i data-lucide="arrow-right" aria-hidden="true"></i></a>
+</div>
+
+</body>
+</html>
