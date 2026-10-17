@@ -133,6 +133,8 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
             // mkdir) can mutate the filesystem and then throw — the change still
             // happened. No-op for non-mutating tool names.
             window.markProjectModified?.(toolCall.name, c.currentChatId);
+            // Counted for the Usage Limit Hit event (limitHitTurnProps).
+            if (c.turnStats && toolCall.name === 'update_preview') c.turnStats.previewChecks++;
             // Record the ACTUAL file paths each tool writes, so the preview can
             // verify exactly those files have propagated to the live site before
             // reloading. rename/copy/move land the file at a COMPUTED path (not

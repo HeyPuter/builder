@@ -58,6 +58,9 @@ function recordUsageChunk(context, completion) {
     acc.cents += num(u.usd_cents);
     acc.input += num(u.input_tokens);
     acc.output += num(u.output_tokens);
+    // One usage chunk per model call. Counted per turn across retry attempts
+    // (each gets a fresh context) for the Usage Limit Hit event's calls.
+    if (context.turnStats) context.turnStats.calls++;
     acc.cacheRead += num(u.cache_read_input_tokens);
     acc.cacheWrite += num(u.ephemeral_5m_input_tokens) + num(u.ephemeral_1h_input_tokens);
 }
