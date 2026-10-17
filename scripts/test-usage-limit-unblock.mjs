@@ -394,8 +394,8 @@ async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, other
     const STREAM = fs.readFileSync(new URL('../src/js/handleMessageStream.js', import.meta.url), 'utf8');
     check('the tool loop counts preview checks',
         /if \(c\.turnStats && toolCall\.name === 'update_preview'\) c\.turnStats\.previewChecks\+\+;/.test(TOOLS));
-    check('each usage chunk counts one call',
-        /function recordUsageChunk[\s\S]{0,900}if \(context\.turnStats\) context\.turnStats\.calls\+\+;/.test(STREAM));
+    check('each call is counted at its first tool_use or usage (behavior: test-limit-hit-call-count)',
+        /completion\.type === "usage"\) \{\s*countCall\(\);/.test(STREAM) && /completion\.type === "tool_use"\) \{\s*countCall\(\);/.test(STREAM));
 }
 
 // The limit hit waits for the account read, but not forever
