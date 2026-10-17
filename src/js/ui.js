@@ -2242,10 +2242,15 @@ function readLiveBadge(path) {
 // so a change re-inserts the iframe and then reloads it.
 const PREVIEW_NO_BADGE = 'puter-preview-no-badge';
 function syncPreviewBadge() {
+    // No preview showing (hideAppPreview cleared it): leave the frame alone,
+    // since a reload would bring back the app that was just torn down. The
+    // next preview to open runs this again.
+    const previewUrl = window.currentPreviewUrl;
+    if (!previewUrl) return;
     const path = window.currentPublishedPath;
     readLiveBadge(path).then(() => {
         const frame = $('.preview-frame')[0];
-        if (!frame || window.currentPublishedPath !== path) return;
+        if (!frame || window.currentPreviewUrl !== previewUrl || window.currentPublishedPath !== path) return;
         const name = _liveBadgeByPath.get(path) === 'none' ? PREVIEW_NO_BADGE : '';
         if (frame.name === name) return;
         frame.name = name;
