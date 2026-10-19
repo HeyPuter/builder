@@ -4962,6 +4962,159 @@ a.upgrade-more-link {
 }
 a.upgrade-more-link:hover { background: none; color: #111; }
 
+/* Out-of-credits dialog (openLimitModal). The Upgrade dialog's card, with the
+   project's screenshot and checklist progress on top. */
+.limit-modal { width: 420px; }
+.limit-modal:focus,
+.limit-modal:focus-visible { outline: none; }
+.limit-shot {
+    margin: 0 0 14px;
+    border: 1px solid #e3e3e8;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #f4f4f6;
+    display: flex;
+    flex-direction: column;
+}
+.limit-shot img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top; }
+/* The live address, as a browser's address bar over the screenshot. */
+.limit-shot-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 10px;
+    border-bottom: 1px solid #e3e3e8;
+    background: #fff;
+    font-size: 12px;
+    color: #555;
+}
+.limit-shot-dots,
+.limit-shot-dots::before,
+.limit-shot-dots::after {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #d6d6dc;
+    flex: none;
+}
+.limit-shot-dots { position: relative; margin-left: 11px; }
+.limit-shot-dots::before,
+.limit-shot-dots::after { content: ''; position: absolute; top: 0; }
+.limit-shot-dots::before { left: -11px; }
+.limit-shot-dots::after { left: 11px; }
+.limit-shot-url { margin-left: 12px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* No screenshot: the builder at work. A message goes in, the reply types,
+   the change lands in the preview, then it all clears and repeats. One 7s
+   timeline, so every part stays in step. */
+.limit-build { display: none; }
+.limit-shot.is-building .limit-build {
+    display: grid;
+    grid-template-columns: 44% 1fr;
+    gap: 10px;
+    height: 160px;
+    padding: 12px;
+    box-sizing: border-box;
+}
+.lb-chat { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.lb-msg {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 7px 8px;
+    border-radius: 9px;
+    box-sizing: border-box;
+    opacity: 0;
+}
+/* Lines of text, as bars. */
+.lb-msg i { display: block; height: 5px; border-radius: 3px; background: #c4c4cc; }
+.lb-reply i:last-child { width: 60%; }
+.lb-user { align-self: flex-end; width: 64%; background: #e6e6eb; animation: lb-user 7s ease-out infinite; }
+/* The typing dots and the reply share one spot, so the reply takes their place. */
+.lb-answer { display: grid; justify-items: start; align-items: start; }
+.lb-answer > * { grid-area: 1 / 1; }
+.lb-reply { width: 86%; background: #fff; border: 1px solid #e3e3e8; animation: lb-reply 7s ease-out infinite; }
+.lb-typing {
+    display: flex;
+    gap: 3px;
+    padding: 7px 8px;
+    border-radius: 9px;
+    background: #fff;
+    border: 1px solid #e3e3e8;
+    opacity: 0;
+    animation: lb-typing 7s linear infinite;
+}
+.lb-typing i { width: 4px; height: 4px; border-radius: 50%; background: #9a9aa3; animation: lb-dot 0.9s ease-in-out infinite; }
+.lb-typing i:nth-child(2) { animation-delay: 0.15s; }
+.lb-typing i:nth-child(3) { animation-delay: 0.3s; }
+.lb-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px;
+    border-radius: 6px;
+    background: #fff;
+    border: 1px solid #e3e3e8;
+    min-width: 0;
+}
+.lb-preview span,
+.lb-cards i { display: block; border-radius: 3px; background: #e1e1e7; }
+.lb-preview .lb-nav { height: 7px; }
+.lb-preview .lb-hero { height: 16px; width: 70%; }
+.lb-preview .lb-line { height: 6px; width: 48%; }
+.lb-preview .lb-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-top: 4px; background: none; }
+.lb-cards i {
+    height: 30px;
+    background: #d5ecdc;
+    opacity: 0;
+    animation: lb-card 7s ease-out infinite;
+    animation-delay: calc(var(--i) * 0.2s);
+}
+@keyframes lb-user {
+    0%, 6% { opacity: 0; transform: translateY(6px); }
+    11%, 90% { opacity: 1; transform: none; }
+    96%, 100% { opacity: 0; }
+}
+@keyframes lb-typing {
+    0%, 16% { opacity: 0; }
+    19%, 36% { opacity: 1; }
+    38%, 100% { opacity: 0; }
+}
+@keyframes lb-reply {
+    0%, 37% { opacity: 0; transform: translateY(6px); }
+    42%, 90% { opacity: 1; transform: none; }
+    96%, 100% { opacity: 0; }
+}
+@keyframes lb-card {
+    0%, 44% { opacity: 0; transform: scale(0.85); }
+    50%, 90% { opacity: 1; transform: none; }
+    96%, 100% { opacity: 0; }
+}
+@keyframes lb-dot {
+    0%, 60%, 100% { transform: none; opacity: 0.5; }
+    30% { transform: translateY(-2px); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .lb-user, .lb-reply, .lb-cards i { animation: none; opacity: 1; }
+    .lb-typing { display: none; }
+}
+.limit-steps {
+    margin: 0 0 14px;
+    padding: 12px 14px;
+    border: 1px solid #e3e3e8;
+    border-radius: 8px;
+    background: #f7f7f9;
+}
+.limit-steps-head { margin: 0 0 8px; font-size: 12px; font-weight: 600; color: #2d7d46; }
+.limit-steps ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.limit-steps li { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #666670; min-width: 0; }
+.limit-steps li svg { flex: none; }
+.limit-steps li span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.limit-steps li.is-done { color: #2d7d46; }
+.limit-steps-more { margin-top: 6px; padding-left: 20px; font-size: 12px; color: #666670; }
+.limit-body { margin: 0 0 10px; font-size: 14px; line-height: 1.5; color: #333; }
+.limit-lead { color: #1a1a1a; font-weight: 600; }
+
 /* Project Properties dialog — reuses .confirm-modal-overlay for the backdrop. */
 .properties-modal {
     width: 420px;
@@ -5787,6 +5940,26 @@ html[data-theme="dark"] .upgrade-success-badge { background: var(--success-soft)
 html[data-theme="dark"] .upgrade-more { background: var(--surface-subtle); color: var(--text-secondary); }
 html[data-theme="dark"] a.upgrade-more-link,
 html[data-theme="dark"] a.upgrade-more-link:hover { background: none; color: var(--text); }
+html[data-theme="dark"] .limit-shot { background: var(--surface-subtle); border-color: var(--border); }
+html[data-theme="dark"] .limit-steps { background: var(--surface-subtle); border-color: var(--border); }
+html[data-theme="dark"] .limit-steps-head,
+html[data-theme="dark"] .limit-steps li.is-done { color: #8fe3ab; }
+html[data-theme="dark"] .limit-steps li,
+html[data-theme="dark"] .limit-steps-more { color: var(--text-muted); }
+html[data-theme="dark"] .limit-body { color: var(--text-secondary); }
+html[data-theme="dark"] .limit-lead { color: var(--text); }
+html[data-theme="dark"] .limit-shot-bar { background: var(--surface); border-color: var(--border); color: var(--text-muted); }
+html[data-theme="dark"] .limit-shot-dots,
+html[data-theme="dark"] .limit-shot-dots::before,
+html[data-theme="dark"] .limit-shot-dots::after { background: var(--surface-active); }
+html[data-theme="dark"] .lb-user { background: var(--surface-active); }
+html[data-theme="dark"] .lb-msg i { background: var(--text-muted); opacity: 0.5; }
+html[data-theme="dark"] .lb-reply,
+html[data-theme="dark"] .lb-typing,
+html[data-theme="dark"] .lb-preview { background: var(--surface); border-color: var(--border); }
+html[data-theme="dark"] .lb-preview span { background: var(--surface-active); }
+html[data-theme="dark"] .lb-preview .lb-cards { background: none; }
+html[data-theme="dark"] .lb-cards i { background: rgba(143, 227, 171, 0.35); }
 /* Share-draft popover content (amber mirrors .publish-live.is-stale). */
 html[data-theme="dark"] .share-draft-status { color: #f0c061; }
 html[data-theme="dark"] .share-publish-handoff { color: var(--text-secondary); }

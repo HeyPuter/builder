@@ -4941,7 +4941,10 @@ function openUpgradeModal(source, { justUpgraded = false } = {}) {
     } else {
         // Just upgraded with a site that is live: its badge only goes when the
         // user ticks the box and publishes, so that is the one step to offer.
-        const republish = justUpgraded && !!window.currentPublishedUrl && !!$('.preview-publish-btn').length;
+        // Upgraded from the out-of-credits dialog, in the project that stopped.
+        // Picking the build back up beats everything else on offer.
+        const resume = justUpgraded && source === 'usage_limit' && canResumeAfterLimit();
+        const republish = !resume && justUpgraded && !!window.currentPublishedUrl && !!$('.preview-publish-btn').length;
         title = justUpgraded ? 'You’re subscribed' : 'Your Puter plan';
         body =
             (justUpgraded ? `<div class="upgrade-success-badge" aria-hidden="true">${check}</div>` : '') +
@@ -4952,7 +4955,10 @@ function openUpgradeModal(source, { justUpgraded = false } = {}) {
                 '<span>Need more credits? Move to a higher plan on Puter.</span>' +
                 `<a class="upgrade-more-link upgrade-go" href="${billing}" target="_blank" rel="noopener noreferrer">See plans</a>` +
             '</div>';
-        actions = republish
+        actions = resume
+            ? '<button type="button" class="confirm-modal-btn confirm-modal-cancel upgrade-cancel">Later</button>' +
+              '<button type="button" class="confirm-modal-btn upgrade-primary upgrade-resume">Continue building</button>'
+            : republish
             ? '<button type="button" class="confirm-modal-btn confirm-modal-cancel upgrade-cancel">Later</button>' +
               '<button type="button" class="confirm-modal-btn upgrade-primary upgrade-republish">Publish again</button>'
             : '<button type="button" class="confirm-modal-btn upgrade-primary upgrade-cancel">Done</button>';
@@ -4989,6 +4995,15 @@ function openUpgradeModal(source, { justUpgraded = false } = {}) {
         close();
         openPublishPanel();
     });
+    $overlay.find('.upgrade-resume').on('click', () => {
+        close();
+        // Back/Forward can switch projects while this dialog is open. Resume
+        // only in the project that stopped, never the one now on screen.
+        if (!canResumeAfterLimit()) return;
+        _limitResumeChatId = null;
+        window.track?.('Build Resumed After Upgrade');
+        resumeBuild();
+    });
     $overlay.on('mousedown', (e) => { if (e.target === $overlay[0]) close(); });
     $overlay.find('.upgrade-modal').on('mousedown click', (e) => e.stopPropagation());
     $(document).on('keydown.upgradeModal', (e) => {
@@ -5002,6 +5017,193 @@ function openUpgradeModal(source, { justUpgraded = false } = {}) {
     });
 }
 window.openUpgradeModal = openUpgradeModal;
+
+// ---- Out-of-credits dialog ---------------------------------------------------
+// Shown in place of puter.js's Low Balance dialog for the 'custom' cohort (see
+// limitDialogCohort in app.js). It shows the project the user is about to lose
+// momentum on, with its screenshot, checklist progress and live address, and
+// the words come from limitDialogCopy. Upgrading goes through the same pending
+// check as the Upgrade dialog, so 'Upgrade Completed' and the success screen
+// follow, and that screen offers to continue the build that stopped.
+let _limitResumeChatId = null;
+function canResumeAfterLimit() {
+    return !!_limitResumeChatId && _limitResumeChatId === currentChatId && !isProcessing;
+}
+
+function limitDialogContextNow() {
+    const entry = currentChatId ? savedChats.find(c => c.id === currentChatId) : null;
+    const todos = Array.isArray(window.currentTodos) ? window.currentTodos : null;
+    const steps = todos && todos.length
+        ? { done: todos.filter(t => t && t.status === 'completed').length, total: todos.length }
+        : null;
+    return {
+        name: projectDisplayName(entry, window.currentPublishedUrl),
+        // Stopped partway only if this turn got somewhere, or an unfinished
+        // checklist shows where it got to. A send Puter refused up front changed
+        // nothing, and a finished checklist is an earlier turn's.
+        building: !!isProcessing && (_turnProgressed || !!(steps && steps.done < steps.total)),
+        steps,
+        hasApp: !!window.currentPreviewUrl,
+        published: window.currentPublishedUrl || null,
+        previewUrl: window.currentPreviewUrl || null,
+        paid: window.Branding.isSubscribed(window.user),
+    };
+}
+
+// The builder at work, for the slot when there is no screenshot. A message
+// goes in, the reply types, and the change lands in the preview, on a loop.
+// Pure CSS (see .limit-build), and it shows the finished exchange without
+// moving under reduced motion.
+const LIMIT_BUILD_ANIM = `
+    <div class="limit-build" aria-hidden="true">
+        <div class="lb-chat">
+            <span class="lb-msg lb-user"><i></i></span>
+            <span class="lb-answer">
+                <span class="lb-typing"><i></i><i></i><i></i></span>
+                <span class="lb-msg lb-reply"><i></i><i></i></span>
+            </span>
+        </div>
+        <div class="lb-preview">
+            <span class="lb-nav"></span>
+            <span class="lb-hero"></span>
+            <span class="lb-line"></span>
+            <span class="lb-cards"><i style="--i:0"></i><i style="--i:1"></i><i style="--i:2"></i></span>
+        </div>
+    </div>`;
+
+// The build's checklist for the 'steps' face, in place of the screenshot. The
+// last steps that finished, then the next ones waiting, and a count of the
+// steps left beyond those, so the card stays short on a long checklist.
+const LIMIT_STEP_DONE = '<svg viewBox="0 0 12 12" width="12" height="12" role="img" aria-label="Done"><rect x="1.25" y="1.25" width="9.5" height="9.5" rx="2" fill="none" stroke="currentColor"/><polyline points="3.75 6.5 5.25 8 8.25 4" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const LIMIT_STEP_TODO = '<svg viewBox="0 0 12 12" width="12" height="12" role="img" aria-label="Not done"><rect x="1.25" y="1.25" width="9.5" height="9.5" rx="2" fill="none" stroke="currentColor"/></svg>';
+function limitStepsCard(steps) {
+    const todos = (window.currentTodos || []).filter(t => t && typeof t.content === 'string');
+    const done = todos.filter(t => t.status === 'completed');
+    const left = todos.filter(t => t.status !== 'completed');
+    const shownDone = done.slice(-2);
+    const shownLeft = left.slice(0, 5 - shownDone.length);
+    // Steps still to do that didn't fit. Earlier finished ones are in the count
+    // at the top.
+    const more = left.length - shownLeft.length;
+    const row = (t, isDone) => `<li class="${isDone ? 'is-done' : ''}">${isDone ? LIMIT_STEP_DONE : LIMIT_STEP_TODO}<span>${htmlEscape(t.content)}</span></li>`;
+    return `
+        <div class="limit-steps">
+            <div class="limit-steps-head">${steps.done} of ${steps.total} steps done</div>
+            <ul>${shownDone.map(t => row(t, true)).join('')}${shownLeft.map(t => row(t, false)).join('')}</ul>
+            ${more > 0 ? `<div class="limit-steps-more">+${more} more to do</div>` : ''}
+        </div>`;
+}
+
+// Returns true when the dialog is up (just opened, or already open).
+function openLimitModal() {
+    if (document.querySelector('.limit-modal-overlay')) return true;
+    if (document.querySelector('.upgrade-modal-overlay')) return true;
+    window.closePublishPanel?.();
+    const ctx = limitDialogContextNow();
+    // The project this dialog is about. Back/Forward can switch projects while
+    // it stays open, so the click below uses this, not currentChatId.
+    const chatId = currentChatId;
+    const copy = limitDialogCopy(ctx);
+    const plan = ctx.paid ? 'paid' : 'free';
+    const cohort = limitDialogCohort();
+    window.track?.('Upgrade Opened', { source: 'usage_limit', plan, variant: copy.state, cohort });
+
+    const shot = ctx.hasApp ? chatThumbUrl(ctx.previewUrl) : null;
+    const billing = htmlEscape(window.Branding.UPGRADE_URL);
+    const $overlay = $(`
+        <div class="confirm-modal-overlay limit-modal-overlay">
+            <div class="properties-modal limit-modal" role="dialog" aria-modal="true" aria-labelledby="limit-modal-title" aria-describedby="limit-modal-body" tabindex="-1">
+                <div class="properties-modal-header">
+                    <div class="properties-modal-title" id="limit-modal-title">${htmlEscape(copy.heading)}</div>
+                    <button type="button" class="properties-modal-x" title="Close" aria-label="Close">✕</button>
+                </div>
+                ${copy.state === 'steps' ? limitStepsCard(ctx.steps) : `
+                <div class="limit-shot${shot ? '' : ' is-building'}">
+                    ${copy.address ? `<div class="limit-shot-bar"><span class="limit-shot-dots" aria-hidden="true"></span><span class="limit-shot-url">${htmlEscape(copy.address)}</span></div>` : ''}
+                    ${shot ? `<img src="${htmlEscape(shot + '?t=' + Date.now())}" alt="" loading="eager">` : ''}
+                    ${LIMIT_BUILD_ANIM}
+                </div>`}
+                <p class="limit-body" id="limit-modal-body">${copy.lead ? `<span class="limit-lead">${htmlEscape(copy.lead)}</span> ` : ''}${htmlEscape(copy.body)}</p>
+                <div class="properties-modal-actions upgrade-actions">
+                    <button type="button" class="confirm-modal-btn confirm-modal-cancel limit-cancel">Not now</button>
+                    <a class="confirm-modal-btn upgrade-go limit-go" href="${billing}" target="_blank" rel="noopener noreferrer">${htmlEscape(copy.cta)}</a>
+                </div>
+            </div>
+        </div>
+    `);
+    // No screenshot yet (a new site, or Puter hasn't taken one). Show the
+    // building animation in its place rather than a broken frame.
+    $overlay.find('.limit-shot img').on('error', function () {
+        $(this).closest('.limit-shot').addClass('is-building');
+        $(this).remove();
+    });
+
+    let releaseFocus = null;
+    const close = () => {
+        $(document).off('keydown.limitModal');
+        $overlay.removeClass('open');
+        setTimeout(() => $overlay.remove(), 150);
+        if (releaseFocus) releaseFocus();
+    };
+    $overlay.find('.properties-modal-x, .limit-cancel').on('click', close);
+    $overlay.find('.limit-go').on('click', () => {
+        window.track?.('Upgrade Clicked', { source: 'usage_limit', plan, variant: copy.state, cohort });
+        // Same as the Upgrade dialog. Only a free account's return can be told
+        // apart by its plan, so only that one waits for 'Upgrade Completed'.
+        if (!ctx.paid) _upgradePending = 'usage_limit';
+        _limitResumeChatId = ctx.building ? chatId : null;
+        close();
+    });
+    $overlay.on('mousedown', (e) => { if (e.target === $overlay[0]) close(); });
+    $overlay.find('.limit-modal').on('mousedown click', (e) => e.stopPropagation());
+    $(document).on('keydown.limitModal', (e) => {
+        if (e.key === 'Escape' && keyIsForDialog(e, $overlay[0])) { e.preventDefault(); close(); }
+    });
+    $('body').append($overlay);
+    releaseFocus = trapDialogFocus($overlay);
+    requestAnimationFrame(() => {
+        $overlay.addClass('open');
+        $overlay.find('.limit-modal').trigger('focus');
+    });
+    return true;
+}
+window.openLimitModal = openLimitModal;
+
+// puter.js shows Low Balance by appending a <usage-limit-dialog> and calling
+// its open(). For the 'custom' cohort, open() hands over to openLimitModal
+// instead. Everything is checked first and Puter's dialog is only removed once
+// ours is up, so when a puter.js update renames any of this, the patch finds
+// nothing and Puter's own dialog shows as before. Web only. Inside the Puter
+// desktop, the desktop draws the prompt.
+function installLowBalanceOverride() {
+    try {
+        if (!window.puter || puter.env !== 'web' || !window.customElements) return;
+        const Dialog = customElements.get('usage-limit-dialog');
+        if (!Dialog || typeof Dialog.prototype.open !== 'function' || Dialog.prototype._builderLimitOverride) return;
+        const open = Dialog.prototype.open;
+        Dialog.prototype.open = function () {
+            try {
+                if (this.heading === 'Low Balance' && window.user && !window.user.is_temp) {
+                    const cohort = limitDialogCohort();
+                    if (cohort === 'custom' && openLimitModal()) {
+                        this.remove();
+                        return;
+                    }
+                    // Puter's dialog, counted the same way as ours so both
+                    // cohorts have the same funnel.
+                    const plan = window.Branding.isSubscribed(window.user) ? 'paid' : 'free';
+                    window.track?.('Upgrade Opened', { source: 'usage_limit', plan, variant: 'puter', cohort });
+                    this.shadowRoot?.querySelector('#upgrade-btn')?.addEventListener('click', () => {
+                        window.track?.('Upgrade Clicked', { source: 'usage_limit', plan, variant: 'puter', cohort });
+                    });
+                }
+            } catch (e) { /* fall back to Puter's dialog */ }
+            return open.apply(this, arguments);
+        };
+        Dialog.prototype._builderLimitOverride = true;
+    } catch (e) {}
+}
+installLowBalanceOverride();
 
 $(document).on('click', '.upgrade-btn', function (e) {
     e.preventDefault();

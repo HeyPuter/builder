@@ -8,7 +8,7 @@ import fs from 'node:fs';
 //     localStorage and clock, covering the one-shot clearing, the three time
 //     buckets, the seven-day expiry, same_month, per-account scoping, and
 //     malformed / blocked storage, then
-//   * text-asserts the wiring: every limit branch records, Build Completed reports
+//   * text-asserts the wiring. Every limit branch records, Build Completed reports
 //     unless the stream was cut short for credits.
 // Mirrors scripts/test-ai-cost-tracking.mjs.
 
@@ -27,7 +27,7 @@ const a = APP.indexOf('// ===== usage-limit-unblock (start) =====');
 const b = APP.indexOf('// ===== usage-limit-unblock (end) =====');
 if (a < 0 || b < 0) throw new Error('could not extract usage-limit-unblock block');
 const make = new Function('window', 'localStorage', 'Date', 'puter', 'navigator', 'costBand',
-    APP.slice(a, b) + '\nreturn { recordUsageLimitHit, reportUnblockAfterLimit, LIMIT_HIT_PREFIX, countCompletedBuilds, usageLimitHitProps, isLowBalanceRefusal, planChange, recordPlanAtLimit, checkPaidAfterLimit, LIMIT_PAY_PREFIX, creditsAtStart, readTurnAccount, limitHitTurnProps, afterAccountRead };');
+    APP.slice(a, b) + '\nreturn { recordUsageLimitHit, reportUnblockAfterLimit, LIMIT_HIT_PREFIX, countCompletedBuilds, usageLimitHitProps, isLowBalanceRefusal, planChange, recordPlanAtLimit, checkPaidAfterLimit, LIMIT_PAY_PREFIX, creditsAtStart, readTurnAccount, limitHitTurnProps, afterAccountRead, limitDialogCohort, projectDisplayName, limitDialogCopy };');
 
 const HOUR = 36e5;
 const T0 = Date.UTC(2026, 9, 8, 12, 0, 0); // Oct 8 2026, mid-month
@@ -232,7 +232,7 @@ for (const bad of ['not json', 'null', '{}', '{"at":"yesterday"}']) {
         /completion\.type === "usage"\)[\s\S]{0,400}completion\.metadata\.usage_limited === true[\s\S]{0,40}context\.usageLimited = true;/.test(STREAM));
 }
 
-// Upgrade After Limit: which change a payment made
+// Upgrade After Limit, which change a payment made
 {
     const { planChange: pc } = harness();
     const free = { subscribed: false, paid_storage: 0, allowance: 1000, purchased: 0 };
@@ -251,7 +251,7 @@ for (const bad of ['not json', 'null', '{}', '{"at":"yesterday"}']) {
 }
 
 // Upgrade After Limit end to end, with a fake Puter
-// A Web Locks stand-in for { ifAvailable: true }: a held name hands the
+// A Web Locks stand-in for { ifAvailable: true }. A held name hands the
 // callback null instead of waiting.
 function lockManager() {
     const held = new Set(), names = [];
@@ -421,6 +421,78 @@ async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, other
     const t0 = Date.now();
     await new Promise(r => afterAccountRead(new Promise(() => {}), () => { hung++; r(); }));
     check('a hung read runs it after about 3s, once', hung === 1 && Date.now() - t0 >= 2900);
+}
+
+// Low Balance dialog test: cohort, project name, copy
+{
+    check('no puter / desktop app → app cohort', harness().limitDialogCohort() === 'app' && harness({ puter: { env: 'app' } }).limitDialogCohort() === 'app');
+    const web = uuid => { const h = harness({ puter: { env: 'web' } }); h.win.user = uuid ? { uuid } : null; return h.limitDialogCohort(); };
+    check('web without a user → default', web(null) === 'default');
+    check('cohort is stable per account', web('user-a') === web('user-a'));
+    {
+        const st = memStorage();
+        st.setItem('debugLimitCohort', 'custom');
+        const h = harness({ puter: { env: 'web' }, storage: st });
+        h.win.user = { uuid: 'user-a' };
+        const forcedCustom = h.limitDialogCohort();
+        st.setItem('debugLimitCohort', 'default');
+        check('debugLimitCohort forces the cohort', forcedCustom === 'custom' && h.limitDialogCohort() === 'default');
+    }
+    let custom = 0;
+    for (let i = 0; i < 2000; i++) if (web('u-' + i + '-x') === 'custom') custom++;
+    check(`cohorts split about evenly (${custom}/2000 custom)`, custom > 900 && custom < 1100);
+    {
+        const h = harness({ puter: { env: 'web' } });
+        check('Usage Limit Hit props carry the cohort', ['custom', 'default'].includes(h.usageLimitHitProps([], [], 'c', null).cohort));
+    }
+
+    const { projectDisplayName: name, limitDialogCopy: copy } = harness();
+    check('name: user rename', name({ title: 'Pizza Shop', customTitle: true }, null) === 'Pizza Shop');
+    check('name: AI name', name({ title: 'Pizza Shop', aiTitled: true }, null) === 'Pizza Shop');
+    check('name: first prompt is not a name', name({ title: 'make me a website for my pizza…' }, null) === null);
+    check('name: published subdomain next', name({ title: 'make me…' }, 'https://tonys-pizza.puter.site') === 'tonys-pizza');
+    check('name: preview subdomain is not a name', name(null, 'https://preview-1234.puter.site') === null);
+    check('name: nothing → null', name(null, null) === null && name(null, 'not a url') === null);
+
+    const base = { name: 'Pizza Shop', building: false, steps: null, hasApp: true, published: null, paid: false };
+    let c = copy({ ...base, building: true, steps: { done: 4, total: 6 } });
+    check('steps: state, heading, words', c.state === 'steps' && c.heading === 'Finish building \u201cPizza Shop\u201d' && c.body === 'Upgrade to finish the rest.' && c.cta === 'Upgrade');
+    c = copy({ ...base, building: true, steps: { done: 6, total: 6 } });
+    check('all steps done → not the steps face', c.state === 'building');
+    c = copy({ ...base, name: null, building: true });
+    check('building without a name says your app', c.heading === 'Keep building your app' && c.body === 'Your last request didn\u2019t finish. Upgrade to finish it.');
+    c = copy(base);
+    check('idle with an app → app face', c.state === 'app' && c.lead === 'You\u2019ve run out of credits.' && c.body === 'Upgrade to make this change.' && c.cta === 'Upgrade');
+    c = copy({ ...base, hasApp: false, name: null });
+    check('nothing built → new face, no repeated lead', c.state === 'new' && c.lead === null && c.body === 'A paid plan gives you more credits, so you can keep building with Puter.');
+    c = copy({ ...base, hasApp: false, name: null, paid: true });
+    check('nothing built on a paid plan → bigger plan', c.body === 'A bigger plan gives you more credits, so you can keep building with Puter.' && c.cta === 'Upgrade');
+    c = copy({ ...base, paid: true, building: true, steps: { done: 1, total: 3 } });
+    check('paid → bigger plan wording, same button', c.body.endsWith('Move to a bigger plan to finish the rest.') && c.cta === 'Upgrade');
+    c = copy({ ...base, published: 'https://tonys-pizza.puter.site/' });
+    check('published → address for the address bar', c.address === 'tonys-pizza.puter.site' && copy(base).address === null);
+    check('free copy never claims monthly or free credits', !/month|free credits/i.test(JSON.stringify([copy(base), copy({ ...base, hasApp: false })])));
+}
+
+// The override in ui.js
+{
+    const UI = fs.readFileSync(new URL('../src/js/ui.js', import.meta.url), 'utf8');
+    const o = UI.slice(UI.indexOf('function installLowBalanceOverride('));
+    check('override is web only', /puter\.env !== 'web'/.test(o.slice(0, 400)));
+    check('Puter\'s dialog is removed only after ours opens',
+        /cohort === 'custom' && openLimitModal\(\)\) \{\s*this\.remove\(\);\s*return;/.test(o));
+    check('a failure falls back to Puter\'s dialog', /catch \(e\) \{ \/\* fall back to Puter's dialog \*\/ \}\s*return open\.apply\(this, arguments\);/.test(o));
+    check('the default cohort is counted too', /variant: 'puter', cohort/.test(o));
+    check('installed at load', /\ninstallLowBalanceOverride\(\);/.test(UI));
+    check('upgrade from the limit dialog waits for Upgrade Completed', /_upgradePending = 'usage_limit'/.test(UI));
+    check('success screen can continue the stopped build', /upgrade-resume[\s\S]{0,500}resumeBuild\(\)/.test(UI));
+    check('continue re-checks the project before resuming', /upgrade-resume[\s\S]{0,300}if \(!canResumeAfterLimit\(\)\) return;[\s\S]{0,150}resumeBuild\(\)/.test(UI));
+    check('upgrade saves the project the dialog opened for', /const chatId = currentChatId;[\s\S]*_limitResumeChatId = ctx\.building \? chatId : null;/.test(UI));
+    check('only a turn that got somewhere is building', /building: !!isProcessing && \(_turnProgressed \|\| !!\(steps && steps\.done < steps\.total\)\)/.test(UI));
+    check('each turn starts with no progress', /isProcessing = true;[\s\S]{0,200}_turnProgressed = false;/.test(APP));
+    const STREAM_SRC = fs.readFileSync(new URL('../src/js/handleMessageStream.js', import.meta.url), 'utf8');
+    check('text and tool calls count as progress',
+        /completion\.type === "text"[\s\S]{0,400}noteTurnProgress/.test(STREAM_SRC) && /completion\.type === "tool_use"[\s\S]{0,100}noteTurnProgress/.test(STREAM_SRC));
 }
 
 // Wiring in sendChatMessage

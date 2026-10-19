@@ -25,6 +25,8 @@ let _sendSetupInFlight = false;
 // tell "I finished" from "a newer turn in this same chat has since begun" —
 // the chat-id guards can't, and a stale teardown would clobber the live turn.
 let _turnSeq = 0;
+// Set once the current turn streams text or a tool call (see noteTurnProgress).
+let _turnProgressed = false;
 // The newest turn started in each chat (chatId -> its _turnSeq). A stopped turn
 // that only unwinds after a newer one has begun in the SAME chat must leave the
 // chat's persisted state to that newer turn (see the finally in sendChatMessage).
@@ -2681,7 +2683,7 @@ $(document).ready(async function(){
     // Reflect the resolved auth state in the top-right (profile circle vs.
     // Sign In button).
     updateUserMenu();
-    // A limit hit before a reload: the user may have paid in the meantime.
+    // After a limit hit and a reload, the user may have paid in the meantime.
     if (window.user) checkPaidAfterLimit();
 
     // If already authenticated, eagerly initialise user-dependent state
@@ -3383,7 +3385,7 @@ function limitPayKey() {
     return id ? LIMIT_PAY_PREFIX + id : null;
 }
 
-// What a payment changes. subscribed and paid_storage come from getUser; the
+// What a payment changes. subscribed and paid_storage come from getUser, and the
 // monthly allowance and lifetime purchased credits from getMonthlyUsage, which
 // reports them for the whole account. A field that couldn't be read is null
 // and never compared.
@@ -3432,7 +3434,7 @@ async function recordPlanAtLimit(kind) {
         const user = await puter.auth.getUser();
         if (!user || user.uuid !== id) return;
         const plan = await readPlanSnapshot(user);
-        localStorage.setItem(LIMIT_PAY_PREFIX + id, JSON.stringify({ at, kind, plan }));
+        localStorage.setItem(LIMIT_PAY_PREFIX + id, JSON.stringify({ at, kind, plan, cohort: limitDialogCohort() }));
     } catch (e) {}
 }
 
@@ -3462,7 +3464,7 @@ async function checkPaidAfterLimit() {
 
 async function consumePaidAfterLimit(key) {
     try {
-        // Read again under the lock: a tab that held it before may have reported
+        // Read again under the lock. A tab that held it before may have reported
         // and removed this record.
         const raw = localStorage.getItem(key);
         if (!raw) return;
@@ -3473,14 +3475,14 @@ async function consumePaidAfterLimit(key) {
             return;
         }
         // refreshUserPlan also swaps the toolbar's Upgrade button when the plan
-        // changed; it falls back to the cached user when Puter can't be reached,
+        // changed. It falls back to the cached user when Puter can't be reached,
         // which just finds no change this time.
         const user = window.refreshUserPlan ? await window.refreshUserPlan() : await puter.auth.getUser();
         if (!user || user.uuid !== (window.user && window.user.uuid)) return;
         const found = planChange(hit.plan, await readPlanSnapshot(user));
         if (!found) return;
         // A new limit hit saved while this check was waiting on Puter is a new
-        // baseline; leave it for the next check.
+        // baseline. Leave it for the next check.
         const now = JSON.parse(localStorage.getItem(key) || 'null');
         if (!now || now.at !== hit.at) return;
         localStorage.removeItem(key);
@@ -3489,6 +3491,7 @@ async function consumePaidAfterLimit(key) {
             change: found.change,
             bought_credits: found.bought_credits,
             kind: hit.kind,
+            cohort: hit.cohort || 'unknown',
             since_limit: mins < 10 ? '<10m' : mins < 60 ? '10-60m' : '1-24h',
         });
     } catch (e) { /* analytics must never break the app */ }
@@ -3581,6 +3584,93 @@ function usageLimitHitProps(history, chats, chatId, publishedUrl) {
         any_published: !!publishedUrl || others.some(c => c.publishedUrl),
         builds_completed: cap(countCompletedBuilds(history)),
         projects: cap(others.length + 1),
+        cohort: limitDialogCohort(),
+    };
+}
+
+// ---- Low Balance dialog test -------------------------------------------------
+// On the web, half of accounts see the builder's own out-of-credits dialog in
+// place of puter.js's Low Balance one (see installLowBalanceOverride in ui.js).
+// The cohort comes from a hash of the uuid, so it's the same on every load and
+// device. It rides on 'Usage Limit Hit' and 'Upgrade After Limit', and the
+// upgrade rate per cohort is the second divided by the first. Inside the Puter
+// desktop the desktop draws its own prompt, so those accounts are 'app' and
+// stay out of the comparison.
+// To try a face by hand, run `localStorage.debugLimitCohort = 'custom'` (or
+// 'default') in the console, and `openLimitModal()` opens the dialog directly.
+function limitDialogCohort() {
+    if (typeof puter === 'undefined' || !puter || puter.env !== 'web') return 'app';
+    try {
+        const forced = localStorage.getItem('debugLimitCohort');
+        if (forced === 'custom' || forced === 'default') return forced;
+    } catch (e) {}
+    const id = window.user && window.user.uuid;
+    if (!id) return 'default';
+    let h = 2166136261; // FNV-1a
+    for (let i = 0; i < id.length; i++) {
+        h ^= id.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+    }
+    return (h >>> 0) % 2 ? 'custom' : 'default';
+}
+
+// The project's name for the dialog, or null for "your app". A chat's title is
+// only a name once the user or the auto-namer set it. Before that it's the
+// first prompt cut to 50 characters. Then the published subdomain, which the
+// user picked.
+function projectDisplayName(entry, publishedUrl) {
+    if (entry && (entry.customTitle || entry.aiTitled) && typeof entry.title === 'string' && entry.title.trim()) {
+        return entry.title.trim();
+    }
+    try {
+        const sub = publishedUrl ? new URL(publishedUrl).hostname.split('.')[0] : '';
+        if (sub && !sub.startsWith('preview-')) return sub;
+    } catch (e) {}
+    return null;
+}
+
+// Which face of the dialog to show, and its words. ctx is
+//   name      projectDisplayName, or null
+//   building  a turn was running when the credits ran out
+//   steps     { done, total } from the checklist, or null
+//   hasApp    the project has files to show
+//   published the live URL, or null
+//   paid      on a paid plan, so the way forward is a bigger plan
+function limitDialogCopy(ctx) {
+    const named = ctx.name ? `\u201c${ctx.name}\u201d` : null;
+    const it = named || 'your app';
+    const up = ctx.paid ? 'Move to a bigger plan' : 'Upgrade';
+    const steps = ctx.steps && ctx.steps.total > 0 && ctx.steps.done < ctx.steps.total ? ctx.steps : null;
+    let state, heading, body;
+    if (ctx.building && steps) {
+        state = 'steps';
+        heading = `Finish building ${it}`;
+        // The checklist card above shows how many are done.
+        body = `${up} to finish the rest.`;
+    } else if (ctx.building) {
+        state = 'building';
+        heading = `Keep building ${it}`;
+        body = `Your last request didn\u2019t finish. ${up} to finish it.`;
+    } else if (ctx.hasApp) {
+        state = 'app';
+        heading = `Keep working on ${it}`;
+        body = `${up} to make this change.`;
+    } else {
+        state = 'new';
+        heading = 'You\u2019re out of credits';
+        body = `${ctx.paid ? 'A bigger plan' : 'A paid plan'} gives you more credits, so you can keep building with Puter.`;
+    }
+    // The live address goes in the address bar over the screenshot.
+    let address = null;
+    try { if (ctx.published) address = new URL(ctx.published).hostname; } catch (e) {}
+    return {
+        state,
+        heading,
+        // The 'new' heading already says it.
+        lead: state === 'new' ? null : 'You\u2019ve run out of credits.',
+        body,
+        address,
+        cta: 'Upgrade',
     };
 }
 
@@ -3804,6 +3894,14 @@ function noteTurnActivity() {
     _turnLastActivityAt = Date.now();
 }
 window.noteTurnActivity = noteTurnActivity;
+
+// The model produced output this turn, text or a tool call. The out-of-credits
+// dialog reads it to tell a build that stopped partway from a request Puter
+// refused before anything happened.
+function noteTurnProgress() {
+    _turnProgressed = true;
+}
+window.noteTurnProgress = noteTurnProgress;
 
 // Bracket a tool's local execution (tools.js). While a tool runs the turn isn't
 // waiting on any socket — the next round's request only opens once the tool
@@ -4393,6 +4491,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     clearResumeBanner();
     isProcessing = true;
     _sendSetupInFlight = false; // the isProcessing gate takes over from here
+    _turnProgressed = false;
     shouldStop = false;
     activeTurnInterrupted = false;
     // Mobile keepalive: no stale stall flag from a previous turn, and keep the
