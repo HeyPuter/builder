@@ -485,7 +485,9 @@ async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, other
     check('the default cohort is counted too', /variant: 'puter', cohort/.test(o));
     check('installed at load', /\ninstallLowBalanceOverride\(\);/.test(UI));
     check('upgrade from the limit dialog waits for Upgrade Completed', /_upgradePending = 'usage_limit'/.test(UI));
-    check('success screen can continue the stopped build', /upgrade-resume[\s\S]{0,300}resumeBuild\(\)/.test(UI));
+    check('success screen can continue the stopped build', /upgrade-resume[\s\S]{0,500}resumeBuild\(\)/.test(UI));
+    check('continue re-checks the project before resuming', /upgrade-resume[\s\S]{0,300}if \(!canResumeAfterLimit\(\)\) return;[\s\S]{0,150}resumeBuild\(\)/.test(UI));
+    check('upgrade saves the project the dialog opened for', /const chatId = currentChatId;[\s\S]*_limitResumeChatId = ctx\.building \? chatId : null;/.test(UI));
     check('only a turn that got somewhere is building', /building: !!isProcessing && \(_turnProgressed \|\| !!\(steps && steps\.done < steps\.total\)\)/.test(UI));
     check('each turn starts with no progress', /isProcessing = true;[\s\S]{0,200}_turnProgressed = false;/.test(APP));
     const STREAM_SRC = fs.readFileSync(new URL('../src/js/handleMessageStream.js', import.meta.url), 'utf8');

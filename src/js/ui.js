@@ -4997,6 +4997,9 @@ function openUpgradeModal(source, { justUpgraded = false } = {}) {
     });
     $overlay.find('.upgrade-resume').on('click', () => {
         close();
+        // Back/Forward can switch projects while this dialog is open. Resume
+        // only in the project that stopped, never the one now on screen.
+        if (!canResumeAfterLimit()) return;
         _limitResumeChatId = null;
         window.track?.('Build Resumed After Upgrade');
         resumeBuild();
@@ -5071,8 +5074,8 @@ const LIMIT_BUILD_ANIM = `
 // The build's checklist for the 'steps' face, in place of the screenshot. The
 // last steps that finished, then the next ones waiting, and a count of the
 // steps left beyond those, so the card stays short on a long checklist.
-const LIMIT_STEP_DONE = '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><rect x="1.25" y="1.25" width="9.5" height="9.5" rx="2" fill="none" stroke="currentColor"/><polyline points="3.75 6.5 5.25 8 8.25 4" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-const LIMIT_STEP_TODO = '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><rect x="1.25" y="1.25" width="9.5" height="9.5" rx="2" fill="none" stroke="currentColor"/></svg>';
+const LIMIT_STEP_DONE = '<svg viewBox="0 0 12 12" width="12" height="12" role="img" aria-label="Done"><rect x="1.25" y="1.25" width="9.5" height="9.5" rx="2" fill="none" stroke="currentColor"/><polyline points="3.75 6.5 5.25 8 8.25 4" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const LIMIT_STEP_TODO = '<svg viewBox="0 0 12 12" width="12" height="12" role="img" aria-label="Not done"><rect x="1.25" y="1.25" width="9.5" height="9.5" rx="2" fill="none" stroke="currentColor"/></svg>';
 function limitStepsCard(steps) {
     const todos = (window.currentTodos || []).filter(t => t && typeof t.content === 'string');
     const done = todos.filter(t => t.status === 'completed');
@@ -5097,6 +5100,9 @@ function openLimitModal() {
     if (document.querySelector('.upgrade-modal-overlay')) return true;
     window.closePublishPanel?.();
     const ctx = limitDialogContextNow();
+    // The project this dialog is about. Back/Forward can switch projects while
+    // it stays open, so the click below uses this, not currentChatId.
+    const chatId = currentChatId;
     const copy = limitDialogCopy(ctx);
     const plan = ctx.paid ? 'paid' : 'free';
     const cohort = limitDialogCohort();
@@ -5145,7 +5151,7 @@ function openLimitModal() {
         // Same as the Upgrade dialog. Only a free account's return can be told
         // apart by its plan, so only that one waits for 'Upgrade Completed'.
         if (!ctx.paid) _upgradePending = 'usage_limit';
-        _limitResumeChatId = ctx.building ? currentChatId : null;
+        _limitResumeChatId = ctx.building ? chatId : null;
         close();
     });
     $overlay.on('mousedown', (e) => { if (e.target === $overlay[0]) close(); });

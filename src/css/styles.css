@@ -5107,11 +5107,11 @@ a.upgrade-more-link:hover { background: none; color: #111; }
 }
 .limit-steps-head { margin: 0 0 8px; font-size: 12px; font-weight: 600; color: #2d7d46; }
 .limit-steps ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.limit-steps li { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #8a8a93; min-width: 0; }
+.limit-steps li { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #666670; min-width: 0; }
 .limit-steps li svg { flex: none; }
 .limit-steps li span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .limit-steps li.is-done { color: #2d7d46; }
-.limit-steps-more { margin-top: 6px; padding-left: 20px; font-size: 12px; color: #8a8a93; }
+.limit-steps-more { margin-top: 6px; padding-left: 20px; font-size: 12px; color: #666670; }
 .limit-body { margin: 0 0 10px; font-size: 14px; line-height: 1.5; color: #333; }
 .limit-lead { color: #1a1a1a; font-weight: 600; }
 
