@@ -307,6 +307,7 @@ async function handleMessageStream(stream, context) {
                 // Empty text chunks are sometimes keepalives, not an answer yet.
                 if (typeof completion.text !== 'string' || !completion.text) continue;
                 clearThinking();
+                window.noteTurnProgress?.();
                 if (!context.currentMessage) {
                     // While the progress checklist has unfinished items, suppress
                     // mid-turn narration from the UI. The text still goes into
@@ -359,6 +360,7 @@ async function handleMessageStream(stream, context) {
             if (completion.type === "tool_use") {
                 countCall();
                 clearThinking();
+                window.noteTurnProgress?.();
                 startSpinnerStub();
 
                 // Save before and after a tool call incase the user quits

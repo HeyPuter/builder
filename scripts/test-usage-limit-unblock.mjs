@@ -456,19 +456,21 @@ async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, other
 
     const base = { name: 'Pizza Shop', building: false, steps: null, hasApp: true, published: null, paid: false };
     let c = copy({ ...base, building: true, steps: { done: 4, total: 6 } });
-    check('steps: state, heading, progress words', c.state === 'steps' && c.heading === 'Finish building \u201cPizza Shop\u201d' && c.body === '4 of 6 steps are done. Upgrade to finish the rest.' && c.cta === 'Upgrade to finish');
+    check('steps: state, heading, words', c.state === 'steps' && c.heading === 'Finish building \u201cPizza Shop\u201d' && c.body === 'Upgrade to finish the rest.' && c.cta === 'Upgrade');
     c = copy({ ...base, building: true, steps: { done: 6, total: 6 } });
     check('all steps done → not the steps face', c.state === 'building');
     c = copy({ ...base, name: null, building: true });
-    check('building without a name says your app', c.heading === 'Keep building your app' && c.body.startsWith('Your app stopped partway.'));
+    check('building without a name says your app', c.heading === 'Keep building your app' && c.body === 'Your last request didn\u2019t finish. Upgrade to finish it.');
     c = copy(base);
-    check('idle with an app → app face', c.state === 'app' && c.lead === 'You\u2019ve run out of credits.' && c.cta === 'Upgrade');
+    check('idle with an app → app face', c.state === 'app' && c.lead === 'You\u2019ve run out of credits.' && c.body === 'Upgrade to make this change.' && c.cta === 'Upgrade');
     c = copy({ ...base, hasApp: false, name: null });
-    check('nothing built → new face, no repeated lead', c.state === 'new' && c.lead === null && c.body === 'Upgrade to build your app.');
+    check('nothing built → new face, no repeated lead', c.state === 'new' && c.lead === null && c.body === 'A paid plan gives you more credits, so you can keep building with Puter.');
+    c = copy({ ...base, hasApp: false, name: null, paid: true });
+    check('nothing built on a paid plan → bigger plan', c.body === 'A bigger plan gives you more credits, so you can keep building with Puter.' && c.cta === 'Upgrade');
     c = copy({ ...base, paid: true, building: true, steps: { done: 1, total: 3 } });
-    check('paid → bigger plan wording, See plans, no badge note', c.body.endsWith('Move to a bigger plan to finish the rest.') && c.cta === 'See plans' && c.badgeNote === false);
+    check('paid → bigger plan wording, same button', c.body.endsWith('Move to a bigger plan to finish the rest.') && c.cta === 'Upgrade');
     c = copy({ ...base, published: 'https://tonys-pizza.puter.site/' });
-    check('published → live line and badge note', c.live === '\u201cPizza Shop\u201d is live at tonys-pizza.puter.site.' && c.badgeNote === true);
+    check('published → address for the address bar', c.address === 'tonys-pizza.puter.site' && copy(base).address === null);
     check('free copy never claims monthly or free credits', !/month|free credits/i.test(JSON.stringify([copy(base), copy({ ...base, hasApp: false })])));
 }
 
@@ -484,6 +486,11 @@ async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, other
     check('installed at load', /\ninstallLowBalanceOverride\(\);/.test(UI));
     check('upgrade from the limit dialog waits for Upgrade Completed', /_upgradePending = 'usage_limit'/.test(UI));
     check('success screen can continue the stopped build', /upgrade-resume[\s\S]{0,300}resumeBuild\(\)/.test(UI));
+    check('only a turn that got somewhere is building', /building: !!isProcessing && \(_turnProgressed \|\| !!\(steps && steps\.done < steps\.total\)\)/.test(UI));
+    check('each turn starts with no progress', /isProcessing = true;[\s\S]{0,200}_turnProgressed = false;/.test(APP));
+    const STREAM_SRC = fs.readFileSync(new URL('../src/js/handleMessageStream.js', import.meta.url), 'utf8');
+    check('text and tool calls count as progress',
+        /completion\.type === "text"[\s\S]{0,400}noteTurnProgress/.test(STREAM_SRC) && /completion\.type === "tool_use"[\s\S]{0,100}noteTurnProgress/.test(STREAM_SRC));
 }
 
 // Wiring in sendChatMessage

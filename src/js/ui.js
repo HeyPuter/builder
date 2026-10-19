@@ -5035,13 +5035,60 @@ function limitDialogContextNow() {
         : null;
     return {
         name: projectDisplayName(entry, window.currentPublishedUrl),
-        building: !!isProcessing,
+        // Stopped partway only if this turn got somewhere, or an unfinished
+        // checklist shows where it got to. A send Puter refused up front changed
+        // nothing, and a finished checklist is an earlier turn's.
+        building: !!isProcessing && (_turnProgressed || !!(steps && steps.done < steps.total)),
         steps,
         hasApp: !!window.currentPreviewUrl,
         published: window.currentPublishedUrl || null,
         previewUrl: window.currentPreviewUrl || null,
         paid: window.Branding.isSubscribed(window.user),
     };
+}
+
+// The builder at work, for the slot when there is no screenshot. A message
+// goes in, the reply types, and the change lands in the preview, on a loop.
+// Pure CSS (see .limit-build), and it shows the finished exchange without
+// moving under reduced motion.
+const LIMIT_BUILD_ANIM = `
+    <div class="limit-build" aria-hidden="true">
+        <div class="lb-chat">
+            <span class="lb-msg lb-user"><i></i></span>
+            <span class="lb-answer">
+                <span class="lb-typing"><i></i><i></i><i></i></span>
+                <span class="lb-msg lb-reply"><i></i><i></i></span>
+            </span>
+        </div>
+        <div class="lb-preview">
+            <span class="lb-nav"></span>
+            <span class="lb-hero"></span>
+            <span class="lb-line"></span>
+            <span class="lb-cards"><i style="--i:0"></i><i style="--i:1"></i><i style="--i:2"></i></span>
+        </div>
+    </div>`;
+
+// The build's checklist for the 'steps' face, in place of the screenshot. The
+// last steps that finished, then the next ones waiting, and a count of the
+// steps left beyond those, so the card stays short on a long checklist.
+const LIMIT_STEP_DONE = '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><rect x="1.25" y="1.25" width="9.5" height="9.5" rx="2" fill="none" stroke="currentColor"/><polyline points="3.75 6.5 5.25 8 8.25 4" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const LIMIT_STEP_TODO = '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><rect x="1.25" y="1.25" width="9.5" height="9.5" rx="2" fill="none" stroke="currentColor"/></svg>';
+function limitStepsCard(steps) {
+    const todos = (window.currentTodos || []).filter(t => t && typeof t.content === 'string');
+    const done = todos.filter(t => t.status === 'completed');
+    const left = todos.filter(t => t.status !== 'completed');
+    const shownDone = done.slice(-2);
+    const shownLeft = left.slice(0, 5 - shownDone.length);
+    // Steps still to do that didn't fit. Earlier finished ones are in the count
+    // at the top.
+    const more = left.length - shownLeft.length;
+    const row = (t, isDone) => `<li class="${isDone ? 'is-done' : ''}">${isDone ? LIMIT_STEP_DONE : LIMIT_STEP_TODO}<span>${htmlEscape(t.content)}</span></li>`;
+    return `
+        <div class="limit-steps">
+            <div class="limit-steps-head">${steps.done} of ${steps.total} steps done</div>
+            <ul>${shownDone.map(t => row(t, true)).join('')}${shownLeft.map(t => row(t, false)).join('')}</ul>
+            ${more > 0 ? `<div class="limit-steps-more">+${more} more to do</div>` : ''}
+        </div>`;
 }
 
 // Returns true when the dialog is up (just opened, or already open).
@@ -5056,7 +5103,6 @@ function openLimitModal() {
     window.track?.('Upgrade Opened', { source: 'usage_limit', plan, variant: copy.state, cohort });
 
     const shot = ctx.hasApp ? chatThumbUrl(ctx.previewUrl) : null;
-    const pct = copy.state === 'steps' ? Math.round((ctx.steps.done / ctx.steps.total) * 100) : 0;
     const billing = htmlEscape(window.Branding.UPGRADE_URL);
     const $overlay = $(`
         <div class="confirm-modal-overlay limit-modal-overlay">
@@ -5065,14 +5111,13 @@ function openLimitModal() {
                     <div class="properties-modal-title" id="limit-modal-title">${htmlEscape(copy.heading)}</div>
                     <button type="button" class="properties-modal-x" title="Close" aria-label="Close">✕</button>
                 </div>
-                ${shot ? `<div class="limit-shot"><img src="${htmlEscape(shot + '?t=' + Date.now())}" alt="" loading="eager"></div>` : ''}
-                ${copy.state === 'steps' ? `
-                    <div class="limit-progress" role="progressbar" aria-valuemin="0" aria-valuemax="${ctx.steps.total}" aria-valuenow="${ctx.steps.done}" aria-label="Build progress">
-                        <span style="width:${pct}%"></span>
-                    </div>` : ''}
+                ${copy.state === 'steps' ? limitStepsCard(ctx.steps) : `
+                <div class="limit-shot${shot ? '' : ' is-building'}">
+                    ${copy.address ? `<div class="limit-shot-bar"><span class="limit-shot-dots" aria-hidden="true"></span><span class="limit-shot-url">${htmlEscape(copy.address)}</span></div>` : ''}
+                    ${shot ? `<img src="${htmlEscape(shot + '?t=' + Date.now())}" alt="" loading="eager">` : ''}
+                    ${LIMIT_BUILD_ANIM}
+                </div>`}
                 <p class="limit-body" id="limit-modal-body">${copy.lead ? `<span class="limit-lead">${htmlEscape(copy.lead)}</span> ` : ''}${htmlEscape(copy.body)}</p>
-                ${copy.live ? `<p class="limit-live">${htmlEscape(copy.live)}</p>` : ''}
-                ${copy.badgeNote ? '<p class="upgrade-note">A paid plan also removes the Made with Puter badge from your sites.</p>' : ''}
                 <div class="properties-modal-actions upgrade-actions">
                     <button type="button" class="confirm-modal-btn confirm-modal-cancel limit-cancel">Not now</button>
                     <a class="confirm-modal-btn upgrade-go limit-go" href="${billing}" target="_blank" rel="noopener noreferrer">${htmlEscape(copy.cta)}</a>
@@ -5080,9 +5125,12 @@ function openLimitModal() {
             </div>
         </div>
     `);
-    // No screenshot yet (a new site, or Puter hasn't taken one). Drop the slot
-    // rather than show a broken frame.
-    $overlay.find('.limit-shot img').on('error', function () { $(this).closest('.limit-shot').remove(); });
+    // No screenshot yet (a new site, or Puter hasn't taken one). Show the
+    // building animation in its place rather than a broken frame.
+    $overlay.find('.limit-shot img').on('error', function () {
+        $(this).closest('.limit-shot').addClass('is-building');
+        $(this).remove();
+    });
 
     let releaseFocus = null;
     const close = () => {

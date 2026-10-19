@@ -25,6 +25,8 @@ let _sendSetupInFlight = false;
 // tell "I finished" from "a newer turn in this same chat has since begun" —
 // the chat-id guards can't, and a stale teardown would clobber the live turn.
 let _turnSeq = 0;
+// Set once the current turn streams text or a tool call (see noteTurnProgress).
+let _turnProgressed = false;
 // The newest turn started in each chat (chatId -> its _turnSeq). A stopped turn
 // that only unwinds after a newer one has begun in the SAME chat must leave the
 // chat's persisted state to that newer turn (see the finally in sendChatMessage).
@@ -3637,38 +3639,38 @@ function projectDisplayName(entry, publishedUrl) {
 function limitDialogCopy(ctx) {
     const named = ctx.name ? `\u201c${ctx.name}\u201d` : null;
     const it = named || 'your app';
-    const It = named || 'Your app';
     const up = ctx.paid ? 'Move to a bigger plan' : 'Upgrade';
     const steps = ctx.steps && ctx.steps.total > 0 && ctx.steps.done < ctx.steps.total ? ctx.steps : null;
     let state, heading, body;
     if (ctx.building && steps) {
         state = 'steps';
         heading = `Finish building ${it}`;
-        body = `${steps.done} of ${steps.total} steps are done. ${up} to finish the rest.`;
+        // The checklist card above shows how many are done.
+        body = `${up} to finish the rest.`;
     } else if (ctx.building) {
         state = 'building';
         heading = `Keep building ${it}`;
-        body = `${It} stopped partway. ${up} to keep building it.`;
+        body = `Your last request didn\u2019t finish. ${up} to finish it.`;
     } else if (ctx.hasApp) {
         state = 'app';
         heading = `Keep working on ${it}`;
-        body = `${up} to keep making changes to it.`;
+        body = `${up} to make this change.`;
     } else {
         state = 'new';
         heading = 'You\u2019re out of credits';
-        body = `${up} to build your app.`;
+        body = `${ctx.paid ? 'A bigger plan' : 'A paid plan'} gives you more credits, so you can keep building with Puter.`;
     }
-    let live = null;
-    try { if (ctx.published) live = `${It} is live at ${new URL(ctx.published).hostname}.`; } catch (e) {}
+    // The live address goes in the address bar over the screenshot.
+    let address = null;
+    try { if (ctx.published) address = new URL(ctx.published).hostname; } catch (e) {}
     return {
         state,
         heading,
         // The 'new' heading already says it.
         lead: state === 'new' ? null : 'You\u2019ve run out of credits.',
         body,
-        live,
-        cta: ctx.paid ? 'See plans' : steps && ctx.building ? 'Upgrade to finish' : 'Upgrade',
-        badgeNote: !ctx.paid && !!ctx.published,
+        address,
+        cta: 'Upgrade',
     };
 }
 
@@ -3892,6 +3894,14 @@ function noteTurnActivity() {
     _turnLastActivityAt = Date.now();
 }
 window.noteTurnActivity = noteTurnActivity;
+
+// The model produced output this turn, text or a tool call. The out-of-credits
+// dialog reads it to tell a build that stopped partway from a request Puter
+// refused before anything happened.
+function noteTurnProgress() {
+    _turnProgressed = true;
+}
+window.noteTurnProgress = noteTurnProgress;
 
 // Bracket a tool's local execution (tools.js). While a tool runs the turn isn't
 // waiting on any socket — the next round's request only opens once the tool
@@ -4481,6 +4491,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     clearResumeBanner();
     isProcessing = true;
     _sendSetupInFlight = false; // the isProcessing gate takes over from here
+    _turnProgressed = false;
     shouldStop = false;
     activeTurnInterrupted = false;
     // Mobile keepalive: no stale stall flag from a previous turn, and keep the
