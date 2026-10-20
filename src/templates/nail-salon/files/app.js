@@ -1,7 +1,7 @@
 /* Half Moon Nail Studio
    Everything the salon changes lives in the data at the top of this file:
-   details, hours and the monthly offer, the menu, the shade bar, the lookbook,
-   the artists, the shelf of take-home products and the reviews. The page
+   details, hours and the monthly offer, the menu, the shade bar, the featured
+   sets, the artists, the shop of take-home products and the reviews. The page
    below the data only reads it. */
 
 const SALON = {
@@ -109,58 +109,60 @@ const DETAILS = [
   { id: 'none', label: 'None' }, { id: 'french', label: 'French tip' }, { id: 'moon', label: 'Half moon' },
   { id: 'dots', label: 'Dots' }, { id: 'line', label: 'Fine line' },
 ];
-const SKIN_TONES = ['#f4d6c3', '#e5b394', '#c78a64', '#94603f', '#5d3a27'];
 
-// The lookbook. `ring` styles the ring finger differently, as an accent nail.
-// `pose`, `tone` and `tilt` only change the drawing on the card.
+// Featured sets. `ring` styles the ring finger differently, as an accent nail.
+// `bg` tints the card; `rating` and `reviews` show under the name.
 const LOOKS = [
-  { id: 'signature', name: 'The Half Moon', bg: '#ead3d9', from: 60, pose: 'relaxed', tone: 0, tilt: -6,
+  { id: 'signature', name: 'The Half Moon', bg: '#f3e6ea', from: 60, rating: 4.9, reviews: 312,
     desc: 'Our signature: a milky base with mauve moons at the cuticle and one solid mauve nail.',
-    look: { shade: 'milk-bath', shape: 'squoval', finish: 'gloss', detail: 'moon', accent: '#8b4a62', ring: { shade: 'house-mauve', detail: 'none' } } },
-  { id: 'cola-chrome', name: 'Cherry Cola Chrome', bg: '#f3e3ad', from: 58, pose: 'peace', tone: 3, tilt: 6, flip: true,
+    look: { shade: 'milk-bath', shape: 'squoval', finish: 'gloss', detail: 'moon', accent: '#8f5d6e', ring: { shade: 'house-mauve', detail: 'none' } } },
+  { id: 'cola-chrome', name: 'Cherry Cola Chrome', bg: '#f6ede2', from: 58, rating: 4.8, reviews: 187,
     desc: 'Deep cherry gel under a sheer chrome powder, so it shifts from red to rose gold in the light.',
     look: { shade: 'cherry-cola', shape: 'almond', finish: 'chrome', detail: 'none' } },
-  { id: 'micro-french', name: 'Micro French', bg: '#dfe5cb', from: 60, pose: 'open', tone: 2, tilt: -3,
+  { id: 'micro-french', name: 'Micro French', bg: '#eef0ea', from: 60, rating: 4.9, reviews: 264,
     desc: 'A sheer ballet-pink base with the thinnest white tip. Quiet, clean and good with everything.',
     look: { shade: 'ballet-slipper', shape: 'almond', finish: 'gloss', detail: 'french', accent: '#fdfaf6' } },
-  { id: 'pear-dots', name: 'Pear Dots', bg: '#f5dccf', from: 62, pose: 'relaxed', tone: 4, tilt: 4, flip: true,
+  { id: 'pear-dots', name: 'Pear Dots', bg: '#f1f1e3', from: 62, rating: 4.7, reviews: 98,
     desc: 'Soft pear green with three hand-placed milk dots on every nail. Spring, all year long.',
     look: { shade: 'pear', shape: 'round', finish: 'gloss', detail: 'dots', accent: '#fdfaf6' } },
-  { id: 'midnight', name: 'Midnight Sparkle', bg: '#e3dcef', from: 92, pose: 'relaxed', tone: 1, tilt: -4,
+  { id: 'midnight', name: 'Midnight Sparkle', bg: '#ebe8f2', from: 92, rating: 4.8, reviews: 141,
     desc: 'Coffin Gel-X in navy with a fine silver and gold glitter. Made for late dinners.',
     look: { shade: 'midnight-navy', shape: 'coffin', finish: 'glitter', detail: 'none' } },
-  { id: 'fig-line', name: 'Fig & Gold Line', bg: '#ead3d9', from: 62, pose: 'open', tone: 3, tilt: 5, flip: true,
+  { id: 'fig-line', name: 'Fig & Gold Line', bg: '#f3e6ea', from: 62, rating: 4.8, reviews: 119,
     desc: 'Matte fig with a single gold line painted across each nail by hand.',
     look: { shade: 'fig-jam', shape: 'squoval', finish: 'matte', detail: 'line', accent: '#e4c27c' } },
 ];
 
 // Artists. `days` are the weekdays they work, Sunday = 0.
 const ARTISTS = [
-  { id: 'mina', name: 'Mina Park', role: 'Studio lead', bg: '#ead3d9', days: [2, 3, 4, 5, 6], pose: 'relaxed', tone: 1,
+  { id: 'mina', name: 'Mina Park', role: 'Studio lead', bg: '#f3e6ea', days: [2, 3, 4, 5, 6],
     bio: 'Russian manicures and BIAB that grows out invisibly. Fixes nails other salons gave up on.',
     look: { shade: 'bare-truth', shape: 'squoval', finish: 'gloss', detail: 'none' } },
-  { id: 'lucia', name: 'Lucía Herrera', role: 'Nail artist', bg: '#f3e3ad', days: [0, 3, 4, 5, 6], pose: 'peace', tone: 2,
+  { id: 'lucia', name: 'Lucía Herrera', role: 'Nail artist', bg: '#f6ede2', days: [0, 3, 4, 5, 6],
     bio: 'Hand-painted florals, fine lines and anything you can pin to a mood board.',
     look: { shade: 'lilac-hour', shape: 'almond', finish: 'gloss', detail: 'dots', accent: '#fdfaf6' } },
-  { id: 'dee', name: 'Dee Okafor', role: 'Pedicure lead', bg: '#dfe5cb', days: [0, 2, 3, 4, 5], pose: 'open', tone: 4,
+  { id: 'dee', name: 'Dee Okafor', role: 'Pedicure lead', bg: '#eef0ea', days: [0, 2, 3, 4, 5],
     bio: 'Long, slow spa pedicures. Ask about the hot-stone massage, it is worth the extra time.',
     look: { shade: 'tangerine', shape: 'round', finish: 'gloss', detail: 'none' } },
-  { id: 'hana', name: 'Hana Sato', role: 'Extensions', bg: '#e3dcef', days: [0, 4, 5, 6], pose: 'point', tone: 0,
+  { id: 'hana', name: 'Hana Sato', role: 'Extensions', bg: '#ebe8f2', days: [0, 4, 5, 6],
     bio: 'Gel-X and sculpted sets in almond, coffin and stiletto, balanced to last.',
     look: { shade: 'midnight-navy', shape: 'stiletto', finish: 'chrome', detail: 'none' } },
 ];
 
 // The shelf: aftercare to take home. Added items are set aside at the front
-// desk and paid for at the visit. `art` picks the drawing: dropper, bottle,
-// tube or file. A bottle without a color uses the shade of the week.
+// desk and paid for at the visit. Photos live in photos/ (from Pexels).
 const PRODUCTS = [
-  { id: 'cuticle-oil', name: 'Moon Drop cuticle oil', size: '10 ml', price: 18, rating: 4.9, reviews: 212, art: 'dropper', color: '#e9b949', bg: '#f6ecd0',
+  { id: 'cuticle-oil', name: 'Moon Drop cuticle oil', size: '10 ml', price: 18, rating: 4.9, reviews: 212,
+    photo: 'photos/cuticle-oil.jpg', alt: 'An amber dropper bottle of cuticle oil in soft sunlight',
     desc: 'Jojoba and sweet almond oil. Two drops a night keeps gel from lifting.' },
-  { id: 'take-home-polish', name: 'Shade of the week, to go', size: '12 ml', price: 15, rating: 4.8, reviews: 96, art: 'bottle', bg: '#f5dccf',
+  { id: 'take-home-polish', name: 'Shade of the week, to go', size: '12 ml', price: 15, rating: 4.8, reviews: 96,
+    photo: 'photos/polish.jpg', alt: 'A hand opening a bottle of bright pink nail polish',
     desc: 'The color you are wearing, for touch-ups between visits.' },
-  { id: 'hand-cream', name: 'Fig & Oat hand cream', size: '60 ml', price: 22, rating: 4.8, reviews: 164, art: 'tube', color: '#e57aa3', bg: '#ead3d9',
+  { id: 'hand-cream', name: 'Fig & Oat hand cream', size: '60 ml', price: 22, rating: 4.8, reviews: 164,
+    photo: 'photos/hand-cream.jpg', alt: 'Hand cream squeezed from a tube into an open palm on a pink background',
     desc: 'Rich but never greasy. Our artists finish every manicure with it.' },
-  { id: 'glass-file', name: 'Crystal glass file', size: '14 cm', price: 14, rating: 4.9, reviews: 98, art: 'file', color: '#c3c75c', bg: '#dfe5cb',
+  { id: 'glass-file', name: 'Crystal glass file', size: '14 cm', price: 14, rating: 4.9, reviews: 98,
+    photo: 'photos/glass-file.jpg', alt: 'A pink glass nail file beside a bottle of white polish',
     desc: 'Seals the free edge as it shapes, so nails do not peel. Lasts for years.' },
 ];
 
@@ -168,17 +170,6 @@ const REVIEWS = [
   { quote: 'Mina fixed nails three other salons had given up on. Six weeks of BIAB and they are finally long and strong.', name: 'Priya S.', service: 'BIAB structured manicure' },
   { quote: 'I tried Cherry Cola chrome on the shade bar before I came in, and it looked exactly like that on my hands.', name: 'Jordan T.', service: 'Gel manicure with chrome' },
   { quote: 'Dee\'s spa pedicure is the best hour of my month. Quiet, warm, no upselling, and the polish lasts until the next one.', name: 'Alma R.', service: 'Half Moon spa pedicure' },
-];
-
-// The hands scattered over the hero arch (a 480 x 590 drawing). `shade: null`
-// wears the shade of the week.
-const HERO_HANDS = [
-  { pose: 'relaxed', x: 330, y: 40, rotate: 168, scale: 0.5, shade: 'house-mauve', shape: 'almond' },
-  { pose: 'peace', x: 395, y: 200, rotate: 28, scale: 0.5, shade: 'bubblegum', shape: 'round', flip: true },
-  { pose: 'point', x: 70, y: 560, rotate: -152, scale: 0.48, shade: 'pear', shape: 'coffin', flip: true },
-  { pose: 'relaxed', x: 410, y: 470, rotate: 196, scale: 0.52, shade: 'fern', shape: 'squoval' },
-  { pose: 'peace', x: 30, y: 250, rotate: 70, scale: 0.44, shade: 'fern', shape: 'almond', flip: true },
-  { pose: 'open', x: 210, y: 330, rotate: -14, scale: 0.66, shade: null, shape: 'almond' },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -190,8 +181,6 @@ const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DAY_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const INK = '#1f1a1c';
-const CREAM = '#fffcf6';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const money = (n) => '$' + n.toLocaleString('en-US');
@@ -231,7 +220,6 @@ const serviceById = (id) => SERVICES.find((s) => s.id === id);
 const productById = (id) => PRODUCTS.find((p) => p.id === id);
 const artistById = (id) => ARTISTS.find((a) => a.id === id);
 const labelOf = (list, id) => (list.find((x) => x.id === id) || list[0]).label;
-const productColor = (p) => p.color || shadeById(SALON.shadeOfWeek).hex;
 
 /* ------------------------------------------------------------------ */
 /* Nail drawing                                                         */
@@ -312,157 +300,66 @@ function lookNails(look) {
   });
 }
 
-/* ------------------------------------------------------------------ */
-/* Line-drawn hands                                                     */
-/* ------------------------------------------------------------------ */
-
-// Hands are drawn like an ink sketch: one continuous outline from the wrist,
-// around each finger and the thumb and back down, a few crease marks, and
-// painted nails. Local coordinates: the knuckles sit near y = 0, fingers point
-// up and the wrist runs off the bottom (y ≈ 230). Fingers are listed pinky
-// first; `fold` bends a finger away so no nail shows.
-const POSES = {
-  open: { spread: 1, fingers: [{ a: -16, len: 150 }, { a: -6, len: 182 }, { a: 2, len: 192 }, { a: 11, len: 172 }], thumb: { a: 48, len: 126 } },
-  relaxed: { spread: 0.9, fingers: [{ a: -9, len: 146 }, { a: -3, len: 178 }, { a: 2, len: 188 }, { a: 7, len: 170 }], thumb: { a: 38, len: 122 } },
-  peace: { spread: 0.95, fingers: [{ a: -4, len: 150, fold: true }, { a: 0, len: 178, fold: true }, { a: -6, len: 192 }, { a: 14, len: 178 }], thumb: { a: 30, len: 112 } },
-  point: { spread: 0.95, fingers: [{ a: -2, len: 150, fold: true }, { a: 0, len: 178, fold: true }, { a: 1, len: 186, fold: true }, { a: 6, len: 182 }], thumb: { a: 36, len: 116 } },
-};
-const FINGER_W = [44, 48, 50, 48];
-
-const pt = (x, y) => ({ x, y });
-const along = (p, v, k = 1) => pt(p.x + v.x * k, p.y + v.y * k);
-const r1 = (n) => Math.round(n * 10) / 10;
-const xy = (p) => `${r1(p.x)} ${r1(p.y)}`;
-const heading = (deg) => { const r = deg * Math.PI / 180; return { u: pt(Math.sin(r), -Math.cos(r)), n: pt(Math.cos(r), Math.sin(r)) }; };
-
-// One finger (or the thumb) between two web points: the outline segment
-// (left web, around the tip, right web), crease marks and where its nail goes.
-function fingerParts(wl, wr, angle, len, w, fold) {
-  const { u, n } = heading(angle);
-  const base = pt((wl.x + wr.x) / 2, (wl.y + wr.y) / 2);
-  const reach = fold ? len * 0.4 : len;
-  const wt = fold ? w * 0.5 : w * 0.44;
-  const tip = along(base, u, reach - wt);
-  const tl = along(tip, n, -wt), tr = along(tip, n, wt);
-  // Edges leave the webs a little way up the finger, so webs read as soft U shapes.
-  const sl = along(wl, u, 7), sr = along(wr, u, 7);
-  const bulge = w * 0.06;
-  const cl = along(pt((sl.x + tl.x) / 2, (sl.y + tl.y) / 2), n, -bulge);
-  const cr = along(pt((sr.x + tr.x) / 2, (sr.y + tr.y) / 2), n, bulge);
-  const ry = fold ? wt * 0.92 : wt * 1.14;
-  const outline = `Q${xy(cl)} ${xy(tl)}A${r1(wt)} ${r1(ry)} ${r1(angle)} 0 1 ${xy(tr)}Q${xy(cr)} ${xy(sr)}`;
-  const crease = (t, k, lift = 3) => {
-    const c = along(base, u, reach * t);
-    return `M${xy(along(c, n, -w * k))}Q${xy(along(c, u, -lift))} ${xy(along(c, n, w * k))}`;
-  };
-  const creases = fold ? crease(0.66, 0.2, -4) : crease(0.4, 0.16) + crease(0.47, 0.11) + crease(0.69, 0.13);
-  return { outline, creases, start: sl, end: sr, u, nail: fold ? null : { end: along(tip, u, wt), u, angle, width: wt * 2 * 0.76 } };
+// Five nails laid out like a press-on set: thumb, index, middle, ring, pinky.
+function setSvg(look, { width = 300, base = 196 } = {}) {
+  const nails = lookNails(look);
+  const sizes = [62, 50, 54, 48, 40];
+  const xs = [42, 100, 156, 210, 260];
+  const k = width / 300;
+  return nails.map((n, i) => placedNail(n, xs[i] * k, base - (i === 0 ? 0 : 6), sizes[i] * k)).join('');
 }
 
-// A whole hand as SVG markup. `nails` are options for thumb, index, middle,
-// ring and pinky (as lookNails returns them). `fill` hides what is behind the
-// hand; `tone` is a skin color printed a little off the line, like a
-// two-color print.
-function handSvg({ pose = 'open', nails, tone = null, fill = null, ink = INK, stroke = 2.6, offset = 5, creases = true }) {
-  const p = POSES[pose] || POSES.open;
-  const total = FINGER_W.reduce((a, b) => a + b, 0) * p.spread;
-  const webs = [];
-  let x = -total / 2;
-  for (let i = 0; i <= 4; i++) {
-    webs.push(pt(x, 0.0026 * x * x + (i === 0 ? 30 : i === 4 ? 24 : 0)));
-    if (i < 4) x += FINGER_W[i] * p.spread;
+// A polish bottle in the look's shade and finish, 160 x 250, cap at the top.
+function bottleSvg(look, x = 0, y = 0) {
+  const id = 'bt' + (++nailUid);
+  const color = shadeById(look.shade).hex;
+  const body = 'M14 92q0-18 18-18h96q18 0 18 18v126q0 22-22 22H36q-22 0-22-22z';
+  let defs = `<clipPath id="${id}c"><path d="${body}"/></clipPath>`;
+  let fill = color;
+  if (look.finish === 'chrome') {
+    defs += `<linearGradient id="${id}g" x1="0" x2="1"><stop offset="0" stop-color="${mix(color, '#000000', 0.3)}"/>` +
+      `<stop offset=".35" stop-color="${mix(color, '#ffffff', 0.6)}"/><stop offset=".6" stop-color="${color}"/>` +
+      `<stop offset=".8" stop-color="${mix(color, '#ffffff', 0.8)}"/><stop offset="1" stop-color="${mix(color, '#000000', 0.25)}"/></linearGradient>`;
+    fill = `url(#${id}g)`;
+  } else if (look.finish === 'matte') {
+    fill = mix(color, '#9a8f8c', 0.1);
   }
-  const fingers = p.fingers.map((f, i) => fingerParts(webs[i], webs[i + 1], f.a, f.len, FINGER_W[i], f.fold));
-
-  // The thumb hinges below the index finger.
-  const t = p.thumb, tw = 54;
-  const { u: tu, n: tn } = heading(t.a);
-  const tb = pt(webs[4].x + 2, webs[4].y + 80);
-  const thumb = fingerParts(along(tb, tn, -tw / 2), along(tb, tn, tw / 2), t.a, t.len, tw, false);
-
-  const w0 = webs[0], first = fingers[0], last = fingers[3];
-  const wristL = pt(w0.x + 28, w0.y + 214);
-  const wristR = pt(thumb.end.x - 30, thumb.end.y + 180);
-  // Up the outer palm edge, arriving along the pinky's own direction.
-  let d = `M${xy(wristL)}C${xy(pt(w0.x + 2, w0.y + 150))} ${xy(along(first.start, first.u, -46))} ${xy(first.start)}`;
-  fingers.forEach((f, i) => {
-    d += f.outline;
-    if (fingers[i + 1]) d += `Q${xy(pt(webs[i + 1].x, webs[i + 1].y + 4))} ${xy(fingers[i + 1].start)}`;
-  });
-  // Down into the soft web between index and thumb, round the thumb, down to the wrist.
-  d += `C${xy(along(last.end, last.u, -34))} ${xy(along(thumb.start, tu, -26))} ${xy(thumb.start)}` + thumb.outline;
-  d += `C${xy(pt(thumb.end.x + 6, thumb.end.y + 46))} ${xy(pt(wristR.x + 12, wristR.y - 84))} ${xy(wristR)}`;
-
-  const nailOpts = [nails[4], nails[3], nails[2], nails[1]];
-  let paint = '';
-  [...fingers.map((f, i) => [f, nailOpts[i]]), [thumb, nails[0]]].forEach(([f, o]) => {
-    if (!f.nail || !o) return;
-    const c = along(f.nail.end, f.nail.u, -134 * (f.nail.width / 84) * 0.96);
-    paint += `<g transform="rotate(${r1(f.nail.angle)} ${xy(c)})">${placedNail(o, c.x, c.y, f.nail.width)}</g>`;
-  });
-  const lines = fingers.map((f) => f.creases).join('') + thumb.creases;
-  return (fill ? `<path d="${d}Z" fill="${fill}"/>` : '') +
-    (tone ? `<path d="${d}Z" fill="${tone}" transform="translate(${offset} ${r1(offset * 0.7)})"/>` : '') +
-    `<path d="${d}" fill="none" stroke="${ink}" stroke-width="${r1(stroke)}" stroke-linecap="round" stroke-linejoin="round"/>` +
-    (creases ? `<path d="${lines}" fill="none" stroke="${ink}" stroke-width="${r1(stroke * 0.75)}" stroke-linecap="round"/>` : '') + paint;
+  let inside = `<rect x="0" y="60" width="160" height="200" fill="${fill}"/>`;
+  if (look.finish === 'glitter') {
+    defs += `<pattern id="${id}p" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(20)">` +
+      '<circle cx="3" cy="4" r="1.6" fill="#ffffff" opacity=".85"/><circle cx="10" cy="9" r="1.3" fill="#f4d58c"/><circle cx="6" cy="12" r=".9" fill="#ffffff" opacity=".7"/></pattern>';
+    inside += `<rect x="0" y="60" width="160" height="200" fill="url(#${id}p)"/>`;
+  }
+  // Glass: a little clear space at the top of the bottle, and a soft shine.
+  inside += `<rect x="0" y="60" width="160" height="34" fill="#ffffff" opacity=".55"/>`;
+  if (look.finish !== 'matte') inside += '<rect x="30" y="104" width="12" height="112" rx="6" fill="#ffffff" opacity=".45"/>';
+  return `<g transform="translate(${x} ${y})"><defs>${defs}</defs>` +
+    `<rect x="52" y="0" width="56" height="70" rx="8" fill="#2b2326"/><rect x="60" y="8" width="8" height="54" rx="4" fill="#ffffff" opacity=".18"/>` +
+    `<rect x="46" y="64" width="68" height="14" rx="4" fill="#3a3034"/>` +
+    `<g clip-path="url(#${id}c)">${inside}</g>` +
+    `<path d="${body}" fill="none" stroke="${mix(color, '#000000', 0.35)}" stroke-opacity=".25" stroke-width="2"/>` +
+    `<rect x="44" y="168" width="72" height="40" rx="6" fill="#ffffff" opacity=".92"/>` +
+    `<text x="80" y="185" text-anchor="middle" font-family="Playfair Display, Georgia, serif" font-size="13" fill="#2b2326">Half Moon</text>` +
+    `<text x="80" y="200" text-anchor="middle" font-family="Figtree, system-ui, sans-serif" font-size="9" letter-spacing="1.5" fill="#6f6367">${esc(shadeById(look.shade).code.toUpperCase())}</text></g>`;
 }
 
-// A hand framed for a card: fingers and thumb in view, the wrist running off
-// the bottom edge.
-function handCard({ pose, look, tone, tilt = 0, flip = false }) {
-  const hand = handSvg({ pose, nails: lookNails(look), tone: SKIN_TONES[tone] || SKIN_TONES[1], stroke: 2.8 });
-  return `<svg viewBox="-225 -244 450 360" aria-hidden="true"><g transform="rotate(${tilt}) scale(${flip ? -1 : 1} 1)">${hand}</g></svg>`;
-}
-
-/* ------------------------------------------------------------------ */
-/* Icons and product drawings, in the same ink                          */
-/* ------------------------------------------------------------------ */
-
+// Solid category icons in the brand mauve, 64 x 64.
 function categoryIcon(id) {
-  const ink = 'stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"';
+  const wrap = (inner) => `<svg viewBox="0 0 64 64" aria-hidden="true">${inner}</svg>`;
   if (id === 'hands') {
-    const nails = Array(5).fill({ color: '#e4683f', shape: 'squoval', finish: 'gloss', detail: 'none' });
-    return `<svg viewBox="0 0 64 64" aria-hidden="true"><g transform="translate(29 38) scale(.15)">${handSvg({ pose: 'open', nails, ink: 'currentColor', stroke: 14, creases: false })}</g></svg>`;
+    return wrap('<rect x="24" y="4" width="16" height="22" rx="4"/><rect x="21" y="24" width="22" height="6" rx="2"/>' +
+      '<path d="M12 40q0-10 10-10h20q10 0 10 10v14q0 6-6 6H18q-6 0-6-6z"/>');
   }
   if (id === 'feet') {
-    const toes = [[20, 19, 7, 8.5], [31, 12, 5, 6], [40, 12.5, 4.5, 5.5], [48, 16.5, 4, 5], [54, 23.5, 3.5, 4.4]];
-    return '<svg viewBox="0 0 64 64" aria-hidden="true">' +
-      toes.map(([x, y, rx, ry]) => `<ellipse cx="${x}" cy="${r1(y - ry * 0.4)}" rx="${r1(rx * 0.62)}" ry="${r1(ry * 0.5)}" fill="#e57aa3"/>`).join('') +
-      `<g ${ink}>${toes.map(([x, y, rx, ry]) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}"/>`).join('')}` +
-      '<path d="M13 25c-2 10 0 22 6 32M57 31c1 9-1 17-5 25"/></g></svg>';
+    return wrap('<ellipse cx="34" cy="42" rx="14" ry="19"/><ellipse cx="22" cy="14" rx="6" ry="7"/><circle cx="32" cy="10" r="4.4"/>' +
+      '<circle cx="40.5" cy="12" r="3.9"/><circle cx="47.5" cy="16.5" r="3.4"/><circle cx="52" cy="23" r="3"/>');
   }
   if (id === 'enhance') {
-    return '<svg viewBox="0 0 64 64" aria-hidden="true"><g transform="translate(16 9) scale(.28)">' +
-      `<path d="${NAIL_PATHS.coffin}" fill="#e57aa3" transform="translate(5 4)"/>` +
-      `<path d="${NAIL_PATHS.coffin}" stroke="currentColor" stroke-width="8" fill="none" stroke-linejoin="round"/>` +
-      '<path d="M4 64h92" stroke="currentColor" stroke-width="7" stroke-dasharray="10 10"/></g>' +
-      `<g ${ink}><path d="M50 14v10M45 19h10"/></g></svg>`;
+    return wrap(`<g transform="translate(17 8) scale(.3)"><path d="${NAIL_PATHS.coffin}"/></g>` +
+      '<path d="M49 6v10M44 11h10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>');
   }
-  return '<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="45" cy="16" r="6" fill="#c3c75c"/>' +
-    `<g ${ink}><path d="M12 54l24-24"/><path d="M33 27l6 6 6-9-3-3z"/><path d="M42 21c3-6 9-10 12-9 1 3-3 9-9 12"/><path d="M14 18v8M10 22h8M50 44v6M47 47h6"/></g></svg>`;
-}
-
-// 120 x 140, inked over a block of color printed slightly off the line.
-function productArt(kind, color) {
-  const ink = `stroke="${INK}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"`;
-  const block = (d) => `<path d="${d}" fill="${color}" transform="translate(5 4)"/>`;
-  let art;
-  if (kind === 'dropper') {
-    const body = 'M38 62h44v60a8 8 0 0 1-8 8H46a8 8 0 0 1-8-8z';
-    art = block(body) + block('M52 20a8 8 0 0 1 16 0v22H52z') +
-      `<g ${ink}><path d="${body}"/><path d="M52 42V20a8 8 0 0 1 16 0v22"/><path d="M46 42h28v20H46z"/><path d="M46 84h28M46 104h28"/><path d="M60 92c-3 4-3 7 0 7s3-3 0-7z"/></g>`;
-  } else if (kind === 'bottle') {
-    const body = 'M30 70q0-12 12-12h36q12 0 12 12v46q0 14-14 14H44q-14 0-14-14z';
-    art = block(body) + `<g ${ink}><path d="${body}"/><path d="M50 58V14h20v44"/><path d="M50 26h20"/><path d="M38 76q0-8 8-8"/></g>`;
-  } else if (kind === 'tube') {
-    const body = 'M40 16h40l-6 92H46z';
-    art = block(body) + `<g ${ink}><path d="${body}"/><path d="M40 16v-4h40v4M40 10h40"/><path d="M46 108h28v18H46z"/><path d="M52 40h16M50 52h20M54 64h12"/></g>`;
-  } else {
-    art = block('M70 24l18 6-34 102-18-6z') +
-      `<g ${ink}><path d="M70 24l18 6-34 102-18-6z"/><path d="M64 42l14 5M60 54l14 5M56 66l14 5M52 78l14 5"/>` +
-      '<path d="M26 44h26v74H26z" transform="rotate(-8 39 81)"/></g>';
-  }
-  return `<svg viewBox="0 0 120 140" aria-hidden="true">${art}</svg>`;
+  return wrap('<path d="M10 56l26-26 6 6-26 26z" transform="translate(0 -6)"/><path d="M38 22l8-8 6 6-8 8z"/>' +
+    '<path d="M46 14c4-6 10-8 12-6 2 2 0 8-6 12z"/><path d="M14 10l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/><path d="M50 40l1.5 4.5L56 46l-4.5 1.5L50 52l-1.5-4.5L44 46l4.5-1.5z"/>');
 }
 
 /* ------------------------------------------------------------------ */
@@ -472,7 +369,7 @@ function productArt(kind, color) {
 const state = {
   cart: [],    // service ids
   shelf: [],   // product ids to take home
-  look: { shade: SALON.shadeOfWeek, shape: 'almond', finish: 'gloss', detail: 'none', accent: null, ring: null, tone: 1 },
+  look: { shade: SALON.shadeOfWeek, shape: 'almond', finish: 'gloss', detail: 'none', accent: null, ring: null },
   lookChosen: false,
   family: shadeById(SALON.shadeOfWeek).family,
   menuTab: CATEGORIES[0].id,
@@ -613,32 +510,19 @@ function renderHours() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Hero, offer band and footer drawings                                 */
+/* Announcement bar and promo band                                      */
 /* ------------------------------------------------------------------ */
-
-function renderHeroArt() {
-  const week = SALON.shadeOfWeek;
-  $('#hero-pattern').innerHTML = HERO_HANDS.map((h, i) => {
-    const nails = Array(5).fill({ color: shadeById(h.shade || week).hex, shape: h.shape, finish: 'gloss', detail: 'none' });
-    const hand = handSvg({ pose: h.pose, nails, fill: '#efe4cf', stroke: 2 / h.scale });
-    return `<g transform="translate(${h.x} ${h.y}) rotate(${h.rotate}) scale(${h.flip ? -h.scale : h.scale} ${h.scale})">` +
-      `<g class="sway" style="animation-delay:${-i * 1.7}s">${hand}</g></g>`;
-  }).join('');
-  const shade = shadeById(week);
-  const card = $('#hero-shade');
-  $('.chip', card).style.setProperty('--chip', shade.hex);
-  $('strong', card).textContent = shade.name;
-  card.addEventListener('click', () => applyLook({ shade: week, shape: 'almond', finish: 'gloss', detail: 'none' }));
-}
 
 function renderOffer() {
   const o = SALON.offer;
-  const band = $('#offer');
-  if (!o) { band.hidden = true; return; }
+  if (!o) {
+    $('#offer').hidden = true;
+    $('#announce-offer').textContent = `Walk-ins welcome until ${fmtTime(SALON.walkInsUntil)}`;
+    return;
+  }
+  $('#announce-offer').textContent = `${o.name}: ${o.text}`;
   $('#offer-name').textContent = o.name;
   $('#offer-text').textContent = o.text;
-  const nails = Array(5).fill({ color: shadeById('pear').hex, shape: 'almond', finish: 'gloss', detail: 'none' });
-  $('#offer-art').innerHTML = `<g transform="rotate(-12)">${handSvg({ pose: 'peace', nails, ink: CREAM, stroke: 3 })}</g>`;
   $('#offer-book').addEventListener('click', () => {
     // Book the next day the offer applies, with a service it covers.
     if (!state.cart.some((id) => o.services.includes(id))) toggleService(o.services[0], true);
@@ -646,11 +530,6 @@ function renderOffer() {
     if (day) { state.date = day.iso; state.time = null; renderDays(); }
     $('#book').scrollIntoView({ behavior: smooth() });
   });
-}
-
-function renderFooterArt() {
-  const nails = Array(5).fill({ color: shadeById(SALON.shadeOfWeek).hex, shape: 'almond', finish: 'gloss', detail: 'none' });
-  $('#footer-art').innerHTML = `<g transform="rotate(14)">${handSvg({ pose: 'open', nails, ink: CREAM, stroke: 3 })}</g>`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -691,18 +570,17 @@ function renderMenu() {
   $('#ticket-no').textContent = 'No. ' + String(1000 + Math.floor(Math.random() * 9000));
 }
 
+const stars = (rating) => `<span class="stars" aria-hidden="true">${'★'.repeat(Math.round(rating))}${'☆'.repeat(5 - Math.round(rating))}</span>`;
+
 function renderShelf() {
   $('#shelf-grid').innerHTML = PRODUCTS.map((p) => `
-    <article class="product">
-      <div class="product-art" style="--bg:${p.bg}">${productArt(p.art, productColor(p))}</div>
-      <div class="product-body">
-        <p class="product-rating"><span aria-hidden="true">★</span> ${p.rating} <span>· ${p.reviews} reviews</span></p>
-        <h3>${esc(p.name)}</h3>
-        <p class="product-desc">${esc(p.desc)}</p>
-        <div class="product-foot">
-          <span class="product-price">${money(p.price)} <small>${esc(p.size)}</small></span>
-          <button class="btn btn-small" type="button" data-product="${p.id}" aria-pressed="false">Add to visit</button>
-        </div>
+    <article class="card product">
+      <div class="card-media"><img src="${esc(p.photo)}" alt="${esc(p.alt)}" width="720" height="720" loading="lazy"></div>
+      <div class="card-body">
+        <div class="card-title"><h3>${esc(p.name)}</h3><span class="price">${money(p.price)}</span></div>
+        <p class="rating">${stars(p.rating)} <span>${p.rating} · ${p.reviews} reviews</span></p>
+        <p class="card-desc">${esc(p.desc)} <span class="size">${esc(p.size)}</span></p>
+        <button class="btn btn-primary btn-small" type="button" data-product="${p.id}" aria-pressed="false">Add to visit</button>
       </div>
     </article>`).join('');
   $('#shelf-grid').addEventListener('click', (e) => {
@@ -740,6 +618,10 @@ function renderCart() {
   $('#ticket-time').textContent = fmtDuration(cartMinutes());
   $('#ticket-price').textContent = money(cartPrice() + shelfPrice());
   const count = services.length + products.length;
+  const badge = $('#bag-count');
+  badge.hidden = count === 0;
+  badge.textContent = count;
+  $('#bag').setAttribute('aria-label', count ? `Your visit, ${count} added` : 'Your visit, nothing added yet');
   $('#ticket-live').textContent = count ? `${count} in your visit, ${fmtDuration(cartMinutes())}, about ${money(cartPrice() + shelfPrice())}` : 'Nothing selected';
   renderBookServices();
   renderSlots();
@@ -750,19 +632,20 @@ function renderCart() {
 /* Shade bar                                                            */
 /* ------------------------------------------------------------------ */
 
-function renderHand() {
+function renderPreview() {
   const look = state.look;
-  const hand = handSvg({ pose: 'open', nails: lookNails(look), tone: SKIN_TONES[look.tone] || SKIN_TONES[1], stroke: 2.8, offset: 6 });
-  // The hand rises into a round "moon" and is clipped by it.
-  $('#hand').innerHTML = '<defs><clipPath id="hand-clip"><circle cx="0" cy="-12" r="226"/></clipPath></defs>' +
-    `<circle cx="0" cy="-12" r="226" fill="${CREAM}"/><g clip-path="url(#hand-clip)"><g transform="translate(-8 10)">${hand}</g></g>`;
+  // A bottle of the shade beside the set, on a soft round backdrop.
+  $('#preview').innerHTML = '<circle cx="280" cy="170" r="150" fill="#f3e6ea"/>' +
+    bottleSvg(look, 46, 50) +
+    `<g transform="translate(232 70)">${setSvg(look, { width: 300 })}</g>` +
+    '<rect x="220" y="282" width="320" height="6" rx="3" fill="#e9dce0"/>';
 
   const shade = shadeById(look.shade);
   const bits = [labelOf(FINISHES, look.finish), labelOf(SHAPES, look.shape)];
   if (look.detail !== 'none') bits.push(labelOf(DETAILS, look.detail));
   if (look.ring) bits.push(shadeById(look.ring.shade || look.shade).name + ' accent');
   $('#shade-code').textContent = shade.code;
-  $('#hand-label').textContent = shade.name;
+  $('#preview-label').textContent = shade.name;
   $('#shade-meta').textContent = bits.join(' · ');
 }
 
@@ -783,8 +666,7 @@ function syncShadeControls() {
   syncRadios($('#shapes'), state.look.shape);
   syncRadios($('#finishes'), state.look.finish);
   syncRadios($('#details'), state.look.detail);
-  syncRadios($('#tones'), state.look.tone);
-  renderHand();
+  renderPreview();
 }
 
 function setLook(patch) {
@@ -810,16 +692,12 @@ function initShadeBar() {
   pillGroup($('#shapes'), SHAPES);
   pillGroup($('#finishes'), FINISHES);
   pillGroup($('#details'), DETAILS);
-  const tones = $('#tones');
-  tones.setAttribute('role', 'radiogroup');
-  tones.innerHTML = SKIN_TONES.map((c, i) => `<button class="tone" type="button" role="radio" data-value="${i}" style="--c:${c}" aria-label="Skin tone ${i + 1}"></button>`).join('');
 
   // Picking a new shade clears accents that belonged to the previous look.
   radioGroup($('#swatches'), (id) => setLook({ shade: id, ring: null, accent: null }));
   radioGroup($('#shapes'), (id) => setLook({ shape: id }));
   radioGroup($('#finishes'), (id) => setLook({ finish: id }));
   radioGroup($('#details'), (id) => setLook({ detail: id }));
-  radioGroup(tones, (i) => setLook({ tone: Number(i) }));
   syncShadeControls();
 
   $('#surprise').addEventListener('click', () => {
@@ -851,15 +729,13 @@ function bookWithLook() {
 
 function renderLooks() {
   $('#look-grid').innerHTML = LOOKS.map((l) => `
-    <article class="look">
-      <div class="look-art" style="--bg:${l.bg}">${handCard({ pose: l.pose, look: l.look, tone: l.tone, tilt: l.tilt, flip: l.flip })}</div>
-      <div class="look-body">
-        <h3>${esc(l.name)}</h3>
-        <p>${esc(l.desc)}</p>
-        <div class="look-foot">
-          <span class="from"><small>from</small>${money(l.from)}</span>
-          <button class="link-btn" type="button" data-look="${l.id}">Try it on</button>
-        </div>
+    <article class="card look">
+      <div class="card-media" style="--bg:${l.bg}"><svg viewBox="0 56 300 150" aria-hidden="true">${setSvg(l.look)}</svg></div>
+      <div class="card-body">
+        <div class="card-title"><h3>${esc(l.name)}</h3><span class="price"><small>from</small> ${money(l.from)}</span></div>
+        <p class="rating">${stars(l.rating)} <span>${l.rating} · ${l.reviews} reviews</span></p>
+        <p class="card-desc">${esc(l.desc)}</p>
+        <button class="btn btn-primary btn-small" type="button" data-look="${l.id}">Try it on</button>
       </div>
     </article>`).join('');
   $('#look-grid').addEventListener('click', (e) => {
@@ -884,17 +760,23 @@ function dayRange(days) {
 }
 
 function renderArtists() {
-  $('#artist-grid').innerHTML = ARTISTS.map((a) => `
-    <article class="artist">
-      <div class="artist-top" style="--bg:${a.bg}"><span class="initial" aria-hidden="true">${esc(a.name[0])}.</span>${handCard({ pose: a.pose, look: a.look, tone: a.tone })}</div>
-      <div class="artist-body">
+  $('#artist-grid').innerHTML = ARTISTS.map((a) => {
+    const shade = shadeById(a.look.shade);
+    return `
+    <article class="card artist">
+      <div class="artist-top" style="--bg:${a.bg}">
+        <span class="avatar" aria-hidden="true">${esc(a.name.split(' ').map((w) => w[0]).join(''))}</span>
+        <span class="signature"><span class="chip" style="--chip:${shade.hex}" aria-hidden="true"></span>Signature: ${esc(shade.name)}</span>
+      </div>
+      <div class="card-body">
         <p class="artist-role">${esc(a.role)}</p>
         <h3>${esc(a.name)}</h3>
-        <p>${esc(a.bio)}</p>
+        <p class="card-desc">${esc(a.bio)}</p>
         <p class="artist-days">In the studio ${dayRange(a.days)}</p>
-        <button class="link-btn" type="button" data-artist="${a.id}">Book with ${esc(a.name.split(' ')[0])}</button>
+        <button class="btn btn-outline btn-small" type="button" data-artist="${a.id}">Book with ${esc(a.name.split(' ')[0])}</button>
       </div>
-    </article>`).join('');
+    </article>`;
+  }).join('');
   $('#artist-grid').addEventListener('click', (e) => {
     const b = e.target.closest('[data-artist]');
     if (!b) return;
@@ -905,7 +787,7 @@ function renderArtists() {
 
 function renderReviews() {
   $('#review-grid').innerHTML = REVIEWS.map((r) => `
-    <figure class="review">
+    <figure class="card review">
       <span class="stars" aria-label="5 out of 5 stars">★★★★★</span>
       <blockquote>“${esc(r.quote)}”</blockquote>
       <figcaption><strong>${esc(r.name)}</strong> · ${esc(r.service)}</figcaption>
@@ -964,7 +846,7 @@ function upcomingDays() {
 
 function renderArtistPick() {
   const box = $('#book-artists');
-  const opts = [{ id: 'any', name: 'First free', sub: 'Any artist', bg: '#f6f0e4', mono: '☾' },
+  const opts = [{ id: 'any', name: 'First free', sub: 'Any artist', bg: '#f4f1f0', mono: '☾' },
     ...ARTISTS.map((a) => ({ id: a.id, name: a.name.split(' ')[0], sub: a.role, bg: a.bg, mono: a.name[0] }))];
   box.innerHTML = opts.map((o) =>
     `<button class="artist-opt" type="button" role="radio" data-value="${o.id}" style="--bg:${o.bg}"><span class="mono" aria-hidden="true">${esc(o.mono)}</span>${esc(o.name)}<small>${esc(o.sub)}</small></button>`).join('');
@@ -1208,7 +1090,6 @@ renderSalonDetails();
 renderOpenStatus();
 setInterval(renderOpenStatus, 60 * 1000);
 renderHours();
-renderHeroArt();
 renderMenu();
 renderShelf();
 initShadeBar();
@@ -1217,6 +1098,5 @@ renderArtists();
 renderReviews();
 initBooking();
 renderOffer();
-renderFooterArt();
 renderCart();
 initNav();

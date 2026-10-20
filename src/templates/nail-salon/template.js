@@ -1,55 +1,56 @@
-// Half Moon Nail Studio: a one-page site for a nail salon in a line-drawn
-// style, with a shade bar that paints nails live, a menu that totals time and
-// price, an aftercare shelf and booking requests.
+// Half Moon Nail Studio: a one-page site for a nail salon, laid out like a
+// boutique store: a photo hero, service category tiles with a menu that
+// totals time and price, featured sets, a shade bar, a shop of take-home
+// aftercare and booking requests.
 export default {
     slug: 'nail-salon',
     name: 'Nail Salon',
     category: 'Website',
-    description: 'A line-drawn nail studio site with a live shade try-on, a menu that adds up the visit, an aftercare shelf and booking.',
-    updated: '2026-10-15',
+    description: 'A nail studio site with service tiles that add up the visit, a shade preview, a take-home shop and booking requests.',
+    updated: '2026-10-20',
     workers: [],
     suggestions: [
         { label: 'Use my salon details', prompt: 'Replace the salon name, address, phone, hours, services, prices and artists with mine: ' },
-        { label: 'Add photos of our work', prompt: 'Add a gallery of photos of our nail work, with filters by style and a lightbox, using the images I attach.' },
+        { label: 'Use my own photos', prompt: 'Replace the hero photo and the shop product photos with the images I attach, keeping the same crops and layout.' },
+        { label: 'Add a gallery of our work', prompt: 'Add a gallery of photos of our nail work, with filters by style and a lightbox, using the images I attach.' },
         { label: 'Add a gift card section', prompt: 'Add a gift card section where visitors pick an amount and a design, write a message and send the request to the salon.' },
         { label: 'Add a membership plan', prompt: 'Add a monthly membership section with three plans, what each one includes, and a button that starts a booking for that plan.' },
-        { label: 'Add a Spanish version', prompt: 'Add a Spanish version of the whole page with a language switch in the header that remembers the visitor\'s choice.' },
     ],
     instructions: [
-        'This is a one-page nail salon site: index.html holds the structure and copy, styles.css the look (color and type tokens in :root), and app.js the data and behavior.',
-        'Salon details, opening hours, the monthly offer, services and prices, shades, lookbook sets, artists, shelf products and reviews are plain data at the top of app.js (SALON, SALON.offer, SERVICES, SHADE_FAMILIES, LOOKS, ARTISTS, PRODUCTS, REVIEWS). Change them there: the menu, ticket, shade bar, lookbook, artist cards, shelf, offer band, booking form, hours table and open-now status are all drawn from that data.',
+        'This is a one-page nail salon site: index.html holds the structure and copy, styles.css the look (color and type tokens in :root), and app.js the data and behavior. Photos live in photos/.',
+        'Salon details, opening hours, the monthly offer, services and prices, shades, featured sets, artists, shop products and reviews are plain data at the top of app.js (SALON, SALON.offer, SERVICES, SHADE_FAMILIES, LOOKS, ARTISTS, PRODUCTS, REVIEWS). Change them there: the announcement bar, category tiles, menu, ticket, featured sets, shade bar, promo band, shop, artist cards, booking form, hours table and open-now status are all drawn from that data.',
         'Phone, email, address, Instagram handle and walk-in time in index.html are filled in from SALON through data-salon attributes. Keep those attributes when editing the markup.',
-        'The illustrations are drawn in code in one ink style: handSvg() draws line-art hands, nailSvg() paints each nail from a shade, shape, finish and detail, and categoryIcon() and productArt() draw the menu tiles and shelf products. Keep new artwork in that style, and add photos alongside the drawings rather than replacing them, unless the user asks otherwise.',
-        'Booking sends a request, not a confirmed appointment: it POSTs JSON to SALON.bookingEndpoint when set, and otherwise opens the visitor\'s email app addressed to SALON.email. Shelf products ride along on the request and are paid for at the visit; there is no online payment. Taken time slots are simulated in slotsFor(). Never tell visitors a booking is confirmed instantly or that they have paid; to take real bookings, connect a form endpoint or the salon\'s booking provider.',
+        'Nails and polish bottles are drawn in code (nailSvg, setSvg, bottleSvg) from a shade, shape, finish and detail, so the shade bar and featured sets follow the data. The hero and shop use photos; when the user attaches their own, swap the file paths rather than the layout.',
+        'Booking sends a request, not a confirmed appointment: it POSTs JSON to SALON.bookingEndpoint when set, and otherwise opens the visitor\'s email app addressed to SALON.email. Shop products ride along on the request and are paid for at the visit; there is no online payment. Taken time slots are simulated in slotsFor(). Never tell visitors a booking is confirmed instantly or that they have paid; to take real bookings, connect a form endpoint or the salon\'s booking provider.',
     ].join('\n'),
     page: {
-        title: 'Nail Salon Website Template with a Shade Try-On',
-        description: 'A nail salon website template with line-drawn hands, a shade bar that paints nails live, an aftercare shelf and booking requests you can publish today.',
-        ogTagline: 'Try a shade, then book a chair',
+        title: 'Nail Salon Website Template with a Shade Preview',
+        description: 'A nail salon website template with service tiles, a shade bar that previews each set, a shop of take-home aftercare and booking requests you can publish today.',
+        ogTagline: 'Pick a shade, then book a chair',
         features: [
             {
-                title: 'A shade bar that paints the nails',
-                body: 'Visitors pick from thirty shades, five nail shapes, four finishes, nail art details and five skin tones, and see the result on a line-drawn hand as they choose.',
+                title: 'Services that add themselves up',
+                body: 'Four category tiles open the menu for hands, feet, enhancements and art. Each service added updates a ticket with the total chair time and a price estimate.',
             },
             {
-                title: 'A menu that adds itself up',
-                body: 'Services sit behind four illustrated category tiles. Each one added updates a ticket with the total chair time and a price estimate.',
+                title: 'Featured sets',
+                body: 'Six signature sets shown like products, with a price, a rating and a button that puts the set in the shade bar.',
             },
             {
-                title: 'An aftercare shelf',
-                body: 'Cuticle oil, take-home polish, hand cream and a glass file. Clients add them to their visit in one tap and pay at the studio.',
+                title: 'A shade bar',
+                body: 'Visitors pick from thirty shades, five nail shapes, four finishes and nail art details, and see the bottle and the set change as they choose.',
+            },
+            {
+                title: 'A take-home shop',
+                body: 'Cuticle oil, polish, hand cream and a glass file, each added to the visit in one tap and paid for at the studio.',
             },
             {
                 title: 'Booking requests',
                 body: 'Clients pick an artist, a day and a start time that fits the length of the visit, and can save it to their calendar. Requests reach you by email or a form endpoint.',
             },
             {
-                title: 'Lookbook, artists and a monthly offer',
-                body: 'Six signature sets drawn on hands of different skin tones, artist cards that book that artist, and an offer band that takes its discount off on the right days.',
-            },
-            {
-                title: 'Yours in a sentence',
-                body: 'Prices, shades, products, artists, hours and the offer are plain data in one place. Ask the builder for your own and the whole page follows.',
+                title: 'A monthly offer',
+                body: 'The announcement bar and a promo band advertise the offer, the day picker marks the days it applies, and the booking summary takes the discount off.',
             },
         ],
         faq: [
@@ -61,12 +62,12 @@ export default {
                 ],
             },
             {
-                q: 'Can I show photos of my own work?',
-                a: ['Yes. Attach your photos and ask the builder to add a gallery or put them in the lookbook. The drawn nails in the shade bar keep working next to them.'],
+                q: 'Can I use photos of my own studio and products?',
+                a: ['Yes. Attach your photos and ask the builder to use them for the hero or the shop, or to add a gallery of your work. Prices and product details change in the same request.'],
             },
             {
                 q: 'Does it work on phones?',
-                a: ['Every section is laid out for small screens: the menu stacks, the hand sits above its controls, and the day and time pickers are sized for thumbs.'],
+                a: ['Every section is laid out for small screens: the category tiles sit two by two, the hero text sits over the bottom of the photo, and the day and time pickers are sized for thumbs.'],
             },
         ],
     },
