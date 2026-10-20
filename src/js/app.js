@@ -1782,19 +1782,6 @@ async function duplicateChat(chatId) {
             }
         }
 
-        // --- Copy the generated media ----------------------------------------
-        // Best-effort, and only now that the copy can no longer be discarded:
-        // a chat that never generated anything has no media folder, and a
-        // failed copy costs the copy's media cards, never the duplication.
-        if (oldMediaDir && newMediaDir) try {
-            const mediaRoot = newMediaDir.slice(0, newMediaDir.lastIndexOf('/'));
-            await puter.fs.stat(oldMediaDir);
-            await puter.fs.mkdir(mediaRoot, { recursive: true }).catch(() => {});
-            await puter.fs.copy(oldMediaDir, mediaRoot, { newName: newId, overwrite: true });
-        } catch (e) {
-            if (!isNotFoundError(e)) console.warn('Duplicate: could not copy generated media:', e);
-        }
-
         // --- Persist the new chat -------------------------------------------
         const now = new Date().toISOString();
         const baseTitle = source.title || savedChats.find(c => c.id === chatId)?.title || 'Untitled';
@@ -1831,6 +1818,21 @@ async function duplicateChat(chatId) {
         };
         await puter.fs.write(`chat-history/${newId}.json`, JSON.stringify(chatData));
         copySaved = true;
+
+        // --- Copy the generated media ----------------------------------------
+        // Best-effort, and only now that the copy's chat file is saved and the
+        // copy can no longer be discarded (the catch below doesn't remove a
+        // media copy, so one made earlier was left behind for good). A chat
+        // that never generated anything has no media folder, and a failed
+        // copy costs the copy's media cards, never the duplication.
+        if (oldMediaDir && newMediaDir) try {
+            const mediaRoot = newMediaDir.slice(0, newMediaDir.lastIndexOf('/'));
+            await puter.fs.stat(oldMediaDir);
+            await puter.fs.mkdir(mediaRoot, { recursive: true }).catch(() => {});
+            await puter.fs.copy(oldMediaDir, mediaRoot, { newName: newId, overwrite: true });
+        } catch (e) {
+            if (!isNotFoundError(e)) console.warn('Duplicate: could not copy generated media:', e);
+        }
 
         // Insert into the in-memory list (newest-first), mirroring the list-entry
         // shape saveCurrentChat writes, then persist the index and re-render.
