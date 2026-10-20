@@ -34,9 +34,6 @@ window.tools.push({
             throw e;
         }
         let text = await blob.text();
-        // The model has now seen the file as it is, hand edits included, so
-        // the write tool may replace it again (see code-editor.js).
-        window.CodeEditor?.noteModelRead?.(path);
         // Hide preview cache-bust tokens (a serving detail) so the model only
         // ever sees the clean source it wrote.
         if (/\.html?$/i.test(path) && window.stripPreviewCacheBust) {
@@ -50,6 +47,13 @@ window.tools.push({
         // source file (~6000 lines); what it stops are data dumps, which the
         // model should reference by path or search, not read whole.
         const MAX_CHARS = window.READ_TEXT_FILE_MAX_CHARS;
+        // The model now sees the whole file, hand edits included, so the write
+        // tool may replace it again (see code-editor.js). Not when it sees only
+        // the start of the file, and not for a stopped turn: its late result
+        // can be dropped (tools.js), and the model would never see it.
+        if (text.length <= MAX_CHARS && !window.isAborted?.(state?.abortController) && !window.isStaleTurn?.(state)) {
+            window.CodeEditor?.noteModelRead?.(path);
+        }
         if (text.length > MAX_CHARS) {
             const total = text.length;
             text = text.slice(0, MAX_CHARS) +

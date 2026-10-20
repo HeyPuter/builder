@@ -244,7 +244,7 @@ check('the editor unlocks only after the turn has unwound',
 check('switching, deleting and copying projects tell the editor',
     app.includes('window.CodeEditor?.onProjectSwitch?.();') && app.includes('window.CodeEditor?.onProjectDeleting?.(chatId);')
     && app.indexOf('window.CodeEditor?.onProjectDeleted?.(chatId,') > app.indexOf('if (undeleted.length) {')
-    && app.includes('window.CodeEditor?.onProjectCopied?.(chatId, newId, oldAppDir, newAppDir);'));
+    && app.includes('window.CodeEditor?.onProjectCopied?.(chatId, newId, oldAppDir, newAppDir, workerRenames);'));
 check('Back/Forward and closing the tab guard unsaved code',
     app.includes('(isProcessing || window.CodeEditor?.hasUnsaved?.())') && app.includes('if (!isProcessing && !window.CodeEditor?.hasUnsaved?.()) return;'));
 check('both preview error handlers hold their automatic fix after hand edits',
@@ -290,6 +290,24 @@ check('a restore is dropped when the user leaves the project during its pre-save
     /_restoresStarting\.delete\(startingChat\);[\s\S]{0,400}?if \(currentChatId !== startingChat\) return;\s*if \(!editorReady\) return;/.test(versions));
 check('a locked-line warning sits over the status instead of replacing it',
     /function flashStatus\(text\) \{[\s\S]*?S\.flash = flash;/.test(editor) && editor.includes('const shown = S.flash || S.status;'));
+check('a copied backend keeps its hand-edit note and guard under its renamed file',
+    /onProjectCopied\(fromChatId, toChatId, fromAppDir, toAppDir, renames\) \{[\s\S]*?\[norm\(r\.copiedFilePath\), norm\(r\.newFilePath\)\][\s\S]*?return renamed\.get\(q\) \|\| q;/.test(editor));
+check('edits to a file deleted elsewhere count for the leave checks, and leaving asks first',
+    editor.includes('hasUnsaved: (chatId) => hasUnsaved(chatId) || strandedFiles(chatId).length > 0,')
+    && /async confirmLeave\(\) \{\s*const stranded = strandedFiles\(\);/.test(editor));
+const moveTool = read('../src/tools/fs/move.js');
+check('a move carries each file’s guard as it lands, and the after-tool hook leaves moves alone',
+    /await window\.withFileLock\(path, \(\) => puter\.fs\.move\(path, destination\)\);[\s\S]{0,300}?window\.CodeEditor\?\.onModelFileOp\?\.\('move', \{ paths_array: \[path\], destination \}, state\);/.test(moveTool)
+    && tools.includes("if (toolCall.name !== 'move') window.CodeEditor?.onModelFileOp?.(toolCall.name, toolCall.input, c);"));
+check('the editor is read only while it saves before a publish, a restore or leaving',
+    editor.includes('!turnRunning() && !_settling &&')
+    && editor.includes('return await whileSettling(() => saveAll(Object.assign({ chatId }, opts))) ? \'ok\' : \'failed\';')
+    && editor.includes('if (!await whileSettling(() => saveAll())) {'));
+check('a save keeps the draft of text typed while it ran',
+    /type: 'saved', text \}\);\s*\/\/[^\n]*\n\s*if \(C\.isDirtyStatus\(file\.buf\.status\)\) saveDraftSoon\(file\);\s*else clearDraft\(abs\);/.test(editor));
+check('a read lifts the guard only when the whole file reached a live turn',
+    readTool.includes('if (text.length <= MAX_CHARS && !window.isAborted?.(state?.abortController) && !window.isStaleTurn?.(state)) {')
+    && readTool.indexOf('const MAX_CHARS = window.READ_TEXT_FILE_MAX_CHARS;') < readTool.indexOf('if (text.length <= MAX_CHARS && !window.isAborted'));
 
 if (failures) {
     console.error(`\n${failures} check(s) failed`);

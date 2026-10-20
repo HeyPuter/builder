@@ -493,6 +493,13 @@
         return [...S.files.values()].filter((f) => f.buf && C.isDirtyStatus(f.buf.status));
     }
     function hasUnsaved(chatId) { return dirtyFiles(chatId).length > 0; }
+    // Files deleted or moved somewhere else while they had unsaved changes.
+    // Saving would recreate them, so they are not saved, and their text is
+    // only in the editor.
+    function strandedFiles(chatId) {
+        if (chatId && chatId !== S.chatId) return [];
+        return [...S.files.values()].filter((f) => f.buf && f.buf.status === 'deleted' && !C.sameContent(f.buf.text, f.buf.base));
+    }
 
     // A file opens read only when it is generated, too large, or not UTF-8.
     // The plan and a running turn are checked separately (canEdit).
@@ -503,8 +510,24 @@
     };
 
     function canEdit(file) {
-        return S.access === 'edit' && !file.readOnlyReason && !turnRunning() && !window._restoringVersion
+        return S.access === 'edit' && !file.readOnlyReason && !turnRunning() && !_settling && !window._restoringVersion
             && !window.isPublishInFlight?.(file.chatId) && file.buf && file.buf.status !== 'deleted';
+    }
+
+    // Saving before the files are used or left (a publish, a restore, a
+    // project switch): text typed while that runs would miss the save and be
+    // left behind, so the editor waits until it is done. A turn's own setup
+    // already does (turnRunning). Saving itself is not blocked (blockFor).
+    let _settling = 0;
+    async function whileSettling(run) {
+        _settling++;
+        renderChrome();
+        try {
+            return await run();
+        } finally {
+            _settling--;
+            renderChrome();
+        }
     }
 
     function applyEditable(file) {
@@ -752,6 +775,7 @@
         else if (turnRunning()) text = 'Editing is paused while the AI works.';
         else if (window._restoringVersion) text = 'Editing is paused while a version is restored.';
         else if (window.isPublishInFlight?.(file.chatId)) text = 'Editing is paused while your site publishes.';
+        else if (_settling) text = 'Editing is paused while your changes are saved.';
         else return;
         if (upgrade && !file._attemptTracked) { file._attemptTracked = true; track('Code Edit Blocked', { reason: 'plan' }); }
         _attemptTip?.remove();
@@ -870,7 +894,9 @@
             return false;
         }
         file.buf = C.reduceBuffer(file.buf, { type: 'saved', text });
-        clearDraft(abs);
+        // Text typed while the save ran is still unsaved: keep its draft.
+        if (C.isDirtyStatus(file.buf.status)) saveDraftSoon(file);
+        else clearDraft(abs);
         markUnsavedLines(file);
         renderTabs();
         renderTree();
@@ -977,7 +1003,7 @@
             discardAll(chatId);
             return 'ok';
         }
-        return await saveAll(Object.assign({ chatId }, opts)) ? 'ok' : 'failed';
+        return await whileSettling(() => saveAll(Object.assign({ chatId }, opts))) ? 'ok' : 'failed';
     }
 
     function discard(file) {
@@ -1450,23 +1476,41 @@
     window.CodeEditor = {
         open: (opts) => openCode(opts),
         isOpen: () => S.mode === 'code',
-        hasUnsaved: (chatId) => hasUnsaved(chatId),
+        // The leave checks (switching projects, Back/Forward, closing the tab)
+        // also count edits to a file deleted elsewhere, which leaving loses.
+        hasUnsaved: (chatId) => hasUnsaved(chatId) || strandedFiles(chatId).length > 0,
         saveAll: (opts) => saveAll(opts),
 
         // confirmLeaveActiveChat: unsaved edits are saved, dropped, or the
         // switch is called off. Resolves true when it is fine to leave.
         async confirmLeave() {
-            const files = dirtyFiles();
-            if (!files.length) return true;
-            const choice = await askSave(files, 'before leaving this project');
-            if (choice === 'cancel') return false;
-            if (choice === 'discard') { discardAll(); return true; }
-            if (await saveAll()) return true;
-            // The save failed: show why, in the code, and stay.
-            const failed = dirtyFiles();
-            toast(`Couldn’t save ${nameList(failed)}, so you’re still in this project. Open Code to see why.`, { type: 'error', duration: 8000 });
-            if (S.mode !== 'code') openCode({ focus: false });
-            return false;
+            const stranded = strandedFiles();
+            if (stranded.length) {
+                const one = stranded.length === 1;
+                const choice = await puter.ui.alert(`${nameList(stranded)} ${one ? 'was' : 'were'} deleted or moved while you had unsaved changes, so ${one ? 'it' : 'they'} can’t be saved. Leave and lose those changes?`, [
+                    { label: 'Lose changes', value: 'discard', type: 'primary' },
+                    { label: 'Stay', value: 'cancel', type: 'secondary' },
+                ]);
+                if (choice !== 'discard') return false;
+            }
+            let files = dirtyFiles();
+            for (;;) {
+                if (!files.length) return true;
+                const choice = await askSave(files, 'before leaving this project');
+                if (choice === 'cancel') return false;
+                if (choice === 'discard') { discardAll(); return true; }
+                if (!await whileSettling(() => saveAll())) {
+                    // The save failed: show why, in the code, and stay.
+                    const failed = dirtyFiles();
+                    toast(`Couldn’t save ${nameList(failed)}, so you’re still in this project. Open Code to see why.`, { type: 'error', duration: 8000 });
+                    if (S.mode !== 'code') openCode({ focus: false });
+                    return false;
+                }
+                // A file can still have unsaved text in the editor after the
+                // save, such as one opened from a draft while it ran: ask
+                // again. A file whose editor never loaded keeps its draft.
+                files = dirtyFiles().filter((f) => f.handle);
+            }
         },
 
         // resetChatUIForSwitch: another project is opening. The leave gate has
@@ -1512,11 +1556,19 @@
         },
         // duplicateChat: the copy starts with the same files, so it gets the
         // same unreported hand edits and the same overwrite guards.
-        onProjectCopied(fromChatId, toChatId, fromAppDir, toAppDir) {
+        // renames: redeployWorkersForCopy's records. Each copied backend source
+        // (copiedFilePath) was renamed to newFilePath for the copy's own worker.
+        onProjectCopied(fromChatId, toChatId, fromAppDir, toAppDir, renames) {
             if (!fromChatId || !toChatId || !fromAppDir || !toAppDir || !user()) return;
             const from = norm(fromAppDir);
             const to = norm(toAppDir);
-            const move = (p) => (p === from || p.startsWith(from + '/')) ? to + p.slice(from.length) : p;
+            const renamed = new Map((Array.isArray(renames) ? renames : [])
+                .filter((r) => r && typeof r.copiedFilePath === 'string' && typeof r.newFilePath === 'string')
+                .map((r) => [norm(r.copiedFilePath), norm(r.newFilePath)]));
+            const move = (p) => {
+                const q = (p === from || p.startsWith(from + '/')) ? to + p.slice(from.length) : p;
+                return renamed.get(q) || q;
+            };
             const p = loadPending(fromChatId);
             if (Object.keys(p.files).length || p.version.length) {
                 const files = {};

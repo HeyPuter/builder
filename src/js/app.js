@@ -1830,7 +1830,9 @@ async function duplicateChat(chatId) {
         copySaved = true;
         // The copy has the same files, so it inherits the hand edits the AI has
         // not been told about yet and their overwrite guards (code-editor.js).
-        window.CodeEditor?.onProjectCopied?.(chatId, newId, oldAppDir, newAppDir);
+        // A backend's source was renamed for the copy's own worker, and its
+        // records follow the new name.
+        window.CodeEditor?.onProjectCopied?.(chatId, newId, oldAppDir, newAppDir, workerRenames);
 
         // --- Copy the generated media ----------------------------------------
         // Best-effort, and only now that the copy's chat file is saved and the

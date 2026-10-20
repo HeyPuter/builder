@@ -109,9 +109,11 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
         try {
             // Execute the tool
             const toolResponse = await executeFunction(toolCall.name, toolCall.input, c);
-            // A file the AI renamed, moved, copied or deleted takes its Code view
-            // overwrite guard with it (only once the operation succeeded).
-            window.CodeEditor?.onModelFileOp?.(toolCall.name, toolCall.input, c);
+            // A file the AI renamed, copied or deleted takes its Code view
+            // overwrite guard with it (only once the operation succeeded). A
+            // move reports each file as it lands (move.js), since one that
+            // fails partway has still moved the files before it.
+            if (toolCall.name !== 'move') window.CodeEditor?.onModelFileOp?.(toolCall.name, toolCall.input, c);
             // The exec may have outlived its turn: the user hit Stop mid-tool
             // and sent a new message, whose setup already synthesized a result
             // for this id (repairDanglingToolUses) and appended their prompt.
