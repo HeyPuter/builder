@@ -109,6 +109,9 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
         try {
             // Execute the tool
             const toolResponse = await executeFunction(toolCall.name, toolCall.input, c);
+            // A file the AI renamed, moved, copied or deleted takes its Code view
+            // overwrite guard with it (only once the operation succeeded).
+            window.CodeEditor?.onModelFileOp?.(toolCall.name, toolCall.input, c);
             // The exec may have outlived its turn: the user hit Stop mid-tool
             // and sent a new message, whose setup already synthesized a result
             // for this id (repairDanglingToolUses) and appended their prompt.
@@ -172,6 +175,9 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
                         if (Array.isArray(_inp.paths_array)) _inp.paths_array.forEach(p => window.recordPreviewChange?.(_abs(p)));
                     }
                 } catch (e) { /* recording is best-effort */ }
+                // Files open in the Code view follow what the AI just wrote: a
+                // clean one reloads, one with unsaved edits shows a conflict.
+                window.CodeEditor?.onToolWrite?.(toolCall.name, c.currentChatId);
             }
         }
     }

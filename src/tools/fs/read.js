@@ -24,8 +24,19 @@ window.tools.push({
         // Confine reads to the project directory (no peeking at the wider account).
         // See window.assertPathInProject.
         const path = window.assertPathInProject(args.path, state);
-        let blob = await puter.fs.read(path);
+        let blob;
+        try {
+            blob = await puter.fs.read(path);
+        } catch (e) {
+            // A file that is gone has no hand edits left to protect, so the
+            // write tool may create it again (see code-editor.js).
+            if (typeof isNotFoundError === 'function' && isNotFoundError(e)) window.CodeEditor?.noteModelRead?.(path);
+            throw e;
+        }
         let text = await blob.text();
+        // The model has now seen the file as it is, hand edits included, so
+        // the write tool may replace it again (see code-editor.js).
+        window.CodeEditor?.noteModelRead?.(path);
         // Hide preview cache-bust tokens (a serving detail) so the model only
         // ever sees the clean source it wrote.
         if (/\.html?$/i.test(path) && window.stripPreviewCacheBust) {

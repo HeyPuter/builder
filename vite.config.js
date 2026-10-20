@@ -49,6 +49,9 @@ const SCRIPTS = [
   // Pure half of the official templates (validation, placeholders, the note a
   // fork's system prompt carries); js/templates.js below is the I/O half.
   'js/template-core.js',
+  // Pure half of the Code view (access rules, file kinds, buffer states, the
+  // note that tells the AI about hand edits); js/code-editor.js is the UI half.
+  'js/editor-core.js',
   'js/tools.js',
   // Before ui.js, which paints the avatar from window.profilePicture.
   'js/profile-picture.js',
@@ -92,6 +95,9 @@ const SCRIPTS = [
   'js/handleMessageStream.js',
   'js/app.js',
   'js/versions.js',
+  // After app.js and versions.js: it reads their shared state (isProcessing,
+  // currentChatId, currentAppDir) and calls their helpers.
+  'js/code-editor.js',
   'js/issues.js',
   // PWA runtime (SW registration + update/install UX). Last so window.showToast
   // and the rest of the app are already defined; runs its work after `load`.
@@ -115,6 +121,10 @@ const VENDOR_SCRIPTS = [
   'vendor/jszip.min.js',
   'vendor/jquery.min.js',
 ];
+
+// The lazy chunk Rollup emits for src/editor/codemirror.mjs (named after that
+// file). Left out of the service worker's precache, see pwaPlugin.
+const EDITOR_CHUNK_RE = /^codemirror-[\w-]+\.js$/i;
 
 // Read one boolean out of window.FEATURE_FLAGS in src/js/helpers.js, which stays
 // the single source of truth for flags (see its header). Build steps that exist
@@ -603,11 +613,15 @@ function pwaPlugin() {
 
         // The executable shell: hashed JS/CSS/manifest actually on disk. Fonts and
         // images (also under /assets) are left to the SW's runtime cache-first path
-        // to keep the install small and fast.
+        // to keep the install small and fast. So is the Code view's editor chunk
+        // (src/editor/codemirror.mjs, about the size of the app bundle): only
+        // subscribers can edit with it, so precaching it would make every visitor
+        // download it again on every deploy. The first open caches it at runtime.
         const assetsDir = path.join(OUT_DIR, 'assets');
         const hashedShell = fs.existsSync(assetsDir)
           ? fs.readdirSync(assetsDir)
               .filter((f) => /\.(js|css|webmanifest)$/i.test(f))
+              .filter((f) => !EDITOR_CHUNK_RE.test(f))
               .map((f) => '/assets/' + f)
           : [];
 
@@ -932,6 +946,10 @@ export default defineConfig({
     outDir: path.resolve(__dirname, 'dist'),
     emptyOutDir: true,
     assetsDir: 'assets',
+    // The Code view's CodeMirror chunk is about 575 kB. It loads only when
+    // someone opens Code (src/editor/entry.mjs), so its size never touches
+    // first paint, and the default 500 kB warning would only be noise.
+    chunkSizeWarningLimit: 650,
     rollupOptions: {
       output: {
         // Stable, hashed names for cache-busting.
