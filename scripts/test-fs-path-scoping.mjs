@@ -31,7 +31,7 @@ const win = {};
 // The helpers assign onto `window` and call each other via `window.*`; they also
 // reference `currentAppDir` via typeof (undefined here → fall back to state).
 new Function('window', block)(win);
-const { normalizePosixPath, assertPathInProject, assertPathsInProject } = win;
+const { normalizePosixPath, assertPathInProject, assertPathsInProject, mediaDirForAppDir, assertPathInProjectOrMedia } = win;
 
 const ROOT = '/u/AppData/app/chat1';
 const st = { appDir: ROOT };
@@ -65,6 +65,28 @@ check('reject: non-string path', throws(() => assertPathInProject(null, st)));
 
 // === fail closed when the project dir is unknown ============================
 check('fail-closed: no appDir + no currentAppDir throws', throws(() => assertPathInProject(ROOT + '/x', {})));
+
+// === Generated-media folder (read-side guard) ===============================
+const MEDIA = '/u/AppData/app/.media/chat1';
+check('media: the folder is the project dir\'s sibling .media/<chatId>', mediaDirForAppDir(ROOT) === MEDIA);
+check('media: a trailing slash on the project dir changes nothing', mediaDirForAppDir(ROOT + '/') === MEDIA);
+check('media: no project dir → no folder', mediaDirForAppDir('') === '');
+check('media guard: accepts a file in this chat\'s media folder',
+    assertPathInProjectOrMedia(MEDIA + '/image_1.png', st) === MEDIA + '/image_1.png');
+check('media guard: still accepts project paths (absolute and relative)',
+    assertPathInProjectOrMedia(ROOT + '/assets/a.png', st) === ROOT + '/assets/a.png' &&
+    assertPathInProjectOrMedia('assets/a.png', st) === ROOT + '/assets/a.png');
+check('media guard: rejects ANOTHER chat\'s media folder',
+    throws(() => assertPathInProjectOrMedia('/u/AppData/app/.media/chat2/image.png', st)));
+check('media guard: rejects a shared-prefix sibling (chat10 vs chat1)',
+    throws(() => assertPathInProjectOrMedia('/u/AppData/app/.media/chat10/image.png', st)));
+check('media guard: rejects a ".." escape out of the media folder',
+    throws(() => assertPathInProjectOrMedia(MEDIA + '/../chat2/x.png', st)));
+check('media guard: rejects the version snapshots',
+    throws(() => assertPathInProjectOrMedia('/u/AppData/app/.versions/chat1/v_1/index.html', st)));
+check('media guard: a relative path never resolves into the media folder',
+    throws(() => assertPathInProjectOrMedia('../.media/chat1/x.png', st)));
+check('media guard: fails closed with no project dir', throws(() => assertPathInProjectOrMedia(MEDIA + '/x.png', {})));
 
 // === assertPathsInProject ===================================================
 check('paths: all inside ok returns normalized', (() => {
@@ -100,14 +122,16 @@ check('fs/mkdir.js: guards every directory path', mkdir.includes('assertPathsInP
 
 const copy = tool('fs/copy.js');
 check('fs/copy.js: exec takes (args, state)', SIG.test(copy));
+// The SOURCE may also be in the chat's generated-media folder (read side
+// only); the destination must be in the project.
 check('fs/copy.js: guards source and destination',
-    copy.includes('assertPathInProject(args.path') && copy.includes("assertPathInProject(args.destination"));
+    copy.includes('assertPathInProjectOrMedia(args.path') && copy.includes("assertPathInProject(args.destination"));
 
 const rename = tool('fs/rename.js');
 check('fs/rename.js: rejects new_name containing a slash', rename.includes('new_name must be a plain'));
 
 const view = tool('fs/view_image.js');
-check('fs/view_image.js: guards the resolved path', view.includes('assertPathInProject(path'));
+check('fs/view_image.js: guards the resolved path', view.includes('assertPathInProjectOrMedia(path'));
 
 // SearchFiles resolves ''/'.'/relative input to a target first (like
 // view_image), so it guards the resolved variable rather than args.path.
@@ -143,7 +167,7 @@ const RESOLVED_USERS = {
     'fs/read.js':       ['const path = window.assertPathInProject(args.path', 'puter.fs.read(path)'],
     'fs/readdir.js':    ['const path = window.assertPathInProject(args.path', 'puter.fs.readdir(path)'],
     'fs/stat.js':       ['const path = window.assertPathInProject(args.path', 'puter.fs.stat(path)'],
-    'fs/copy.js':       ['const src = window.assertPathInProject(args.path', 'puter.fs.copy(src, destDir)'],
+    'fs/copy.js':       ['const src = window.assertPathInProjectOrMedia(args.path', 'puter.fs.copy(src, destDir)'],
     'fs/move.js':       ['const paths = window.assertPathsInProject(args.paths_array', 'puter.fs.move(path, destination)'],
     'fs/mkdir.js':      ['const paths = window.assertPathsInProject(args.paths_array', 'for (const path of paths)'],
 };

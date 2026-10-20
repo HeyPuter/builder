@@ -76,6 +76,12 @@ const SCRIPTS = [
   'tools/chat_ui/clarify.js',
   'tools/chat_ui/suggest.js',
   'tools/chat_ui/upgrade.js',
+  // Generated images/videos/speech: the shared chat card + saving
+  // (js/media.js), then the tools built on it.
+  'js/media.js',
+  'tools/media/generate_image.js',
+  'tools/media/generate_video.js',
+  'tools/media/generate_speech.js',
   'tools/workers/create_worker.js',
   'tools/workers/delete_worker.js',
   'tools/workers/list_workers.js',

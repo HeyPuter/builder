@@ -8,7 +8,7 @@ window.tools.push({
             properties: {
                 path: {
                     type: "string",
-                    description: "The absolute path of the file or directory to copy. Absolute paths start with a /."
+                    description: "The absolute path of the file or directory to copy. Absolute paths start with a /. May also be an image, video or audio clip you generated earlier in this chat (to use it in the project)."
                 },
                 destination: {
                     type: "string",
@@ -22,8 +22,10 @@ window.tools.push({
     },
     exec: async function(args, state) {
         // Confine both the source and the destination directory to the project.
-        // See window.assertPathInProject.
-        const src = window.assertPathInProject(args.path, state);
+        // The source may also be media generated earlier in this chat (its
+        // media folder sits outside the project), so the model can put it on
+        // the website. See window.assertPathInProject / assertPathInProjectOrMedia.
+        const src = window.assertPathInProjectOrMedia(args.path, state);
         const destDir = window.assertPathInProject(args.destination, state, 'destination');
         // puter.fs.copy lands the new entry at destination/<basename(source)>.
         // Lock that resolved path — the same path tools.js records as the preview
