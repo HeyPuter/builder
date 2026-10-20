@@ -214,7 +214,16 @@ async function rejects(p) { try { await p; return null; } catch (e) { return e; 
     env.win.withFileLock = (p, fn) => Promise.resolve().then(() => { if (n++ === 0) throw new Error('locked'); return fn(); });
     const r = await env.tool('GenerateImage').exec({ prompt: 'Hero', count: 2, save_to_project: 'assets/hero.png' }, env.state());
     check('a grid version whose project copy failed still fills its tile', env.calls.filled.length === 2 && env.calls.removed.length === 0 && r.count === 2, env.calls);
-    check('…and the grid note says which versions are in the project', /Some of them could NOT be saved into the project/.test(r.note) && /Saved into the project as: assets\/hero-2\.png\./.test(r.note), r.note);
+    check('…and the grid note says which versions are in the project', /The others could NOT be saved into the project/.test(r.note) && /Saved into the project as: assets\/hero-2\.png\./.test(r.note), r.note);
+}
+
+{
+    // Every version's copy into the project failed.
+    const env = makeEnv();
+    env.copyFail = 'quota exceeded';
+    const r = await env.tool('GenerateImage').exec({ prompt: 'Hero', count: 2, save_to_project: 'assets/hero.png' }, env.state());
+    check('a grid none of whose versions reached the project says so plainly',
+        /None of them could be saved into the project/.test(r.note) && !/None of them could NOT/.test(r.note) && !/Saved into the project as/.test(r.note), r.note);
 }
 
 // ---- 4. Reference images ---------------------------------------------------
