@@ -270,6 +270,18 @@ async function rejects(p) { try { await p; return null; } catch (e) { return e; 
     check('…the file is still saved for the history', r.success && !!r.path);
 }
 {
+    // Stopped (or the project deleted, which stops its turn) while the
+    // provider worked: the file still lands in the media folder, but nothing
+    // is written into the project after the user stopped — it could land in
+    // the middle of a publish, or recreate a deleted project's folder.
+    const env = makeEnv();
+    const state = env.state();
+    env.generateImpl = async (p, options) => { state.abortController.abort(); env.existing.add(options.puter_output_path); return { src: env.src }; };
+    const r = await env.tool('GenerateImage').exec({ prompt: 'x', save_to_project: 'assets/hero.png' }, state);
+    check('Stop during generation writes nothing into the project', env.calls.copy.length === 0 && env.calls.marked.length === 0 && env.calls.recorded.length === 0, env.calls.copy);
+    check('…and the result says the project file was not saved', r && r.path && !r.project_path && /could NOT be saved into the project/.test(r.note) && /stopped/.test(r.note), r && r.note);
+}
+{
     const env = makeEnv({ stale: true });
     await env.tool('GenerateImage').exec({ prompt: 'x' }, env.state());
     check('a turn whose chat is no longer open shows no card at all', env.calls.cards.length === 0 && env.calls.filled.length === 0);

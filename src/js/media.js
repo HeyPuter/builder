@@ -578,7 +578,14 @@ window.GeneratedMedia = (function () {
             // to copy it in rather than reference a file that isn't there.
             let projectPath = null;
             let projectError = null;
-            if (projectDest && saved) {
+            if (projectDest && saved && !live()) {
+                // Stopped (or the chat left or deleted) while the provider
+                // worked. Nothing more goes into the project: the copy could
+                // land in the middle of a publish, or recreate the folder of
+                // a project that was just deleted. The file stays in the
+                // media folder.
+                projectError = 'the request was stopped before it was saved there';
+            } else if (projectDest && saved) {
                 const dir = projectDest.slice(0, projectDest.lastIndexOf('/'));
                 const base = projectDest.slice(projectDest.lastIndexOf('/') + 1);
                 try { await puter.fs.mkdir(dir, { recursive: true }); } catch (e) { /* exists */ }
