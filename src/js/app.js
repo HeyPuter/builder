@@ -878,10 +878,13 @@ window.addEventListener('popstate', async () => {
     // navigation would actually switch chats — a ?p for an unknown project (or
     // a scroll-only popstate) never loads anything, so it never interrupts.
     const hasConversation = Array.isArray(chatHistory) && chatHistory.some(m => m.role !== 'system');
+    // The no-target case uses the same test as the branch below that switches,
+    // so a project with no messages yet (a fresh template fork) is asked too.
     const wouldSwitch = targetId
         ? (targetId !== currentChatId && savedChats.some(c => c.id === targetId))
-        : !!(currentChatId && hasConversation);
-    if (wouldSwitch && isProcessing) {
+        : !!(currentChatId && (hasConversation || savedChats.some(c => c.id === currentChatId)));
+    // Unsaved code in the Code view would be lost the same way.
+    if (wouldSwitch && (isProcessing || window.CodeEditor?.hasUnsaved?.())) {
         if (!await confirmLeaveActiveChat()) {
             setUrlChat(currentChatId, { replace: false });
             return;
@@ -1202,8 +1205,9 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
                             window.renderClarifySummary?.(toolResponse);
                         } else if (toolResponse.__upgrade_offer) {
                             // A past upgrade offer: show its card again, unless
-                            // the user has a paid plan by now.
-                            if (!toolResponse.subscribed && !window.Branding?.isSubscribed(window.user)) window.renderUpgradeCard?.();
+                            // the user has a paid plan by now. Offers from before
+                            // the code editor carry no feature and are the badge.
+                            if (!toolResponse.subscribed && !window.Branding?.isSubscribed(window.user)) window.renderUpgradeCard?.({ feature: toolResponse.feature });
                         } else if (toolResponse.success && toolResponse.filename && (toolResponse.path
                             || (Array.isArray(toolResponse.items) && toolResponse.items.some(it => it && it.path)))) {
                             // A generated image, video or audio clip (see
@@ -1382,6 +1386,9 @@ async function deleteChat(chatId) {
         // tool write can land in — or recreate — the directory mid-delete.
         _deletedChatIds.add(chatId);
         if (currentChatId === chatId) terminateActiveTurn();
+        // The Code view closes this project's open files and can never save
+        // into it again. Its records go once the delete has worked (below).
+        window.CodeEditor?.onProjectDeleting?.(chatId);
 
         // Every cleanup step below used to swallow its failure, so a project
         // whose public site or worker could not be removed still vanished from
@@ -1497,6 +1504,9 @@ async function deleteChat(chatId) {
         // And its unsent composer draft — discard outright (local keys and the
         // cloud copy): the context is gone, a tombstone would just be litter.
         clearComposerDraft(chatId, { discard: true });
+        // …and the Code view's records for it: pending hand-edit notes, saved
+        // tabs, drafts and the AI's overwrite guards for its files.
+        window.CodeEditor?.onProjectDeleted?.(chatId, `/${window.user.username}/AppData/${puter.appID}/${chatId}`);
 
         // If this was the current chat, start a new one
         if (currentChatId === chatId) {
@@ -1818,6 +1828,11 @@ async function duplicateChat(chatId) {
         };
         await puter.fs.write(`chat-history/${newId}.json`, JSON.stringify(chatData));
         copySaved = true;
+        // The copy has the same files, so it inherits the hand edits the AI has
+        // not been told about yet and their overwrite guards (code-editor.js).
+        // A backend's source was renamed for the copy's own worker, and its
+        // records follow the new name.
+        window.CodeEditor?.onProjectCopied?.(chatId, newId, oldAppDir, newAppDir, workerRenames);
 
         // --- Copy the generated media ----------------------------------------
         // Best-effort, and only now that the copy's chat file is saved and the
@@ -3152,6 +3167,10 @@ function resetChatUIForSwitch() {
     // leak into the chat we're switching to (it targets the old preview).
     window.clearEditTarget?.();
 
+    // Close the Code view's files (the leave gate already dealt with unsaved
+    // edits); the next project opens on its preview.
+    window.CodeEditor?.onProjectSwitch?.();
+
     // Empty the attachment tray. Staged files belong to the composer of the chat
     // being left, exactly like its unsent text (which restoreComposerDraft swaps
     // per project) and its click-to-edit target above. new_chat() already did
@@ -4068,7 +4087,9 @@ document.addEventListener('visibilitychange', () => {
 // reloads too (Log out, accepted PWA updates) — prompting there is the same
 // protection, and both are rare mid-turn.
 window.addEventListener('beforeunload', function (e) {
-    if (!isProcessing) return;
+    // Unsaved code in the Code view gets the same prompt. Its text is also
+    // mirrored to localStorage as it is typed, so a crash does not lose it.
+    if (!isProcessing && !window.CodeEditor?.hasUnsaved?.()) return;
     e.preventDefault();
     e.returnValue = ''; // required by Chrome and older Safari/Firefox
 });
@@ -4430,7 +4451,8 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // the project files), to avoid the two clobbering each other. Say so: the
     // composer stays enabled during a restore, and a Send that did nothing at
     // all read as the app having frozen.
-    if (window._restoringVersion) {
+    // (A restore still saving the Code view's edits before it starts counts.)
+    if (window._restoringVersion || window.isRestoreStarting?.(currentChatId)) {
         window.showToast?.('Finishing the restore — you can send the moment it’s done.',
             { type: 'info', key: 'send-blocked-restore', throttleMs: 3000 });
         return;
@@ -4442,7 +4464,8 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // publish records as the baseline would describe this turn's work instead
     // of what went live. Publishing already refuses during a turn; this is the
     // other half of that lock.
-    if (window.isPublishInFlight?.(currentChatId)) {
+    // (A publish still saving the Code view's edits before it copies counts.)
+    if (window.isPublishInFlight?.(currentChatId) || window.isPublishStarting?.(currentChatId)) {
         window.showToast?.('Finishing publishing — you can send the moment it’s done.',
             { type: 'info', key: 'send-blocked-publish', throttleMs: 3000 });
         return;
@@ -4500,6 +4523,49 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     const messageText = isResume ? '' : (userInput ?? chat_input_message ?? preAuthComposerText);
     chat_input_message = undefined;
     if (!isResume && !messageText && (!consumedComposer || preAuthAttachments.length === 0)) { _sendSetupInFlight = false; return; }
+
+    // The Code view, before the AI touches anything: unsaved hand edits are
+    // saved, and saved ones become their own version, so this turn's snapshot
+    // holds only the AI's work. A save that fails calls the send off with the
+    // composer untouched (code-editor.js).
+    if (window.CodeEditor?.beforeTurn) {
+        const setupChatId = currentChatId;
+        // Saving and taking a version can take a few seconds. The composer is
+        // read only meanwhile, so nothing typed there is lost when it clears.
+        const $composer = $('.chat-input-message');
+        const lockComposer = consumedComposer && !!window.CodeEditor.turnPrepNeeded?.(setupChatId);
+        if (lockComposer) $composer.prop('readonly', true);
+        let ready = false;
+        try {
+            ready = await window.CodeEditor.beforeTurn({
+                chatId: currentChatId, appDir: currentAppDir, autoFix: !!opts.autoFix, resume: isResume, consumedComposer,
+            });
+        } finally {
+            if (lockComposer) $composer.prop('readonly', false);
+        }
+        // Those seconds also let a restore, a publish or a project load start:
+        // check them again now, as the checks above did, so they never run under
+        // a turn.
+        let busyNow = null;
+        if (ready && currentChatId === setupChatId) {
+            if (_loadChatSeq !== _loadChatSettledSeq) busyNow = 'Opening the project — you can send the moment it’s ready.';
+            else if (window._restoringVersion || window.isRestoreStarting?.(setupChatId)) busyNow = 'Finishing the restore — you can send the moment it’s done.';
+            else if (window.isPublishInFlight?.(setupChatId) || window.isPublishStarting?.(setupChatId)) busyNow = 'Finishing publishing — you can send the moment it’s done.';
+        }
+        if (!ready || currentChatId !== setupChatId || busyNow) {
+            // Clear the flag first: the Code view reads it when it redraws,
+            // and would otherwise stay read only under a turn that never ran.
+            _sendSetupInFlight = false;
+            window.CodeEditor.onTurnEnd?.(setupChatId);
+            // Files saved before the one that failed scheduled a preview
+            // refresh for the turn that is not coming. Run it now. A switch
+            // to another project resets it instead.
+            if (currentChatId === setupChatId && _loadChatSeq === _loadChatSettledSeq) window.flushPreviewRefresh?.();
+            if (busyNow) window.showToast?.(busyNow, { type: 'info', key: 'send-blocked-after-save', throttleMs: 3000 });
+            window.refreshPublishButton?.();
+            return;
+        }
+    }
 
     if (consumedComposer) {
         $('.chat-input-message').val('');
@@ -4883,6 +4949,15 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                 window.clearEditTarget?.();
             }
 
+            // Files the user edited by hand in the Code view since the AI's last
+            // reply: a hidden note so it rereads them instead of working from its
+            // old copy. It describes the project, not this message, so every send
+            // that adds a user message carries it, and it is cleared only once the
+            // message is in the conversation. Appended after the cached prompt
+            // prefix, so the cache is untouched.
+            const manualEditNote = window.CodeEditor?.pendingNote?.(turnChatId) || '';
+            if (manualEditNote) contentParts.push({ type: 'text-hidden', text: manualEditNote });
+
             // This is a new project iff the user has no earlier message in it —
             // measured BEFORE the push below adds this one. Drives the analytics
             // events: the first build of a project emits Project Created, and
@@ -4894,6 +4969,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             const messageContent = contentParts.length > 0 ? contentParts : messageText;
             turnSaveContext.chatHistory.push({ role: "user", content: messageContent, messageId });
             userMessageAppended = true;
+            if (manualEditNote) window.CodeEditor?.notePosted?.(turnChatId);
 
             // Persist the user's message right away. The end-of-turn save only
             // lands after the whole AI response finishes — for a short/text-only
@@ -5284,6 +5360,9 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // while this turn was finishing) no-ops instead of clobbering the new
         // chat's UI.
         resetUIState(turnChatId);
+        // The turn has fully unwound, its last tool write included: the Code
+        // view can reread what changed and allow editing again.
+        window.CodeEditor?.onTurnEnd?.(turnChatId);
     }
     // The turn is over — let the screen sleep again (no-op if a newer turn has
     // already started and still wants the lock).

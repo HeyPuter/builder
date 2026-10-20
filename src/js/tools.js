@@ -95,10 +95,24 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
     // Process tool calls - execute all tools
     const toolCalls = completion.filter(t => t && t.type === 'tool_use');
 
+    // Files read whole in this round whose results were kept. Their Code
+    // view overwrite guards lift once the round is over, and only while this
+    // turn's history is still the open chat's, the one the next request
+    // sends. A stopped turn's late result is kept that way too, while one a
+    // new message already replaced is not (see below).
+    c.readsThisRound = [];
+    const liftReadGuards = () => {
+        if (typeof chatHistory !== 'undefined' && c.chatHistory === chatHistory) {
+            for (const p of c.readsThisRound) window.CodeEditor?.noteModelRead?.(p);
+        }
+        c.readsThisRound = [];
+    };
+
     // Execute all tools and collect results
     for (const toolCall of toolCalls) {
         // Check for abort (or a chat switch) before each tool execution
         if (isAborted(c.abortController) || isStaleTurn(c)) {
+            liftReadGuards();
             return { error: 'Aborted', history: c.chatHistory };
         }
         
@@ -108,7 +122,14 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
         if (!isStaleTurn(c)) window.noteToolExec?.(watchdogKey, true);
         try {
             // Execute the tool
+            if (toolCall.name === 'ReadTextFile') c.lastFullRead = null;
             const toolResponse = await executeFunction(toolCall.name, toolCall.input, c);
+            const fullRead = toolCall.name === 'ReadTextFile' ? c.lastFullRead : null;
+            // A file the AI renamed, copied or deleted takes its Code view
+            // overwrite guard with it (only once the operation succeeded). A
+            // move reports each file as it lands (move.js), since one that
+            // fails partway has still moved the files before it.
+            if (toolCall.name !== 'move') window.CodeEditor?.onModelFileOp?.(toolCall.name, toolCall.input, c);
             // The exec may have outlived its turn: the user hit Stop mid-tool
             // and sent a new message, whose setup already synthesized a result
             // for this id (repairDanglingToolUses) and appended their prompt.
@@ -118,6 +139,7 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
             if (!hasToolResultFor(c.chatHistory, toolCall.id)) {
                 addToolResultToHistory(c.chatHistory, toolCall.id, toolResponse,
                     toolCall.name.startsWith('mcp_') && toolResponse?.isError === true);
+                if (fullRead) c.readsThisRound.push(fullRead);
             }
         } catch (error) {
             // Extract error message
@@ -172,10 +194,14 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
                         if (Array.isArray(_inp.paths_array)) _inp.paths_array.forEach(p => window.recordPreviewChange?.(_abs(p)));
                     }
                 } catch (e) { /* recording is best-effort */ }
+                // Files open in the Code view follow what the AI just wrote: a
+                // clean one reloads, one with unsaved edits shows a conflict.
+                window.CodeEditor?.onToolWrite?.(toolCall.name, c.currentChatId);
             }
         }
     }
-    
+    liftReadGuards();
+
     // Checkpoint this round's results (the assistant tool_use + every tool_result
     // just pushed into c.chatHistory) BEFORE the throw-prone next-round
     // puter.ai.chat below. Coalesced + non-blocking, so it's cheap. This is the

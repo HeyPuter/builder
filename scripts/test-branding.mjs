@@ -78,8 +78,28 @@ const upgradeToolSrcForTracking = read('../src/tools/chat_ui/upgrade.js');
 for (const ev of ['Upgrade Prompt Shown', 'Upgrade Opened', 'Upgrade Clicked', 'Upgrade Completed']) {
     check(`tracks '${ev}'`, uiSrc.includes(`'${ev}'`) || upgradeToolSrcForTracking.includes(`'${ev}'`));
 }
-check('the chat card reports its impression', upgradeToolSrcForTracking.includes("'Upgrade Prompt Shown', { source: 'chat' }"));
+// The card's impression carries the source of the perk it offers: 'chat' for
+// the badge (as before the code editor), 'chat_code_editor' for editing code.
+check('the chat card reports its impression, per perk',
+    upgradeToolSrcForTracking.includes("'Upgrade Prompt Shown', { source: CARDS[feature].source }") &&
+    /badge: \{[^}]*source: 'chat' \}/.test(upgradeToolSrcForTracking) &&
+    /code_editor: \{[^}]*source: 'chat_code_editor' \}/.test(upgradeToolSrcForTracking));
+check('the card button opens the dialog with its own source',
+    uiSrc.includes("openUpgradeModal($(this).attr('data-source') || 'chat')") &&
+    upgradeToolSrcForTracking.includes('data-source="${card.source}"'));
 check('chat badge requests are tracked', upgradeToolSrcForTracking.includes("'Badge Removal Requested'"));
+check('chat code-editing requests are tracked', upgradeToolSrcForTracking.includes("'Code Editing Requested'"));
+// The code editor's case: a required feature while the flag is on, the badge
+// otherwise (and for offers saved before it existed).
+check('OfferUpgrade asks which perk when the code editor ships',
+    upgradeToolSrcForTracking.includes('enum: ["badge", "code_editor"]') && upgradeToolSrcForTracking.includes('required: ["feature"]'));
+check('anything but code_editor is the badge',
+    upgradeToolSrcForTracking.includes("args.feature === 'code_editor' ? 'code_editor' : 'badge'"));
+check('a reloaded chat replays the card for its perk',
+    read('../src/js/app.js').includes('window.renderUpgradeCard?.({ feature: toolResponse.feature })'));
+check('the tool never limits changes made in chat', upgradeToolSrcForTracking.includes('keep making every change the user asks for in chat, on any plan'));
+check('the dialog lists the code editor perk', uiSrc.includes("'Edit your app’s code in Builder'"));
+check('upgrading from the editor offers to start editing', uiSrc.includes('upgrade-start-editing'));
 check('Project Published carries branding', /'Project Published', \{[^}]*branding/.test(uiSrc));
 check('usage-limit upgrade button is tracked', uiSrc.includes("'Upgrade Clicked', { source: 'usage_limit' }"));
 

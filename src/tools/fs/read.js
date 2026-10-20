@@ -24,7 +24,15 @@ window.tools.push({
         // Confine reads to the project directory (no peeking at the wider account).
         // See window.assertPathInProject.
         const path = window.assertPathInProject(args.path, state);
-        let blob = await puter.fs.read(path);
+        let blob;
+        try {
+            blob = await puter.fs.read(path);
+        } catch (e) {
+            // A file that is gone has no hand edits left to protect, so the
+            // write tool may create it again (see code-editor.js).
+            if (typeof isNotFoundError === 'function' && isNotFoundError(e)) window.CodeEditor?.noteModelRead?.(path);
+            throw e;
+        }
         let text = await blob.text();
         // Hide preview cache-bust tokens (a serving detail) so the model only
         // ever sees the clean source it wrote.
@@ -39,6 +47,11 @@ window.tools.push({
         // source file (~6000 lines); what it stops are data dumps, which the
         // model should reference by path or search, not read whole.
         const MAX_CHARS = window.READ_TEXT_FILE_MAX_CHARS;
+        // A file read whole: once the model has this result, the write tool may
+        // replace it again (code-editor.js). tools.js lifts its guard after
+        // the round, so only when the result is kept, and not for a write in
+        // this same response. Not for a file it sees only the start of.
+        if (state) state.lastFullRead = text.length <= MAX_CHARS ? path : null;
         if (text.length > MAX_CHARS) {
             const total = text.length;
             text = text.slice(0, MAX_CHARS) +

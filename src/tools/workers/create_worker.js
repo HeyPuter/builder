@@ -54,6 +54,9 @@ After deployment, full propagation may take 5-30 seconds across edge servers. Wo
         // computed path so a name containing "/" or ".." can't escape the project
         // directory (returns the normalized in-project path). See assertPathInProject.
         const filePath = window.assertPathInProject(`${root}/workers/${name}.js`, state);
+        // Hand edits to this backend in the Code view must not be replaced from
+        // the model's memory: it reads the file again first (see write.js).
+        await window.CodeEditor?.assertModelMayOverwrite?.(filePath);
         // Deployed workers are ACCOUNT-level resources keyed only by name, and
         // puter.workers.create() with a name that is already deployed REDEPLOYS
         // that worker — it is the normal update path. So a name that belongs to

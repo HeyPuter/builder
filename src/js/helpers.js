@@ -49,6 +49,14 @@ window.FEATURE_FLAGS = {
     // so the landing screen is the plain centered layout again. Disabled for
     // now; re-enable by setting true.
     featuredFeed: false,
+    // The Code view: a Preview | Code toggle in the preview toolbar that shows
+    // the project's files (js/code-editor.js, with the pure rules in
+    // js/editor-core.js). Free users read, search and copy them, and a paid
+    // Puter plan unlocks editing and saving. CodeMirror is fetched only when
+    // Code first opens (src/editor/). When false the toggle, the phone menu
+    // row and every editor hook are gone, and OfferUpgrade only offers the
+    // badge.
+    codeEditor: true,
     // Official project templates (js/templates.js, sources in src/templates/):
     // the "Start from a template" section under the landing hero, the
     // /?template=<slug> link the /templates/<slug>/ pages send visitors
@@ -1651,7 +1659,10 @@ window.writeFileVerified = async function (path, data) {
     const normalize = (s) => {
         if (typeof s !== 'string') return s;
         let out = (isHtml && window.stripPreviewCacheBust) ? window.stripPreviewCacheBust(s) : s;
-        return out.replace(/\r\n/g, '\n');
+        // The read-back decodes with Blob.text(), which drops a leading UTF-8
+        // byte order mark, so a file that keeps one (the Code view writes it
+        // back as it found it) is compared without it on both sides.
+        return out.replace(/^﻿/, '').replace(/\r\n/g, '\n');
     };
     const want = normalize(data);
     const MAX_TRIES = 3;

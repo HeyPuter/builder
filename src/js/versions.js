@@ -574,6 +574,36 @@
         return slot.chain;
     }
 
+    // The Code view saved a backend's source by hand. A worker keeps running
+    // the code it was last deployed with, so redeploy that one worker, under
+    // its own name (same URL) and sandboxed like every other deploy. It waits
+    // its turn on the project's redeploy queue above, so it never races a
+    // restore's redeploy. A file under workers/ that no deployed worker of
+    // this project points at is left alone: it is not a backend (yet).
+    // Resolves to { name, failed } for a redeploy, or {} when there was none.
+    window.redeployWorkerSource = function (appDir, filePath) {
+        const WO = window.WorkerOwnership;
+        if (!WO || !puter.workers || typeof puter.workers.list !== 'function' || typeof puter.workers.create !== 'function') return Promise.resolve({});
+        const slot = _redeploys.get(appDir) || { gen: 0, chain: Promise.resolve() };
+        _redeploys.set(appDir, slot);
+        const target = window.normalizePosixPath ? window.normalizePosixPath(filePath) : filePath;
+        const run = slot.chain.catch(function () {}).then(async function () {
+            let owned;
+            try { owned = WO.ownedWorkers(await puter.workers.list(), appDir); }
+            catch (e) { return { name: null, failed: true }; }
+            const worker = owned.find(w => (window.normalizePosixPath ? window.normalizePosixPath(w.file_path) : w.file_path) === target);
+            if (!worker) return {};
+            try {
+                const res = await puter.workers.create(worker.name, worker.file_path, { sandbox: true });
+                return { name: worker.name, failed: !res || res.success === false };
+            } catch (e) {
+                return { name: worker.name, failed: true };
+            }
+        });
+        slot.chain = run;
+        return run;
+    };
+
     // Recursively make curDir an exact copy of snapDir. For each snapshot entry:
     // copy files in (overwriting), recurse into directories, and — if a same-name
     // entry exists with a DIFFERENT type (file<->dir changed between versions) —
@@ -685,9 +715,17 @@
         return typeof window.withFileLock === 'function' ? window.withFileLock(path, fn) : fn();
     }
 
+    // Projects whose restore is saving the Code view's edits before it starts
+    // (see restoreVersion). Sends and publishes wait for these.
+    const _restoresStarting = new Set();
+    window.isRestoreStarting = function (chatId) { return _restoresStarting.has(chatId); };
+
     async function restoreVersion(versionId, opts) {
         opts = opts || {};
-        if (typeof isProcessing !== 'undefined' && isProcessing) {
+        // A send being set up (it may be saving code and taking a version) is
+        // about to start a turn, so it counts as the current task too.
+        if ((typeof isProcessing !== 'undefined' && isProcessing)
+            || (typeof _sendSetupInFlight !== 'undefined' && _sendSetupInFlight)) {
             await puter.ui.alert('Please wait for the current task to finish before restoring a version.');
             return;
         }
@@ -696,12 +734,52 @@
         // site would get a mix of two versions, and the snapshot the publish
         // records as its baseline would describe the restored files instead of
         // the published ones.
-        if (window.isPublishInFlight?.(openChatId())) {
+        if (window.isPublishInFlight?.(openChatId()) || window.isPublishStarting?.(openChatId())) {
             await puter.ui.alert('Please wait for publishing to finish before restoring a version.');
             return;
         }
-        // Ignore re-entrant clicks while a restore is already running.
-        if (window._restoringVersion) return;
+        // Ignore re-entrant clicks while a restore is already running (or
+        // saving code before it starts).
+        if (window._restoringVersion || _restoresStarting.has(openChatId())) return;
+
+        // Unsaved code in the Code view is saved first, so the restore point
+        // taken below holds it (a buffer saved over the restored files later
+        // would quietly undo the restore). 'confirmed' means the user already
+        // agreed to the restore in that prompt.
+        // While it saves, the restore is marked as starting: sends and publishes
+        // wait for it as for a running restore (it is kept out of the editor's
+        // own save checks, so that save still runs).
+        let skipConfirm = !!opts.skipConfirm;
+        if (window.CodeEditor?.beforeRestore) {
+            const startingChat = currentChatId;
+            _restoresStarting.add(startingChat);
+            window.CodeEditor?.onStartingChange?.();
+            let editorReady;
+            try {
+                editorReady = await window.CodeEditor.beforeRestore(startingChat, { skipConfirm });
+            } finally {
+                _restoresStarting.delete(startingChat);
+                window.CodeEditor?.onStartingChange?.();
+                window.refreshPublishButton?.();
+            }
+            // The user opened another project while the code saved. The
+            // checks below and the restore would run against that one, so
+            // the restore is dropped, as a publish is.
+            if (currentChatId !== startingChat) return;
+            if (!editorReady) return;
+            if (editorReady === 'confirmed') skipConfirm = true;
+            // Anything that still got in during the save wins; say so.
+            if (window._restoringVersion) return;
+            if ((typeof isProcessing !== 'undefined' && isProcessing)
+                || (typeof _sendSetupInFlight !== 'undefined' && _sendSetupInFlight)) {
+                await puter.ui.alert('Please wait for the current task to finish before restoring a version.');
+                return;
+            }
+            if (window.isPublishInFlight?.(currentChatId) || window.isPublishStarting?.(currentChatId)) {
+                await puter.ui.alert('Please wait for publishing to finish before restoring a version.');
+                return;
+            }
+        }
 
         // Arm the guard BEFORE the confirm dialog. Sends and auto error-fix turns
         // both check window._restoringVersion, so this closes the confirm-window
@@ -713,6 +791,8 @@
         // Same for an open Issues panel: its send actions are blocked while a
         // restore is rewriting the project files.
         window.refreshIssuesSendState?.();
+        // And for the Code view, which goes read only until the restore ends.
+        window.CodeEditor?.onRestoreStart?.(currentChatId);
         // Capture the chat this restore targets. The user can still navigate to
         // another chat during the (async) restore; we use the captured values for
         // the file work and skip UI/history side-effects if the context changed.
@@ -720,6 +800,9 @@
         const appDir = currentAppDir;
         // Set once the project's files start being rewritten (see the catch).
         let filesTouched = false;
+        // Set once the restore's note is in the conversation (the Code view's
+        // pending hand-edit note can then go, see onRestoreEnd).
+        let restoreNoted = false;
         try {
             // Let any in-flight background snapshot finish first, so we read the
             // index and mutate files against a consistent, fully-written state.
@@ -740,7 +823,7 @@
             // makes them genuinely reversible (the opposite button — or that
             // safety snapshot — always recovers the prior state), so a misclick
             // is never destructive. Adding a confirm here would defeat the point.
-            if (!opts.skipConfirm) {
+            if (!skipConfirm) {
                 const ok = await puterConfirm('Restore the project to this version? Your current files will be replaced — a restore point is saved first, so you can switch back.');
                 if (!ok) return;
             }
@@ -934,6 +1017,7 @@
                     const messageId = (typeof generateMessageId === 'function') ? generateMessageId() : null;
                     // versionNote: not a build reply (see countCompletedBuilds).
                     chatHistory.push({ role: 'assistant', content: note, messageId, versionNote: true });
+                    restoreNoted = true;
                     if (typeof appendMessage === 'function') appendMessage(note, false);
                     // Best effort: the note is in memory and the next save
                     // carries it. saveCurrentChat is async, so a failed write
@@ -968,6 +1052,8 @@
         } finally {
             window._restoringVersion = false;
             _restoringFilesOf.delete(chatId);
+            // Open files in the Code view reload from the restored ones.
+            window.CodeEditor?.onRestoreEnd?.(chatId, filesTouched, restoreNoted);
             $('.preview-versions-panel .version-restore').prop('disabled', false);
             // Re-enable publishing now the restore is done (swaps the inline
             // "finishing…" row back to the Publish button in an open popover).

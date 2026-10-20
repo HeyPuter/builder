@@ -38,6 +38,9 @@ window.tools.push({
             // can't re-create it from a stale buffer after we move it away. See
             // window.withFileLock.
             await window.withFileLock(path, () => puter.fs.move(path, destination));
+            // The file's Code view overwrite guard follows it now, so a later
+            // source that fails to move can't leave it at the old path.
+            window.CodeEditor?.onModelFileOp?.('move', { paths_array: [path], destination }, state);
         }
         window.schedulePreviewRefresh?.();
         return true;

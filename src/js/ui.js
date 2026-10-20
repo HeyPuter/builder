@@ -404,6 +404,9 @@ window.DEVICE_LABELS = { desktop: 'Desktop', tablet: 'Tablet', mobile: 'Mobile' 
 // and the preview toolbar's overflow ("…") menu. Globals because the switcher is
 // rendered into two different toolbars built by separate functions.
 window.monitor_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`;
+// The preview toolbar's Preview | Code toggle (see js/code-editor.js).
+window.eye_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>`;
+window.code_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>`;
 window.bubble_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
 window.more_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>`;
 
@@ -1090,6 +1093,9 @@ async function runPreviewRefresh($frame, baseUrl, ownerChatId, seq) {
     window._notifyPreviewReloadCommit?.();
     window.resetPreviewErrorDedup?.();
     $frame.attr('src', url);
+    // The refresh restamps open pages on disk (cache-bust tokens, the install
+    // block). The Code view rereads them so its copies stay current.
+    window.CodeEditor?.onPreviewReloaded?.(ownerChatId);
 
     // The live site just changed, so its auto-captured screenshot is (or soon
     // will be) regenerated — refresh this project's sidebar thumbnail. Keyed to
@@ -1161,6 +1167,7 @@ window.showAppPreview = function(url, opts) {
                     </div>
                     <div class="preview-toolbar-center">
                         ${window.viewSegHtml('view-seg-preview')}
+                        ${window.FEATURE_FLAGS.codeEditor ? `<div class="pane-mode" role="group" aria-label="Show the app or its code"><button type="button" class="pane-mode-btn active" data-mode="preview" aria-pressed="true">${window.eye_svg}<span>Preview</span></button><button type="button" class="pane-mode-btn" data-mode="code" aria-pressed="false">${window.code_svg}<span>Code</span><span class="pane-mode-dot" aria-label="Unsaved changes" hidden></span></button></div>` : ''}
                         <button class="preview-reload" title="Reload">${window.reload_svg}</button>
                     </div>
                     <div class="preview-toolbar-right">
@@ -1264,6 +1271,8 @@ window.hideAppPreview = function() {
     window.closeSharePanel?.();
     window.closeIssuesPanel?.();
     window.closeDevicePanel?.();
+    // The Code view goes with the pane; the next project opens on its preview.
+    window.CodeEditor?.onPaneHidden?.();
     window.refreshPublishButton?.();
 };
 
@@ -1419,6 +1428,19 @@ function disarmSelectUI() {
     $('.preview-select-element').removeClass('active').attr('aria-pressed', 'false');
     $('body').removeClass('preview-selecting');
 }
+
+// Disarm the picker inside the app too. disarmSelectUI only resets the
+// toolbar, which left the bridge armed and the user's next click in the app
+// swallowed. The Code view calls this when it covers the preview. Any pending
+// chip is kept.
+window.disarmPreviewPicker = function () {
+    if ($('.preview-select-element').hasClass('active')) {
+        const frame = $('.preview-frame')[0];
+        try { frame && frame.contentWindow && frame.contentWindow.postMessage({ type: 'puter-select-mode', enabled: false }, '*'); }
+        catch (e) { /* best-effort */ }
+    }
+    disarmSelectUI();
+};
 
 // Human-readable chip label, e.g. <button> .cta "Sign up". All values are
 // untrusted iframe data, so every interpolation is HTML-escaped.
@@ -1889,6 +1911,8 @@ function setPublishBusy(busy, chatId) {
         $action.html(_publishActionHTML);
         _publishActionHTML = null;
     }
+    // The Code view's Save waits while a publish copies the files.
+    window.CodeEditor?.onPublishBusyChange?.();
 }
 
 // A build turn or a version restore in flight blocks publishing: we'd otherwise
@@ -1898,9 +1922,18 @@ function setPublishBusy(busy, chatId) {
 // at every turn/restore boundary). Returns a short reason token, or null.
 function publishBlockedReason() {
     if (typeof isProcessing !== 'undefined' && isProcessing) return 'task';
-    if (window._restoringVersion) return 'restore';
+    // A send being set up (it may be saving code and taking a version first)
+    // is about to start a turn.
+    if (typeof _sendSetupInFlight !== 'undefined' && _sendSetupInFlight) return 'task';
+    // A restore saving the Code view's edits before it starts counts as one.
+    if (window._restoringVersion || window.isRestoreStarting?.(currentChatId)) return 'restore';
     return null;
 }
+
+// Projects whose publish is saving the Code view's edits before it starts
+// (see doPublish). Sends and restores wait for these as for a publish.
+const _publishStarting = new Set();
+window.isPublishStarting = function (chatId) { return _publishStarting.has(chatId); };
 
 // The inline "you can publish once this finishes" row shown in place of the
 // primary action while a turn/restore runs. Spinner inherits currentColor.
@@ -2430,6 +2463,48 @@ async function doPublish() {
             { type: 'info', key: 'publish-blocked', throttleMs: 3000 });
         return;
     }
+    // Publishing ships the files on disk, so unsaved code in the Code view is
+    // saved first. The save takes a moment, so the project is marked as
+    // starting a publish (a second click, a send or a restore waits) before
+    // it, and every guard runs again after it. A save that fails stops the
+    // publish with the edits intact. The preview is refreshed once the files
+    // are copied, so no restamp runs during the copy.
+    let savedCodeForPublish = false;
+    if (window.CodeEditor?.hasUnsaved?.(currentChatId)) {
+        const savingFor = currentChatId;
+        if (_publishStarting.has(savingFor) || publishBusyHere()) return;
+        _publishStarting.add(savingFor);
+        window.CodeEditor?.onStartingChange?.();
+        $('.preview-publish-panel .publish-action').prop('disabled', true);
+        let settled;
+        try {
+            settled = await window.CodeEditor.prepareForPublish(savingFor);
+        } finally {
+            _publishStarting.delete(savingFor);
+            window.CodeEditor?.onStartingChange?.();
+            $('.preview-publish-panel .publish-action').prop('disabled', false);
+        }
+        if (settled === 'failed') {
+            // Files saved before the one that failed scheduled a preview
+            // refresh. Run it now, or it waits for the next turn's end.
+            if (currentChatId === savingFor) flushPreviewRefresh();
+            window.showToast?.('Your code changes couldn’t be saved, so nothing was published.', { type: 'error', duration: 8000 });
+            return;
+        }
+        if (settled !== 'ok' || currentChatId !== savingFor) return;
+        // A turn or a restore started while the code was saving: say so, as the
+        // check at the top does, instead of silently not publishing.
+        const blockedNow = publishBlockedReason();
+        if (blockedNow || publishBusyHere()) {
+            renderPublishPanel();
+            window.showToast?.(blockedNow === 'restore'
+                ? 'Finishing the restore — you can publish the moment it’s done.'
+                : 'Finishing the current task — you can publish the moment it’s done.',
+            { type: 'info', key: 'publish-blocked', throttleMs: 3000 });
+            return;
+        }
+        savedCodeForPublish = true;
+    }
     const chatId = currentChatId;
     const appDir = currentAppDir;
     const path = publishedRootDir();
@@ -2670,6 +2745,10 @@ async function doPublish() {
         if ($nameInput.length) { $nameInput.trigger('focus'); $nameInput[0].select(); }
     } finally {
         setPublishBusy(false, chatId);
+        // Code saved just before this publish: its preview refresh waited for
+        // the copy to finish (see above). The save scheduled it, so flushing
+        // runs it now and leaves nothing pending for the next turn.
+        if (savedCodeForPublish && currentChatId === chatId) flushPreviewRefresh();
         // Whatever chat is open now gets its true state painted back: the
         // published one if it is still open, or the one the user moved to.
         window.refreshPublishButton?.();
@@ -3297,8 +3376,9 @@ $(document).on('click', '.preview-overflow', function(e) {
     const rect = this.getBoundingClientRect();
     const items = [];
     // On the narrowest phones the toolbar's Reload button is hidden to make
-    // room (see the ≤374px rule in styles.css); it lives here instead.
-    if (!$('.preview-reload').is(':visible')) {
+    // room (see the ≤374px rule in styles.css); it lives here instead. The
+    // Code view hides it too, with nothing to reload there.
+    if (!$('.preview-reload').is(':visible') && !$('.preview-pane').hasClass('code-mode')) {
         items.push({
             icon: svgDataUri(window.reload_svg),
             label: 'Reload',
@@ -3556,6 +3636,11 @@ window.resetPreviewErrorDedup = function () {
             if (stack) errorReport += `\n\n**Stack trace:**\n${fenceUntrusted(stack)}`;
             errorReport += `\n\nPlease read the relevant source file(s), find the bug, and fix it.`;
 
+            // After hand edits in the Code view the user owns this code: the
+            // error waits there with "Ask AI to fix" instead of starting a paid
+            // turn that rewrites what they just wrote (see code-editor.js).
+            if (window.CodeEditor?.holdAutoFix?.({ report: errorReport, message, source, lineno: lineNum, colno: colNum })) return;
+
             // autoFix: counted against the budget above, and never treated as
             // a composer send (the user's typed text/attachments stay put).
             sendChatMessage(errorReport, false, { autoFix: true });
@@ -3614,6 +3699,9 @@ window.resetPreviewErrorDedup = function () {
                 }
             }
             errorReport += `\n\nPlease read the relevant source file(s), find the bug, and fix it.`;
+
+            // Held in the Code view after hand edits, as above.
+            if (window.CodeEditor?.holdAutoFix?.({ report: errorReport, message: (status === 500 ? 'HTTP 500 from ' : 'Request failed: ') + String(url).slice(0, 200) })) return;
 
             sendChatMessage(errorReport, false, { autoFix: true });
         });
@@ -4188,8 +4276,10 @@ async function puterConfirm(text) {
 // first to guard against an accidental click. Returns true when it's safe to
 // proceed: nothing is processing, or the user accepted losing the running work.
 async function confirmLeaveActiveChat() {
-    if (!isProcessing) return true;
-    return await puterConfirm('A chat is still in progress. Leaving this project will stop it. Continue?');
+    if (isProcessing && !await puterConfirm('A chat is still in progress. Leaving this project will stop it. Continue?')) return false;
+    // Unsaved code in the Code view: save it, drop it, or stay (code-editor.js).
+    if (window.CodeEditor?.hasUnsaved?.()) return await window.CodeEditor.confirmLeave();
+    return true;
 }
 
 // Whether a key event is this dialog's to act on: aimed inside it, or at
@@ -4909,11 +4999,19 @@ function openUpgradeModal(source, { justUpgraded = false } = {}) {
     source = source || 'unknown';
     if (!justUpgraded) window.track?.('Upgrade Opened', { source, plan });
     const check = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
+    // Opened from the Code view (or the AI's code-editing card): lead with the
+    // editor, and sketch it instead of the badge.
+    const forCode = !!window.FEATURE_FLAGS?.codeEditor && (source === 'code_editor' || source === 'chat_code_editor');
+    const perkList = [
+        'More credits for building apps',
+        ...(window.FEATURE_FLAGS?.codeEditor ? ['Edit your app’s code in Builder'] : []),
+        'Remove “Made with Puter” badge on your sites',
+        'Premium features we release in the future',
+    ];
+    if (forCode) perkList.unshift(perkList.splice(1, 1)[0]);
     const perks =
         '<ul class="upgrade-perks">' +
-            `<li>${check}<span>More credits for building apps</span></li>` +
-            `<li>${check}<span>Remove “Made with Puter” badge on your sites</span></li>` +
-            `<li>${check}<span>Premium features we release in the future</span></li>` +
+            perkList.map((p) => `<li>${check}<span>${p}</span></li>`).join('') +
         '</ul>';
     const billing = htmlEscape(window.Branding.UPGRADE_URL);
     // A sketch of a published site, with and without the badge in its corner.
@@ -4925,13 +5023,23 @@ function openUpgradeModal(source, { justUpgraded = false } = {}) {
             '</div>' +
         '</div>';
 
+    // A sketch of the Code view: read only on the free plan, editable on a paid one.
+    const code = (editable) =>
+        '<div class="upgrade-site upgrade-code' + (editable ? ' is-editable' : '') + '">' +
+            '<div class="upgrade-site-bar"><i></i><i></i><i></i></div>' +
+            '<div class="upgrade-code-body"><b></b><b class="i1"></b><b class="i2"></b><b class="short"></b>' +
+                (editable ? '<em class="upgrade-code-caret"></em><span class="upgrade-code-tag is-save">Save</span>'
+                    : '<span class="upgrade-code-tag">Read only</span>') +
+            '</div>' +
+        '</div>';
+
     let title, body, actions;
     if (!paid) {
         title = 'Upgrade your Puter plan';
         body =
             '<div class="upgrade-compare" aria-hidden="true">' +
-                `<figure>${site(true)}<figcaption>Free</figcaption></figure>` +
-                `<figure>${site(false)}<figcaption>Paid</figcaption></figure>` +
+                `<figure>${forCode ? code(false) : site(true)}<figcaption>Free</figcaption></figure>` +
+                `<figure>${forCode ? code(true) : site(false)}<figcaption>Paid</figcaption></figure>` +
             '</div>' +
             '<p class="upgrade-lead">A paid Puter subscription unlocks these in Builder:</p>' +
             perks;
@@ -4944,7 +5052,9 @@ function openUpgradeModal(source, { justUpgraded = false } = {}) {
         // Upgraded from the out-of-credits dialog, in the project that stopped.
         // Picking the build back up beats everything else on offer.
         const resume = justUpgraded && source === 'usage_limit' && canResumeAfterLimit();
-        const republish = !resume && justUpgraded && !!window.currentPublishedUrl && !!$('.preview-publish-btn').length;
+        // Upgraded to edit code: the one next step is the editor itself.
+        const startEditing = !resume && justUpgraded && forCode && !!window.CodeEditor && $('body').hasClass('preview-active');
+        const republish = !resume && !startEditing && justUpgraded && !!window.currentPublishedUrl && !!$('.preview-publish-btn').length;
         title = justUpgraded ? 'You’re subscribed' : 'Your Puter plan';
         body =
             (justUpgraded ? `<div class="upgrade-success-badge" aria-hidden="true">${check}</div>` : '') +
@@ -4958,6 +5068,9 @@ function openUpgradeModal(source, { justUpgraded = false } = {}) {
         actions = resume
             ? '<button type="button" class="confirm-modal-btn confirm-modal-cancel upgrade-cancel">Later</button>' +
               '<button type="button" class="confirm-modal-btn upgrade-primary upgrade-resume">Continue building</button>'
+            : startEditing
+            ? '<button type="button" class="confirm-modal-btn confirm-modal-cancel upgrade-cancel">Later</button>' +
+              '<button type="button" class="confirm-modal-btn upgrade-primary upgrade-start-editing">Start editing</button>'
             : republish
             ? '<button type="button" class="confirm-modal-btn confirm-modal-cancel upgrade-cancel">Later</button>' +
               '<button type="button" class="confirm-modal-btn upgrade-primary upgrade-republish">Publish again</button>'
@@ -4994,6 +5107,13 @@ function openUpgradeModal(source, { justUpgraded = false } = {}) {
     $overlay.find('.upgrade-republish').on('click', () => {
         close();
         openPublishPanel();
+    });
+    $overlay.find('.upgrade-start-editing').on('click', () => {
+        close();
+        // On a phone the offer is usually taken from the chat view: show the
+        // app pane first, or the editor would open out of sight.
+        if (window.isMobileViewport?.()) { $('body').removeClass('mobile-view-chat'); window.syncViewSeg?.(); }
+        window.CodeEditor?.open?.();
     });
     $overlay.find('.upgrade-resume').on('click', () => {
         close();
@@ -5211,9 +5331,10 @@ $(document).on('click', '.upgrade-btn', function (e) {
     openUpgradeModal('toolbar');
 });
 // The card the OfferUpgrade tool puts in the chat (tools/chat_ui/upgrade.js).
+// The code-editor card carries its own source; the badge card is 'chat'.
 $(document).on('click', '.upgrade-card-btn', function (e) {
     e.preventDefault();
-    openUpgradeModal('chat');
+    openUpgradeModal($(this).attr('data-source') || 'chat');
 });
 
 // Fetch the user again for a decision that depends on the plan (publishing,
@@ -5229,6 +5350,8 @@ async function refreshUserPlan() {
     if (window.Branding.isSubscribed(user) !== was) {
         updateUserMenu();
         if (_publishPanelOpen && !publishBusyHere()) renderPublishPanel();
+        // The Code view locks or unlocks editing to match.
+        window.CodeEditor?.onPlanChanged?.();
     }
     return user;
 }
@@ -5252,6 +5375,8 @@ async function refreshSubscriptionAfterUpgrade() {
     window.user = user;
     updateUserMenu();
     if (_publishPanelOpen) renderPublishPanel();
+    // This path skips refreshUserPlan, so tell the Code view here too.
+    window.CodeEditor?.onPlanChanged?.();
     openUpgradeModal(source, { justUpgraded: true });
 }
 window.addEventListener('focus', refreshSubscriptionAfterUpgrade);

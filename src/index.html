@@ -104,6 +104,11 @@
          Vite — see src/vendor/ and vite.config.js. puter.js is the one
          deliberate exception and stays on its CDN. -->
     <script src="https://js.puter.com/v2/"></script>
+    <!-- Publishes window.loadCodeEditor only. CodeMirror itself is a separate
+         chunk fetched the first time the Code view opens (see editor/entry.mjs).
+         Kept first: the module scripts run as one entry, so a throw in a later
+         one cannot leave the loader unset. -->
+    <script type="module" src="/editor/entry.mjs"></script>
     <script type="module" src="/mcp/entry.mjs"></script>
     <script>
     window.send_svg = '<svg style="width: 20px; height: 20px;" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="32px" height="32px" viewBox="0 0 32 32"><g transform="translate(0, 0)"><path d="M16.354,1.146a.5.5,0,0,0-.708,0l-10.5,10.5a.5.5,0,0,0,0,.708l2,2a.5.5,0,0,0,.708,0L14,8.207V30.5a.5.5,0,0,0,.5.5h3a.5.5,0,0,0,.5-.5V8.207l6.146,6.147a.5.5,0,0,0,.708,0l2-2a.5.5,0,0,0,0-.708Z" fill="#ffffff"></path></g></svg>';
