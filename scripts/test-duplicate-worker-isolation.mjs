@@ -22,6 +22,7 @@ function check(name, cond, detail) {
 }
 
 const appSource = fs.readFileSync(new URL('../src/js/app.js', import.meta.url), 'utf8');
+const helpersSource = fs.readFileSync(new URL('../src/js/helpers.js', import.meta.url), 'utf8');
 const ownershipSource = fs.readFileSync(new URL('../src/js/worker-ownership.js', import.meta.url), 'utf8');
 
 function extract(src, signature) {
@@ -35,6 +36,7 @@ const CODE = [
     'const _duplicatingChats = new Set();',
     appSource.match(/^const WORKER_URL_TEXT_FILE_RE = .*$/m)[0],
     extract(appSource, 'async function rewriteWorkerUrlsInDir(dir, renames, changed = new Set()) {'),
+    extract(appSource, 'function isNotFoundError(error) {'),
     extract(appSource, 'async function discardCopyAttempt(newAppDir, renames) {'),
     extract(appSource, 'async function redeployWorkersForCopy(oldAppDir, newAppDir) {'),
     extract(appSource, 'function markChatItemBusy($item, cls, on) {'),
@@ -49,6 +51,8 @@ async function run({ failAt = null, workerCount = 1 } = {}) {
     const files = new Map([
         [OLD_DIR + '/index.html', "fetch('https://original-api.puter.work/save', {method:'POST'})"],
         [OLD_DIR + '/workers/original-api.js', 'export default { fetch() {} }'],
+        // An image generated in the chat (its media folder, beside the project).
+        [PARENT + '/.media/chat1/image_1.png', 'PNG'],
         ['chat-history/chat1.json', JSON.stringify({
             id: 'chat1', title: 'Notes', history: [{ role: 'system', content: 'cwd ' + OLD_DIR }],
             previewUrl: 'https://draft-one.puter.site/', previewPath: OLD_DIR,
@@ -140,10 +144,21 @@ async function run({ failAt = null, workerCount = 1 } = {}) {
                     files.delete(path);
                 },
                 delete: async path => { files.delete(path); for (const p of under(path)) files.delete(p); },
+                stat: async path => {
+                    if (!files.has(path) && !under(path).length) { const e = new Error('not found'); e.code = 'subject_does_not_exist'; throw e; }
+                    return { path };
+                },
+                mkdir: async () => {},
             },
         },
     };
     vm.createContext(sandbox);
+    // The real media-folder helpers (window.mediaDirForAppDir).
+    const h0 = helpersSource.indexOf('window.normalizePosixPath =');
+    const h1 = helpersSource.indexOf('window.assertPathInProject =');
+    const m0 = helpersSource.indexOf('window.mediaDirForAppDir =');
+    const m1 = helpersSource.indexOf('window.chatMediaDir =');
+    new Function('window', helpersSource.slice(h0, h1) + helpersSource.slice(m0, m1))(sandbox.window);
     vm.runInContext(ownershipSource, sandbox, { filename: 'src/js/worker-ownership.js' });
     vm.runInContext(CODE, sandbox, { filename: 'src/js/app.js' });
 
@@ -156,6 +171,8 @@ async function run({ failAt = null, workerCount = 1 } = {}) {
         listed: sandbox.savedChats.some(c => c.id === 'chat-copy'),
         chatFileWritten: files.has('chat-history/chat-copy.json'),
         copyFilesLeft: under(copyDir).length,
+        copyMediaLeft: under(PARENT + '/.media/chat-copy').length,
+        copyChat: files.has('chat-history/chat-copy.json') ? JSON.parse(files.get('chat-history/chat-copy.json')) : null,
         hosted: [...sites.keys()],
         copyCallsOriginal: copyFrontend.includes('original-api.puter.work'),
         copyFrontend,
@@ -173,6 +190,7 @@ check('control: the copy has a worker of its own',
     JSON.stringify(ok.deployedNames));
 check('control: the copy is hosted', ok.hosted.join() === 'copy-draft');
 check('control: no error shown', ok.alerts.length === 0, JSON.stringify(ok.alerts));
+check('control: the copy gets its own copy of the generated media', ok.copyMediaLeft === 1, String(ok.copyMediaLeft));
 
 // ---- The copy's chat file can't be written: nothing is left behind -----------
 // Its files, its redeployed workers and its draft site were all created before
@@ -185,6 +203,7 @@ check('control: no error shown', ok.alerts.length === 0, JSON.stringify(ok.alert
     check('copy save failure: the copy\'s worker is removed', r.deployedNames.join() === 'original-api', JSON.stringify(r.deployedNames));
     check('copy save failure: the copy\'s draft site is removed', r.hosted.length === 0, JSON.stringify(r.hosted));
     check('copy save failure: the copied files are removed', r.copyFilesLeft === 0, String(r.copyFilesLeft));
+    check('copy save failure: no copy of the generated media is left behind', r.copyMediaLeft === 0, String(r.copyMediaLeft));
     check('copy save failure: the user is told', r.alerts.length === 1 && /Could not duplicate/.test(r.alerts[0]), JSON.stringify(r.alerts));
 }
 
