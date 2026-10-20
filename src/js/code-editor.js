@@ -1228,7 +1228,6 @@
             $root.find('.code-status-left').attr('class', 'code-status-left is-' + kind).html(left);
         }
         const right = [];
-        if (S.access === 'edit') right.push('<span class="code-status-credits">Editing by hand uses no credits</span>');
         if (file && file.handle && S.cursor) right.push(`<span>Ln ${S.cursor.line}, Col ${S.cursor.col}</span>`);
         const lang = file && file.info.language
             ? { html: 'HTML', svg: 'SVG', css: 'CSS', javascript: 'JavaScript', json: 'JSON', markdown: 'Markdown', plain: 'Text' }[file.info.language]

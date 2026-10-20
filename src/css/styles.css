@@ -7747,7 +7747,6 @@ html[data-theme="dark"] .upgrade-code-tag.is-save { background: #eef2f7; color: 
     .code-edit-btn { height: 40px; padding: 0 14px; font-size: 14px; }
     .code-save-btn kbd { display: none; }
     .code-bar-actions button { height: 36px; }
-    .code-status-credits { display: none; }
     html[data-theme="dark"] .code-tree { background: var(--surface-raised); border-top-color: var(--border); }
     html[data-theme="dark"] .code-files-btn { color: var(--text); }
     html[data-theme="dark"] .code-sheet-close { color: var(--text-muted); }
