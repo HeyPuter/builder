@@ -1,4 +1,4 @@
-// Olive & Ash: a one-page hair salon site.
+// Lustre: a one-page hair salon site.
 //
 // Everything a salon would change lives in the data below: the business,
 // opening hours, the menu (priced per stylist level), the team, the first
@@ -6,14 +6,14 @@
 // The business, people and reviews are sample content to replace.
 
 const SALON = {
-  name: 'Olive & Ash',
-  legalName: 'Olive & Ash Hair Studio',
+  name: 'Lustre',
+  legalName: 'Lustre Hair Studio',
   area: 'Division St, Portland',
   neighborhood: 'on Division Street.',
   address: '2417 SE Division St, Portland, OR 97202',
   phone: '(503) 555-0147',
-  email: 'hello@oliveandash.example',
-  instagram: 'oliveandash.studio',
+  email: 'hello@lustrehair.example',
+  instagram: 'lustre.hair.studio',
   currency: '$',
   rating: { average: 4.9, count: 612 },
   // Where booking requests go. Leave empty to open the guest's email app,
@@ -21,6 +21,15 @@ const SALON = {
   // POST (Formspree, Basin, your own backend) and requests arrive there.
   bookingEndpoint: '',
 };
+
+// The two small figures in the corner of the hero.
+const STATS = [
+  { label: 'Established', value: '2016' },
+  { label: 'Color clients a year', value: '1,200+' },
+];
+
+// Services offered as one-tap chips in the hero, by id from SERVICES.
+const POPULAR = ['balayage', 'signature-cut', 'curl-cut', 'gloss'];
 
 const OFFER = {
   percent: 20,
@@ -294,11 +303,13 @@ function renderBusiness() {
   const banner = $('[data-offer-banner]');
   banner.replaceChildren(`New guests: ${OFFER.percent}% off your first color service. `, h('a', { href: '#first-visit' }, 'How it works'));
 
-  $('[data-hero-eyebrow]').textContent = `Hair studio · ${SALON.area}`;
+  $('[data-salon-name]').textContent = SALON.name;
+  $('[data-brand-link]').setAttribute('aria-label', `${SALON.name}, back to top`);
+  $$('[data-wordmark]').forEach((el) => el.replaceChildren(h('span', {}, SALON.name)));
+  $('[data-hero-area]').textContent = SALON.area;
+  $('[data-stats]').replaceChildren(...STATS.map((st) => h('div', {}, h('dt', {}, st.label), h('dd', {}, st.value))));
   $$('[data-rating-average]').forEach((el) => { el.textContent = SALON.rating.average.toFixed(1); });
   $$('[data-rating-count]').forEach((el) => { el.textContent = SALON.rating.count.toLocaleString('en-US'); });
-  $('[data-stamp-text]').textContent = `new guest · ${OFFER.percent}% off first ${OFFER.category} · `;
-  $('[data-stamp-core]').textContent = `${OFFER.percent}%`;
 
   $('[data-neighborhood]').textContent = SALON.neighborhood;
   $('[data-address]').textContent = SALON.address;
@@ -357,6 +368,7 @@ function setLevel(id, { animate = true } = {}) {
   state.level = id;
   renderLevels();
   renderMenu(animate);
+  renderQuick();
 }
 
 function renderTabs() {
@@ -391,6 +403,30 @@ function renderMenu(animate = false) {
   }));
 }
 
+// The hero's quick-add card: popular services as one-tap toggles.
+function renderQuick() {
+  swap($('[data-quick]'), POPULAR.map(serviceById).filter(Boolean).map((s) => {
+    const on = state.picked.includes(s.id);
+    const price = priceFor(s);
+    return h('li', {}, h('button', {
+      type: 'button', class: 'quick-chip', 'aria-pressed': String(on), dataset: { key: s.id },
+      'aria-label': `${on ? 'Remove' : 'Add'} ${s.name} ${on ? 'from' : 'to'} your visit`,
+      onclick: () => togglePick(s.id),
+    }, s.name, price === null ? null : h('small', {}, `from ${money(price)}`)));
+  }));
+}
+
+// The giant name in the hero and footer: scaled so it spans its box.
+function fitWordmarks() {
+  for (const el of $$('[data-wordmark]')) {
+    const text = el.firstElementChild;
+    if (!text) continue;
+    el.style.fontSize = '100px';
+    const width = text.getBoundingClientRect().width;
+    if (width) el.style.fontSize = `${(100 * el.clientWidth * 0.96) / width}px`;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Stylists
 
@@ -419,9 +455,12 @@ function workDays(days) {
 function renderStylists() {
   const shown = STYLISTS.filter((s) => state.specialty === 'all' || s.specialties.includes(state.specialty));
   $('[data-stylists]').replaceChildren(...shown.map((s) => h('li', { class: 'stylist' },
-    h('figure', { class: 'arch' }, h('img', { src: s.photo, alt: `Portrait of ${s.name}`, loading: 'lazy', width: 480, height: 600 })),
-    h('h3', { class: 'stylist-name' }, s.name),
-    h('p', { class: 'stylist-role' }, s.role, h('span', { class: 'level-badge' }, levelName(s.level))),
+    h('figure', { class: 'stylist-photo' },
+      h('img', { src: s.photo, alt: `Portrait of ${s.name}`, loading: 'lazy', width: 480, height: 600 }),
+      h('figcaption', { class: 'glass stylist-plate' },
+        h('h3', { class: 'stylist-name' }, s.name),
+        h('span', { class: 'level-badge' }, levelName(s.level)))),
+    h('p', { class: 'stylist-role' }, s.role),
     h('p', { class: 'stylist-bio' }, s.bio),
     h('ul', { class: 'tag-list', 'aria-label': 'Specialties' }, s.specialties.map((t) => h('li', {}, SPECIALTIES[t] || t))),
     h('p', { class: 'stylist-days' }, `In the studio ${workDays(s.days)}`),
@@ -469,7 +508,7 @@ function renderLooks() {
     return h('li', { class: 'look' },
       h('button', { type: 'button', 'aria-label': `${l.title}${by ? `, by ${by.name}` : ''}. Open larger`, onclick: () => openLightbox(i) },
         h('img', { src: l.src, alt: l.alt, loading: 'lazy', width: l.w, height: l.h, style: l.focus ? `object-position: ${l.focus}` : null }),
-        h('span', { class: 'look-cap', 'aria-hidden': 'true' }, h('strong', {}, l.title), by ? `by ${by.name.split(' ')[0]}` : '')));
+        h('span', { class: 'glass look-cap', 'aria-hidden': 'true' }, h('strong', {}, l.title), by ? `by ${by.name.split(' ')[0]}` : '')));
   }));
 }
 
@@ -528,6 +567,7 @@ function togglePick(id) {
   if (i === -1) state.picked.push(id);
   else state.picked.splice(i, 1);
   renderMenu();
+  renderQuick();
   renderPicker();
   renderDays();
   renderTimes();
@@ -900,6 +940,7 @@ function initChrome() {
 }
 
 function renderAll() {
+  renderQuick();
   renderLevels();
   renderTabs();
   renderMenu();
@@ -912,6 +953,13 @@ function renderAll() {
 }
 
 renderBusiness();
+fitWordmarks();
+if (document.fonts) document.fonts.ready.then(fitWordmarks);
+let fitFrame = 0;
+window.addEventListener('resize', () => {
+  cancelAnimationFrame(fitFrame);
+  fitFrame = requestAnimationFrame(fitWordmarks);
+});
 renderSpecialtyFilter();
 renderStylists();
 renderFirstVisit();
