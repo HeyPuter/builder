@@ -6998,8 +6998,15 @@ html[data-theme="dark"] .generated-media.kind-audio .generated-media-el { backgr
 .generated-media-grid .generated-media.is-pending .generated-media-frame,
 .generated-media-grid .generated-media.is-broken .generated-media-frame,
 .generated-media-grid .generated-media.is-loading .generated-media-frame { max-height: 360px; }
-/* Three images: the third spans the row. */
-.generated-media-grid[data-count="3"] .generated-media-tile:nth-child(3) { grid-column: 1 / -1; }
+/* Three images: the third is centred on its own row, the same size as the
+   other two. Spanning the row made it twice as wide as the others and cropped
+   it to a different shape (a portrait version lost most of its height), so
+   the options the user picks from no longer looked comparable. */
+.generated-media-grid[data-count="3"] .generated-media-tile:nth-child(3) {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: calc((100% - 8px) / 2);
+}
 
 /* Images open in the lightbox: show they're clickable. */
 .generated-media-link { cursor: zoom-in; }
