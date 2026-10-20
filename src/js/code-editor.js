@@ -453,7 +453,7 @@
                 const generated = e.isDir ? (servedRel(e.abs) === 'icons') : (info.generatedIcon || (info.maybeGeneratedManifest && S.files.get(e.abs)?.readOnlyReason === 'generated'));
                 const open = e.isDir && S.expanded.has(e.abs);
                 const file = S.files.get(e.abs);
-                const dirty = file && file.buf && C.isDirtyStatus(file.buf.status);
+                const dirty = holdsUnsaved(file);
                 const cls = ['code-tree-item'];
                 if (e.abs === S.active) cls.push('is-active');
                 if (generated) cls.push('is-generated');
@@ -500,6 +500,12 @@
         if (chatId && chatId !== S.chatId) return [];
         return [...S.files.values()].filter((f) => f.buf && f.buf.status === 'deleted' && !C.sameContent(f.buf.text, f.buf.base));
     }
+    // Whether a file's editor holds text that is not on disk, stranded or not
+    // (the unsaved dots on its tab, in the file list and on the Code button).
+    function holdsUnsaved(f) {
+        return !!(f && f.buf && (C.isDirtyStatus(f.buf.status)
+            || (f.buf.status === 'deleted' && !C.sameContent(f.buf.text, f.buf.base))));
+    }
 
     // A file opens read only when it is generated, too large, or not UTF-8.
     // The plan and a running turn are checked separately (canEdit).
@@ -510,22 +516,27 @@
     };
 
     function canEdit(file) {
-        return S.access === 'edit' && !file.readOnlyReason && !turnRunning() && !_settling && !window._restoringVersion
+        return S.access === 'edit' && !file.readOnlyReason && !turnRunning() && !settlingIn(file.chatId) && !window._restoringVersion
             && !window.isPublishInFlight?.(file.chatId) && file.buf && file.buf.status !== 'deleted';
     }
 
     // Saving before the files are used or left (a publish, a restore, a
     // project switch): text typed while that runs would miss the save and be
-    // left behind, so the editor waits until it is done. A turn's own setup
-    // already does (turnRunning). Saving itself is not blocked (blockFor).
-    let _settling = 0;
-    async function whileSettling(run) {
-        _settling++;
+    // left behind, so the project's editor waits until it is done. Counted
+    // per project, so one still saving after the user moved on doesn't hold
+    // up the next. A turn's own setup already waits (turnRunning). Saving
+    // itself is not blocked (blockFor).
+    const _settling = new Map();
+    function settlingIn(chatId) { return (_settling.get(chatId) || 0) > 0; }
+    async function whileSettling(chatId, run) {
+        _settling.set(chatId, (_settling.get(chatId) || 0) + 1);
         renderChrome();
         try {
             return await run();
         } finally {
-            _settling--;
+            const left = (_settling.get(chatId) || 1) - 1;
+            if (left > 0) _settling.set(chatId, left);
+            else _settling.delete(chatId);
             renderChrome();
         }
     }
@@ -726,6 +737,9 @@
             if (choice === 'save' && !await saveFile(file)) return;
             if (choice === 'discard') clearDraft(abs);
         }
+        // Closing a file deleted elsewhere drops its unsaved text (its bar
+        // said so), and its draft with it.
+        if (file.buf && file.buf.status === 'deleted') clearDraft(abs);
         const hadFocus = !!($root && $root[0].contains(document.activeElement));
         try { file.handle?.destroy(); } catch (e) { /* gone */ }
         if (file.objectUrl) URL.revokeObjectURL(file.objectUrl);
@@ -749,6 +763,7 @@
     let _unsavedMarkTimer = null;
     function onEdit(file, text) {
         const was = file.buf.status;
+        file.dropped = false;
         file.buf = C.reduceBuffer(file.buf, { type: 'edit', text });
         saveDraftSoon(file);
         clearTimeout(_unsavedMarkTimer);
@@ -775,7 +790,7 @@
         else if (turnRunning()) text = 'Editing is paused while the AI works.';
         else if (window._restoringVersion) text = 'Editing is paused while a version is restored.';
         else if (window.isPublishInFlight?.(file.chatId)) text = 'Editing is paused while your site publishes.';
-        else if (_settling) text = 'Editing is paused while your changes are saved.';
+        else if (settlingIn(file.chatId)) text = 'Editing is paused while your changes are saved.';
         else return;
         if (upgrade && !file._attemptTracked) { file._attemptTracked = true; track('Code Edit Blocked', { reason: 'plan' }); }
         _attemptTip?.remove();
@@ -894,8 +909,18 @@
             return false;
         }
         file.buf = C.reduceBuffer(file.buf, { type: 'saved', text });
-        // Text typed while the save ran is still unsaved: keep its draft.
-        if (C.isDirtyStatus(file.buf.status)) saveDraftSoon(file);
+        const open = S.files.get(file.abs) === file;
+        if (file.dropped) {
+            // The user dropped their changes while this save ran (Don't save,
+            // Lose changes). It still landed, so the editor follows the
+            // saved text instead of offering the older text as unsaved.
+            file.dropped = false;
+            file.buf = C.reduceBuffer(file.buf, { type: 'discard' });
+            if (open) file.handle.setText(file.buf.text);
+        }
+        // Text typed while the save ran is still unsaved: keep its draft,
+        // unless the file was closed or its project left meanwhile.
+        if (open && C.isDirtyStatus(file.buf.status)) saveDraftSoon(file);
         else clearDraft(abs);
         markUnsavedLines(file);
         renderTabs();
@@ -981,7 +1006,12 @@
         opts = opts || {};
         let ok = true;
         for (const file of dirtyFiles(opts.chatId || S.chatId)) {
-            if (!await saveFile(file, opts)) ok = false;
+            let saved = await saveFile(file, opts);
+            // A save already running when this one was asked for (Cmd+S a
+            // moment before) wrote the text from when it started. Save what
+            // the editor holds now.
+            if (saved && file.handle && file.buf && file.buf.status === 'dirty') saved = await saveFile(file, opts);
+            if (!saved) ok = false;
         }
         return ok;
     }
@@ -1003,11 +1033,13 @@
             discardAll(chatId);
             return 'ok';
         }
-        return await whileSettling(() => saveAll(Object.assign({ chatId }, opts))) ? 'ok' : 'failed';
+        return await whileSettling(chatId || S.chatId, () => saveAll(Object.assign({ chatId }, opts))) ? 'ok' : 'failed';
     }
 
     function discard(file) {
         if (!file || !file.buf) return;
+        // A save already running still lands (see doSave).
+        if (file.buf.status === 'saving') file.dropped = true;
         file.buf = C.reduceBuffer(file.buf, { type: 'discard' });
         file.handle?.setText(file.buf.text);
         file.handle?.clearMarks();
@@ -1209,7 +1241,7 @@
         if (!$root) return;
         const html = S.tabs.map((abs) => {
             const f = S.files.get(abs);
-            const dirty = f && f.buf && C.isDirtyStatus(f.buf.status);
+            const dirty = holdsUnsaved(f);
             const active = abs === S.active;
             return `<div class="code-tab${active ? ' is-active' : ''}" data-path="${esc(abs)}">`
                 + `<button type="button" class="code-tab-btn" role="tab" aria-selected="${active}" title="${esc(relPath(abs))}">${esc(baseName(abs))}${dirty ? '<span class="code-dot" aria-label="Unsaved changes"></span>' : ''}</button>`
@@ -1291,7 +1323,7 @@
     function renderChrome() {
         // The toolbar's Code button carries a dot while unsaved edits wait
         // behind the preview.
-        $('.pane-mode-btn[data-mode="code"] .pane-mode-dot').prop('hidden', !(S.mode === 'preview' && hasUnsaved()));
+        $('.pane-mode-btn[data-mode="code"] .pane-mode-dot').prop('hidden', !(S.mode === 'preview' && (hasUnsaved() || strandedFiles().length > 0)));
         if (!$root) return;
         const file = activeFile();
         for (const f of S.files.values()) applyEditable(f);
@@ -1484,28 +1516,48 @@
         // confirmLeaveActiveChat: unsaved edits are saved, dropped, or the
         // switch is called off. Resolves true when it is fine to leave.
         async confirmLeave() {
-            const stranded = strandedFiles();
-            if (stranded.length) {
-                const one = stranded.length === 1;
-                const choice = await puter.ui.alert(`${nameList(stranded)} ${one ? 'was' : 'were'} deleted or moved while you had unsaved changes, so ${one ? 'it' : 'they'} can’t be saved. Leave and lose those changes?`, [
+            // Files deleted or moved elsewhere whose unsaved text the user
+            // agreed to lose. Asked about again for any found while a save
+            // runs.
+            const lost = new Set();
+            const askStranded = async () => {
+                const fresh = strandedFiles().filter((f) => !lost.has(f));
+                if (!fresh.length) return true;
+                const one = fresh.length === 1;
+                const choice = await puter.ui.alert(`${nameList(fresh)} ${one ? 'was' : 'were'} deleted or moved while you had unsaved changes, so ${one ? 'it' : 'they'} can’t be saved. Leave and lose those changes?`, [
                     { label: 'Lose changes', value: 'discard', type: 'primary' },
                     { label: 'Stay', value: 'cancel', type: 'secondary' },
                 ]);
                 if (choice !== 'discard') return false;
-            }
+                for (const f of fresh) lost.add(f);
+                return true;
+            };
+            // Leaving: the lost text's drafts go too, so it isn't offered back
+            // if the file returns.
+            const leave = () => {
+                for (const f of lost) clearDraft(f.abs);
+                return true;
+            };
+            if (!await askStranded()) return false;
             let files = dirtyFiles();
             for (;;) {
-                if (!files.length) return true;
+                if (!files.length) return leave();
                 const choice = await askSave(files, 'before leaving this project');
                 if (choice === 'cancel') return false;
-                if (choice === 'discard') { discardAll(); return true; }
-                if (!await whileSettling(() => saveAll())) {
+                if (choice === 'discard') {
+                    // Including a file found deleted while this was asked.
+                    for (const f of strandedFiles()) lost.add(f);
+                    discardAll();
+                    return leave();
+                }
+                if (!await whileSettling(S.chatId, () => saveAll())) {
                     // The save failed: show why, in the code, and stay.
                     const failed = dirtyFiles();
                     toast(`Couldn’t save ${nameList(failed)}, so you’re still in this project. Open Code to see why.`, { type: 'error', duration: 8000 });
                     if (S.mode !== 'code') openCode({ focus: false });
                     return false;
                 }
+                if (!await askStranded()) return false;
                 // A file can still have unsaved text in the editor after the
                 // save, such as one opened from a draft while it ran: ask
                 // again. A file whose editor never loaded keeps its draft.
@@ -1659,7 +1711,9 @@
             } catch (e) {
                 if (notFound(e)) { remapUnread(path, (p) => (p === path ? null : p)); return; }
             }
-            throw new Error(`The user edited ${absPath} by hand in the Code view since you last read it, so writing the whole file from memory would undo their changes. Read it again with ReadTextFile first, then apply your change, preferably with edit or multi_edit.`);
+            // A read the model sees only the start of keeps the guard, so the
+            // advice covers that case too.
+            throw new Error(`The user edited ${absPath} by hand in the Code view since you last read it, so writing the whole file from memory would undo their changes. Read it again with ReadTextFile first, then apply your change, preferably with edit or multi_edit. If the read comes back truncated, use edit or multi_edit, since writing the whole file stays refused.`);
         },
         noteModelRead(absPath) {
             const unread = loadUnread();

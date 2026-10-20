@@ -4557,6 +4557,10 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             // and would otherwise stay read only under a turn that never ran.
             _sendSetupInFlight = false;
             window.CodeEditor.onTurnEnd?.(setupChatId);
+            // Files saved before the one that failed scheduled a preview
+            // refresh for the turn that is not coming. Run it now. A switch
+            // to another project resets it instead.
+            if (currentChatId === setupChatId && _loadChatSeq === _loadChatSettledSeq) window.flushPreviewRefresh?.();
             if (busyNow) window.showToast?.(busyNow, { type: 'info', key: 'send-blocked-after-save', throttleMs: 3000 });
             window.refreshPublishButton?.();
             return;

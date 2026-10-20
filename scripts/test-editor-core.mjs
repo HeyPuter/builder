@@ -226,8 +226,16 @@ check('write refuses a hand-edited file the model has not reread, before taking 
     write.indexOf('await window.CodeEditor?.assertModelMayOverwrite?.(path);') > 0
     && write.indexOf('await window.CodeEditor?.assertModelMayOverwrite?.(path);') < write.indexOf('window.withFileLock('));
 check('create_worker refuses the same way', worker.includes('await window.CodeEditor?.assertModelMayOverwrite?.(filePath);'));
-check('ReadTextFile lifts the guard, also for a file that is gone',
-    (readTool.match(/window\.CodeEditor\?\.noteModelRead\?\.\(path\)/g) || []).length === 2);
+check('ReadTextFile lifts the guard at once for a file that is gone, and notes a whole read for after the round',
+    (readTool.match(/window\.CodeEditor\?\.noteModelRead\?\.\(path\)/g) || []).length === 1
+    && readTool.includes('if (state) state.lastFullRead = text.length <= MAX_CHARS ? path : null;'));
+check('a whole read lifts its guard once the round is over, only when its result was kept in the open chat',
+    tools.includes('if (fullRead) c.readsThisRound.push(fullRead);')
+    && tools.includes("if (typeof chatHistory !== 'undefined' && c.chatHistory === chatHistory) {")
+    && /if \(isAborted\(c\.abortController\) \|\| isStaleTurn\(c\)\) \{\s*liftReadGuards\(\);\s*return/.test(tools)
+    && /liftReadGuards\(\);\s*\/\/ Checkpoint this round/.test(tools));
+check('the refusal also covers a file whose read comes back truncated',
+    editor.includes('If the read comes back truncated, use edit or multi_edit, since writing the whole file stays refused.'));
 check('renames, moves, copies and deletes carry the guard, after the tool succeeded',
     tools.indexOf('window.CodeEditor?.onModelFileOp?.(toolCall.name, toolCall.input, c);') > tools.indexOf('const toolResponse = await executeFunction('));
 check('open files follow what the AI writes', tools.includes('window.CodeEditor?.onToolWrite?.(toolCall.name, c.currentChatId);'));
@@ -273,9 +281,18 @@ check('a save re-checks a delete inside the lock, before writing',
 check('the auto-fix hold rests on the stored note, so it survives a reload or a switch',
     /holdAutoFix\(err\) \{[\s\S]*?if \(!hasPendingNote\(chatId\) && !hasUnsaved\(chatId\)\) return false;/.test(editor));
 const cm = read('../src/editor/codemirror.mjs');
-check('an edit that would lose typed text over locked lines is dropped whole, except Replace All and indenting',
-    cm.includes("const independent = tr.isUserEvent('input.replace.all') || tr.isUserEvent('input.indent') || tr.isUserEvent('indent');")
-    && cm.includes('|| (dropsInsert && !independent))) {'));
+check('an edit that would lose typed text over locked lines is dropped whole, except Replace All, indenting and dedenting',
+    cm.includes("const independent = replaceAll || tr.isUserEvent('input.indent') || tr.isUserEvent('indent') || tr.isUserEvent('delete.dedent');")
+    && cm.includes('|| (dropsInsert && !independent)))'));
+check('a single Replace over a lock is dropped whole, and Replace All leaves out each match that overlaps one',
+    cm.includes("|| (tr.isUserEvent('input.replace') && !replaceAll)")
+    && cm.includes('if (replaceAll) spans.push(...straddles);'));
+check('a comment toggle that touches or wraps a lock is dropped whole',
+    cm.includes('const noEvent = tr.annotation(Transaction.userEvent) == null;')
+    && cm.includes('|| noEvent) {')
+    && /if \(!touches && noEvent\) \{[\s\S]*?fromA <= r\.to && toA >= r\.from/.test(cm));
+check('a send called off after part of its save runs the preview refresh it scheduled',
+    app.includes('if (currentChatId === setupChatId && _loadChatSeq === _loadChatSettledSeq) window.flushPreviewRefresh?.();'));
 check('a send called off during setup clears its flag before the editor redraws',
     /if \(!ready \|\| currentChatId !== setupChatId \|\| busyNow\) \{[\s\S]{0,200}?_sendSetupInFlight = false;\s*window\.CodeEditor\.onTurnEnd\?\.\(setupChatId\);/.test(app));
 check('the editor redraws when a publish or a restore starts or stops saving code first',
@@ -294,20 +311,28 @@ check('a copied backend keeps its hand-edit note and guard under its renamed fil
     /onProjectCopied\(fromChatId, toChatId, fromAppDir, toAppDir, renames\) \{[\s\S]*?\[norm\(r\.copiedFilePath\), norm\(r\.newFilePath\)\][\s\S]*?return renamed\.get\(q\) \|\| q;/.test(editor));
 check('edits to a file deleted elsewhere count for the leave checks, and leaving asks first',
     editor.includes('hasUnsaved: (chatId) => hasUnsaved(chatId) || strandedFiles(chatId).length > 0,')
-    && /async confirmLeave\(\) \{\s*const stranded = strandedFiles\(\);/.test(editor));
+    && /async confirmLeave\(\) \{[\s\S]*?const askStranded = async \(\) => \{\s*const fresh = strandedFiles\(\)/.test(editor)
+    && (editor.match(/if \(!await askStranded\(\)\) return false;/g) || []).length === 2
+    && /const leave = \(\) => \{\s*for \(const f of lost\) clearDraft\(f\.abs\);/.test(editor)
+    && /if \(choice === 'discard'\) \{[^}]*?for \(const f of strandedFiles\(\)\) lost\.add\(f\);\s*discardAll\(\);\s*return leave\(\);/.test(editor));
+check('a file deleted elsewhere shows the unsaved dot, and closing it drops its draft',
+    editor.includes("const dirty = holdsUnsaved(file);") && editor.includes("const dirty = holdsUnsaved(f);")
+    && editor.includes("(hasUnsaved() || strandedFiles().length > 0)")
+    && editor.includes("if (file.buf && file.buf.status === 'deleted') clearDraft(abs);"));
 const moveTool = read('../src/tools/fs/move.js');
 check('a move carries each file’s guard as it lands, and the after-tool hook leaves moves alone',
     /await window\.withFileLock\(path, \(\) => puter\.fs\.move\(path, destination\)\);[\s\S]{0,300}?window\.CodeEditor\?\.onModelFileOp\?\.\('move', \{ paths_array: \[path\], destination \}, state\);/.test(moveTool)
     && tools.includes("if (toolCall.name !== 'move') window.CodeEditor?.onModelFileOp?.(toolCall.name, toolCall.input, c);"));
 check('the editor is read only while it saves before a publish, a restore or leaving',
-    editor.includes('!turnRunning() && !_settling &&')
-    && editor.includes('return await whileSettling(() => saveAll(Object.assign({ chatId }, opts))) ? \'ok\' : \'failed\';')
-    && editor.includes('if (!await whileSettling(() => saveAll())) {'));
-check('a save keeps the draft of text typed while it ran',
-    /type: 'saved', text \}\);\s*\/\/[^\n]*\n\s*if \(C\.isDirtyStatus\(file\.buf\.status\)\) saveDraftSoon\(file\);\s*else clearDraft\(abs\);/.test(editor));
-check('a read lifts the guard only when the whole file reached a live turn',
-    readTool.includes('if (text.length <= MAX_CHARS && !window.isAborted?.(state?.abortController) && !window.isStaleTurn?.(state)) {')
-    && readTool.indexOf('const MAX_CHARS = window.READ_TEXT_FILE_MAX_CHARS;') < readTool.indexOf('if (text.length <= MAX_CHARS && !window.isAborted'));
+    editor.includes('!turnRunning() && !settlingIn(file.chatId) &&')
+    && editor.includes('return await whileSettling(chatId || S.chatId, () => saveAll(Object.assign({ chatId }, opts))) ? \'ok\' : \'failed\';')
+    && editor.includes('if (!await whileSettling(S.chatId, () => saveAll())) {'));
+check('a save keeps the draft of text typed while it ran, but not of dropped edits or a closed file',
+    editor.includes('if (open && C.isDirtyStatus(file.buf.status)) saveDraftSoon(file);')
+    && /if \(file\.dropped\) \{[\s\S]{0,400}?file\.buf = C\.reduceBuffer\(file\.buf, \{ type: 'discard' \}\);/.test(editor)
+    && editor.includes("if (file.buf.status === 'saving') file.dropped = true;"));
+check('saving before a turn, publish, restore or leave saves again when it joined an older save',
+    editor.includes("if (saved && file.handle && file.buf && file.buf.status === 'dirty') saved = await saveFile(file, opts);"));
 
 if (failures) {
     console.error(`\n${failures} check(s) failed`);

@@ -16,7 +16,7 @@
 // replace from disk (setText) skips that filter, since it is not the user
 // typing.
 
-import { EditorState, Compartment, StateField, StateEffect, Prec, RangeSet } from '@codemirror/state';
+import { EditorState, Compartment, StateField, StateEffect, Prec, RangeSet, Transaction } from '@codemirror/state';
 import {
     EditorView, keymap, lineNumbers, highlightActiveLineGutter, highlightSpecialChars, drawSelection,
     highlightActiveLine, dropCursor, rectangularSelection, Decoration, WidgetType, gutter, GutterMarker,
@@ -227,16 +227,19 @@ const protectField = StateField.define({
 
 // Deleting inside a protected range is dropped, and the rest of the same edit
 // still applies: a select-all delete removes everything around the locked
-// lines, Replace All and block indent change every spot outside them.
+// lines, and block indent or dedent changes every line outside them.
 // Moving lines, pasting or dropping text across one is dropped whole instead:
 // applying only the half outside would copy Builder's lines and break the
 // page. So is any other edit that would lose some of its typed text, since
-// its parts depend on each other: a comment toggle would add "<!--" without
-// its "-->", typing over a selection that starts in a lock would delete the
-// selection and drop the letter. Replace All and indenting change each line
-// on its own, so they keep the partial rule. onBlocked(kind) lets the UI say
-// what happened: 'whole' when nothing was applied, 'skipped' when the locked
-// parts of a larger edit were left out.
+// its parts depend on each other: typing over a selection that starts in a
+// lock would delete the selection and drop the letter. A single Replace over
+// a lock is dropped whole too, and Replace All leaves out each match that
+// overlaps one, so no match is half replaced. The comment commands carry no
+// user event: one that touches a lock, or wraps it by adding "<!--" or "-->"
+// right at its edge, is dropped whole, since a half-applied comment hides
+// the rest of the page. onBlocked(kind) lets the UI say what happened:
+// 'whole' when nothing was applied, 'skipped' when the locked parts of a
+// larger edit were left out.
 function protectFilter(onBlocked) {
     return EditorState.changeFilter.of((tr) => {
         const { ranges } = tr.startState.field(protectField);
@@ -244,26 +247,46 @@ function protectFilter(onBlocked) {
         let touches = false;
         let inserts = false;
         let dropsInsert = false;
+        const straddles = [];
+        // Each change on its own (one per Replace All match).
         tr.changes.iterChanges((fromA, toA, fromB, toB, inserted) => {
             if (inserted.length) inserts = true;
-            if (ranges.some((r) => fromA < r.to && toA > r.from)) touches = true;
+            if (ranges.some((r) => fromA < r.to && toA > r.from)) {
+                touches = true;
+                if (inserted.length) straddles.push([fromA, toA]);
+            }
             // CodeMirror keeps inserted text with the start of its change, so
             // the text is lost when that start is inside a range, or on its
             // first character for a replacement.
             if (inserted.length && ranges.some((r) => fromA < r.to && (fromA > r.from || (fromA === r.from && toA > fromA)))) {
                 dropsInsert = true;
             }
-        });
+        }, true);
+        const noEvent = tr.annotation(Transaction.userEvent) == null;
+        if (!touches && noEvent) {
+            tr.changes.iterChanges((fromA, toA) => {
+                if (ranges.some((r) => fromA <= r.to && toA >= r.from)) touches = true;
+            }, true);
+        }
         if (!touches) return true;
-        const independent = tr.isUserEvent('input.replace.all') || tr.isUserEvent('input.indent') || tr.isUserEvent('indent');
-        if (inserts && (tr.isUserEvent('move') || tr.isUserEvent('input.paste') || tr.isUserEvent('input.drop')
-            || (dropsInsert && !independent))) {
+        const replaceAll = tr.isUserEvent('input.replace.all');
+        const independent = replaceAll || tr.isUserEvent('input.indent') || tr.isUserEvent('indent') || tr.isUserEvent('delete.dedent');
+        if ((inserts && (tr.isUserEvent('move') || tr.isUserEvent('input.paste') || tr.isUserEvent('input.drop')
+            || (tr.isUserEvent('input.replace') && !replaceAll)
+            || (dropsInsert && !independent)))
+            || noEvent) {
             onBlocked?.('whole');
             return false;
         }
         if (tr.isUserEvent('input') || tr.isUserEvent('delete') || tr.isUserEvent('indent')) onBlocked?.('skipped');
+        const spans = ranges.map((r) => [r.from, r.to]);
+        if (replaceAll) spans.push(...straddles);
+        spans.sort((a, b) => a[0] - b[0]);
         const out = [];
-        for (const r of ranges) out.push(r.from, r.to);
+        for (const [a, b] of spans) {
+            if (out.length && a <= out[out.length - 1]) out[out.length - 1] = Math.max(out[out.length - 1], b);
+            else out.push(a, b);
+        }
         return out;
     });
 }

@@ -47,13 +47,11 @@ window.tools.push({
         // source file (~6000 lines); what it stops are data dumps, which the
         // model should reference by path or search, not read whole.
         const MAX_CHARS = window.READ_TEXT_FILE_MAX_CHARS;
-        // The model now sees the whole file, hand edits included, so the write
-        // tool may replace it again (see code-editor.js). Not when it sees only
-        // the start of the file, and not for a stopped turn: its late result
-        // can be dropped (tools.js), and the model would never see it.
-        if (text.length <= MAX_CHARS && !window.isAborted?.(state?.abortController) && !window.isStaleTurn?.(state)) {
-            window.CodeEditor?.noteModelRead?.(path);
-        }
+        // A file read whole: once the model has this result, the write tool may
+        // replace it again (code-editor.js). tools.js lifts its guard after
+        // the round, so only when the result is kept, and not for a write in
+        // this same response. Not for a file it sees only the start of.
+        if (state) state.lastFullRead = text.length <= MAX_CHARS ? path : null;
         if (text.length > MAX_CHARS) {
             const total = text.length;
             text = text.slice(0, MAX_CHARS) +
