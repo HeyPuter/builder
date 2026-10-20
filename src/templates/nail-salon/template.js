@@ -1,11 +1,11 @@
-// Half Moon Nail Studio: a one-page site for a nail salon, with a shade bar
-// that paints nails live, a menu that totals time and price, and booking
-// requests.
+// Half Moon Nail Studio: a one-page site for a nail salon in a line-drawn
+// style, with a shade bar that paints nails live, a menu that totals time and
+// price, an aftercare shelf and booking requests.
 export default {
     slug: 'nail-salon',
     name: 'Nail Salon',
     category: 'Website',
-    description: 'A nail studio site with a live shade try-on, a menu that adds up time and price, and booking requests.',
+    description: 'A line-drawn nail studio site with a live shade try-on, a menu that adds up the visit, an aftercare shelf and booking.',
     updated: '2026-10-15',
     workers: [],
     suggestions: [
@@ -17,39 +17,39 @@ export default {
     ],
     instructions: [
         'This is a one-page nail salon site: index.html holds the structure and copy, styles.css the look (color and type tokens in :root), and app.js the data and behavior.',
-        'Salon details, opening hours, services and prices, shades, lookbook sets, artists and reviews are plain data at the top of app.js (SALON, SERVICES, SHADE_FAMILIES, LOOKS, ARTISTS, REVIEWS). Change them there: the menu, ticket, shade bar, lookbook, artist cards, booking form, hours table and open-now status are all drawn from that data.',
+        'Salon details, opening hours, the monthly offer, services and prices, shades, lookbook sets, artists, shelf products and reviews are plain data at the top of app.js (SALON, SALON.offer, SERVICES, SHADE_FAMILIES, LOOKS, ARTISTS, PRODUCTS, REVIEWS). Change them there: the menu, ticket, shade bar, lookbook, artist cards, shelf, offer band, booking form, hours table and open-now status are all drawn from that data.',
         'Phone, email, address, Instagram handle and walk-in time in index.html are filled in from SALON through data-salon attributes. Keep those attributes when editing the markup.',
-        'Nails are drawn as SVG by nailSvg() from a shade, shape, finish and detail. Keep the shade bar, lookbook and artist cards working through it, and add photos alongside it rather than replacing it, unless the user asks otherwise.',
-        'Booking sends a request, not a confirmed appointment: it POSTs JSON to SALON.bookingEndpoint when set, and otherwise opens the visitor\'s email app addressed to SALON.email. Taken time slots are simulated in slotsFor(). Never tell visitors a booking is confirmed instantly; to take real bookings, connect a form endpoint or the salon\'s booking provider.',
+        'The illustrations are drawn in code in one ink style: handSvg() draws line-art hands, nailSvg() paints each nail from a shade, shape, finish and detail, and categoryIcon() and productArt() draw the menu tiles and shelf products. Keep new artwork in that style, and add photos alongside the drawings rather than replacing them, unless the user asks otherwise.',
+        'Booking sends a request, not a confirmed appointment: it POSTs JSON to SALON.bookingEndpoint when set, and otherwise opens the visitor\'s email app addressed to SALON.email. Shelf products ride along on the request and are paid for at the visit; there is no online payment. Taken time slots are simulated in slotsFor(). Never tell visitors a booking is confirmed instantly or that they have paid; to take real bookings, connect a form endpoint or the salon\'s booking provider.',
     ].join('\n'),
     page: {
         title: 'Nail Salon Website Template with a Shade Try-On',
-        description: 'A nail salon website template with a shade bar that paints nails live, a menu that totals time and price, and booking requests you can publish today.',
+        description: 'A nail salon website template with line-drawn hands, a shade bar that paints nails live, an aftercare shelf and booking requests you can publish today.',
         ogTagline: 'Try a shade, then book a chair',
         features: [
             {
                 title: 'A shade bar that paints the nails',
-                body: 'Visitors pick from thirty shades, five nail shapes, four finishes, nail art details and skin tones, and see the result on a hand as they choose.',
+                body: 'Visitors pick from thirty shades, five nail shapes, four finishes, nail art details and five skin tones, and see the result on a line-drawn hand as they choose.',
             },
             {
                 title: 'A menu that adds itself up',
-                body: 'Services sit in tabs for hands, feet, enhancements and art. Each one added updates a ticket with the total chair time and a price estimate.',
+                body: 'Services sit behind four illustrated category tiles. Each one added updates a ticket with the total chair time and a price estimate.',
+            },
+            {
+                title: 'An aftercare shelf',
+                body: 'Cuticle oil, take-home polish, hand cream and a glass file. Clients add them to their visit in one tap and pay at the studio.',
             },
             {
                 title: 'Booking requests',
                 body: 'Clients pick an artist, a day and a start time that fits the length of the visit, and can save it to their calendar. Requests reach you by email or a form endpoint.',
             },
             {
-                title: 'Lookbook and artists',
-                body: 'Six signature sets load onto the hand in one tap, and each artist card books that artist, limited to the days they work.',
-            },
-            {
-                title: 'Open now, hours and policies',
-                body: 'The top bar says whether you are open right now, the hours table marks today, and late arrival, cancellation and gift card policies are spelled out.',
+                title: 'Lookbook, artists and a monthly offer',
+                body: 'Six signature sets drawn on hands of different skin tones, artist cards that book that artist, and an offer band that takes its discount off on the right days.',
             },
             {
                 title: 'Yours in a sentence',
-                body: 'Prices, shades, artists, hours and reviews are plain data in one place. Ask the builder for your own and the whole page follows.',
+                body: 'Prices, shades, products, artists, hours and the offer are plain data in one place. Ask the builder for your own and the whole page follows.',
             },
         ],
         faq: [

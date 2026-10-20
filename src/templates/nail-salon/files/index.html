@@ -12,7 +12,7 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Half Moon Nail Studio · Gel, BIAB, nail art and pedicures</title>
 <meta name="description" content="Gel and BIAB manicures, hand-painted nail art and spa pedicures in a bright little studio. Try a shade, build your visit and book a chair online.">
-<meta name="theme-color" content="#9b1e3f">
+<meta name="theme-color" content="#8b4a62">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -44,7 +44,7 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
       <a href="#menu">Menu</a>
       <a href="#shades">Shade bar</a>
       <a href="#looks">Lookbook</a>
-      <a href="#artists">Artists</a>
+      <a href="#shelf">Shop</a>
       <a href="#visit">Visit</a>
     </nav>
     <a class="btn btn-primary btn-arrow header-cta" href="#book">Book a chair <span class="arrow" aria-hidden="true"></span></a>
@@ -70,15 +70,14 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
         </ul>
       </div>
       <div class="hero-art">
-        <div class="moon" aria-hidden="true"></div>
-        <svg class="fan" id="hero-fan" viewBox="0 0 600 520" aria-hidden="true"></svg>
+        <div class="arch" aria-hidden="true"><svg id="hero-pattern" viewBox="0 0 480 590" preserveAspectRatio="xMidYMid slice"></svg></div>
         <div class="sticker" aria-hidden="true">
           <svg viewBox="0 0 120 120"><defs><path id="sticker-circle" d="M60 60m-44 0a44 44 0 1 1 88 0a44 44 0 1 1-88 0"/></defs><text><textPath href="#sticker-circle" textLength="272" lengthAdjust="spacing">walk-ins welcome · late thursdays ·</textPath></text></svg>
           <span>☾</span>
         </div>
         <a class="shade-card" id="hero-shade" href="#shades">
-          <span class="chip" style="--chip:#8e1b2e" aria-hidden="true"></span>
-          <span class="shade-card-text"><small>Shade of the week</small><strong>Cherry Cola</strong><span>Try it on</span></span>
+          <span class="chip" style="--chip:#e4683f" aria-hidden="true"></span>
+          <span class="shade-card-text"><small>Shade of the week</small><strong>Tangerine</strong><span>Try it on</span></span>
         </a>
       </div>
     </div>
@@ -100,7 +99,7 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
       </header>
       <div class="menu-grid">
         <div class="menu-list">
-          <div class="tabs" role="tablist" aria-label="Service categories" id="menu-tabs"></div>
+          <div class="cat-tiles" role="tablist" aria-label="Service categories" id="menu-tabs"></div>
           <div id="menu-panels"></div>
         </div>
         <aside class="ticket" aria-labelledby="ticket-title">
@@ -110,6 +109,7 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
           </div>
           <p class="ticket-empty" id="ticket-empty">Nothing here yet. Add a service or two from the menu.</p>
           <ul class="ticket-list" id="ticket-list"></ul>
+          <p class="ticket-offer" id="ticket-offer" hidden></p>
           <dl class="ticket-totals">
             <div><dt>Chair time</dt><dd id="ticket-time">0 min</dd></div>
             <div><dt>Estimate</dt><dd id="ticket-price">$0</dd></div>
@@ -125,10 +125,10 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
   <section class="section shades" id="shades" aria-labelledby="shades-title">
     <div class="wrap shades-in">
       <div class="tryon">
-        <svg class="hand" id="hand" viewBox="-8 0 436 470" role="img" aria-labelledby="hand-label"></svg>
+        <svg class="hand" id="hand" viewBox="-236 -250 472 476" role="img" aria-labelledby="hand-label"></svg>
         <div class="tryon-label">
           <p class="shade-code" id="shade-code">No. 11</p>
-          <p class="shade-name" id="hand-label">Cherry Cola</p>
+          <p class="shade-name" id="hand-label">Tangerine</p>
           <p class="shade-meta" id="shade-meta">Gloss · Almond</p>
         </div>
       </div>
@@ -180,20 +180,45 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
     </div>
   </section>
 
+  <section class="section shelf" id="shelf" aria-labelledby="shelf-title">
+    <div class="wrap">
+      <header class="section-head section-head-row">
+        <div>
+          <p class="eyebrow"><span class="num">05</span> The shelf</p>
+          <h2 id="shelf-title">Take the <em>shine home</em></h2>
+        </div>
+        <p>The aftercare our artists use at the table. Add it to your visit and we set it aside at the front desk. You pay when you come in.</p>
+      </header>
+      <div class="shelf-grid" id="shelf-grid"></div>
+    </div>
+  </section>
+
   <section class="section reviews" aria-labelledby="reviews-title">
     <div class="wrap">
       <header class="section-head">
-        <p class="eyebrow"><span class="num">05</span> Kind words</p>
+        <p class="eyebrow"><span class="num">06</span> Kind words</p>
         <h2 id="reviews-title">The <em>regulars</em> say it best</h2>
       </header>
       <div class="review-grid" id="review-grid"></div>
     </div>
   </section>
 
+  <section class="offer" id="offer" aria-labelledby="offer-name">
+    <div class="wrap offer-in">
+      <div class="offer-copy">
+        <p class="eyebrow">This month</p>
+        <h2 id="offer-name">Midweek Moons</h2>
+        <p id="offer-text">15% off gel and BIAB manicures every Tuesday and Wednesday.</p>
+        <button class="btn btn-cream btn-arrow" type="button" id="offer-book">Book a midweek chair <span class="arrow" aria-hidden="true"></span></button>
+      </div>
+      <svg class="offer-art" id="offer-art" viewBox="-230 -250 470 330" aria-hidden="true"></svg>
+    </div>
+  </section>
+
   <section class="section book" id="book" aria-labelledby="book-title">
     <div class="wrap">
       <header class="section-head">
-        <p class="eyebrow"><span class="num">06</span> Book a chair</p>
+        <p class="eyebrow"><span class="num">07</span> Book a chair</p>
         <h2 id="book-title">Pick a time <em>that suits you</em></h2>
         <p>Send a request and we confirm by text within the hour while we are open. Need something today? Call us, we keep a chair for walk-ins.</p>
       </header>
@@ -201,7 +226,7 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
       <form class="booking" id="booking" novalidate>
         <div class="booking-steps">
           <fieldset class="step">
-            <legend><span class="step-no">1</span> Services</legend>
+            <legend><span class="step-no">1</span> Your visit</legend>
             <div id="book-services"></div>
           </fieldset>
           <fieldset class="step">
@@ -248,7 +273,7 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
   <section class="section visit" id="visit" aria-labelledby="visit-title">
     <div class="wrap visit-in">
       <div class="visit-where">
-        <p class="eyebrow"><span class="num">07</span> Visit</p>
+        <p class="eyebrow"><span class="num">08</span> Visit</p>
         <h2 id="visit-title">Find us on <em>Linden Avenue</em></h2>
         <address>
           <span data-salon="address">218 Linden Avenue, Portland, OR 97214</span><br>
@@ -272,7 +297,7 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
   <section class="section faq" aria-labelledby="faq-title">
     <div class="wrap faq-in">
       <header class="section-head">
-        <p class="eyebrow"><span class="num">08</span> Questions</p>
+        <p class="eyebrow"><span class="num">09</span> Questions</p>
         <h2 id="faq-title">Good to <em>know</em></h2>
       </header>
       <div class="faq-list">
@@ -303,10 +328,13 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
 
 <footer class="site-footer">
   <div class="wrap footer-in">
-    <p class="footer-word" aria-hidden="true">half <em>moon</em></p>
+    <div class="footer-top">
+      <p class="footer-word" aria-hidden="true">half <em>moon</em></p>
+      <svg class="footer-art" id="footer-art" viewBox="-230 -250 470 300" aria-hidden="true"></svg>
+    </div>
     <div class="footer-cols">
       <p><strong>Half Moon Nail Studio</strong><br><span data-salon="address">218 Linden Avenue, Portland, OR 97214</span></p>
-      <p><a href="#menu">Menu</a><br><a href="#shades">Shade bar</a><br><a href="#book">Book a chair</a></p>
+      <p><a href="#menu">Menu</a><br><a href="#shades">Shade bar</a><br><a href="#shelf">Shop aftercare</a><br><a href="#book">Book a chair</a></p>
       <p><a data-salon="instagram" href="https://www.instagram.com/" target="_blank" rel="noopener">@halfmoon.nails</a><br><a data-salon="email" href="mailto:hello@halfmoon.example">hello@halfmoon.example</a></p>
     </div>
     <p class="footer-small">© <span id="year">2026</span> Half Moon Nail Studio. Licensed nail technicians. Prices in USD.</p>

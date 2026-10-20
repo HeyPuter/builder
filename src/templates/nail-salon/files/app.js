@@ -1,7 +1,8 @@
 /* Half Moon Nail Studio
    Everything the salon changes lives in the data at the top of this file:
-   details and hours, the menu, the shade bar, the lookbook, the artists and
-   the reviews. The page below the data only reads it. */
+   details, hours and the monthly offer, the menu, the shade bar, the lookbook,
+   the artists, the shelf of take-home products and the reviews. The page
+   below the data only reads it. */
 
 const SALON = {
   name: 'Half Moon Nail Studio',
@@ -22,7 +23,16 @@ const SALON = {
   ],
   walkInsUntil: '17:00',
   bookAheadDays: 14,
-  shadeOfWeek: 'cherry-cola',
+  shadeOfWeek: 'tangerine',
+  // The offer band. Bookings on one of `days` (Sunday = 0) take `percent` off
+  // the listed services. Set offer to null to hide the band.
+  offer: {
+    name: 'Midweek Moons',
+    text: '15% off gel and BIAB manicures every Tuesday and Wednesday.',
+    days: [2, 3],
+    services: ['gel-mani', 'biab'],
+    percent: 15,
+  },
   // Booking requests are POSTed here as JSON (a form service or your own
   // backend). Leave it empty and the request opens in the visitor's email app,
   // addressed to `email` above.
@@ -67,20 +77,20 @@ const SHADE_FAMILIES = [
     ['cashmere', 'Cashmere', '#b89487'], ['cocoa-butter', 'Cocoa Butter', '#946651'],
   ] },
   { id: 'pinks', label: 'Pinks', shades: [
-    ['ballet-slipper', 'Ballet Slipper', '#f3d3d6'], ['peony', 'Peony', '#efa5b7'], ['bubblegum', 'Bubblegum', '#f27ea3'],
+    ['ballet-slipper', 'Ballet Slipper', '#f3d3d6'], ['peony', 'Peony', '#efa5b7'], ['bubblegum', 'Bubblegum', '#e57aa3'],
     ['rosewater', 'Rosewater', '#d98b97'], ['hot-lips', 'Hot Lips', '#e0407a'],
   ] },
-  { id: 'reds', label: 'Reds', shades: [
-    ['cherry-cola', 'Cherry Cola', '#8e1b2e'], ['fire-engine', 'Fire Engine', '#d0212f'], ['tomato-girl', 'Tomato Girl', '#e2523a'],
-    ['garnet', 'Garnet', '#6f1424'], ['poppy', 'Poppy', '#ef6a55'],
+  { id: 'reds', label: 'Reds & oranges', shades: [
+    ['tangerine', 'Tangerine', '#e4683f'], ['cherry-cola', 'Cherry Cola', '#8e1b2e'], ['fire-engine', 'Fire Engine', '#d0212f'],
+    ['tomato-girl', 'Tomato Girl', '#e2523a'], ['garnet', 'Garnet', '#6f1424'],
   ] },
   { id: 'berries', label: 'Berries', shades: [
-    ['fig-jam', 'Fig Jam', '#5a2141'], ['lilac-hour', 'Lilac Hour', '#bba6d8'], ['plum-wine', 'Plum Wine', '#6c2b58'],
-    ['orchid', 'Orchid', '#a65aa1'], ['mulberry', 'Mulberry', '#8b2b5b'],
+    ['house-mauve', 'House Mauve', '#8b4a62'], ['fig-jam', 'Fig Jam', '#5a2141'], ['lilac-hour', 'Lilac Hour', '#bba6d8'],
+    ['plum-wine', 'Plum Wine', '#6c2b58'], ['orchid', 'Orchid', '#a65aa1'],
   ] },
-  { id: 'greens', label: 'Blues & greens', shades: [
-    ['pistachio', 'Pistachio', '#bccf9c'], ['sage', 'Sage', '#97a888'], ['cornflower', 'Cornflower', '#7090d6'],
-    ['teal-tide', 'Teal Tide', '#1f6d77'], ['midnight-navy', 'Midnight Navy', '#1e2a4e'],
+  { id: 'greens', label: 'Greens & blues', shades: [
+    ['pear', 'Pear', '#c3c75c'], ['fern', 'Fern', '#4f8a55'], ['pistachio', 'Pistachio', '#bccf9c'],
+    ['cornflower', 'Cornflower', '#7090d6'], ['midnight-navy', 'Midnight Navy', '#1e2a4e'],
   ] },
   { id: 'darks', label: 'Darks & whites', shades: [
     ['milk-bath', 'Milk Bath', '#f6f0e8'], ['smoke', 'Smoke', '#77706f'], ['olive-night', 'Olive Night', '#414631'],
@@ -102,41 +112,73 @@ const DETAILS = [
 const SKIN_TONES = ['#f4d6c3', '#e5b394', '#c78a64', '#94603f', '#5d3a27'];
 
 // The lookbook. `ring` styles the ring finger differently, as an accent nail.
+// `pose`, `tone` and `tilt` only change the drawing on the card.
 const LOOKS = [
-  { id: 'signature', name: 'The Half Moon', bg: '#f4dcd8', from: 60, desc: 'Our signature: a milky base with cherry moons at the cuticle and one solid cherry nail.',
-    look: { shade: 'milk-bath', shape: 'squoval', finish: 'gloss', detail: 'moon', accent: '#9b1e3f', ring: { shade: 'cherry-cola', detail: 'none' } } },
-  { id: 'cola-chrome', name: 'Cherry Cola Chrome', bg: '#f6e7b8', from: 58, desc: 'Deep cherry gel under a sheer chrome powder, so it shifts from red to rose gold in the light.',
+  { id: 'signature', name: 'The Half Moon', bg: '#ead3d9', from: 60, pose: 'relaxed', tone: 0, tilt: -6,
+    desc: 'Our signature: a milky base with mauve moons at the cuticle and one solid mauve nail.',
+    look: { shade: 'milk-bath', shape: 'squoval', finish: 'gloss', detail: 'moon', accent: '#8b4a62', ring: { shade: 'house-mauve', detail: 'none' } } },
+  { id: 'cola-chrome', name: 'Cherry Cola Chrome', bg: '#f3e3ad', from: 58, pose: 'peace', tone: 3, tilt: 6, flip: true,
+    desc: 'Deep cherry gel under a sheer chrome powder, so it shifts from red to rose gold in the light.',
     look: { shade: 'cherry-cola', shape: 'almond', finish: 'chrome', detail: 'none' } },
-  { id: 'micro-french', name: 'Micro French', bg: '#dbe3c4', from: 60, desc: 'A sheer ballet-pink base with the thinnest white tip. Quiet, clean and good with everything.',
+  { id: 'micro-french', name: 'Micro French', bg: '#dfe5cb', from: 60, pose: 'open', tone: 2, tilt: -3,
+    desc: 'A sheer ballet-pink base with the thinnest white tip. Quiet, clean and good with everything.',
     look: { shade: 'ballet-slipper', shape: 'almond', finish: 'gloss', detail: 'french', accent: '#fdfaf6' } },
-  { id: 'pistachio-dots', name: 'Pistachio Dots', bg: '#f3eee6', from: 62, desc: 'Soft green with three hand-placed milk dots on every nail. Spring, all year long.',
-    look: { shade: 'pistachio', shape: 'round', finish: 'gloss', detail: 'dots', accent: '#fdfaf6' } },
-  { id: 'midnight', name: 'Midnight Sparkle', bg: '#e3dcef', from: 92, desc: 'Coffin Gel-X in navy with a fine silver and gold glitter. Made for late dinners.',
+  { id: 'pear-dots', name: 'Pear Dots', bg: '#f5dccf', from: 62, pose: 'relaxed', tone: 4, tilt: 4, flip: true,
+    desc: 'Soft pear green with three hand-placed milk dots on every nail. Spring, all year long.',
+    look: { shade: 'pear', shape: 'round', finish: 'gloss', detail: 'dots', accent: '#fdfaf6' } },
+  { id: 'midnight', name: 'Midnight Sparkle', bg: '#e3dcef', from: 92, pose: 'relaxed', tone: 1, tilt: -4,
+    desc: 'Coffin Gel-X in navy with a fine silver and gold glitter. Made for late dinners.',
     look: { shade: 'midnight-navy', shape: 'coffin', finish: 'glitter', detail: 'none' } },
-  { id: 'fig-line', name: 'Fig & Gold Line', bg: '#f4dcd8', from: 62, desc: 'Matte fig with a single gold line painted across each nail by hand.',
+  { id: 'fig-line', name: 'Fig & Gold Line', bg: '#ead3d9', from: 62, pose: 'open', tone: 3, tilt: 5, flip: true,
+    desc: 'Matte fig with a single gold line painted across each nail by hand.',
     look: { shade: 'fig-jam', shape: 'squoval', finish: 'matte', detail: 'line', accent: '#e4c27c' } },
 ];
 
 // Artists. `days` are the weekdays they work, Sunday = 0.
 const ARTISTS = [
-  { id: 'mina', name: 'Mina Park', role: 'Studio lead', bg: '#f4dcd8', days: [2, 3, 4, 5, 6],
+  { id: 'mina', name: 'Mina Park', role: 'Studio lead', bg: '#ead3d9', days: [2, 3, 4, 5, 6], pose: 'relaxed', tone: 1,
     bio: 'Russian manicures and BIAB that grows out invisibly. Fixes nails other salons gave up on.',
     look: { shade: 'bare-truth', shape: 'squoval', finish: 'gloss', detail: 'none' } },
-  { id: 'lucia', name: 'Lucía Herrera', role: 'Nail artist', bg: '#f6e7b8', days: [0, 3, 4, 5, 6],
+  { id: 'lucia', name: 'Lucía Herrera', role: 'Nail artist', bg: '#f3e3ad', days: [0, 3, 4, 5, 6], pose: 'peace', tone: 2,
     bio: 'Hand-painted florals, fine lines and anything you can pin to a mood board.',
     look: { shade: 'lilac-hour', shape: 'almond', finish: 'gloss', detail: 'dots', accent: '#fdfaf6' } },
-  { id: 'dee', name: 'Dee Okafor', role: 'Pedicure lead', bg: '#dbe3c4', days: [0, 2, 3, 4, 5],
+  { id: 'dee', name: 'Dee Okafor', role: 'Pedicure lead', bg: '#dfe5cb', days: [0, 2, 3, 4, 5], pose: 'open', tone: 4,
     bio: 'Long, slow spa pedicures. Ask about the hot-stone massage, it is worth the extra time.',
-    look: { shade: 'tomato-girl', shape: 'round', finish: 'gloss', detail: 'none' } },
-  { id: 'hana', name: 'Hana Sato', role: 'Extensions', bg: '#e3dcef', days: [0, 4, 5, 6],
+    look: { shade: 'tangerine', shape: 'round', finish: 'gloss', detail: 'none' } },
+  { id: 'hana', name: 'Hana Sato', role: 'Extensions', bg: '#e3dcef', days: [0, 4, 5, 6], pose: 'point', tone: 0,
     bio: 'Gel-X and sculpted sets in almond, coffin and stiletto, balanced to last.',
     look: { shade: 'midnight-navy', shape: 'stiletto', finish: 'chrome', detail: 'none' } },
+];
+
+// The shelf: aftercare to take home. Added items are set aside at the front
+// desk and paid for at the visit. `art` picks the drawing: dropper, bottle,
+// tube or file. A bottle without a color uses the shade of the week.
+const PRODUCTS = [
+  { id: 'cuticle-oil', name: 'Moon Drop cuticle oil', size: '10 ml', price: 18, rating: 4.9, reviews: 212, art: 'dropper', color: '#e9b949', bg: '#f6ecd0',
+    desc: 'Jojoba and sweet almond oil. Two drops a night keeps gel from lifting.' },
+  { id: 'take-home-polish', name: 'Shade of the week, to go', size: '12 ml', price: 15, rating: 4.8, reviews: 96, art: 'bottle', bg: '#f5dccf',
+    desc: 'The color you are wearing, for touch-ups between visits.' },
+  { id: 'hand-cream', name: 'Fig & Oat hand cream', size: '60 ml', price: 22, rating: 4.8, reviews: 164, art: 'tube', color: '#e57aa3', bg: '#ead3d9',
+    desc: 'Rich but never greasy. Our artists finish every manicure with it.' },
+  { id: 'glass-file', name: 'Crystal glass file', size: '14 cm', price: 14, rating: 4.9, reviews: 98, art: 'file', color: '#c3c75c', bg: '#dfe5cb',
+    desc: 'Seals the free edge as it shapes, so nails do not peel. Lasts for years.' },
 ];
 
 const REVIEWS = [
   { quote: 'Mina fixed nails three other salons had given up on. Six weeks of BIAB and they are finally long and strong.', name: 'Priya S.', service: 'BIAB structured manicure' },
   { quote: 'I tried Cherry Cola chrome on the shade bar before I came in, and it looked exactly like that on my hands.', name: 'Jordan T.', service: 'Gel manicure with chrome' },
   { quote: 'Dee\'s spa pedicure is the best hour of my month. Quiet, warm, no upselling, and the polish lasts until the next one.', name: 'Alma R.', service: 'Half Moon spa pedicure' },
+];
+
+// The hands scattered over the hero arch (a 480 x 590 drawing). `shade: null`
+// wears the shade of the week.
+const HERO_HANDS = [
+  { pose: 'relaxed', x: 330, y: 40, rotate: 168, scale: 0.5, shade: 'house-mauve', shape: 'almond' },
+  { pose: 'peace', x: 395, y: 200, rotate: 28, scale: 0.5, shade: 'bubblegum', shape: 'round', flip: true },
+  { pose: 'point', x: 70, y: 560, rotate: -152, scale: 0.48, shade: 'pear', shape: 'coffin', flip: true },
+  { pose: 'relaxed', x: 410, y: 470, rotate: 196, scale: 0.52, shade: 'fern', shape: 'squoval' },
+  { pose: 'peace', x: 30, y: 250, rotate: 70, scale: 0.44, shade: 'fern', shape: 'almond', flip: true },
+  { pose: 'open', x: 210, y: 330, rotate: -14, scale: 0.66, shade: null, shape: 'almond' },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -148,6 +190,8 @@ const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DAY_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const INK = '#1f1a1c';
+const CREAM = '#fffcf6';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const money = (n) => '$' + n.toLocaleString('en-US');
@@ -166,6 +210,7 @@ const isoDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2
 const parseIso = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
 const fmtDay = (iso) => { const d = parseIso(iso); return `${DAY_SHORT[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`; };
 const telHref = (phone) => 'tel:+1' + phone.replace(/\D/g, '').replace(/^1(?=\d{10}$)/, '');
+const smooth = () => (matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth');
 
 function hexRgb(hex) { const n = parseInt(hex.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
 function mix(a, b, t) {
@@ -183,8 +228,10 @@ const SHADES = SHADE_FAMILIES.flatMap((f) => f.shades.map(([id, name, hex]) => (
 SHADES.forEach((s, i) => { s.code = 'No. ' + String(i + 1).padStart(2, '0'); });
 const shadeById = (id) => SHADES.find((s) => s.id === id) || SHADES[0];
 const serviceById = (id) => SERVICES.find((s) => s.id === id);
+const productById = (id) => PRODUCTS.find((p) => p.id === id);
 const artistById = (id) => ARTISTS.find((a) => a.id === id);
 const labelOf = (list, id) => (list.find((x) => x.id === id) || list[0]).label;
+const productColor = (p) => p.color || shadeById(SALON.shadeOfWeek).hex;
 
 /* ------------------------------------------------------------------ */
 /* Nail drawing                                                         */
@@ -266,11 +313,165 @@ function lookNails(look) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Line-drawn hands                                                     */
+/* ------------------------------------------------------------------ */
+
+// Hands are drawn like an ink sketch: one continuous outline from the wrist,
+// around each finger and the thumb and back down, a few crease marks, and
+// painted nails. Local coordinates: the knuckles sit near y = 0, fingers point
+// up and the wrist runs off the bottom (y ≈ 230). Fingers are listed pinky
+// first; `fold` bends a finger away so no nail shows.
+const POSES = {
+  open: { spread: 1, fingers: [{ a: -16, len: 150 }, { a: -6, len: 182 }, { a: 2, len: 192 }, { a: 11, len: 172 }], thumb: { a: 48, len: 126 } },
+  relaxed: { spread: 0.9, fingers: [{ a: -9, len: 146 }, { a: -3, len: 178 }, { a: 2, len: 188 }, { a: 7, len: 170 }], thumb: { a: 38, len: 122 } },
+  peace: { spread: 0.95, fingers: [{ a: -4, len: 150, fold: true }, { a: 0, len: 178, fold: true }, { a: -6, len: 192 }, { a: 14, len: 178 }], thumb: { a: 30, len: 112 } },
+  point: { spread: 0.95, fingers: [{ a: -2, len: 150, fold: true }, { a: 0, len: 178, fold: true }, { a: 1, len: 186, fold: true }, { a: 6, len: 182 }], thumb: { a: 36, len: 116 } },
+};
+const FINGER_W = [44, 48, 50, 48];
+
+const pt = (x, y) => ({ x, y });
+const along = (p, v, k = 1) => pt(p.x + v.x * k, p.y + v.y * k);
+const r1 = (n) => Math.round(n * 10) / 10;
+const xy = (p) => `${r1(p.x)} ${r1(p.y)}`;
+const heading = (deg) => { const r = deg * Math.PI / 180; return { u: pt(Math.sin(r), -Math.cos(r)), n: pt(Math.cos(r), Math.sin(r)) }; };
+
+// One finger (or the thumb) between two web points: the outline segment
+// (left web, around the tip, right web), crease marks and where its nail goes.
+function fingerParts(wl, wr, angle, len, w, fold) {
+  const { u, n } = heading(angle);
+  const base = pt((wl.x + wr.x) / 2, (wl.y + wr.y) / 2);
+  const reach = fold ? len * 0.4 : len;
+  const wt = fold ? w * 0.5 : w * 0.44;
+  const tip = along(base, u, reach - wt);
+  const tl = along(tip, n, -wt), tr = along(tip, n, wt);
+  // Edges leave the webs a little way up the finger, so webs read as soft U shapes.
+  const sl = along(wl, u, 7), sr = along(wr, u, 7);
+  const bulge = w * 0.06;
+  const cl = along(pt((sl.x + tl.x) / 2, (sl.y + tl.y) / 2), n, -bulge);
+  const cr = along(pt((sr.x + tr.x) / 2, (sr.y + tr.y) / 2), n, bulge);
+  const ry = fold ? wt * 0.92 : wt * 1.14;
+  const outline = `Q${xy(cl)} ${xy(tl)}A${r1(wt)} ${r1(ry)} ${r1(angle)} 0 1 ${xy(tr)}Q${xy(cr)} ${xy(sr)}`;
+  const crease = (t, k, lift = 3) => {
+    const c = along(base, u, reach * t);
+    return `M${xy(along(c, n, -w * k))}Q${xy(along(c, u, -lift))} ${xy(along(c, n, w * k))}`;
+  };
+  const creases = fold ? crease(0.66, 0.2, -4) : crease(0.4, 0.16) + crease(0.47, 0.11) + crease(0.69, 0.13);
+  return { outline, creases, start: sl, end: sr, u, nail: fold ? null : { end: along(tip, u, wt), u, angle, width: wt * 2 * 0.76 } };
+}
+
+// A whole hand as SVG markup. `nails` are options for thumb, index, middle,
+// ring and pinky (as lookNails returns them). `fill` hides what is behind the
+// hand; `tone` is a skin color printed a little off the line, like a
+// two-color print.
+function handSvg({ pose = 'open', nails, tone = null, fill = null, ink = INK, stroke = 2.6, offset = 5, creases = true }) {
+  const p = POSES[pose] || POSES.open;
+  const total = FINGER_W.reduce((a, b) => a + b, 0) * p.spread;
+  const webs = [];
+  let x = -total / 2;
+  for (let i = 0; i <= 4; i++) {
+    webs.push(pt(x, 0.0026 * x * x + (i === 0 ? 30 : i === 4 ? 24 : 0)));
+    if (i < 4) x += FINGER_W[i] * p.spread;
+  }
+  const fingers = p.fingers.map((f, i) => fingerParts(webs[i], webs[i + 1], f.a, f.len, FINGER_W[i], f.fold));
+
+  // The thumb hinges below the index finger.
+  const t = p.thumb, tw = 54;
+  const { u: tu, n: tn } = heading(t.a);
+  const tb = pt(webs[4].x + 2, webs[4].y + 80);
+  const thumb = fingerParts(along(tb, tn, -tw / 2), along(tb, tn, tw / 2), t.a, t.len, tw, false);
+
+  const w0 = webs[0], first = fingers[0], last = fingers[3];
+  const wristL = pt(w0.x + 28, w0.y + 214);
+  const wristR = pt(thumb.end.x - 30, thumb.end.y + 180);
+  // Up the outer palm edge, arriving along the pinky's own direction.
+  let d = `M${xy(wristL)}C${xy(pt(w0.x + 2, w0.y + 150))} ${xy(along(first.start, first.u, -46))} ${xy(first.start)}`;
+  fingers.forEach((f, i) => {
+    d += f.outline;
+    if (fingers[i + 1]) d += `Q${xy(pt(webs[i + 1].x, webs[i + 1].y + 4))} ${xy(fingers[i + 1].start)}`;
+  });
+  // Down into the soft web between index and thumb, round the thumb, down to the wrist.
+  d += `C${xy(along(last.end, last.u, -34))} ${xy(along(thumb.start, tu, -26))} ${xy(thumb.start)}` + thumb.outline;
+  d += `C${xy(pt(thumb.end.x + 6, thumb.end.y + 46))} ${xy(pt(wristR.x + 12, wristR.y - 84))} ${xy(wristR)}`;
+
+  const nailOpts = [nails[4], nails[3], nails[2], nails[1]];
+  let paint = '';
+  [...fingers.map((f, i) => [f, nailOpts[i]]), [thumb, nails[0]]].forEach(([f, o]) => {
+    if (!f.nail || !o) return;
+    const c = along(f.nail.end, f.nail.u, -134 * (f.nail.width / 84) * 0.96);
+    paint += `<g transform="rotate(${r1(f.nail.angle)} ${xy(c)})">${placedNail(o, c.x, c.y, f.nail.width)}</g>`;
+  });
+  const lines = fingers.map((f) => f.creases).join('') + thumb.creases;
+  return (fill ? `<path d="${d}Z" fill="${fill}"/>` : '') +
+    (tone ? `<path d="${d}Z" fill="${tone}" transform="translate(${offset} ${r1(offset * 0.7)})"/>` : '') +
+    `<path d="${d}" fill="none" stroke="${ink}" stroke-width="${r1(stroke)}" stroke-linecap="round" stroke-linejoin="round"/>` +
+    (creases ? `<path d="${lines}" fill="none" stroke="${ink}" stroke-width="${r1(stroke * 0.75)}" stroke-linecap="round"/>` : '') + paint;
+}
+
+// A hand framed for a card: fingers and thumb in view, the wrist running off
+// the bottom edge.
+function handCard({ pose, look, tone, tilt = 0, flip = false }) {
+  const hand = handSvg({ pose, nails: lookNails(look), tone: SKIN_TONES[tone] || SKIN_TONES[1], stroke: 2.8 });
+  return `<svg viewBox="-225 -244 450 360" aria-hidden="true"><g transform="rotate(${tilt}) scale(${flip ? -1 : 1} 1)">${hand}</g></svg>`;
+}
+
+/* ------------------------------------------------------------------ */
+/* Icons and product drawings, in the same ink                          */
+/* ------------------------------------------------------------------ */
+
+function categoryIcon(id) {
+  const ink = 'stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"';
+  if (id === 'hands') {
+    const nails = Array(5).fill({ color: '#e4683f', shape: 'squoval', finish: 'gloss', detail: 'none' });
+    return `<svg viewBox="0 0 64 64" aria-hidden="true"><g transform="translate(29 38) scale(.15)">${handSvg({ pose: 'open', nails, ink: 'currentColor', stroke: 14, creases: false })}</g></svg>`;
+  }
+  if (id === 'feet') {
+    const toes = [[20, 19, 7, 8.5], [31, 12, 5, 6], [40, 12.5, 4.5, 5.5], [48, 16.5, 4, 5], [54, 23.5, 3.5, 4.4]];
+    return '<svg viewBox="0 0 64 64" aria-hidden="true">' +
+      toes.map(([x, y, rx, ry]) => `<ellipse cx="${x}" cy="${r1(y - ry * 0.4)}" rx="${r1(rx * 0.62)}" ry="${r1(ry * 0.5)}" fill="#e57aa3"/>`).join('') +
+      `<g ${ink}>${toes.map(([x, y, rx, ry]) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}"/>`).join('')}` +
+      '<path d="M13 25c-2 10 0 22 6 32M57 31c1 9-1 17-5 25"/></g></svg>';
+  }
+  if (id === 'enhance') {
+    return '<svg viewBox="0 0 64 64" aria-hidden="true"><g transform="translate(16 9) scale(.28)">' +
+      `<path d="${NAIL_PATHS.coffin}" fill="#e57aa3" transform="translate(5 4)"/>` +
+      `<path d="${NAIL_PATHS.coffin}" stroke="currentColor" stroke-width="8" fill="none" stroke-linejoin="round"/>` +
+      '<path d="M4 64h92" stroke="currentColor" stroke-width="7" stroke-dasharray="10 10"/></g>' +
+      `<g ${ink}><path d="M50 14v10M45 19h10"/></g></svg>`;
+  }
+  return '<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="45" cy="16" r="6" fill="#c3c75c"/>' +
+    `<g ${ink}><path d="M12 54l24-24"/><path d="M33 27l6 6 6-9-3-3z"/><path d="M42 21c3-6 9-10 12-9 1 3-3 9-9 12"/><path d="M14 18v8M10 22h8M50 44v6M47 47h6"/></g></svg>`;
+}
+
+// 120 x 140, inked over a block of color printed slightly off the line.
+function productArt(kind, color) {
+  const ink = `stroke="${INK}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"`;
+  const block = (d) => `<path d="${d}" fill="${color}" transform="translate(5 4)"/>`;
+  let art;
+  if (kind === 'dropper') {
+    const body = 'M38 62h44v60a8 8 0 0 1-8 8H46a8 8 0 0 1-8-8z';
+    art = block(body) + block('M52 20a8 8 0 0 1 16 0v22H52z') +
+      `<g ${ink}><path d="${body}"/><path d="M52 42V20a8 8 0 0 1 16 0v22"/><path d="M46 42h28v20H46z"/><path d="M46 84h28M46 104h28"/><path d="M60 92c-3 4-3 7 0 7s3-3 0-7z"/></g>`;
+  } else if (kind === 'bottle') {
+    const body = 'M30 70q0-12 12-12h36q12 0 12 12v46q0 14-14 14H44q-14 0-14-14z';
+    art = block(body) + `<g ${ink}><path d="${body}"/><path d="M50 58V14h20v44"/><path d="M50 26h20"/><path d="M38 76q0-8 8-8"/></g>`;
+  } else if (kind === 'tube') {
+    const body = 'M40 16h40l-6 92H46z';
+    art = block(body) + `<g ${ink}><path d="${body}"/><path d="M40 16v-4h40v4M40 10h40"/><path d="M46 108h28v18H46z"/><path d="M52 40h16M50 52h20M54 64h12"/></g>`;
+  } else {
+    art = block('M70 24l18 6-34 102-18-6z') +
+      `<g ${ink}><path d="M70 24l18 6-34 102-18-6z"/><path d="M64 42l14 5M60 54l14 5M56 66l14 5M52 78l14 5"/>` +
+      '<path d="M26 44h26v74H26z" transform="rotate(-8 39 81)"/></g>';
+  }
+  return `<svg viewBox="0 0 120 140" aria-hidden="true">${art}</svg>`;
+}
+
+/* ------------------------------------------------------------------ */
 /* State                                                                */
 /* ------------------------------------------------------------------ */
 
 const state = {
-  cart: [],
+  cart: [],    // service ids
+  shelf: [],   // product ids to take home
   look: { shade: SALON.shadeOfWeek, shape: 'almond', finish: 'gloss', detail: 'none', accent: null, ring: null, tone: 1 },
   lookChosen: false,
   family: shadeById(SALON.shadeOfWeek).family,
@@ -283,10 +484,26 @@ const state = {
 
 const cartMinutes = () => state.cart.reduce((n, id) => n + serviceById(id).mins, 0);
 const cartPrice = () => state.cart.reduce((n, id) => n + serviceById(id).price, 0);
+const shelfPrice = () => state.shelf.reduce((n, id) => n + productById(id).price, 0);
+
+// What the offer takes off this visit, once the day is known.
+function offerDiscount() {
+  const o = SALON.offer;
+  if (!o || !state.date || !o.days.includes(parseIso(state.date).getDay())) return 0;
+  const base = state.cart.filter((id) => o.services.includes(id)).reduce((n, id) => n + serviceById(id).price, 0);
+  return Math.round(base * o.percent / 100);
+}
+const estimate = () => cartPrice() + shelfPrice() - offerDiscount();
 
 function toggleService(id, on = !state.cart.includes(id)) {
   if (on && !state.cart.includes(id)) state.cart.push(id);
   if (!on) state.cart = state.cart.filter((x) => x !== id);
+  renderCart();
+}
+
+function toggleProduct(id, on = !state.shelf.includes(id)) {
+  if (on && !state.shelf.includes(id)) state.shelf.push(id);
+  if (!on) state.shelf = state.shelf.filter((x) => x !== id);
   renderCart();
 }
 
@@ -327,9 +544,9 @@ function syncRadios(root, value) {
   (focusable || items.find((b) => !b.disabled) || items[0] || {}).tabIndex = 0;
 }
 
-function tabList(root, tabs, selected, onPick) {
+function tabList(root, tabs, selected, onPick, { cls = 'tab', label = (t) => esc(t.label) } = {}) {
   root.innerHTML = tabs.map((t) =>
-    `<button class="tab" type="button" role="tab" id="${root.id}-${t.id}" data-value="${t.id}" aria-selected="${t.id === selected}" tabindex="${t.id === selected ? 0 : -1}">${esc(t.label)}</button>`).join('');
+    `<button class="${cls}" type="button" role="tab" id="${root.id}-${t.id}" data-value="${t.id}" aria-selected="${t.id === selected}" tabindex="${t.id === selected ? 0 : -1}">${label(t)}</button>`).join('');
   root.addEventListener('click', (e) => { const b = e.target.closest('[role="tab"]'); if (b) pick(b.dataset.value); });
   root.addEventListener('keydown', (e) => {
     if (!(e.key in ARROWS)) return;
@@ -396,26 +613,17 @@ function renderHours() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Hero fan                                                             */
+/* Hero, offer band and footer drawings                                 */
 /* ------------------------------------------------------------------ */
 
-function renderFan() {
-  const svg = $('#hero-fan');
+function renderHeroArt() {
   const week = SALON.shadeOfWeek;
-  const others = ['oat-milk', 'ballet-slipper', 'peony', 'fig-jam', 'pistachio', 'midnight-navy'].filter((id) => id !== week);
-  const picks = [...others.slice(0, 3), week, ...others.slice(3, 6)];
-  const angles = [-48, -32, -16, 0, 16, 32, 48];
-  const px = 300, py = 500, r0 = 190, width = 100;
-  const tips = picks.map((id, i) =>
-    `<g class="tip" data-angle="${angles[i]}" style="transform: translate(${px}px, ${py}px) rotate(0deg)">` +
-    `<rect x="-9" y="${-r0 - 30}" width="18" height="${r0 + 30}" rx="9" fill="#ffffff" fill-opacity=".72"/>` +
-    placedNail({ color: shadeById(id).hex, shape: 'almond', finish: 'gloss' }, 0, -r0, width) +
-    '</g>').join('');
-  svg.innerHTML = tips + `<circle cx="${px}" cy="${py}" r="24" fill="#241619"/><circle cx="${px}" cy="${py}" r="9" fill="#f6e7b8"/>`;
-  // Fan the tips out once they are on the page.
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    $$('.tip', svg).forEach((t) => { t.style.transform = `translate(${px}px, ${py}px) rotate(${t.dataset.angle}deg)`; });
-  }));
+  $('#hero-pattern').innerHTML = HERO_HANDS.map((h, i) => {
+    const nails = Array(5).fill({ color: shadeById(h.shade || week).hex, shape: h.shape, finish: 'gloss', detail: 'none' });
+    const hand = handSvg({ pose: h.pose, nails, fill: '#efe4cf', stroke: 2 / h.scale });
+    return `<g transform="translate(${h.x} ${h.y}) rotate(${h.rotate}) scale(${h.flip ? -h.scale : h.scale} ${h.scale})">` +
+      `<g class="sway" style="animation-delay:${-i * 1.7}s">${hand}</g></g>`;
+  }).join('');
   const shade = shadeById(week);
   const card = $('#hero-shade');
   $('.chip', card).style.setProperty('--chip', shade.hex);
@@ -423,8 +631,30 @@ function renderFan() {
   card.addEventListener('click', () => applyLook({ shade: week, shape: 'almond', finish: 'gloss', detail: 'none' }));
 }
 
+function renderOffer() {
+  const o = SALON.offer;
+  const band = $('#offer');
+  if (!o) { band.hidden = true; return; }
+  $('#offer-name').textContent = o.name;
+  $('#offer-text').textContent = o.text;
+  const nails = Array(5).fill({ color: shadeById('pear').hex, shape: 'almond', finish: 'gloss', detail: 'none' });
+  $('#offer-art').innerHTML = `<g transform="rotate(-12)">${handSvg({ pose: 'peace', nails, ink: CREAM, stroke: 3 })}</g>`;
+  $('#offer-book').addEventListener('click', () => {
+    // Book the next day the offer applies, with a service it covers.
+    if (!state.cart.some((id) => o.services.includes(id))) toggleService(o.services[0], true);
+    const day = upcomingDays().find((d) => d.open && o.days.includes(d.d.getDay()));
+    if (day) { state.date = day.iso; state.time = null; renderDays(); }
+    $('#book').scrollIntoView({ behavior: smooth() });
+  });
+}
+
+function renderFooterArt() {
+  const nails = Array(5).fill({ color: shadeById(SALON.shadeOfWeek).hex, shape: 'almond', finish: 'gloss', detail: 'none' });
+  $('#footer-art').innerHTML = `<g transform="rotate(14)">${handSvg({ pose: 'open', nails, ink: CREAM, stroke: 3 })}</g>`;
+}
+
 /* ------------------------------------------------------------------ */
-/* Menu and the "your visit" ticket                                     */
+/* Menu, shelf and the "your visit" ticket                              */
 /* ------------------------------------------------------------------ */
 
 const PLUS = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
@@ -445,12 +675,40 @@ function renderMenu() {
   tabList($('#menu-tabs'), CATEGORIES, state.menuTab, (id) => {
     state.menuTab = id;
     $$('#menu-panels [role="tabpanel"]').forEach((p) => { p.hidden = p.id !== 'panel-' + id; });
+  }, {
+    cls: 'cat-tile',
+    label: (c) => {
+      const list = SERVICES.filter((s) => s.cat === c.id);
+      const from = Math.min(...list.map((s) => s.price));
+      return `<span class="cat-icon">${categoryIcon(c.id)}</span><span class="cat-name">${esc(c.label)}</span>` +
+        `<span class="cat-meta">${list.length} services · from ${money(from)}</span>`;
+    },
   });
   $('#menu-panels').addEventListener('click', (e) => {
     const b = e.target.closest('[data-service]');
     if (b) toggleService(b.dataset.service);
   });
   $('#ticket-no').textContent = 'No. ' + String(1000 + Math.floor(Math.random() * 9000));
+}
+
+function renderShelf() {
+  $('#shelf-grid').innerHTML = PRODUCTS.map((p) => `
+    <article class="product">
+      <div class="product-art" style="--bg:${p.bg}">${productArt(p.art, productColor(p))}</div>
+      <div class="product-body">
+        <p class="product-rating"><span aria-hidden="true">★</span> ${p.rating} <span>· ${p.reviews} reviews</span></p>
+        <h3>${esc(p.name)}</h3>
+        <p class="product-desc">${esc(p.desc)}</p>
+        <div class="product-foot">
+          <span class="product-price">${money(p.price)} <small>${esc(p.size)}</small></span>
+          <button class="btn btn-small" type="button" data-product="${p.id}" aria-pressed="false">Add to visit</button>
+        </div>
+      </div>
+    </article>`).join('');
+  $('#shelf-grid').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-product]');
+    if (b) toggleProduct(b.dataset.product);
+  });
 }
 
 function renderCart() {
@@ -460,14 +718,29 @@ function renderCart() {
     b.setAttribute('aria-pressed', on);
     b.setAttribute('aria-label', (on ? 'Remove ' : 'Add ') + s.name);
   });
-  const items = state.cart.map(serviceById);
-  $('#ticket-empty').hidden = items.length > 0;
-  $('#ticket-list').innerHTML = items.map((s) => `
-    <li><span>${esc(s.name)}<span class="t-mins">${fmtDuration(s.mins)}</span></span><span>${money(s.price)}</span>
-    <button class="remove" type="button" data-remove="${s.id}" aria-label="Remove ${esc(s.name)}">×</button></li>`).join('');
+  $$('#shelf-grid [data-product]').forEach((b) => {
+    const on = state.shelf.includes(b.dataset.product);
+    b.setAttribute('aria-pressed', on);
+    b.textContent = on ? 'Added ✓' : 'Add to visit';
+  });
+  const services = state.cart.map(serviceById);
+  const products = state.shelf.map(productById);
+  $('#ticket-empty').hidden = services.length + products.length > 0;
+  $('#ticket-list').innerHTML =
+    services.map((s) => `
+      <li><span>${esc(s.name)}<span class="t-mins">${fmtDuration(s.mins)}</span></span><span>${money(s.price)}</span>
+      <button class="remove" type="button" data-remove="${s.id}" aria-label="Remove ${esc(s.name)}">×</button></li>`).join('') +
+    products.map((p) => `
+      <li><span>${esc(p.name)}<span class="t-mins">Take home</span></span><span>${money(p.price)}</span>
+      <button class="remove" type="button" data-remove-product="${p.id}" aria-label="Remove ${esc(p.name)}">×</button></li>`).join('');
+  const o = SALON.offer;
+  const hint = $('#ticket-offer');
+  hint.hidden = !(o && state.cart.some((id) => o.services.includes(id)));
+  if (o) hint.textContent = `${o.name}: ${o.percent}% off on ${o.days.map((d) => DAY_SHORT[d]).join(' and ')}.`;
   $('#ticket-time').textContent = fmtDuration(cartMinutes());
-  $('#ticket-price').textContent = money(cartPrice());
-  $('#ticket-live').textContent = items.length ? `${items.length} selected, ${fmtDuration(cartMinutes())}, about ${money(cartPrice())}` : 'Nothing selected';
+  $('#ticket-price').textContent = money(cartPrice() + shelfPrice());
+  const count = services.length + products.length;
+  $('#ticket-live').textContent = count ? `${count} in your visit, ${fmtDuration(cartMinutes())}, about ${money(cartPrice() + shelfPrice())}` : 'Nothing selected';
   renderBookServices();
   renderSlots();
   renderSummary();
@@ -477,40 +750,12 @@ function renderCart() {
 /* Shade bar                                                            */
 /* ------------------------------------------------------------------ */
 
-// Fingers of a left hand seen from above, thumb on the right.
-const FINGERS = [
-  { x: 74, top: 168, w: 50 },  // pinky
-  { x: 136, top: 100, w: 58 }, // ring
-  { x: 202, top: 70, w: 62 },  // middle
-  { x: 268, top: 104, w: 60 }, // index
-];
-const THUMB = { x: 316, base: 456, len: 172, w: 66, rot: 26 };
-
-function fingerSvg(x, top, w, bottom, tone, shadow, crease) {
-  const c = (y) => `<path d="M${x - w * 0.2} ${y}q${w * 0.2} 5 ${w * 0.4} 0" stroke="${crease}" stroke-width="2.2" stroke-linecap="round" fill="none" opacity=".55"/>`;
-  return `<rect x="${x - w / 2 + 5}" y="${top + 3}" width="${w}" height="${bottom - top}" rx="${w / 2}" fill="${shadow}"/>` +
-    `<rect x="${x - w / 2}" y="${top}" width="${w}" height="${bottom - top}" rx="${w / 2}" fill="${tone}"/>` +
-    c(top + (bottom - top) * 0.46) + c(top + (bottom - top) * 0.5);
-}
-
 function renderHand() {
   const look = state.look;
-  const tone = SKIN_TONES[look.tone] || SKIN_TONES[1];
-  const shadow = mix(tone, '#3a1a10', 0.16);
-  const crease = mix(tone, '#3a1a10', 0.3);
-  const nails = lookNails(look);
-  const nailFor = (finger, opts) => placedNail(opts, finger.x, finger.top + finger.w * 1.18, finger.w * 0.74);
-  const [pinky, ring, middle, index] = FINGERS;
-  const t = THUMB, thumb = { x: t.x, top: t.base - t.len, w: t.w };
+  const hand = handSvg({ pose: 'open', nails: lookNails(look), tone: SKIN_TONES[look.tone] || SKIN_TONES[1], stroke: 2.8, offset: 6 });
   // The hand rises into a round "moon" and is clipped by it.
-  let s = '<defs><clipPath id="hand-clip"><circle cx="210" cy="250" r="216"/></clipPath></defs>' +
-    '<circle cx="210" cy="250" r="216" fill="#faf5ef" opacity=".75"/><g clip-path="url(#hand-clip)">';
-  s += `<rect x="${pinky.x - pinky.w / 2}" y="300" width="${index.x + index.w / 2 - pinky.x + pinky.w / 2 + 14}" height="260" rx="58" fill="${tone}"/>`;
-  FINGERS.forEach((f) => { s += fingerSvg(f.x, f.top, f.w, 360, tone, shadow, crease); });
-  s += `<g transform="rotate(${t.rot} ${t.x} ${t.base})">${fingerSvg(t.x, thumb.top, t.w, t.base + 40, tone, shadow, crease)}${nailFor(thumb, nails[0])}</g>`;
-  // Look order is thumb, index, middle, ring, pinky.
-  s += nailFor(pinky, nails[4]) + nailFor(ring, nails[3]) + nailFor(middle, nails[2]) + nailFor(index, nails[1]) + '</g>';
-  $('#hand').innerHTML = s;
+  $('#hand').innerHTML = '<defs><clipPath id="hand-clip"><circle cx="0" cy="-12" r="226"/></clipPath></defs>' +
+    `<circle cx="0" cy="-12" r="226" fill="${CREAM}"/><g clip-path="url(#hand-clip)"><g transform="translate(-8 10)">${hand}</g></g>`;
 
   const shade = shadeById(look.shade);
   const bits = [labelOf(FINISHES, look.finish), labelOf(SHAPES, look.shape)];
@@ -597,25 +842,17 @@ function bookWithLook() {
     if (!state.cart.includes('art-full')) toggleService('art-2', true);
   }
   renderSummary();
-  $('#book').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  $('#book').scrollIntoView({ behavior: smooth() });
 }
 
 /* ------------------------------------------------------------------ */
 /* Lookbook, artists and reviews                                        */
 /* ------------------------------------------------------------------ */
 
-function setSvg(look) {
-  const nails = lookNails(look);
-  const sizes = [62, 50, 54, 48, 40];
-  const xs = [42, 100, 156, 210, 260];
-  const base = 196;
-  return `<svg viewBox="0 56 300 150" aria-hidden="true">${nails.map((n, i) => placedNail(n, xs[i], base - (i === 0 ? 0 : 6), sizes[i])).join('')}</svg>`;
-}
-
 function renderLooks() {
   $('#look-grid').innerHTML = LOOKS.map((l) => `
     <article class="look">
-      <div class="look-art" style="--bg:${l.bg}">${setSvg(l.look)}</div>
+      <div class="look-art" style="--bg:${l.bg}">${handCard({ pose: l.pose, look: l.look, tone: l.tone, tilt: l.tilt, flip: l.flip })}</div>
       <div class="look-body">
         <h3>${esc(l.name)}</h3>
         <p>${esc(l.desc)}</p>
@@ -629,7 +866,7 @@ function renderLooks() {
     const b = e.target.closest('[data-look]');
     if (!b) return;
     applyLook(LOOKS.find((l) => l.id === b.dataset.look).look);
-    $('#shades').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    $('#shades').scrollIntoView({ behavior: smooth() });
   });
 }
 
@@ -647,12 +884,9 @@ function dayRange(days) {
 }
 
 function renderArtists() {
-  $('#artist-grid').innerHTML = ARTISTS.map((a) => {
-    const look = a.look;
-    const nail = `<svg viewBox="-15 -50 130 200" aria-hidden="true">${nailSvg({ color: shadeById(look.shade).hex, shape: look.shape, finish: look.finish, detail: look.detail, accent: look.accent })}</svg>`;
-    return `
+  $('#artist-grid').innerHTML = ARTISTS.map((a) => `
     <article class="artist">
-      <div class="artist-top" style="--bg:${a.bg}"><span class="initial" aria-hidden="true">${esc(a.name[0])}.</span>${nail}</div>
+      <div class="artist-top" style="--bg:${a.bg}"><span class="initial" aria-hidden="true">${esc(a.name[0])}.</span>${handCard({ pose: a.pose, look: a.look, tone: a.tone })}</div>
       <div class="artist-body">
         <p class="artist-role">${esc(a.role)}</p>
         <h3>${esc(a.name)}</h3>
@@ -660,13 +894,12 @@ function renderArtists() {
         <p class="artist-days">In the studio ${dayRange(a.days)}</p>
         <button class="link-btn" type="button" data-artist="${a.id}">Book with ${esc(a.name.split(' ')[0])}</button>
       </div>
-    </article>`;
-  }).join('');
+    </article>`).join('');
   $('#artist-grid').addEventListener('click', (e) => {
     const b = e.target.closest('[data-artist]');
     if (!b) return;
     pickArtist(b.dataset.artist);
-    $('#book').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    $('#book').scrollIntoView({ behavior: smooth() });
   });
 }
 
@@ -687,12 +920,16 @@ function renderBookServices() {
   const box = $('#book-services');
   if (!box) return;
   const chosen = state.cart.map(serviceById);
+  const products = state.shelf.map(productById);
   const quick = SERVICES.filter((s) => s.popular && !state.cart.includes(s.id));
   box.innerHTML =
-    (chosen.length ? `<ul class="chosen">${chosen.map((s) => `<li>${esc(s.name)} <button class="remove" type="button" data-remove="${s.id}" aria-label="Remove ${esc(s.name)}">×</button></li>`).join('')}</ul>` : '') +
+    (chosen.length || products.length ? '<ul class="chosen">' +
+      chosen.map((s) => `<li>${esc(s.name)} <button class="remove" type="button" data-remove="${s.id}" aria-label="Remove ${esc(s.name)}">×</button></li>`).join('') +
+      products.map((p) => `<li class="chosen-product"><small>Take home</small> ${esc(p.name)} <button class="remove" type="button" data-remove-product="${p.id}" aria-label="Remove ${esc(p.name)}">×</button></li>`).join('') +
+      '</ul>' : '') +
     `<div class="quick"><span class="quick-label">${chosen.length ? 'Add more:' : 'Popular:'}</span>` +
     quick.map((s) => `<button class="pill" type="button" data-quick="${s.id}">+ ${esc(s.name)}</button>`).join('') +
-    `<a class="link-btn" href="#menu">Full menu</a></div>`;
+    '<a class="link-btn" href="#menu">Full menu</a></div>';
 }
 
 const worksOn = (artistId, weekday) => artistId === 'any' ? true : artistById(artistId).days.includes(weekday);
@@ -727,7 +964,7 @@ function upcomingDays() {
 
 function renderArtistPick() {
   const box = $('#book-artists');
-  const opts = [{ id: 'any', name: 'First free', sub: 'Any artist', bg: '#faf5ef', mono: '☾' },
+  const opts = [{ id: 'any', name: 'First free', sub: 'Any artist', bg: '#f6f0e4', mono: '☾' },
     ...ARTISTS.map((a) => ({ id: a.id, name: a.name.split(' ')[0], sub: a.role, bg: a.bg, mono: a.name[0] }))];
   box.innerHTML = opts.map((o) =>
     `<button class="artist-opt" type="button" role="radio" data-value="${o.id}" style="--bg:${o.bg}"><span class="mono" aria-hidden="true">${esc(o.mono)}</span>${esc(o.name)}<small>${esc(o.sub)}</small></button>`).join('');
@@ -736,11 +973,14 @@ function renderArtistPick() {
 
 function renderDays() {
   const days = upcomingDays();
+  const offerDays = SALON.offer ? SALON.offer.days : [];
   if (state.date && !days.some((d) => d.iso === state.date && d.open)) state.date = null;
   if (!state.date) state.date = (days.find((d) => d.open) || {}).iso || null;
-  $('#book-days').innerHTML = days.map(({ iso, d, open }) =>
-    `<button class="day" type="button" role="radio" data-value="${iso}" ${open ? '' : 'disabled'} aria-label="${DAY_LONG[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}${open ? '' : ', unavailable'}">` +
-    `<span class="dow">${DAY_SHORT[d.getDay()]}</span><span class="dnum">${d.getDate()}</span><span class="mon">${MONTHS[d.getMonth()]}</span></button>`).join('');
+  $('#book-days').innerHTML = days.map(({ iso, d, open }) => {
+    const deal = open && offerDays.includes(d.getDay());
+    return `<button class="day${deal ? ' is-deal' : ''}" type="button" role="radio" data-value="${iso}" ${open ? '' : 'disabled'} aria-label="${DAY_LONG[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}${open ? '' : ', unavailable'}${deal ? ', ' + esc(SALON.offer.name) : ''}">` +
+      `<span class="dow">${DAY_SHORT[d.getDay()]}</span><span class="dnum">${d.getDate()}</span><span class="mon">${MONTHS[d.getMonth()]}</span></button>`;
+  }).join('');
   syncRadios($('#book-days'), state.date);
   renderSlots();
 }
@@ -781,17 +1021,20 @@ function renderSummary() {
   const list = $('#summary-list');
   if (!list) return;
   const services = state.cart.map(serviceById);
+  const products = state.shelf.map(productById);
   const artist = state.artist === 'any' ? 'First free artist' : artistById(state.artist).name;
   const when = state.date && state.time ? `${fmtDay(state.date)} · ${fmtTime(state.time)}` : 'Pick a day and time';
   const rows = [
     ['Services', services.length ? services.map((s) => esc(s.name)).join('<br>') : 'None yet'],
-    ['Artist', esc(artist)],
-    ['When', esc(when)],
   ];
+  if (products.length) rows.push(['Take home', products.map((p) => esc(p.name)).join('<br>')]);
+  rows.push(['Artist', esc(artist)], ['When', esc(when)]);
   if (state.lookChosen) rows.push(['Look', `${esc(lookText())} <button class="remove" type="button" id="drop-look" aria-label="Remove the look">×</button>`]);
   if (services.length) rows.push(['Takes', fmtDuration(cartMinutes())]);
+  const off = offerDiscount();
+  if (off) rows.push([esc(SALON.offer.name), `−${money(off)}`]);
   list.innerHTML = rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('') +
-    `<div class="total"><dt>Estimate</dt><dd>${money(cartPrice())}</dd></div>`;
+    `<div class="total"><dt>Estimate</dt><dd>${money(estimate())}</dd></div>`;
 }
 
 function showError(msg, field) {
@@ -803,15 +1046,17 @@ function showError(msg, field) {
 
 function buildRequest(form) {
   const data = new FormData(form);
-  const services = state.cart.map(serviceById);
+  const off = offerDiscount();
   return {
     salon: SALON.name,
-    services: services.map((s) => s.name),
+    services: state.cart.map((id) => serviceById(id).name),
+    takeHome: state.shelf.map((id) => productById(id).name),
     artist: state.artist === 'any' ? 'First free artist' : artistById(state.artist).name,
     date: state.date,
     time: state.time,
     minutes: cartMinutes(),
-    estimate: cartPrice(),
+    offer: off ? `${SALON.offer.name}, −${money(off)}` : '',
+    estimate: estimate(),
     look: state.lookChosen ? lookText() : '',
     name: String(data.get('name') || '').trim(),
     phone: String(data.get('phone') || '').trim(),
@@ -826,8 +1071,10 @@ function requestText(r) {
     '',
     `When: ${fmtDay(r.date)} at ${fmtTime(r.time)} (${fmtDuration(r.minutes)})`,
     `Services: ${r.services.join(', ')}`,
+    r.takeHome.length ? `Take home: ${r.takeHome.join(', ')}` : '',
     `Artist: ${r.artist}`,
     r.look ? `Look: ${r.look}` : '',
+    r.offer ? `Offer: ${r.offer}` : '',
     `Estimate: ${money(r.estimate)}`,
     '',
     `Name: ${r.name}`,
@@ -855,7 +1102,7 @@ async function submitBooking(e) {
     if (SALON.bookingEndpoint) {
       const res = await fetch(SALON.bookingEndpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(r) });
       if (!res.ok) throw new Error('Request failed with status ' + res.status);
-      $('#confirm-text').textContent = `We have your request for ${fmtDay(r.date)} at ${fmtTime(r.time)} with ${r.artist.toLowerCase() === 'first free artist' ? 'the first free artist' : r.artist}. We will text ${r.phone} to confirm.`;
+      $('#confirm-text').textContent = `We have your request for ${fmtDay(r.date)} at ${fmtTime(r.time)} with ${state.artist === 'any' ? 'the first free artist' : r.artist}. We will text ${r.phone} to confirm.`;
     } else {
       const subject = `Booking request: ${fmtDay(r.date)} at ${fmtTime(r.time)}`;
       window.location.href = `mailto:${SALON.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(requestText(r))}`;
@@ -880,11 +1127,15 @@ function downloadCalendar() {
   const end = fromMin(toMin(r.time) + Math.max(r.minutes, 30));
   const now = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
   const escIcs = (s) => s.replace(/[\\,;]/g, (c) => '\\' + c).replace(/\n/g, '\\n');
+  const notes = [r.services.join(', ')];
+  if (r.takeHome.length) notes.push('Take home: ' + r.takeHome.join(', '));
+  if (r.look) notes.push('Look: ' + r.look);
+  notes.push('Requested, waiting for confirmation.');
   const ics = [
     'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Half Moon Nail Studio//Booking//EN', 'BEGIN:VEVENT',
     `UID:${Date.now()}@halfmoon`, `DTSTAMP:${now}`, `DTSTART:${stamp(r.date, r.time)}`, `DTEND:${stamp(r.date, end)}`,
     `SUMMARY:${escIcs('Nails at ' + SALON.name)}`, `LOCATION:${escIcs(SALON.address)}`,
-    `DESCRIPTION:${escIcs(r.services.join(', ') + (r.look ? '\nLook: ' + r.look : '') + '\nRequested, waiting for confirmation.')}`,
+    `DESCRIPTION:${escIcs(notes.join('\n'))}`,
     'END:VEVENT', 'END:VCALENDAR',
   ].join('\r\n');
   const url = URL.createObjectURL(new Blob([ics], { type: 'text/calendar' }));
@@ -909,6 +1160,8 @@ function initBooking() {
   document.addEventListener('click', (e) => {
     const rm = e.target.closest('[data-remove]');
     if (rm) { toggleService(rm.dataset.remove, false); return; }
+    const rp = e.target.closest('[data-remove-product]');
+    if (rp) { toggleProduct(rp.dataset.removeProduct, false); return; }
     const quick = e.target.closest('[data-quick]');
     if (quick) { toggleService(quick.dataset.quick, true); return; }
     if (e.target.closest('#drop-look')) { state.lookChosen = false; renderSummary(); }
@@ -921,6 +1174,7 @@ function initBooking() {
   $('#book-another').addEventListener('click', () => {
     form.reset();
     state.cart = [];
+    state.shelf = [];
     state.time = null;
     state.lookChosen = false;
     $('#confirm').hidden = true;
@@ -954,12 +1208,15 @@ renderSalonDetails();
 renderOpenStatus();
 setInterval(renderOpenStatus, 60 * 1000);
 renderHours();
-renderFan();
+renderHeroArt();
 renderMenu();
+renderShelf();
 initShadeBar();
 renderLooks();
 renderArtists();
 renderReviews();
 initBooking();
+renderOffer();
+renderFooterArt();
 renderCart();
 initNav();
