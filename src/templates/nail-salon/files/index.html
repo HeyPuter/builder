@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Half Moon Nail Studio · Gel, BIAB, nail art and pedicures</title>
+<meta name="description" content="Gel and BIAB manicures, hand-painted nail art and spa pedicures in a bright little studio. Preview a shade, build your visit and book a chair online.">
+<meta name="theme-color" content="#8f5d6e">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..700;1,400..700&family=Figtree:wght@400..700&display=swap">
+<link rel="stylesheet" href="styles.css">
+<script src="app.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<div class="announce">
+  <div class="wrap announce-in">
+    <p class="status" id="open-status"><span class="dot" aria-hidden="true"></span><span class="status-text">Open today</span></p>
+    <p class="announce-offer" id="announce-offer">Midweek Moons: 15% off gel and BIAB manicures every Tuesday and Wednesday</p>
+    <a class="announce-phone" data-salon="phone" href="tel:+15550142290">(555) 014-2290</a>
+  </div>
+</div>
+
+<header class="site-header">
+  <div class="wrap header-in">
+    <a class="brand" href="#main" aria-label="Half Moon Nail Studio, back to top">
+      <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><path d="M19 53V28C19 18 25 10 32 9c7 1 13 9 13 19v25c-9 3-17 3-26 0z"/><path class="lunula" d="M23 53.6a9 9 0 0 1 18 0c-6 1.6-12 1.6-18 0z"/></svg>
+      <span class="brand-word">Half Moon <small>Nail Studio</small></span>
+    </a>
+    <nav class="nav" id="nav" aria-label="Main">
+      <a href="#menu">Services</a>
+      <a href="#looks">Sets</a>
+      <a href="#shades">Shade bar</a>
+      <a href="#shelf">Shop</a>
+      <a href="#visit">Visit</a>
+    </nav>
+    <div class="header-actions">
+      <a class="bag" id="bag" href="#book" aria-label="Your visit, nothing added yet">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8h12l-1 12H7L6 8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>
+        <span class="bag-count" id="bag-count" hidden>0</span>
+      </a>
+      <a class="btn btn-primary btn-small header-cta" href="#book">Book now</a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav"><span class="sr-only">Open menu</span><span class="bars" aria-hidden="true"></span></button>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="wrap">
+      <div class="hero-frame">
+        <img class="hero-photo" src="photos/hero-manicure.jpg" alt="A nail technician in pink gloves filing a client's nails at a white hand rest" width="2000" height="1333" fetchpriority="high">
+        <div class="hero-copy">
+          <p class="hero-eyebrow">Gel · BIAB · Nail art · Pedicures</p>
+          <h1 id="hero-title">Ten tiny canvases, one unhurried hour.</h1>
+          <p class="hero-lead">Careful cuticle work, gel that lasts three weeks and art painted by hand, in a bright little studio on Linden Avenue.</p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="#book">Book a chair</a>
+            <a class="btn btn-sand" href="#menu">Explore services</a>
+          </div>
+        </div>
+      </div>
+      <ul class="perks">
+        <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.9 6.3 6.9.7-5.2 4.6 1.5 6.8L12 17l-6.1 3.4 1.5-6.8L2.2 9l6.9-.7z"/></svg><span><strong>4.9 from 1,240 reviews</strong>Rated by our regulars</span></li>
+        <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 3v6c0 5-3.4 9.4-8 11-4.6-1.6-8-6-8-11V5l8-3zm-1.2 13.6l6-6-1.4-1.4-4.6 4.6-2.2-2.2-1.4 1.4 3.6 3.6z"/></svg><span><strong>Sterilized tools</strong>Opened fresh at your table</span></li>
+        <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 2h10v2h2v18H5V4h2V2zm2 2v2h6V4H9zm-1 8l1.4-1.4 1.6 1.6 4.6-4.6L17 9l-6 6-3-3z"/></svg><span><strong>21-day gel promise</strong>Chips fixed for free</span></li>
+        <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zm1 5h-2v6l5 3 1-1.7-4-2.3V7z"/></svg><span><strong>Walk-ins</strong><span data-salon="walkins">welcome until 5 pm</span></span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="section services" id="menu" aria-labelledby="menu-title">
+    <div class="wrap">
+      <header class="section-head">
+        <h2 id="menu-title">Our services</h2>
+        <p>Pick a category, add what you would like, and we add up the chair time and the price as you go.</p>
+      </header>
+      <div class="cat-tiles" role="tablist" aria-label="Service categories" id="menu-tabs"></div>
+      <div class="menu-grid">
+        <div class="menu-list" id="menu-panels"></div>
+        <aside class="ticket" aria-labelledby="ticket-title">
+          <div class="ticket-head">
+            <h3 id="ticket-title">Your visit</h3>
+            <span class="ticket-no" id="ticket-no">No. 0000</span>
+          </div>
+          <p class="ticket-empty" id="ticket-empty">Nothing here yet. Add a service or two from the menu.</p>
+          <ul class="ticket-list" id="ticket-list"></ul>
+          <p class="ticket-offer" id="ticket-offer" hidden></p>
+          <dl class="ticket-totals">
+            <div><dt>Chair time</dt><dd id="ticket-time">0 min</dd></div>
+            <div><dt>Estimate</dt><dd id="ticket-price">$0</dd></div>
+          </dl>
+          <p class="sr-only" aria-live="polite" id="ticket-live"></p>
+          <a class="btn btn-primary btn-block" href="#book">Choose a time</a>
+          <p class="fineprint">Prices before tip. Detailed art is quoted at the table.</p>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <section class="section sets" id="looks" aria-labelledby="looks-title">
+    <div class="wrap">
+      <header class="section-head section-head-row">
+        <h2 id="looks-title">Featured sets</h2>
+        <a class="text-link" href="#shades">Open the shade bar</a>
+      </header>
+      <div class="card-grid card-grid-3" id="look-grid"></div>
+    </div>
+  </section>
+
+  <section class="section shades" id="shades" aria-labelledby="shades-title">
+    <div class="wrap shades-in">
+      <div class="preview">
+        <svg class="preview-art" id="preview" viewBox="0 0 560 330" role="img" aria-labelledby="preview-label"></svg>
+        <div class="preview-label">
+          <p class="shade-code" id="shade-code">No. 11</p>
+          <p class="shade-name" id="preview-label">Tangerine</p>
+          <p class="shade-meta" id="shade-meta">Gloss · Almond</p>
+        </div>
+      </div>
+      <div class="shade-controls">
+        <header class="section-head">
+          <h2 id="shades-title">The shade bar</h2>
+          <p>More than 300 bottles live on our wall. These are the thirty our regulars ask for most. Pick a color, a shape and a finish, and see the set before you sit down.</p>
+        </header>
+        <div class="tabs" role="tablist" aria-label="Shade families" id="families"></div>
+        <div class="swatches" id="swatches" role="radiogroup" aria-label="Shade"></div>
+        <div class="choices">
+          <fieldset class="choice"><legend>Shape</legend><div class="pills" id="shapes"></div></fieldset>
+          <fieldset class="choice"><legend>Finish</legend><div class="pills" id="finishes"></div></fieldset>
+          <fieldset class="choice choice-wide"><legend>Detail</legend><div class="pills" id="details"></div></fieldset>
+        </div>
+        <div class="shade-actions">
+          <button class="btn btn-primary" type="button" id="use-shade">Book with this look</button>
+          <button class="btn btn-outline" type="button" id="surprise">Surprise me</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="promo" id="offer" aria-labelledby="offer-name">
+    <div class="wrap promo-in">
+      <p class="promo-tag">This month</p>
+      <h2 id="offer-name">Midweek Moons</h2>
+      <p class="promo-text" id="offer-text">15% off gel and BIAB manicures every Tuesday and Wednesday.</p>
+      <button class="btn btn-sand" type="button" id="offer-book">Book a midweek chair</button>
+    </div>
+  </section>
+
+  <section class="section shop" id="shelf" aria-labelledby="shelf-title">
+    <div class="wrap">
+      <header class="section-head">
+        <h2 id="shelf-title">Take-home favorites</h2>
+        <p>The aftercare our artists use at the table. Add it to your visit and we set it aside at the front desk. You pay when you come in.</p>
+      </header>
+      <div class="card-grid card-grid-4" id="shelf-grid"></div>
+    </div>
+  </section>
+
+  <section class="section artists" id="artists" aria-labelledby="artists-title">
+    <div class="wrap">
+      <header class="section-head">
+        <h2 id="artists-title">Meet the artists</h2>
+        <p>Book a favorite or take the first free chair. Every artist is licensed, and each has a thing they are known for.</p>
+      </header>
+      <div class="card-grid card-grid-4" id="artist-grid"></div>
+    </div>
+  </section>
+
+  <section class="section reviews" aria-labelledby="reviews-title">
+    <div class="wrap">
+      <header class="section-head">
+        <h2 id="reviews-title">What clients say</h2>
+      </header>
+      <div class="card-grid card-grid-3" id="review-grid"></div>
+    </div>
+  </section>
+
+  <section class="section book" id="book" aria-labelledby="book-title">
+    <div class="wrap">
+      <header class="section-head">
+        <h2 id="book-title">Book a chair</h2>
+        <p>Send a request and we confirm by text within the hour while we are open. Need something today? Call us, we keep a chair for walk-ins.</p>
+      </header>
+
+      <form class="booking" id="booking" novalidate>
+        <div class="booking-steps">
+          <fieldset class="step">
+            <legend><span class="step-no">1</span> Your visit</legend>
+            <div id="book-services"></div>
+          </fieldset>
+          <fieldset class="step">
+            <legend><span class="step-no">2</span> Artist</legend>
+            <div class="artist-pick" id="book-artists" role="radiogroup" aria-label="Artist"></div>
+          </fieldset>
+          <fieldset class="step">
+            <legend><span class="step-no">3</span> Day and time</legend>
+            <div class="days" id="book-days" role="radiogroup" aria-label="Day"></div>
+            <div class="slots" id="book-slots"></div>
+          </fieldset>
+          <fieldset class="step">
+            <legend><span class="step-no">4</span> Your details</legend>
+            <div class="fields">
+              <label class="field"><span>Name</span><input name="name" autocomplete="name" required></label>
+              <label class="field"><span>Mobile</span><input name="phone" type="tel" autocomplete="tel" required></label>
+              <label class="field field-wide"><span>Email <small>(optional)</small></span><input name="email" type="email" autocomplete="email"></label>
+              <label class="field field-wide"><span>Anything we should know?</span><textarea name="notes" rows="3" placeholder="Removing another salon's acrylics, a reference photo you will bring, an allergy…"></textarea></label>
+            </div>
+          </fieldset>
+        </div>
+
+        <aside class="summary" aria-labelledby="summary-title">
+          <h3 id="summary-title">Your request</h3>
+          <dl class="summary-list" id="summary-list"></dl>
+          <p class="form-error" id="form-error" role="alert" hidden></p>
+          <button class="btn btn-sand btn-block" type="submit" id="submit">Request this time</button>
+          <p class="fineprint">No card needed. Please give us 24 hours' notice to cancel or move a booking.</p>
+        </aside>
+      </form>
+
+      <div class="confirm" id="confirm" hidden tabindex="-1">
+        <div class="confirm-mark" aria-hidden="true">✓</div>
+        <h3>Request sent. See you soon.</h3>
+        <p id="confirm-text"></p>
+        <div class="confirm-actions">
+          <button class="btn btn-primary" type="button" id="add-calendar">Add to calendar</button>
+          <button class="btn btn-outline" type="button" id="book-another">Make another booking</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section visit" id="visit" aria-labelledby="visit-title">
+    <div class="wrap visit-in">
+      <div class="visit-where">
+        <h2 id="visit-title">Visit the studio</h2>
+        <address>
+          <span data-salon="address">218 Linden Avenue, Portland, OR 97214</span><br>
+          <a data-salon="phone" href="tel:+15550142290">(555) 014-2290</a> · <a data-salon="email" href="mailto:hello@halfmoon.example">hello@halfmoon.example</a>
+        </address>
+        <p class="visit-note">Two blocks from the Linden stop on the 14 bus. Free street parking after 6 pm, and a bike rack right outside the door.</p>
+        <a class="btn btn-primary" id="directions" href="https://www.google.com/maps/search/?api=1&amp;query=218%20Linden%20Avenue%20Portland%20OR" target="_blank" rel="noopener">Get directions</a>
+      </div>
+      <div class="hours">
+        <h3>Opening hours</h3>
+        <table id="hours-table"><tbody></tbody></table>
+      </div>
+      <ul class="policies">
+        <li><h3>Running late?</h3><p>We hold your chair for 10 minutes. After that we may need to shorten the service or move you.</p></li>
+        <li><h3>Need to cancel?</h3><p>Text or call at least 24 hours ahead. Late cancellations pay half of the booked services.</p></li>
+        <li><h3>Gift cards</h3><p>Any amount, in the studio or by email. They never expire and work for every service.</p></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="section faq" aria-labelledby="faq-title">
+    <div class="wrap faq-in">
+      <header class="section-head">
+        <h2 id="faq-title">Good to know</h2>
+        <p>Still wondering about something? Call or text us any time we are open.</p>
+      </header>
+      <div class="faq-list">
+        <details>
+          <summary>What is the difference between gel and BIAB?</summary>
+          <p>Gel polish is a thin color coat that cures under a lamp and lasts about three weeks. BIAB (builder in a bottle) is a thicker, flexible gel layered over your natural nail to strengthen it while it grows. Choose BIAB if your nails bend, peel or break.</p>
+        </details>
+        <details>
+          <summary>How do you keep tools clean?</summary>
+          <p>Metal tools are scrubbed, disinfected and sterilized in an autoclave between every client, and opened from a sealed pouch at your table. Files, buffers and pedicure liners are single use.</p>
+        </details>
+        <details>
+          <summary>Can I come in with another salon's gel or acrylics?</summary>
+          <p>Yes. Add "Safe removal" from the Enhancements menu so we book enough time to take it off gently before we start.</p>
+        </details>
+        <details>
+          <summary>Do you take walk-ins?</summary>
+          <p>Until 5 pm on every day we are open, as long as a chair is free. Weekday mornings are the quietest. Call ahead and we will tell you the wait.</p>
+        </details>
+        <details>
+          <summary>What if my gel chips early?</summary>
+          <p>If a gel or BIAB set chips or lifts within 21 days, come back and we fix those nails for free.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-cols">
+      <div class="footer-brand">
+        <p class="footer-name">Half Moon <small>Nail Studio</small></p>
+        <p>Gel, BIAB, hand-painted art and spa pedicures by licensed nail artists, in a bright little studio on Linden Avenue.</p>
+      </div>
+      <div>
+        <h3>Studio</h3>
+        <p><a href="#menu">Services</a><br><a href="#looks">Featured sets</a><br><a href="#shades">Shade bar</a><br><a href="#shelf">Shop aftercare</a></p>
+      </div>
+      <div>
+        <h3>Visit</h3>
+        <p><span data-salon="address">218 Linden Avenue, Portland, OR 97214</span><br><a href="#visit">Opening hours</a><br><a href="#book">Book a chair</a></p>
+      </div>
+      <div>
+        <h3>Say hello</h3>
+        <p><a data-salon="phone" href="tel:+15550142290">(555) 014-2290</a><br><a data-salon="email" href="mailto:hello@halfmoon.example">hello@halfmoon.example</a><br><a data-salon="instagram" href="https://www.instagram.com/" target="_blank" rel="noopener">@halfmoon.nails</a></p>
+      </div>
+    </div>
+    <p class="footer-small">© <span id="year">2026</span> Half Moon Nail Studio. Licensed nail technicians. Prices in USD. Photos from Pexels.</p>
+  </div>
+</footer>
+</body>
+</html>
