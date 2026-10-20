@@ -161,7 +161,9 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
                         const abs = _abs(_inp.path);
                         window.recordPreviewChange?.(abs.slice(0, abs.lastIndexOf('/') + 1) + _inp.new_name);
                     } else if (toolCall.name === 'copy' && _inp.path && _inp.destination) {
-                        window.recordPreviewChange?.(_abs(_trimEnd(_inp.destination)) + '/' + _base(_abs(_inp.path)));
+                        // The source may be in the chat's media folder (see copy.js).
+                        const _src = window.assertPathInProjectOrMedia ? window.assertPathInProjectOrMedia(_inp.path, c) : _abs(_inp.path);
+                        window.recordPreviewChange?.(_abs(_trimEnd(_inp.destination)) + '/' + _base(_src));
                     } else if (toolCall.name === 'move' && Array.isArray(_inp.paths_array) && _inp.destination) {
                         const dest = _abs(_trimEnd(_inp.destination));
                         _inp.paths_array.forEach(p => window.recordPreviewChange?.(dest + '/' + _base(_abs(p))));

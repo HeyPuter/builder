@@ -125,7 +125,7 @@ window.tools.push({
     type: "function",
     function: {
         name: "ViewImage",
-        description: "View the visual contents of an image file in the project (e.g. an image the user attached, saved under assets/). Use this ONLY when you need to SEE an image to complete the task — for example to match a design mockup, describe or lay out a photo, or pick colors from it. You do NOT need to call this just to reference or link an image by path in code.",
+        description: "View the visual contents of an image file in the project (e.g. an image the user attached, saved under assets/) or one you generated earlier in this chat. Use this ONLY when you need to SEE an image to complete the task — for example to match a design mockup, describe or lay out a photo, or pick colors from it. You do NOT need to call this just to reference or link an image by path in code.",
         parameters: {
             type: "object",
             properties: {
@@ -154,8 +154,10 @@ window.tools.push({
         }
 
         // Confine to the project directory (after resolving any relative path), so
-        // the model can't read images outside the project. See assertPathInProject.
-        path = window.assertPathInProject(path, state);
+        // the model can't read images outside the project — or to this chat's
+        // generated-media folder, so it can look at an image it made earlier.
+        // See assertPathInProject / assertPathInProjectOrMedia.
+        path = window.assertPathInProjectOrMedia(path, state);
 
         const ext = (path.split('.').pop() || '').toLowerCase();
 
