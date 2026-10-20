@@ -1514,6 +1514,39 @@ window.assertPathInProject = function (path, state, label) {
     return abs;
 };
 
+// ---- Generated media folder ------------------------------------------------
+// Images, videos and audio the assistant generates for the chat live OUTSIDE
+// the project directory, in /<user>/AppData/<appID>/.media/<chatId>/ (a sibling
+// of .versions/). Version snapshots copy and restores rewrite the project dir,
+// so keeping media out of it means a chat full of pictures never bloats its
+// snapshots, and restoring an older version of a site never deletes them.
+// Media meant for the website is copied INTO the project (save_to_project on
+// the generation tools, or the copy tool, which may read from this folder).
+// The folder is derived from the project dir: same parent, ".media/<chatId>".
+window.mediaDirForAppDir = function (appDir) {
+    if (typeof appDir !== 'string' || !appDir) return '';
+    const norm = window.normalizePosixPath(appDir);
+    const cut = norm.lastIndexOf('/');
+    if (cut <= 0) return '';
+    return norm.slice(0, cut) + '/.media/' + norm.slice(cut + 1);
+};
+window.chatMediaDir = function (state) {
+    return window.mediaDirForAppDir(window.projectRootDir(state));
+};
+
+// assertPathInProject, but also accepting a path inside this chat's generated
+// media folder. For the READ side of tools only (ViewImage, the copy source,
+// the reference images given to GenerateImage/GenerateVideo): nothing may be
+// written into the media folder except by the generation tools themselves.
+window.assertPathInProjectOrMedia = function (path, state, label) {
+    const media = window.chatMediaDir(state);
+    if (media && typeof path === 'string' && path.startsWith('/')) {
+        const abs = window.normalizePosixPath(path);
+        if (abs === abs.trim() && (abs === media || abs.startsWith(media + '/'))) return abs;
+    }
+    return window.assertPathInProject(path, state, label);
+};
+
 // assertPathInProject for an array of paths (move/mkdir paths_array). Returns the
 // normalized paths; a missing/empty array is a model-directed error.
 window.assertPathsInProject = function (paths, state, label) {
