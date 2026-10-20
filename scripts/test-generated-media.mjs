@@ -80,7 +80,7 @@ function makeEnv({ stale = false, testMode = false } = {}) {
         fs: {
             mkdir: async (p) => { calls.mkdir.push(p); },
             stat: async (p) => { if (!env.existing.has(p)) { const e = new Error('not found'); e.code = 'subject_does_not_exist'; throw e; } return { path: p }; },
-            copy: async (src, dest, opts) => { calls.copy.push([src, dest, opts]); },
+            copy: async (src, dest, opts) => { calls.copy.push([src, dest, opts]); if (env.copyFail) throw new Error(env.copyFail); },
             getReadURL: async (p) => 'https://read.example' + p,
             read: async () => { throw new Error('no reads in this test'); },
         },
@@ -178,6 +178,43 @@ async function rejects(p) { try { await p; return null; } catch (e) { return e; 
         check(`${tool} refuses save_to_project ${JSON.stringify(args.save_to_project)} (the project folder itself)`,
             !!err && /file path inside the project/.test(err.message) && env.calls.copy.length === 0, err && err.message);
     }
+}
+
+{
+    // Copying into the project failed after the image was generated and
+    // saved: the card stayed on "Generating image…" for good, no analytics
+    // event was sent, and the image the user paid for was thrown away.
+    const env = makeEnv();
+    env.copyFail = 'quota exceeded';
+    const err = await rejects(env.tool('GenerateImage').exec({ prompt: 'Hero photo', save_to_project: 'assets/hero.png' }, env.state()));
+    check('a failed copy into the project still shows the generated image', !err && env.calls.filled.length === 1 && env.calls.removed.length === 0, err && err.message);
+    check('…and is reported as generated', env.calls.tracked.length === 1 && env.calls.tracked[0][0] === 'Image Generated' && env.calls.tracked[0][1].for_project === false, env.calls.tracked);
+    check('…not as a project change', env.calls.marked.length === 0 && env.calls.recorded.length === 0);
+}
+{
+    const env = makeEnv();
+    env.copyFail = 'quota exceeded';
+    const r = await env.tool('GenerateImage').exec({ prompt: 'Hero photo', save_to_project: 'assets/hero.png' }, env.state());
+    check('…the model is told the project copy failed and not to use that path', r && !r.project_path && /could not be saved into the project/i.test(r.note) && /assets\/hero\.png/.test(r.note) && /quota exceeded/.test(r.note), r && r.note);
+    check('…and how to copy it in later', r && r.path && r.note.includes('source: ' + r.path));
+}
+{
+    // The provider's file couldn't be saved at all: nothing reached the
+    // project either, which the note has to say.
+    const env = makeEnv();
+    env.saveOnGenerate = false;
+    env.win.GeneratedMedia.saveFromSrc = async () => { throw new Error('CORS'); };
+    const r = await env.tool('GenerateImage').exec({ prompt: 'Hero photo', save_to_project: 'assets/hero.png' }, env.state());
+    check('an unsaved generation tells the model it is not in the project', r && r.path === null && /could not be saved into the project/i.test(r.note) && /assets\/hero\.png/.test(r.note), r && r.note);
+}
+{
+    // Grid: one version's copy fails; its tile still shows and the rest land.
+    const env = makeEnv();
+    let n = 0;
+    env.win.withFileLock = (p, fn) => Promise.resolve().then(() => { if (n++ === 0) throw new Error('locked'); return fn(); });
+    const r = await env.tool('GenerateImage').exec({ prompt: 'Hero', count: 2, save_to_project: 'assets/hero.png' }, env.state());
+    check('a grid version whose project copy failed still fills its tile', env.calls.filled.length === 2 && env.calls.removed.length === 0 && r.count === 2, env.calls);
+    check('…and the grid note says which versions are in the project', /Some of them could NOT be saved into the project/.test(r.note) && /Saved into the project as: assets\/hero-2\.png\./.test(r.note), r.note);
 }
 
 // ---- 4. Reference images ---------------------------------------------------

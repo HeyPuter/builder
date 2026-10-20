@@ -146,6 +146,7 @@
             };
             out.note = `${done.length} versions are now showing side by side in the chat${failed ? ` (${failed} more failed)` : ''}. Do not repeat their paths or links. The user can say which one they like (first, second…).`
                 + (done.some(r => r.relative_path) ? ` Saved into the project as: ${done.map(r => r.relative_path).filter(Boolean).join(', ')}.` : '')
+                + (projectDest && done.some(r => !r.relative_path) ? ` ${done.filter(r => !r.relative_path).length === done.length ? 'None of them' : 'Some of them'} could NOT be saved into the project; reference only the project paths listed here, and copy the others in with the copy tool if needed.` : '')
                 + ` To edit or reuse one, use its path: ${done.map((r, i) => `${i + 1}) ${r.path}`).join('; ')}.`;
             return out;
         }

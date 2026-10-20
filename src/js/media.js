@@ -566,17 +566,28 @@ window.GeneratedMedia = (function () {
                 throw fail(`The ${kind} generator returned nothing. The user can try again.`, 'empty');
             }
 
-            // Put a copy in the project when it's for a website.
+            // Put a copy in the project when it's for a website. A failed copy
+            // doesn't fail the generation: the file is saved in the media
+            // folder, so the card still shows it and the note tells the model
+            // to copy it in rather than reference a file that isn't there.
             let projectPath = null;
+            let projectError = null;
             if (projectDest && saved) {
                 const dir = projectDest.slice(0, projectDest.lastIndexOf('/'));
                 const base = projectDest.slice(projectDest.lastIndexOf('/') + 1);
                 try { await puter.fs.mkdir(dir, { recursive: true }); } catch (e) { /* exists */ }
-                await window.withFileLock(projectDest, () => puter.fs.copy(path, dir, { newName: base, overwrite: true }));
-                window.markProjectModified?.(undefined, state?.currentChatId);
-                window.recordPreviewChange?.(projectDest);
-                window.schedulePreviewRefresh?.();
-                projectPath = projectDest;
+                try {
+                    await window.withFileLock(projectDest, () => puter.fs.copy(path, dir, { newName: base, overwrite: true }));
+                    window.markProjectModified?.(undefined, state?.currentChatId);
+                    window.recordPreviewChange?.(projectDest);
+                    window.schedulePreviewRefresh?.();
+                    projectPath = projectDest;
+                } catch (e) {
+                    console.warn('Could not copy generated ' + kind + ' into the project:', e);
+                    projectError = (e && (e.message || (e.error && e.error.message))) || String(e || 'unknown error');
+                }
+            } else if (projectDest) {
+                projectError = 'the file itself could not be saved';
             }
 
             if (live() && $card && api.onPage($card)) {
@@ -603,15 +614,17 @@ window.GeneratedMedia = (function () {
                 path: saved ? path : null,
                 filename,
             };
+            const root = window.projectRootDir(state);
+            const relative = (p) => (p.startsWith(root + '/') ? p.slice(root.length + 1) : p);
             if (projectPath) {
-                const root = window.projectRootDir(state);
                 out.project_path = projectPath;
-                out.relative_path = projectPath.startsWith(root + '/') ? projectPath.slice(root.length + 1) : projectPath;
+                out.relative_path = relative(projectPath);
             }
             const lead = typeof note === 'function' ? note() : null;
             out.note = (lead ? lead + ' ' : '') + `The ${kind}${kind === 'audio' ? ' player' : ''} is now showing in the chat${saved ? '' : ' (it could not be saved, so it will not survive a reload)'}. Do not repeat its path, a link, or Markdown to display it.`
                 + (projectPath ? ` It was also saved into the project at ${out.relative_path}; reference it by that relative path in the site's code.` : '')
-                + (saved && !projectPath ? ` To use it on a website later, copy it into the project with the copy tool (source: ${path}).` : '');
+                + (projectError ? ` It could NOT be saved into the project at ${relative(projectDest)} (${String(projectError).slice(0, 200)}), so that file does not exist; do not reference it in the site's code.` : '')
+                + (saved && !projectPath ? ` To use it on a website, copy it into the project with the copy tool (source: ${path}).` : '');
             return out;
         } finally {
             if (signal && signal.removeEventListener) signal.removeEventListener('abort', onAbort);
