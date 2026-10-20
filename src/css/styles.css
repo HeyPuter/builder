@@ -6998,6 +6998,11 @@ html[data-theme="dark"] .generated-media.kind-audio .generated-media-el { backgr
 .generated-media-grid .generated-media.is-pending .generated-media-frame,
 .generated-media-grid .generated-media.is-broken .generated-media-frame,
 .generated-media-grid .generated-media.is-loading .generated-media-frame { max-height: 360px; }
+/* One image left (the other versions failed): as wide as a single image card,
+   not half a two-column grid. */
+.generated-media-grid[data-count="1"] { grid-template-columns: minmax(0, 1fr); width: min(100%, 420px); }
+.generated-media-grid[data-count="1"] .generated-media-el,
+.generated-media-grid[data-count="1"] .generated-media .generated-media-frame { max-height: 520px; }
 /* Three images: the third is centred on its own row, the same size as the
    other two. Spanning the row made it twice as wide as the others and cropped
    it to a different shape (a portrait version lost most of its height), so

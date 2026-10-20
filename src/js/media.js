@@ -228,8 +228,17 @@ window.GeneratedMedia = (function () {
         if (!$msg) return;
         const $grid = $msg.closest('.generated-media-grid-message');
         $msg.remove();
+        if (!$grid.length) return;
+        const left = $grid.find('.generated-media-tile').length;
         // The last tile of a grid went: take the empty grid down with it.
-        if ($grid.length && !$grid.find('.generated-media-tile').length) $grid.remove();
+        if (!left) { $grid.remove(); return; }
+        // Otherwise count what's left, for the label and the layout
+        // (styles.css, data-count) — the same as a reopened chat shows it.
+        setGridCount($grid.find('.generated-media-grid'), left);
+    }
+
+    function setGridCount($grid, n) {
+        $grid.attr('data-count', String(n)).attr('aria-label', `${n} generated image${n === 1 ? '' : 's'}`);
     }
 
     // A chat message holding a grid of `count` tiles (several images from one
@@ -237,8 +246,8 @@ window.GeneratedMedia = (function () {
     // runGeneration fills in place.
     function gridMessage({ kind, prompt, ratio, count }) {
         const $msg = $('<div class="message ai-message generated-media-message generated-media-grid-message"><div class="message-content"></div></div>');
-        const $grid = $('<div class="generated-media-grid" role="group"></div>')
-            .attr('aria-label', `${count} generated images`).attr('data-count', String(count));
+        const $grid = $('<div class="generated-media-grid" role="group"></div>');
+        setGridCount($grid, count);
         const tiles = [];
         for (let i = 0; i < count; i++) {
             const $tile = pendingCard({ kind, prompt: `Option ${i + 1}`, ratio, tile: true });
@@ -272,12 +281,9 @@ window.GeneratedMedia = (function () {
                 if (u) fillCard(tiles[i], { kind: 'image', url: u, path: it.path, filename: it.filename, prompt: result.prompt });
                 else removeCard(tiles[i]);
             });
-            // Some tiles went (each keeps its "Option n"): count what's left,
-            // for the label and the layout (styles.css, data-count="3").
-            if (present.length < items.length) {
-                $msg.find('.generated-media-grid').attr('data-count', String(present.length))
-                    .attr('aria-label', `${present.length} generated images`);
-            }
+            // Some tiles went (each keeps its "Option n"): removeCard counted
+            // what's left, for the label and the layout (styles.css,
+            // data-count="3").
             // Restored tiles are not "pending": no "Option n" caption churn.
             chatBox().append($msg);
             return $msg;

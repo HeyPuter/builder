@@ -64,5 +64,24 @@ const full = box.querySelector('.generated-media-grid');
 check('a complete grid is unchanged', full && full.getAttribute('data-count') === '3' && full.getAttribute('aria-label') === '3 generated images'
     && box.querySelectorAll('.generated-media-tile').length === 3);
 
+// A version that fails WHILE the grid is on screen (runGeneration takes its
+// tile down with removeCard): the grid kept its original count, so its label
+// said "4 generated images" over three and the layout rules (data-count)
+// didn't match what reloading the chat shows.
+box.textContent = '';
+{
+    const { $msg, tiles: live } = GM.gridMessage({ kind: 'image', prompt: 'a fox', ratio: '1:1', count: 4 });
+    $(box).append($msg);
+    GM.removeCard(live[1]);
+    const g = box.querySelector('.generated-media-grid');
+    check('a live grid that loses a version is recounted', g && g.getAttribute('data-count') === '3', g && g.getAttribute('data-count'));
+    check('…and announced with the new count', g && g.getAttribute('aria-label') === '3 generated images', g && g.getAttribute('aria-label'));
+    GM.removeCard(live[0]);
+    GM.removeCard(live[2]);
+    check('…down to one image', g && g.getAttribute('data-count') === '1' && g.getAttribute('aria-label') === '1 generated image', g && g.getAttribute('aria-label'));
+    GM.removeCard(live[3]);
+    check('…and the empty grid goes with its last tile', !box.querySelector('.generated-media-grid'));
+}
+
 if (failures) { console.error(`\n${failures} check(s) FAILED`); process.exit(1); }
 console.log('\nAll grid-restore checks passed.');
