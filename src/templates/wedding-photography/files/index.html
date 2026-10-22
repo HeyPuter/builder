@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ottilie Fenn — Wedding Photographer</title>
+<meta name="description" content="Unposed, editorial wedding photographs on film and digital. Based in the Hudson Valley, travelling anywhere with a dance floor. Check your date and plan your coverage.">
+<meta name="theme-color" content="#efe9df">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="bar" id="bar">
+  <a class="bar-mark" href="#top" aria-label="Ottilie Fenn, back to top">O<span>/</span>F</a>
+  <nav class="bar-nav" id="nav" aria-label="Main">
+    <a href="#work">Work</a>
+    <a href="#collections">Collections</a>
+    <a href="#day">The day</a>
+    <a href="#dates">Dates</a>
+    <a href="#letters">Letters</a>
+    <a href="#about">About</a>
+    <a href="#faq">FAQ</a>
+  </nav>
+  <a class="bar-cta" href="#inquire">Inquire <span aria-hidden="true">→</span></a>
+  <button class="bar-menu" id="menuBtn" type="button" aria-expanded="false" aria-controls="nav">Menu</button>
+</header>
+
+<main>
+
+<!-- HERO: the name, split corner to corner, with one frame through it -->
+<section class="hero" id="top">
+  <h1 class="hero-name">
+    <span class="hero-w1">Ottilie</span>
+    <span class="hero-w2">Fenn</span>
+    <span class="sr-only">— wedding photographer</span>
+  </h1>
+
+  <figure class="hero-frame" id="heroFrame">
+    <div class="hero-film">
+      <img id="heroImg" src="photos/window-light.jpg" alt="A bride with curled hair, seen from behind, waiting by a tall blue window" width="933" height="1400">
+    </div>
+    <figcaption class="mono"><span id="heroCount">FR. 01/03</span><span id="heroCap">Agnes, before the aisle — Hollin House</span></figcaption>
+  </figure>
+
+  <p class="hero-meta mono">
+    <span>Wedding photographs</span>
+    <span>Film &amp; digital · Est. 2014</span>
+    <span>Hudson Valley → anywhere</span>
+  </p>
+
+  <div class="hero-intro">
+    <p>For people who would rather be dancing than posing.</p>
+    <div class="hero-links">
+      <a class="btn" href="#dates">Is your date free? <span aria-hidden="true">→</span></a>
+      <a class="ulink mono" href="#work">See the contact sheets</a>
+    </div>
+  </div>
+
+  <a class="hero-left mono" href="#dates"><b id="datesLeft">9</b> Saturdays left · May–Oct <span id="datesLeftYear">2027</span></a>
+</section>
+
+<!-- STATEMENT -->
+<section class="statement" aria-label="Approach">
+  <p class="label mono">(01) Approach</p>
+  <p class="statement-text">I photograph the <span class="inline-img" style="background-image:url(photos/forehead-kiss.jpg)" role="img" aria-label="A groom kissing a bride's forehead in the woods"></span> in-between: the held breath before the vows, your dad's <em>terrible</em> dancing, the long walk back to the car at midnight.</p>
+</section>
+
+<!-- WORK: contact sheets -->
+<section class="work" id="work">
+  <div class="work-head">
+    <h2 class="work-title">Contact <em>sheets</em></h2>
+    <p class="work-note mono">Four weddings, frames in the order they happened. The <span class="circled">circled</span> frame is the one each couple framed. Tap any frame for the loupe.</p>
+  </div>
+  <div class="work-tabs mono" id="storyTabs" role="tablist" aria-label="Filter weddings"></div>
+  <div class="sheets" id="sheets"></div>
+</section>
+
+<!-- COLLECTIONS: a typographic price list -->
+<section class="collections" id="collections">
+  <div class="col-head">
+    <p class="label mono">(03) Collections</p>
+    <h2>Three ways to have me <em>there.</em></h2>
+    <p class="col-note">Every collection includes an online gallery to share, print and download, and a full-resolution archive kept for ten years. Prices are in US dollars.</p>
+  </div>
+  <ol class="price-list" id="priceList"></ol>
+  <div class="hover-peek" id="hoverPeek" aria-hidden="true"><img alt=""></div>
+</section>
+
+<!-- THE DAY: coverage planner -->
+<section class="day" id="day">
+  <div class="day-head">
+    <p class="label mono">(04) Plan your coverage</p>
+    <h2>The day, <em>hour by hour.</em></h2>
+    <p>Slide the window across a typical wedding day. Anything outside it, I miss. Anything inside, you'll have forever.</p>
+  </div>
+
+  <div class="timeline" id="timeline">
+    <div class="tl-track"><div class="tl-window" id="tlWindow"><span class="mono" id="tlWindowLabel"></span></div></div>
+    <ol class="tl-moments" id="tlMoments"></ol>
+    <div class="tl-hours mono" id="tlHours" aria-hidden="true"></div>
+  </div>
+
+  <div class="day-grid">
+    <div class="day-controls">
+      <label class="range">
+        <span class="mono">I arrive at <b id="startOut">12:00</b></span>
+        <input type="range" id="startIn" min="10" max="18" step="0.5" value="12">
+      </label>
+      <label class="range">
+        <span class="mono">I stay for <b id="hoursOut">8 hours</b></span>
+        <input type="range" id="hoursIn" min="4" max="12" step="1" value="8">
+      </label>
+      <fieldset class="addons">
+        <legend class="mono">Add to it</legend>
+        <div id="addonList"></div>
+      </fieldset>
+      <label class="travel">
+        <span class="mono">Where is it?</span>
+        <select id="travelIn"></select>
+      </label>
+    </div>
+
+    <div class="quote" aria-live="polite">
+      <p class="mono quote-label">Your estimate</p>
+      <p class="quote-total" id="quoteTotal">$0</p>
+      <ul class="quote-lines mono" id="quoteLines"></ul>
+      <p class="quote-misses" id="quoteMisses"></p>
+      <button class="btn btn-ink" type="button" id="sendPlan">Send this plan with my inquiry <span aria-hidden="true">→</span></button>
+    </div>
+  </div>
+</section>
+
+<!-- DATES: availability -->
+<section class="dates" id="dates">
+  <div class="dates-head">
+    <p class="label mono">(05) Availability</p>
+    <h2>Is your date <em>free?</em></h2>
+  </div>
+
+  <div class="dates-grid">
+    <div class="dates-pick">
+      <label class="mono" for="dateIn">Pick any day</label>
+      <input type="date" id="dateIn">
+      <div class="year-switch mono" id="yearSwitch" role="group" aria-label="Year"></div>
+      <div class="year-dots" id="yearDots" aria-label="Saturdays this year"></div>
+      <ul class="dots-key mono">
+        <li><i class="dot is-open"></i>Open</li>
+        <li><i class="dot is-held"></i>On hold</li>
+        <li><i class="dot is-booked"></i>Booked</li>
+      </ul>
+    </div>
+
+    <div class="date-result" id="dateResult" aria-live="polite">
+      <p class="mono date-when" id="dateWhen">Choose a Saturday on the left, or any day above.</p>
+      <p class="date-status" id="dateStatus">—</p>
+      <p class="date-note" id="dateNote">Most couples book nine to fourteen months ahead. A short call and a 30% retainer hold your date.</p>
+      <a class="btn btn-paper" id="dateCta" href="#inquire" hidden>Hold this date <span aria-hidden="true">→</span></a>
+    </div>
+  </div>
+</section>
+
+<!-- LETTERS -->
+<section class="letters" id="letters" aria-roledescription="carousel" aria-label="Letters from couples">
+  <p class="label mono">(06) Letters</p>
+  <figure class="letter" id="letter">
+    <blockquote id="letterText"></blockquote>
+    <figcaption>
+      <img id="letterImg" src="" alt="">
+      <span class="mono" id="letterWho"></span>
+    </figcaption>
+  </figure>
+  <div class="letter-nav mono">
+    <button type="button" id="letterPrev" aria-label="Previous letter">←</button>
+    <span id="letterCount">01 / 04</span>
+    <button type="button" id="letterNext" aria-label="Next letter">→</button>
+  </div>
+</section>
+
+<!-- ABOUT -->
+<section class="about" id="about">
+  <figure class="about-photo">
+    <img src="photos/veil-bw.jpg" alt="Black and white photograph of a groom under a bridal veil" width="933" height="1400">
+    <figcaption class="mono">Under the veil, Calder Woods, 2024</figcaption>
+  </figure>
+  <div class="about-text">
+    <p class="label mono">(07) About</p>
+    <h2>Hi. I'm Ottilie, and I'll mostly be <em>out of the way.</em></h2>
+    <p>I came to weddings from newspaper work, where you get one chance and nobody poses for you. I still work that way: quietly, close, and mostly on foot. You'll get a handful of portraits we make together and hundreds of pictures you didn't know I took.</p>
+    <p>I shoot digital for the day and carry a medium-format film camera for the moments that deserve grain. Every gallery is edited by me, by hand, in the order things happened.</p>
+    <dl class="facts mono" id="facts"></dl>
+  </div>
+  <ol class="process" id="process"></ol>
+</section>
+
+<!-- FAQ -->
+<section class="faq" id="faq">
+  <h2>Questions, <em>answered.</em></h2>
+  <div class="faq-list" id="faqList"></div>
+</section>
+
+<!-- INQUIRE -->
+<section class="inquire" id="inquire">
+  <div class="inq-head">
+    <p class="label mono">(09) Inquire</p>
+    <h2>Write to <em>me.</em></h2>
+    <p>Tell me about the two of you and the day you're picturing. I answer every letter myself, within two days.</p>
+    <p class="mono inq-contact"><a id="emailLink" href="mailto:hello@ottiliefenn.example">hello@ottiliefenn.example</a><br><span id="phoneText">(845) 555-0164</span></p>
+  </div>
+
+  <form class="inq-form" id="inqForm" novalidate>
+    <div class="f-row">
+      <label class="f"><span class="mono">Your names</span><input name="names" id="fNames" autocomplete="name" placeholder="Agnes &amp; Rafe" required></label>
+      <label class="f"><span class="mono">Email</span><input name="email" id="fEmail" type="email" autocomplete="email" placeholder="you@example.com" required></label>
+    </div>
+    <div class="f-row">
+      <label class="f"><span class="mono">Wedding date</span><input name="date" id="fDate" type="date"></label>
+      <label class="f"><span class="mono">Venue or town</span><input name="venue" id="fVenue" placeholder="Somewhere with a dance floor"></label>
+    </div>
+    <div class="f-row">
+      <label class="f"><span class="mono">Guests, roughly</span><input name="guests" id="fGuests" type="number" min="2" max="1000" inputmode="numeric" placeholder="80"></label>
+      <label class="f"><span class="mono">Collection</span><select name="collection" id="fCollection"></select></label>
+    </div>
+    <label class="f f-plan" id="fPlanWrap" hidden><span class="mono">Your plan</span><textarea name="plan" id="fPlan" rows="3" readonly></textarea></label>
+    <label class="f"><span class="mono">Tell me about you two</span><textarea name="message" id="fMessage" rows="5" placeholder="How you met, what you're nervous about, the song you'll dance to…" required></textarea></label>
+    <p class="f-error mono" id="fError" role="alert" hidden></p>
+    <button class="btn btn-paper" type="submit">Send my letter <span aria-hidden="true">→</span></button>
+  </form>
+
+  <div class="inq-done" id="inqDone" hidden tabindex="-1">
+    <p class="mono">Letter received</p>
+    <h3 id="doneTitle">Thank you.</h3>
+    <p id="doneText"></p>
+    <button class="ulink mono" type="button" id="inqAgain">Write another</button>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="foot-row mono">
+    <span>Ottilie Fenn Photography · Hudson Valley, NY</span>
+    <a href="#top">Back to top ↑</a>
+    <span>Photographs: CC0, via Wikimedia Commons</span>
+  </div>
+  <p class="foot-word" aria-hidden="true">Ottilie <em>Fenn</em></p>
+</footer>
+
+<!-- Loupe (lightbox) -->
+<div class="loupe" id="loupe" role="dialog" aria-modal="true" aria-label="Photo viewer" hidden>
+  <button class="loupe-close mono" type="button" id="loupeClose">Close ✕</button>
+  <button class="loupe-arrow loupe-prev" type="button" id="loupePrev" aria-label="Previous frame">←</button>
+  <figure>
+    <img id="loupeImg" src="" alt="">
+    <figcaption class="mono"><span id="loupeCount"></span><span id="loupeCap"></span></figcaption>
+  </figure>
+  <button class="loupe-arrow loupe-next" type="button" id="loupeNext" aria-label="Next frame">→</button>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
