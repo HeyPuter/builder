@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<title>Wren &amp; Roller Painting Co. · Interior, exterior and cabinet painting</title>
+<meta name="description" content="Family-run house painters in Ashford Valley. Price your project in a minute, try colors on a room, and book a free walkthrough.">
+<meta name="theme-color" content="#c4553a">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=DM+Mono:wght@400;500&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script src="app.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<div class="topline">
+  <div class="wrap topline-in">
+    <span class="topline-item"><span class="stars" aria-hidden="true">★★★★★</span> <b data-biz="rating">4.9</b> from <span data-biz="reviews">386</span> reviews</span>
+    <span class="topline-item hide-sm">Licensed, bonded &amp; insured · <span data-biz="license">Lic. #PC-20417</span></span>
+    <span class="topline-item"><span class="dot-live" aria-hidden="true"></span> Booking walkthroughs for <span data-biz="bookingFor">next week</span></span>
+  </div>
+</div>
+
+<header class="site-head" id="top">
+  <div class="wrap head-in">
+    <a class="brand" href="#top" aria-label="Wren &amp; Roller Painting Co., back to top">
+      <img src="icon.svg" alt="" width="40" height="40">
+      <span class="brand-name"><span data-biz="short">Wren &amp; Roller</span><small>Painting Co.</small></span>
+    </a>
+    <nav class="nav" aria-label="Main">
+      <a href="#services">Services</a>
+      <a href="#studio">Color studio</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#work">Our work</a>
+      <a href="#process">Process</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <div class="head-cta">
+      <a class="head-phone" data-biz-phone href="tel:+15550142290"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z"/></svg><span data-biz="phone">(555) 014-2290</span></a>
+      <a class="btn btn-brand btn-sm" href="#estimate">Free estimate</a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+<!-- Hero -->
+<section class="hero">
+  <div class="wrap hero-in">
+    <div class="hero-copy">
+      <ul class="hero-chips" aria-label="What we paint">
+        <li><i style="--chip:#6f8569"></i>Interiors</li>
+        <li><i style="--chip:#263a4f"></i>Exteriors</li>
+        <li><i style="--chip:#d9a441"></i>Cabinets</li>
+      </ul>
+      <h1>We paint your home like we <span class="stroke">live there.<svg viewBox="0 0 300 24" preserveAspectRatio="none" aria-hidden="true"><path d="M4 16c38-7 84-11 136-10 46 1 92 4 154-3"/></svg></span></h1>
+      <p class="lede">A family-run crew painting homes across <span data-biz="area">Ashford Valley</span> since <span data-biz="founded">2009</span>. Floors covered, furniture back where it was, and a blue-tape walkthrough with you before we call anything done.</p>
+      <div class="hero-actions">
+        <a class="btn btn-brand" href="#pricing">Price your project <span aria-hidden="true">→</span></a>
+        <a class="btn btn-ghost" href="#studio">Try colors on a room</a>
+      </div>
+      <dl class="hero-stats">
+        <div><dt>Rooms painted</dt><dd>2,400+</dd></div>
+        <div><dt>Workmanship warranty</dt><dd>3 years</dd></div>
+        <div><dt>Crew on your job</dt><dd>Same, start to finish</dd></div>
+      </dl>
+    </div>
+    <div class="hero-art">
+      <figure class="hero-photo">
+        <img src="photos/painter-stripes.jpg" alt="A painter in blue overalls with a roller, facing a wall painted in yellow and white stripes" width="960" height="621" fetchpriority="high">
+      </figure>
+      <figure class="hero-roller">
+        <img src="photos/roller-wall.jpg" alt="A paint roller held against a freshly painted wall" width="675" height="900">
+        <figcaption class="tape">Day 2 · second coat</figcaption>
+      </figure>
+      <a class="hero-chip" href="#studio" data-month-chip>
+        <span class="hero-chip-color"></span>
+        <span class="hero-chip-label"><small>Color of the month</small><b data-month-name>Porch Fern</b><code data-month-code>WR-121</code></span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<div class="marquee" aria-hidden="true">
+  <div class="marquee-track">
+    <span>Interior walls</span><span>Ceilings</span><span>Trim &amp; baseboards</span><span>Kitchen cabinets</span><span>Exterior siding</span><span>Front doors</span><span>Decks &amp; fences</span><span>Drywall repair</span><span>Color consults</span>
+    <span>Interior walls</span><span>Ceilings</span><span>Trim &amp; baseboards</span><span>Kitchen cabinets</span><span>Exterior siding</span><span>Front doors</span><span>Decks &amp; fences</span><span>Drywall repair</span><span>Color consults</span>
+  </div>
+</div>
+
+<!-- Services -->
+<section class="section" id="services" aria-labelledby="services-title">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="kicker"><code>No. 01</code> What we paint</p>
+      <h2 id="services-title">Six jobs we do every single week.</h2>
+      <p class="section-lede">Every job gets the same prep, the same two finish coats and the same cleanup, whether it is one bedroom or the whole house.</p>
+    </div>
+    <div class="deck">
+      <article class="chipcard" style="--swatch:#a9b59b">
+        <div class="chipcard-swatch"><span>Sage Bundle</span><code>WR-120</code></div>
+        <div class="chipcard-body">
+          <h3>Interior painting</h3>
+          <p>Walls, ceilings and trim. Furniture moved and covered, floors masked, switch plates off, two finish coats.</p>
+          <p class="chipcard-foot"><span>from <b>$300</b> a room</span><button class="link-btn" type="button" data-price="interior">Price this →</button></p>
+        </div>
+      </article>
+      <article class="chipcard" style="--swatch:#7e97a6">
+        <div class="chipcard-swatch"><span>Harbor Haze</span><code>WR-131</code></div>
+        <div class="chipcard-body">
+          <h3>Exterior painting</h3>
+          <p>Washed, scraped, bare wood primed and every gap caulked, then two coats of paint rated for our winters.</p>
+          <p class="chipcard-foot"><span>from <b>$2,500</b></span><button class="link-btn" type="button" data-price="exterior">Price this →</button></p>
+        </div>
+      </article>
+      <article class="chipcard" style="--swatch:#d9a441">
+        <div class="chipcard-swatch"><span>Porch Swing</span><code>WR-143</code></div>
+        <div class="chipcard-body">
+          <h3>Cabinet refinishing</h3>
+          <p>Doors and drawer fronts sprayed in our shop for a smooth factory finish, frames done on site. Kitchen back in about a week.</p>
+          <p class="chipcard-foot"><span>kitchens from <b>$2,600</b></span><button class="link-btn" type="button" data-price="cabinets">Price this →</button></p>
+        </div>
+      </article>
+      <article class="chipcard" style="--swatch:#34483c">
+        <div class="chipcard-swatch"><span>Deep Hedge</span><code>WR-122</code></div>
+        <div class="chipcard-body">
+          <h3>Trim, doors &amp; millwork</h3>
+          <p>Baseboards, wainscoting, built-ins and stair rails in a hard-wearing enamel that wipes clean.</p>
+          <p class="chipcard-foot"><span>from <b>$95</b> a door</span><a class="link-btn" href="#estimate" data-project="Trim, doors &amp; millwork">Ask about it →</a></p>
+        </div>
+      </article>
+      <article class="chipcard" style="--swatch:#efeae0">
+        <div class="chipcard-swatch"><span>Linen Closet</span><code>WR-101</code></div>
+        <div class="chipcard-body">
+          <h3>Drywall &amp; plaster repair</h3>
+          <p>Cracks, dents, water stains and old anchors patched, sanded and primed so they vanish under the paint.</p>
+          <p class="chipcard-foot"><span>small repairs <b>included</b></span><a class="link-btn" href="#estimate" data-project="Drywall &amp; plaster repair">Ask about it →</a></p>
+        </div>
+      </article>
+      <article class="chipcard" style="--swatch:#c0704f">
+        <div class="chipcard-swatch"><span>Clay Pot</span><code>WR-141</code></div>
+        <div class="chipcard-body">
+          <h3>Decks &amp; fences</h3>
+          <p>Washed, brightened and stained with a penetrating finish that soaks into the wood instead of peeling off it.</p>
+          <p class="chipcard-foot"><span>from <b>$1.60</b> a sq ft</span><button class="link-btn" type="button" data-price="exterior" data-deck="medium">Price this →</button></p>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- Color studio -->
+<section class="section studio" id="studio" aria-labelledby="studio-title">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="kicker"><code>No. 02</code> Color studio</p>
+      <h2 id="studio-title">Try it on the walls before we do.</h2>
+      <p class="section-lede">Pick a surface, then a color. Save the combination to your estimate and we will bring real samples to your walkthrough.</p>
+    </div>
+
+    <div class="studio-grid">
+      <div class="studio-stage">
+        <div class="studio-bar">
+          <div class="seg" role="radiogroup" aria-label="Scene">
+            <button type="button" role="radio" aria-checked="true" data-scene="room">Living room</button>
+            <button type="button" role="radio" aria-checked="false" data-scene="house">House front</button>
+          </div>
+          <button type="button" class="btn btn-quiet btn-sm" data-shuffle>Shuffle a scheme</button>
+        </div>
+
+        <div class="scene-wrap">
+          <!-- Living room. Paintable parts carry data-surface; their color comes from --c-<surface>. -->
+          <svg class="scene" data-scene-svg="room" viewBox="0 0 800 520" role="img" aria-labelledby="room-desc">
+            <title id="room-desc">A living room with a sofa, a window and a door. The walls, trim, ceiling and door show the colors you pick.</title>
+            <defs>
+              <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cfe3ef"/><stop offset="1" stop-color="#f3efe2"/></linearGradient>
+              <radialGradient id="glow" cx="0.3" cy="0.35" r="0.75"><stop offset="0" stop-color="#fff" stop-opacity=".28"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+              <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b98d61"/><stop offset="1" stop-color="#9a6f47"/></linearGradient>
+              <pattern id="planks" width="120" height="30" patternUnits="userSpaceOnUse"><rect width="120" height="30" fill="none"/><path d="M0 29.5h120M60 0v30" stroke="#7c5636" stroke-opacity=".35"/></pattern>
+            </defs>
+            <g class="paint" data-surface="ceiling"><path class="fill-ceiling" d="M0 0h800v44H118z"/></g>
+            <g class="paint" data-surface="walls">
+              <path class="fill-walls" d="M118 44h682v388H118z"/>
+              <path class="fill-walls" d="M0 0l118 44v388L0 520z"/>
+            </g>
+            <path d="M0 0l118 44v388L0 520z" fill="#000" opacity=".11" pointer-events="none"/>
+            <rect x="118" y="44" width="682" height="388" fill="url(#glow)" pointer-events="none"/>
+            <!-- floor -->
+            <path d="M0 520l118-88h682v88z" fill="url(#floor)"/>
+            <path d="M0 520l118-88h682v88z" fill="url(#planks)"/>
+            <ellipse cx="470" cy="478" rx="250" ry="30" fill="#e9dfcf" opacity=".9"/>
+            <ellipse cx="470" cy="478" rx="226" ry="24" fill="none" stroke="#c4553a" stroke-opacity=".35" stroke-width="3"/>
+            <!-- window -->
+            <g class="paint" data-surface="trim"><rect class="fill-trim" x="166" y="104" width="160" height="214" rx="2"/></g>
+            <rect x="180" y="118" width="132" height="186" fill="url(#sky)"/>
+            <path d="M246 118v186M180 211h132" stroke-width="6" class="stroke-trim"/>
+            <path d="M190 128l40 0-40 50z" fill="#fff" opacity=".35"/>
+            <!-- crown + baseboard -->
+            <g class="paint" data-surface="trim">
+              <path class="fill-trim" d="M118 44h682v12H118z"/>
+              <path class="fill-trim" d="M0 0l118 44v12L0 14z"/>
+              <path class="fill-trim" d="M118 414h682v18H118z"/>
+              <path class="fill-trim" d="M0 498l118-84v18L0 520z"/>
+              <rect class="fill-trim" x="156" y="316" width="180" height="10" rx="2"/>
+            </g>
+            <path d="M118 56h682M118 414h682" stroke="#000" stroke-opacity=".12" pointer-events="none"/>
+            <!-- door with casing -->
+            <g class="paint" data-surface="trim"><path class="fill-trim" d="M608 150h132v264H608z"/></g>
+            <g class="paint" data-surface="door">
+              <rect class="fill-door" x="622" y="164" width="104" height="250"/>
+            </g>
+            <g pointer-events="none" fill="#000" fill-opacity=".1">
+              <rect x="636" y="180" width="32" height="96" rx="2"/><rect x="680" y="180" width="32" height="96" rx="2"/>
+              <rect x="636" y="292" width="32" height="106" rx="2"/><rect x="680" y="292" width="32" height="106" rx="2"/>
+            </g>
+            <circle cx="712" cy="292" r="6" fill="#c9a96b" stroke="#8a6d38" stroke-width="2"/>
+            <!-- art -->
+            <rect x="404" y="128" width="140" height="104" rx="3" fill="#2a2f2c"/>
+            <rect x="412" y="136" width="124" height="88" fill="#f2ead8"/>
+            <circle cx="456" cy="178" r="22" fill="#c4553a"/>
+            <path d="M412 224l40-34 28 22 22-16 34 28z" fill="#6f8569"/>
+            <!-- lamp -->
+            <path d="M366 412V214" stroke="#2a2f2c" stroke-width="4"/>
+            <path d="M342 214h48l-10-40h-28z" fill="#f5ecd6" stroke="#2a2f2c" stroke-width="3"/>
+            <ellipse cx="366" cy="414" rx="18" ry="5" fill="#2a2f2c"/>
+            <!-- sofa -->
+            <rect x="380" y="292" width="300" height="70" rx="20" fill="#d8ccb7"/>
+            <rect x="370" y="340" width="320" height="64" rx="16" fill="#cbbda5"/>
+            <rect x="356" y="318" width="40" height="90" rx="16" fill="#d8ccb7"/>
+            <rect x="664" y="318" width="40" height="90" rx="16" fill="#d8ccb7"/>
+            <rect x="410" y="306" width="62" height="48" rx="12" fill="#d9a441" transform="rotate(-8 441 330)"/>
+            <rect x="590" y="306" width="62" height="48" rx="12" fill="#263a4f" transform="rotate(7 621 330)"/>
+            <path d="M384 404v14M676 404v14" stroke="#4b3a28" stroke-width="6" stroke-linecap="round"/>
+            <!-- plant -->
+            <path d="M752 414l-10-58h52l-10 58z" fill="#c4553a"/>
+            <g fill="#4f6b4a"><ellipse cx="760" cy="330" rx="14" ry="34" transform="rotate(-24 760 330)"/><ellipse cx="786" cy="322" rx="14" ry="38" transform="rotate(18 786 322)"/><ellipse cx="772" cy="300" rx="12" ry="36"/></g>
+          </svg>
+
+          <!-- House front -->
+          <svg class="scene" data-scene-svg="house" viewBox="0 0 800 520" role="img" aria-labelledby="house-desc" hidden>
+            <title id="house-desc">The front of a two-story house. The siding, trim, front door and shutters show the colors you pick.</title>
+            <defs>
+              <linearGradient id="sky2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bcd7ea"/><stop offset="1" stop-color="#eef2ea"/></linearGradient>
+              <pattern id="lap" width="10" height="14" patternUnits="userSpaceOnUse"><path d="M0 13.5h10" stroke="#000" stroke-opacity=".13" stroke-width="1.5"/></pattern>
+              <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#dfeaf0"/><stop offset="1" stop-color="#7f97a6"/></linearGradient>
+            </defs>
+            <rect width="800" height="520" fill="url(#sky2)"/>
+            <circle cx="690" cy="84" r="34" fill="#fff6d8" opacity=".9"/>
+            <path d="M0 448c120-18 260-22 400-18s300 8 400-6v96H0z" fill="#9fb98b"/>
+            <path d="M0 470c160-12 330-10 800-6v56H0z" fill="#8aa877"/>
+            <!-- body -->
+            <g class="paint" data-surface="body">
+              <path class="fill-body" d="M180 186h440v262H180z"/>
+              <path class="fill-body" d="M210 186L400 74l190 112z"/>
+            </g>
+            <path d="M180 186h440v262H180z" fill="url(#lap)" pointer-events="none"/>
+            <path d="M210 186L400 74l190 112z" fill="url(#lap)" pointer-events="none"/>
+            <path d="M420 186h200v262H420z" fill="#000" opacity=".06" pointer-events="none"/>
+            <!-- roof -->
+            <path d="M150 196L400 52l250 144-16 12L400 76 166 208z" fill="#3a3f45"/>
+            <path d="M120 300h560l-24-26H144z" fill="#3a3f45"/>
+            <!-- trim: corners, frieze, porch band, gable vent -->
+            <g class="paint" data-surface="trim">
+              <path class="fill-trim" d="M180 186h14v262h-14zM606 186h14v262h-14z"/>
+              <path class="fill-trim" d="M180 186h440v10H180z"/>
+              <path class="fill-trim" d="M140 300h520v10H140z"/>
+              <path class="fill-trim" d="M168 210L400 77l232 133-8 8L400 90 176 218z"/>
+              <circle class="fill-trim" cx="400" cy="138" r="22"/>
+              <!-- window casings -->
+              <rect class="fill-trim" x="232" y="212" width="86" height="72"/>
+              <rect class="fill-trim" x="482" y="212" width="86" height="72"/>
+              <rect class="fill-trim" x="222" y="336" width="96" height="88"/>
+              <rect class="fill-trim" x="482" y="336" width="96" height="88"/>
+              <!-- porch posts -->
+              <rect class="fill-trim" x="150" y="310" width="12" height="140"/>
+              <rect class="fill-trim" x="638" y="310" width="12" height="140"/>
+              <path class="fill-trim" d="M354 324h92v8h-92z"/>
+            </g>
+            <circle cx="400" cy="138" r="14" fill="#2c3136" opacity=".55"/>
+            <path d="M386 138h28M400 124v28" stroke="#000" stroke-opacity=".25" stroke-width="3"/>
+            <!-- glass -->
+            <g fill="url(#glass)">
+              <rect x="242" y="222" width="66" height="52"/><rect x="492" y="222" width="66" height="52"/>
+              <rect x="232" y="346" width="76" height="68"/><rect x="492" y="346" width="76" height="68"/>
+            </g>
+            <path d="M275 222v52M242 248h66M525 222v52M492 248h66M270 346v68M232 380h76M530 346v68M492 380h76" stroke="#fff" stroke-opacity=".7" stroke-width="4"/>
+            <!-- shutters -->
+            <g class="paint" data-surface="shutters">
+              <rect class="fill-shutters" x="210" y="212" width="20" height="72"/><rect class="fill-shutters" x="320" y="212" width="20" height="72"/>
+              <rect class="fill-shutters" x="460" y="212" width="20" height="72"/><rect class="fill-shutters" x="570" y="212" width="20" height="72"/>
+              <rect class="fill-shutters" x="198" y="336" width="22" height="88"/><rect class="fill-shutters" x="320" y="336" width="22" height="88"/>
+              <rect class="fill-shutters" x="460" y="336" width="22" height="88"/><rect class="fill-shutters" x="580" y="336" width="22" height="88"/>
+            </g>
+            <path d="M210 230h20M210 248h20M210 266h20M320 230h20M320 248h20M320 266h20M460 230h20M460 248h20M460 266h20M570 230h20M570 248h20M570 266h20M198 356h22M198 380h22M198 404h22M320 356h22M320 380h22M320 404h22M460 356h22M460 380h22M460 404h22M580 356h22M580 380h22M580 404h22" stroke="#000" stroke-opacity=".16" stroke-width="2" pointer-events="none"/>
+            <!-- door -->
+            <g class="paint" data-surface="trim"><path class="fill-trim" d="M360 332h80v116h-80z"/></g>
+            <g class="paint" data-surface="door"><rect class="fill-door" x="370" y="342" width="60" height="106"/></g>
+            <g pointer-events="none" fill="#000" fill-opacity=".12"><rect x="378" y="352" width="44" height="34" rx="2"/><rect x="378" y="396" width="20" height="44" rx="2"/><rect x="402" y="396" width="20" height="44" rx="2"/></g>
+            <circle cx="420" cy="398" r="4" fill="#c9a96b"/>
+            <!-- steps, path, shrubs -->
+            <path d="M350 448h100v10H350zM340 458h120v10H340zM330 468h140v10H330z" fill="#c9c3b6"/>
+            <path d="M330 478h140l40 42H290z" fill="#d9d2c3"/>
+            <g fill="#56794a"><circle cx="210" cy="446" r="26"/><circle cx="246" cy="452" r="20"/><circle cx="292" cy="450" r="24"/><circle cx="512" cy="450" r="24"/><circle cx="556" cy="452" r="20"/><circle cx="592" cy="446" r="26"/></g>
+            <g fill="#6f9160"><circle cx="226" cy="440" r="14"/><circle cx="300" cy="442" r="12"/><circle cx="520" cy="440" r="12"/><circle cx="584" cy="438" r="14"/></g>
+          </svg>
+          <p class="scene-hint" aria-hidden="true">Tip: click a wall, the trim or the door to pick it.</p>
+        </div>
+
+        <div class="surface-row">
+          <div class="seg seg-wide" role="radiogroup" aria-label="Surface to color" data-surfaces></div>
+        </div>
+      </div>
+
+      <aside class="studio-panel" aria-label="Paint colors">
+        <div class="picked" aria-live="polite">
+          <span class="picked-swatch" data-picked-swatch></span>
+          <div>
+            <p class="picked-for" data-picked-for>Walls</p>
+            <p class="picked-name" data-picked-name>Sage Bundle</p>
+            <p class="picked-meta"><code data-picked-code>WR-120</code> · LRV <span data-picked-lrv>45</span> · <span data-picked-note>reads soft and calm</span></p>
+          </div>
+        </div>
+        <div class="palette" data-palette></div>
+        <div class="schemes">
+          <p class="mini-title">Or start from a scheme</p>
+          <div class="scheme-list" data-schemes></div>
+        </div>
+        <div class="my-scheme">
+          <p class="mini-title">Your colors</p>
+          <ul class="scheme-chips" data-my-scheme></ul>
+          <button type="button" class="btn btn-ink btn-block" data-save-colors>Add these colors to my estimate</button>
+          <p class="fine">Screens are not paint. Colors here are close, not exact, so we bring real samples to the walkthrough.</p>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<!-- Pricing -->
+<section class="section pricing" id="pricing" aria-labelledby="pricing-title">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="kicker"><code>No. 03</code> Pricing</p>
+      <h2 id="pricing-title">A real number in about a minute.</h2>
+      <p class="section-lede">These are the same rates we quote from. Your final price comes after a free walkthrough, in writing, line by line.</p>
+    </div>
+
+    <div class="est">
+      <div class="est-form">
+        <div class="tabs" role="tablist" aria-label="Kind of project">
+          <button type="button" role="tab" id="tab-interior" aria-controls="panel-interior" aria-selected="true" data-tab="interior">Interior</button>
+          <button type="button" role="tab" id="tab-exterior" aria-controls="panel-exterior" aria-selected="false" tabindex="-1" data-tab="exterior">Exterior</button>
+          <button type="button" role="tab" id="tab-cabinets" aria-controls="panel-cabinets" aria-selected="false" tabindex="-1" data-tab="cabinets">Cabinets</button>
+        </div>
+
+        <div class="tab-panel" role="tabpanel" id="panel-interior" aria-labelledby="tab-interior">
+          <fieldset class="field">
+            <legend>Which rooms?</legend>
+            <div class="rooms" data-rooms></div>
+          </fieldset>
+          <fieldset class="field">
+            <legend>What should we paint in them?</legend>
+            <div class="pills">
+              <label class="pill"><input type="checkbox" data-int="walls" checked><span>Walls</span></label>
+              <label class="pill"><input type="checkbox" data-int="ceilings"><span>Ceilings</span></label>
+              <label class="pill"><input type="checkbox" data-int="trim"><span>Trim &amp; baseboards</span></label>
+            </div>
+            <div class="stepper-row">
+              <span id="doors-label">Interior doors <small>both sides and casing</small></span>
+              <div class="stepper" data-stepper="doors" aria-labelledby="doors-label"></div>
+            </div>
+          </fieldset>
+          <fieldset class="field">
+            <legend>How are the walls now?</legend>
+            <div class="seg seg-wide" role="radiogroup" aria-label="Wall condition" data-radio="intCondition"></div>
+          </fieldset>
+          <fieldset class="field">
+            <legend>How big is the color change?</legend>
+            <div class="seg seg-wide" role="radiogroup" aria-label="Color change" data-radio="colorChange"></div>
+          </fieldset>
+        </div>
+
+        <div class="tab-panel" role="tabpanel" id="panel-exterior" aria-labelledby="tab-exterior" hidden>
+          <div class="field">
+            <label class="range-label" for="ext-size">Size of the home <output data-out="extSize">2,000 sq ft</output></label>
+            <input type="range" id="ext-size" min="800" max="5000" step="100" value="2000" data-range="extSize">
+            <div class="range-scale" aria-hidden="true"><span>800</span><span>5,000 sq ft</span></div>
+          </div>
+          <fieldset class="field">
+            <legend>Stories</legend>
+            <div class="seg seg-wide" role="radiogroup" aria-label="Stories" data-radio="stories"></div>
+          </fieldset>
+          <fieldset class="field">
+            <legend>Siding</legend>
+            <div class="seg seg-wide seg-wrap" role="radiogroup" aria-label="Siding" data-radio="siding"></div>
+          </fieldset>
+          <fieldset class="field">
+            <legend>How is the old paint holding up?</legend>
+            <div class="seg seg-wide" role="radiogroup" aria-label="Paint condition" data-radio="extCondition"></div>
+          </fieldset>
+          <fieldset class="field">
+            <legend>Extras</legend>
+            <div class="pills">
+              <label class="pill"><input type="checkbox" data-ext="frontDoor"><span>Front door</span></label>
+            </div>
+            <div class="stepper-row"><span id="shutters-label">Pairs of shutters</span><div class="stepper" data-stepper="shutters" aria-labelledby="shutters-label"></div></div>
+            <div class="stepper-row"><span id="garage-label">Garage doors</span><div class="stepper" data-stepper="garage" aria-labelledby="garage-label"></div></div>
+            <div class="stepper-row stepper-row-seg"><span id="deck-label">Deck stain</span><div class="seg" role="radiogroup" aria-labelledby="deck-label" data-radio="deck"></div></div>
+          </fieldset>
+        </div>
+
+        <div class="tab-panel" role="tabpanel" id="panel-cabinets" aria-labelledby="tab-cabinets" hidden>
+          <div class="field">
+            <label class="range-label" for="cab-fronts">Doors and drawer fronts <output data-out="fronts">26</output></label>
+            <input type="range" id="cab-fronts" min="8" max="60" step="1" value="26" data-range="fronts">
+            <div class="range-scale" aria-hidden="true"><span>8</span><span>60</span></div>
+            <p class="hint">Count every door and every drawer. A typical kitchen has 20 to 35.</p>
+          </div>
+          <fieldset class="field">
+            <legend>What are they now?</legend>
+            <div class="seg seg-wide" role="radiogroup" aria-label="Current cabinet finish" data-radio="cabFinish"></div>
+          </fieldset>
+          <fieldset class="field">
+            <legend>Extras</legend>
+            <div class="pills">
+              <label class="pill"><input type="checkbox" data-cab="island"><span>Island in a second color</span></label>
+              <label class="pill"><input type="checkbox" data-cab="hardware"><span>Fill holes for new hardware</span></label>
+              <label class="pill"><input type="checkbox" data-cab="interiors"><span>Paint the insides</span></label>
+            </div>
+          </fieldset>
+        </div>
+      </div>
+
+      <aside class="ticket" aria-labelledby="ticket-title">
+        <div class="ticket-top">
+          <p class="ticket-label" id="ticket-title">Job ticket <code data-ticket-code>INT-01</code></p>
+          <p class="ticket-price" aria-live="polite"><span data-price-low>$1,450</span><span class="dash">–</span><span data-price-high>$1,800</span></p>
+          <p class="ticket-sub">Typical for this scope, paint and prep included</p>
+        </div>
+        <dl class="ticket-facts">
+          <div><dt>On site</dt><dd data-days>2 days</dd></div>
+          <div><dt>Crew</dt><dd data-crew>2 painters</dd></div>
+          <div><dt>Paint</dt><dd data-gallons>~5 gal</dd></div>
+        </dl>
+        <ul class="ticket-lines" data-lines></ul>
+        <div class="ticket-incl">
+          <p class="mini-title">Always included</p>
+          <ul data-included>
+            <li>Floors and furniture protected</li>
+            <li>Small patches, caulk and spot priming</li>
+            <li>Low-VOC paint, two finish coats</li>
+            <li>Daily cleanup and a labeled touch-up kit</li>
+          </ul>
+        </div>
+        <button type="button" class="btn btn-brand btn-block" data-book-estimate>Book a walkthrough with this estimate</button>
+        <p class="fine" data-ticket-note>Final price after a free 30-minute walkthrough. No add-ons we did not write down first.</p>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<!-- Work -->
+<section class="section work" id="work" aria-labelledby="work-title">
+  <div class="wrap">
+    <div class="section-head section-head-row">
+      <div>
+        <p class="kicker"><code>No. 04</code> Recent work</p>
+        <h2 id="work-title">Fresh off the drop cloths.</h2>
+      </div>
+      <div class="filters" role="group" aria-label="Filter projects">
+        <button type="button" class="filter" aria-pressed="true" data-filter="all">All</button>
+        <button type="button" class="filter" aria-pressed="false" data-filter="interior">Interiors</button>
+        <button type="button" class="filter" aria-pressed="false" data-filter="exterior">Exteriors</button>
+        <button type="button" class="filter" aria-pressed="false" data-filter="cabinets">Cabinets</button>
+      </div>
+    </div>
+
+    <ul class="work-grid" data-work>
+      <li class="project" data-kind="exterior">
+        <figure><img src="photos/craftsman.jpg" alt="A blue-gray craftsman house with white trim at dusk" width="960" height="640" loading="lazy"><figcaption class="tape">Exterior · 6 days</figcaption></figure>
+        <h3>Craftsman, top to bottom</h3>
+        <p class="project-where">Elm Park · siding, trim, garage doors</p>
+        <p class="project-colors"><span style="--c:#7e97a6">Harbor Haze</span><span style="--c:#f6f4ee">Cotton Sheet</span></p>
+      </li>
+      <li class="project" data-kind="cabinets">
+        <figure><img src="photos/kitchen-island.jpg" alt="A white kitchen with a teal painted island and stools" width="960" height="640" loading="lazy"><figcaption class="tape">Cabinets · 5 days</figcaption></figure>
+        <h3>Two-tone kitchen</h3>
+        <p class="project-where">Millbrook · 31 fronts, island in a second color</p>
+        <p class="project-colors"><span style="--c:#f6f4ee">Cotton Sheet</span><span style="--c:#3f7f8c">Lagoon</span></p>
+      </li>
+      <li class="project" data-kind="interior">
+        <figure><img src="photos/living-room.jpg" alt="A bright living room with white walls, a blue sofa and herringbone floors" width="960" height="641" loading="lazy"><figcaption class="tape">Interior · 2 days</figcaption></figure>
+        <h3>Open-plan living room</h3>
+        <p class="project-where">Riverside · walls, ceiling, radiator covers</p>
+        <p class="project-colors"><span style="--c:#f6f4ee">Cotton Sheet</span><span style="--c:#efeae0">Linen Closet</span></p>
+      </li>
+      <li class="project" data-kind="exterior">
+        <figure><img src="photos/ranch.jpg" alt="A single-story house with olive siding, white trim and a red front door" width="960" height="640" loading="lazy"><figcaption class="tape">Exterior · 4 days</figcaption></figure>
+        <h3>Ranch with a red door</h3>
+        <p class="project-where">South Fork · body, trim, front door</p>
+        <p class="project-colors"><span style="--c:#8f8a5c">Olive Grove</span><span style="--c:#8e2f2a">Barn Door</span></p>
+      </li>
+      <li class="project" data-kind="interior">
+        <figure><img src="photos/paneled-nook.jpg" alt="A breakfast nook with a wooden table, a bench and dark green wall paneling" width="960" height="640" loading="lazy"><figcaption class="tape">Millwork · 2 days</figcaption></figure>
+        <h3>Paneled breakfast nook</h3>
+        <p class="project-where">Old Town · beadboard, window sash, bench</p>
+        <p class="project-colors"><span style="--c:#34483c">Deep Hedge</span></p>
+      </li>
+      <li class="project" data-kind="cabinets">
+        <figure><img src="photos/shaker-cabinets.jpg" alt="Cream shaker kitchen cabinets with glass-front uppers" width="960" height="640" loading="lazy"><figcaption class="tape">Cabinets · 6 days</figcaption></figure>
+        <h3>Oak to buttercream</h3>
+        <p class="project-where">Maple Heights · stained oak, primed and sprayed</p>
+        <p class="project-colors"><span style="--c:#f1e6cc">Buttermilk</span></p>
+      </li>
+      <li class="project" data-kind="interior">
+        <figure><img src="photos/dining-room.jpg" alt="A dining room with a chandelier, an upholstered table set and soft white walls" width="960" height="640" loading="lazy"><figcaption class="tape">Interior · 2 days</figcaption></figure>
+        <h3>Dining room and crown</h3>
+        <p class="project-where">Hillcrest · walls, ceiling, crown molding</p>
+        <p class="project-colors"><span style="--c:#efeae0">Linen Closet</span><span style="--c:#f6f4ee">Cotton Sheet</span></p>
+      </li>
+      <li class="project" data-kind="exterior">
+        <figure><img src="photos/blue-door.jpg" alt="A white stucco house front with a cobalt blue door" width="960" height="640" loading="lazy"><figcaption class="tape">Exterior · 3 days</figcaption></figure>
+        <h3>Stucco and a cobalt door</h3>
+        <p class="project-where">Harbor Point · masonry paint, door, grilles</p>
+        <p class="project-colors"><span style="--c:#f6f4ee">Cotton Sheet</span><span style="--c:#1f3f9c">Cobalt</span></p>
+      </li>
+      <li class="project" data-kind="interior">
+        <figure><img src="photos/bedroom.jpg" alt="A calm bedroom with pale pink-white walls, a wooden headboard and sheer curtains" width="960" height="640" loading="lazy"><figcaption class="tape">Interior · 1 day</figcaption></figure>
+        <h3>Primary bedroom</h3>
+        <p class="project-where">Elm Park · walls and closet, painted in a day</p>
+        <p class="project-colors"><span style="--c:#f3e9e4">Blush Linen</span></p>
+      </li>
+    </ul>
+  </div>
+</section>
+
+<!-- Process -->
+<section class="section process" id="process" aria-labelledby="process-title">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="kicker"><code>No. 05</code> How a job runs</p>
+      <h2 id="process-title">Five steps. No surprises.</h2>
+    </div>
+    <div class="process-grid">
+      <ol class="steps">
+        <li>
+          <span class="step-n">1</span>
+          <div><h3>Walkthrough</h3><p>Free, about 30 minutes. We measure, look at the surfaces, test older homes for lead and leave sample swatches on your walls.</p></div>
+        </li>
+        <li>
+          <span class="step-n">2</span>
+          <div><h3>Written quote within a day</h3><p>Every room and surface on its own line, the paint we will use and a start date. Colors are locked in before we arrive.</p></div>
+        </li>
+        <li>
+          <span class="step-n">3</span>
+          <div><h3>Prep day</h3><p>Floors and furniture covered, holes and cracks filled, sanded and spot primed, gaps caulked. Prep is most of a good paint job.</p></div>
+        </li>
+        <li>
+          <span class="step-n">4</span>
+          <div><h3>Two finish coats</h3><p>Lines cut by hand, rolled in sections so it dries even. Rooms put back and swept at the end of every day.</p></div>
+        </li>
+        <li>
+          <span class="step-n">5</span>
+          <div><h3>The blue-tape walkthrough</h3><p>You walk the job with us and mark anything with tape. We fix every piece before the final invoice and leave a labeled touch-up kit.</p></div>
+        </li>
+      </ol>
+      <div class="process-art">
+        <figure class="process-photo"><img src="photos/prep-room.jpg" alt="An empty room with fresh drywall, ready for primer" width="960" height="720" loading="lazy"><figcaption class="tape">Step 3 · ready to prime</figcaption></figure>
+        <figure class="process-photo process-photo-sm"><img src="photos/paint-cans.jpg" alt="Four open paint cans from above in pink, teal, yellow and brown" width="960" height="640" loading="lazy"></figure>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Promise -->
+<section class="promise" aria-labelledby="promise-title">
+  <div class="wrap">
+    <h2 id="promise-title" class="promise-title">The Wren &amp; Roller promise</h2>
+    <ul class="promise-list">
+      <li><b>3-year warranty</b><span>If our work peels, cracks or blisters, we come back and fix it.</span></li>
+      <li><b>Spotless by 5 pm</b><span>Tools packed, rooms usable, floors swept. Every day.</span></li>
+      <li><b>Low and zero VOC</b><span>Paints that let you sleep in the room the same night.</span></li>
+      <li><b>Lead-safe certified</b><span>EPA RRP certified crews for homes built before 1978.</span></li>
+    </ul>
+  </div>
+</section>
+
+<!-- Reviews -->
+<section class="section reviews" aria-labelledby="reviews-title">
+  <div class="wrap">
+    <div class="section-head section-head-row">
+      <div>
+        <p class="kicker"><code>No. 06</code> Reviews</p>
+        <h2 id="reviews-title">Neighbors say it better.</h2>
+      </div>
+      <p class="rating-big"><b data-biz="rating">4.9</b><span><span class="stars" aria-hidden="true">★★★★★</span><br><span data-biz="reviews">386</span> reviews on Google &amp; Nextdoor</span></p>
+    </div>
+    <div class="quotes">
+      <figure class="quote">
+        <blockquote><p>They moved every piece of furniture, covered everything, and the line where our walls meet the wood ceiling is perfect. The blue-tape walkthrough at the end sold me.</p></blockquote>
+        <figcaption><b>Priya S.</b> Elm Park · four rooms and a stairwell</figcaption>
+      </figure>
+      <figure class="quote">
+        <blockquote><p>Our 1920s house was peeling everywhere. They tested for lead, scraped and primed before anything else. Two winters later it still looks brand new.</p></blockquote>
+        <figcaption><b>Marcus &amp; Dana T.</b> Old Town · full exterior</figcaption>
+      </figure>
+      <figure class="quote">
+        <blockquote><p>The cabinet doors came back from their shop smooth as glass. We only lost the kitchen for two days, and the quote was exactly the invoice.</p></blockquote>
+        <figcaption><b>Hannah L.</b> Millbrook · kitchen cabinets</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="section faq" id="faq" aria-labelledby="faq-title">
+  <div class="wrap faq-grid">
+    <div class="section-head">
+      <p class="kicker"><code>No. 07</code> Questions</p>
+      <h2 id="faq-title">Good to know before we start.</h2>
+      <p class="section-lede">Something else on your mind? Call <a data-biz-phone href="tel:+15550142290"><span data-biz="phone">(555) 014-2290</span></a> and talk to a painter, not a call center.</p>
+    </div>
+    <div class="faq-list">
+      <details open>
+        <summary>Do I need to move my furniture?</summary>
+        <p>No. We move furniture to the middle of the room, cover it and put it back. We only ask you to take fragile things, art and electronics off the walls and shelves.</p>
+      </details>
+      <details>
+        <summary>Which paint do you use, and can I choose the brand?</summary>
+        <p>We use premium low-VOC lines from the major brands and match any color from any fan deck. If you have a favorite brand or finish, tell us and we will price it that way.</p>
+      </details>
+      <details>
+        <summary>How much is the deposit?</summary>
+        <p>Nothing for interiors under $3,000. Larger jobs and exteriors take 20% to hold the date and order materials. The rest is due after your blue-tape walkthrough, not before.</p>
+      </details>
+      <details>
+        <summary>What about rain and cold on exterior jobs?</summary>
+        <p>We watch the forecast daily and only paint when it stays above 50°F and dry for the paint to cure. If weather moves your start, you get a new date the same day.</p>
+      </details>
+      <details>
+        <summary>My house is old. What about lead paint?</summary>
+        <p>For homes built before 1978 we test first. If there is lead, our certified crew contains the work area, uses dust-free sanding and cleans to EPA standards.</p>
+      </details>
+      <details>
+        <summary>Can we stay home while you paint?</summary>
+        <p>Yes. We paint one area at a time, keep a path clear and use paints with little to no smell. Pets are fine too. We just ask that they stay out of the rooms we are working in.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- Estimate request -->
+<section class="section contact" id="estimate" aria-labelledby="estimate-title">
+  <div class="wrap contact-grid">
+    <div class="contact-side">
+      <p class="kicker"><code>No. 08</code> Free estimate</p>
+      <h2 id="estimate-title">Book your walkthrough.</h2>
+      <p class="section-lede">Tell us a little about the project. A painter calls or texts within one business day to pick a time.</p>
+      <ul class="contact-facts">
+        <li><span>Call or text</span><a data-biz-phone href="tel:+15550142290"><span data-biz="phone">(555) 014-2290</span></a></li>
+        <li><span>Hours</span><b data-biz="hours">Mon–Fri 7:30–5:00 · Saturday walkthroughs</b></li>
+        <li><span>License</span><b data-biz="license">Lic. #PC-20417</b></li>
+      </ul>
+      <div class="areas">
+        <p class="mini-title">Where we paint</p>
+        <ul class="area-list" data-areas></ul>
+      </div>
+    </div>
+
+    <form class="request" data-request novalidate>
+      <div class="attached" data-attached hidden>
+        <p class="mini-title">Attached to your request</p>
+        <div class="attached-item" data-attached-estimate hidden>
+          <div><b>Estimate</b> <span data-attached-estimate-text></span></div>
+          <button type="button" class="x" data-remove="estimate" aria-label="Remove the estimate">×</button>
+        </div>
+        <div class="attached-item" data-attached-colors hidden>
+          <div><b>Colors</b> <span class="attached-chips" data-attached-colors-text></span></div>
+          <button type="button" class="x" data-remove="colors" aria-label="Remove the colors">×</button>
+        </div>
+      </div>
+      <div class="form-row">
+        <label class="input"><span>Your name</span><input name="name" autocomplete="name" required></label>
+        <label class="input"><span>Phone</span><input name="phone" type="tel" autocomplete="tel"></label>
+      </div>
+      <div class="form-row">
+        <label class="input"><span>Email</span><input name="email" type="email" autocomplete="email"></label>
+        <label class="input"><span>Street address or ZIP</span><input name="address" autocomplete="street-address"></label>
+      </div>
+      <div class="form-row">
+        <label class="input"><span>What are we painting?</span>
+          <select name="project">
+            <option>Interior rooms</option>
+            <option>Exterior</option>
+            <option>Kitchen cabinets</option>
+            <option>Trim, doors &amp; millwork</option>
+            <option>Drywall &amp; plaster repair</option>
+            <option>Decks &amp; fences</option>
+            <option>A bit of everything</option>
+          </select>
+        </label>
+        <label class="input"><span>When would you like it done?</span>
+          <select name="timing">
+            <option>As soon as possible</option>
+            <option>In the next month</option>
+            <option>In 1 to 3 months</option>
+            <option>Just planning for now</option>
+          </select>
+        </label>
+      </div>
+      <label class="input"><span>Anything we should know? <small>optional</small></span><textarea name="message" rows="4" placeholder="Rooms, colors you love, the crack above the stairs…"></textarea></label>
+      <p class="form-error" data-form-error role="alert" hidden></p>
+      <button class="btn btn-brand btn-block btn-lg" type="submit">Request my free walkthrough</button>
+      <p class="fine">We only use your details to set up your estimate. No spam, no sharing.</p>
+      <div class="sent" data-sent hidden tabindex="-1">
+        <p class="sent-title">Thanks, <span data-sent-name>neighbor</span>. We have your request.</p>
+        <p data-sent-text>A painter will call or text within one business day to pick a walkthrough time.</p>
+        <button type="button" class="btn btn-quiet btn-sm" data-sent-reset>Send another request</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-in">
+    <div class="foot-brand">
+      <img src="icon.svg" alt="" width="44" height="44">
+      <p><b>Wren &amp; Roller Painting Co.</b><br>Interior, exterior and cabinet painting in <span data-biz="area">Ashford Valley</span> since <span data-biz="founded">2009</span>.</p>
+    </div>
+    <nav class="foot-nav" aria-label="Footer">
+      <a href="#services">Services</a>
+      <a href="#studio">Color studio</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#work">Our work</a>
+      <a href="#faq">FAQ</a>
+      <a href="#estimate">Free estimate</a>
+    </nav>
+    <p class="foot-small"><a data-biz-phone href="tel:+15550142290"><span data-biz="phone">(555) 014-2290</span></a> · <span data-biz="license">Lic. #PC-20417</span> · © <span data-year>2026</span> Wren &amp; Roller Painting Co.</p>
+  </div>
+</footer>
+
+<div class="mobile-bar">
+  <a class="btn btn-ghost" data-biz-phone href="tel:+15550142290">Call</a>
+  <a class="btn btn-brand" href="#estimate">Free estimate</a>
+</div>
+
+<div class="toast" data-toast role="status" aria-live="polite"></div>
+</body>
+</html>
