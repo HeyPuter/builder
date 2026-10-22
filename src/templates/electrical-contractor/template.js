@@ -3,7 +3,7 @@ export default {
     name: 'Electrical Contractor',
     category: 'Website',
     description: 'A one-page site for an electrician, with a panel load planner, a service directory, a 24/7 emergency line and booking.',
-    updated: '2026-10-15',
+    updated: '2026-10-22',
     workers: [],
     suggestions: [
         { label: 'Use my business details', prompt: 'Change the business name, phone, email, license number, hours and service area to mine. Ask me for anything you need.' },
@@ -15,9 +15,9 @@ export default {
     instructions: [
         'This is a one-page site for an electrical contractor.',
         'Content lives as plain data at the top of app.js: BUSINESS (name, phone, email, license, hours…), FORM, SERVICES, PLANNER, PLATE, STEPS, REVIEWS, FAQ and AREA. Change content there; index.html holds the layout and the hero copy.',
-        'Keep the look: warm paper background, graphite ink, safety-yellow accents, the four-color wire stripe, Archivo for text and IBM Plex Mono for labels.',
+        'Keep the look: a full-bleed photo hero with a dark wash and white cards overlapping its bottom edge, white and light-gray sections with deep navy, one red-orange accent (amber only for things that are switched on), square-cornered buttons, Archivo for text and IBM Plex Mono for small technical labels.',
         'The panel planner is a rough guide. Keep its disclaimer, keep demand compared against 80% of the main service, and keep amps and prices plausible when adding or editing loads.',
-        'Keep the 24/7 emergency number and the hazard strip prominent.',
+        'Keep the 24/7 emergency number in the header and the emergency notice under the hero prominent.',
         'The booking form works without a backend: it posts to FORM.endpoint when set and otherwise opens an email to BUSINESS.email. Keep that fallback unless the user asks for another way to receive requests.',
         'Photos live in photos/. When the user attaches their own photos, use them in place of the stock ones.',
     ].join('\n'),
@@ -40,11 +40,11 @@ export default {
             },
             {
                 title: 'Emergency help that stands out',
-                body: 'A 24/7 number in the top bar and a hazard strip that tells visitors what to do about burning smells, sparks or a warm panel before they call.',
+                body: 'A 24/7 number in the header and a notice under the hero that tells visitors what to do about burning smells, sparks or a warm panel before they call.',
             },
             {
                 title: 'Credentials up front',
-                body: 'License, insurance, warranty and permits on an equipment-style rating plate, with a live next-opening chip and the on-call electrician in the hero.',
+                body: 'A photo hero with a live next-opening chip and the on-call electrician, promise cards for the call fee, warranty and rating, and an equipment-style rating plate.',
             },
             {
                 title: 'Booking without a backend',
@@ -62,7 +62,7 @@ export default {
             },
             {
                 q: 'Can I use the photos?',
-                a: ['Yes. They are CC0 photos from rawpixel. Swap in photos of your own crew, vans and finished jobs when you have them: real photos earn more trust than stock.'],
+                a: ['Yes. They are CC0 and public domain photos from rawpixel and Flickr. Swap in photos of your own crew, vans and finished jobs when you have them: real photos earn more trust than stock.'],
             },
         ],
     },

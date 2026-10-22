@@ -79,7 +79,7 @@ const SERVICES = [
   {
     id: 'commercial', name: 'Commercial', short: 'Shops, offices and tenant fit-outs',
     from: 'Quoted per project', time: 'Scheduled around your hours',
-    photo: 'photos/ceiling-install.jpg', alt: 'An electrician on a scaffold working on a ceiling',
+    photo: 'photos/led-retrofit.jpg', alt: 'An electrician on a ladder fitting LED lights in an office corridor',
     body: 'Fit-outs, LED retrofits and service work for small businesses. We work nights and weekends so you don\'t have to close.',
     includes: ['Drawings and permits', 'LED and emergency lighting', 'Dedicated equipment circuits', 'After-hours scheduling'],
   },
@@ -179,6 +179,7 @@ function fillBindings() {
     onCallName: BUSINESS.onCall.name,
     onCallRole: BUSINESS.onCall.role,
     eta: BUSINESS.onCall.eta,
+    years: new Date().getFullYear() - BUSINESS.since,
   };
   $$('[data-bind]').forEach((el) => { el.textContent = values[el.dataset.bind] ?? ''; });
   $$('[data-bind-href]').forEach((el) => { el.setAttribute('href', values[el.dataset.bindHref] ?? '#'); });
@@ -240,10 +241,10 @@ function selectService(id) {
     <img src="${esc(s.photo)}" alt="${esc(s.alt)}" width="1000" height="625">
     <div class="service-body">
       <h3>${esc(s.name)}</h3>
-      <div class="service-meta"><span class="tag tag-volt">${esc(s.from)}</span><span class="tag">${esc(s.time)}</span></div>
+      <div class="service-meta"><span class="tag tag-accent">${esc(s.from)}</span><span class="tag">${esc(s.time)}</span></div>
       <p>${esc(s.body)}</p>
       <ul class="checks">${s.includes.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
-      <a class="btn btn-volt" href="#book" data-book="${s.id}">Book ${esc(s.name.toLowerCase())} <span aria-hidden="true">→</span></a>
+      <a class="btn btn-accent" href="#book" data-book="${s.id}">Book ${esc(s.name.toLowerCase())} <span aria-hidden="true">→</span></a>
     </div>`;
 }
 
@@ -467,6 +468,22 @@ function setupMenu() {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && header.classList.contains('menu-open')) { setOpen(false); toggle.focus(); }
   });
+
+  // Highlight the nav link of the section in the middle of the screen.
+  const links = $$('#site-nav a[href^="#"]:not(.nav-book)');
+  const sections = links.map((a) => $(a.getAttribute('href'))).filter(Boolean);
+  if (!('IntersectionObserver' in window) || !sections.length) return;
+  const spy = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting) return;
+      links.forEach((a) => {
+        const on = a.getAttribute('href') === `#${entry.target.id}`;
+        a.classList.toggle('is-active', on);
+        if (on) a.setAttribute('aria-current', 'location'); else a.removeAttribute('aria-current');
+      });
+    });
+  }, { rootMargin: '-45% 0px -50% 0px' });
+  sections.forEach((s) => spy.observe(s));
 }
 
 fillBindings();

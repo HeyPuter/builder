@@ -12,7 +12,7 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
 <script src="https://builder.puter.com/runtime.js" defer></script>
 <title>Halden Electric · Licensed electricians in Greater Riverton</title>
 <meta name="description" content="Licensed electricians for panel upgrades, EV chargers, lighting, rewiring and 24/7 emergency repairs. Flat-rate service calls, permits pulled, work inspected.">
-<meta name="theme-color" content="#14161a">
+<meta name="theme-color" content="#15202b">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -24,27 +24,42 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
 
 <div class="topbar">
   <div class="wrap topbar-inner">
-    <p class="topbar-creds"><span data-bind="license"></span><span aria-hidden="true">·</span>Bonded &amp; insured<span aria-hidden="true" class="hide-sm">·</span><span class="hide-sm">Since <span data-bind="since"></span></span></p>
-    <a class="topbar-emergency" data-bind-href="phoneHref"><span class="pulse" aria-hidden="true"></span>24/7 emergency <strong data-bind="phone"></strong></a>
+    <p class="topbar-item">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5 4 5.5v6c0 4.7 3.3 8.6 8 10 4.7-1.4 8-5.3 8-10v-6l-8-3Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="m8.5 12 2.5 2.5 4.5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span data-bind="license"></span><span class="sep" aria-hidden="true">·</span>Bonded &amp; insured<span class="hide-sm"><span class="sep" aria-hidden="true">·</span>Since <span data-bind="since"></span></span>
+    </p>
+    <div class="topbar-right">
+      <p class="topbar-item hide-sm">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.5s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="9.5" r="2.5" fill="currentColor"/></svg>
+        <span>Serving <span data-bind="region"></span></span>
+      </p>
+      <a class="topbar-item hide-md" data-bind-href="emailHref">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="m4 7 8 6 8-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+        <span data-bind="email"></span>
+      </a>
+    </div>
   </div>
 </div>
 
 <header class="site-header">
   <div class="wrap header-inner">
     <a class="brand" href="#top" aria-label="Halden Electric, back to top">
-      <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#14161a"/><path d="M36 8 16 36h13l-3 20 22-30H34l2-18Z" fill="#ffcc1f"/></svg>
+      <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#e8462b"/><path d="M36 8 16 36h13l-3 20 22-30H34l2-18Z" fill="#fff"/></svg>
       <span class="brand-name" data-bind="name"></span>
     </a>
     <nav class="nav" id="site-nav" aria-label="Main">
       <a href="#services">Services</a>
       <a href="#planner">Panel planner</a>
-      <a href="#how">How it works</a>
+      <a href="#about">About</a>
       <a href="#reviews">Reviews</a>
       <a href="#faq">FAQ</a>
+      <a class="nav-book" href="#book">Book a visit</a>
     </nav>
     <div class="header-actions">
-      <a class="header-phone" data-bind-href="phoneHref" data-bind="phone"></a>
-      <a class="btn btn-volt btn-sm" href="#book"><span>Book<span class="hide-xs"> a visit</span></span></a>
+      <a class="header-call" data-bind-href="phoneHref">
+        <span class="call-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6.6 3.5h2.8l1.4 4.3-2 1.6a12 12 0 0 0 5.8 5.8l1.6-2 4.3 1.4v2.8a2 2 0 0 1-2.2 2A16.6 16.6 0 0 1 4.6 5.7a2 2 0 0 1 2-2.2Z" fill="currentColor"/></svg></span>
+        <span class="call-text"><small>24/7 emergency</small><strong data-bind="phone"></strong></span>
+      </a>
       <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Open menu">
         <span></span><span></span>
       </button>
@@ -54,52 +69,52 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
 
 <main id="main">
   <section class="hero" id="top">
-    <div class="wrap hero-grid">
-      <div class="hero-copy">
-        <p class="status-chip" id="opening"><span class="status-dot" aria-hidden="true"></span><span id="opening-text">Checking the schedule…</span></p>
-        <h1>Good wiring goes <span class="mark">unnoticed.</span></h1>
-        <p class="lead">Ours will too. Licensed electricians for panels, EV chargers, lighting and full rewires across <span data-bind="region"></span>. Priced before we start, permitted, and inspected.</p>
-        <div class="hero-ctas">
-          <a class="btn btn-volt" href="#book">Book a visit <span aria-hidden="true">→</span></a>
-          <a class="btn btn-line" href="#planner">Will my panel handle it?</a>
-        </div>
-        <dl class="hero-specs">
-          <div><dt>Rating</dt><dd><strong class="stars-after" data-bind="rating"></strong> <span>from <span data-bind="reviewCount"></span> reviews</span></dd></div>
-          <div><dt>Service call</dt><dd><strong data-bind="callFee"></strong> <span>flat, credited to the job</span></dd></div>
-          <div><dt>Warranty</dt><dd><strong data-bind="warranty"></strong> <span>on every job we wire</span></dd></div>
-        </dl>
+    <img class="hero-bg" src="photos/hero-electrician.jpg" width="1920" height="1277" alt="An electrician in a hard hat checking a breaker panel">
+    <div class="wrap hero-inner">
+      <p class="status-chip" id="opening"><span class="status-dot" aria-hidden="true"></span><span id="opening-text">Checking the schedule…</span></p>
+      <h1>Good wiring goes <span class="mark">unnoticed.</span></h1>
+      <p class="lead">Ours will too. Licensed electricians for panels, EV chargers, lighting and full rewires across <span data-bind="region"></span>. Priced before we start, permitted, and inspected.</p>
+      <div class="hero-ctas">
+        <a class="btn btn-accent" href="#book">Book a visit <span aria-hidden="true">→</span></a>
+        <a class="btn btn-ghost" href="#planner">Will my panel handle it?</a>
       </div>
-      <figure class="hero-media">
-        <img src="photos/panel-work.jpg" width="681" height="1024" alt="An electrician working inside an open breaker panel">
-        <svg class="stamp" viewBox="0 0 120 120" aria-hidden="true">
-          <defs><path id="stamp-ring" d="M60 60m-45 0a45 45 0 1 1 90 0a45 45 0 1 1-90 0"/></defs>
-          <circle cx="60" cy="60" r="58" fill="#ffcc1f" stroke="#14161a" stroke-width="2.5"/>
-          <circle cx="60" cy="60" r="33" fill="none" stroke="#14161a" stroke-width="1.5" stroke-dasharray="3 3"/>
-          <text><textPath href="#stamp-ring" textLength="278" lengthAdjust="spacing">PASSED INSPECTION · PERMIT CLOSED ·</textPath></text>
-          <path d="m47 61 9 9 18-20" fill="none" stroke="#14161a" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        <figcaption class="tech-card">
-          <span class="tech-label">On call now</span>
-          <strong data-bind="onCallName"></strong>
-          <span data-bind="onCallRole"></span>
-          <span class="tech-eta"><span class="status-dot" aria-hidden="true"></span><span>Typical emergency arrival <span data-bind="eta"></span></span></span>
-        </figcaption>
-      </figure>
+      <p class="hero-oncall"><span class="status-dot" aria-hidden="true"></span><span><strong data-bind="onCallName"></strong>, <span data-bind="onCallRole"></span>, is on call now. Typical emergency arrival <span data-bind="eta"></span>.</span></p>
     </div>
   </section>
 
-  <aside class="hazard" aria-label="Electrical emergency">
-    <div class="wrap hazard-inner">
-      <svg class="hazard-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5 1.5 21h21L12 2.5Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12.8 9 9.5 14h2.7l-.9 4 3.3-5h-2.7l.9-4Z" fill="currentColor"/></svg>
-      <p><strong>Burning smell, sparking outlet or a panel that's warm to the touch?</strong> If it's safe, switch off the main breaker, step away, and call us. A real electrician answers, day or night.</p>
-      <a class="btn btn-ink" data-bind-href="phoneHref">Call <span data-bind="phone"></span></a>
+  <section class="promises" aria-labelledby="promises-title">
+    <h2 class="sr-only" id="promises-title">Why neighbors call us</h2>
+    <div class="wrap promise-grid">
+      <article class="promise">
+        <span class="promise-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 9v4l2.5 2.5M9 2.5h6M12 2.5V5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+        <div><h3>24/7 emergency line</h3><p>A licensed electrician answers, day or night.</p></div>
+      </article>
+      <article class="promise">
+        <span class="promise-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3.5 12.6V4.5a1 1 0 0 1 1-1h8.1l8 8a1.4 1.4 0 0 1 0 2l-7 7a1.4 1.4 0 0 1-2 0l-8.1-7.9Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="8.5" cy="8.5" r="1.8" fill="currentColor"/></svg></span>
+        <div><h3><span data-bind="callFee"></span> flat service call</h3><p>Diagnosis included, credited to the repair.</p></div>
+      </article>
+      <article class="promise">
+        <span class="promise-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2.5 4 5.5v6c0 4.7 3.3 8.6 8 10 4.7-1.4 8-5.3 8-10v-6l-8-3Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="m8.5 12 2.5 2.5 4.5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <div><h3><span data-bind="warranty"></span> warranty</h3><p>On workmanship, permitted and inspected.</p></div>
+      </article>
+      <article class="promise">
+        <span class="promise-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 3 2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 16.8l-5.4 2.9 1.1-6.1-4.5-4.2 6.1-.8L12 3Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></span>
+        <div><h3><span data-bind="rating"></span> from <span data-bind="reviewCount"></span> reviews</h3><p>Rated by neighbors across <span data-bind="regionShort"></span>.</p></div>
+      </article>
     </div>
-  </aside>
+    <div class="wrap">
+      <aside class="notice" aria-label="Electrical emergency">
+        <svg class="notice-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5 1.5 21h21L12 2.5Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12.8 9 9.5 14h2.7l-.9 4 3.3-5h-2.7l.9-4Z" fill="currentColor"/></svg>
+        <p><strong>Burning smell, sparking outlet or a panel that's warm to the touch?</strong> If it's safe, switch off the main breaker, step away, and call us right away.</p>
+        <a class="btn btn-ink" data-bind-href="phoneHref">Call <span data-bind="phone"></span></a>
+      </aside>
+    </div>
+  </section>
 
   <section class="section" id="services" aria-labelledby="services-title">
     <div class="wrap">
       <header class="section-head">
-        <p class="eyebrow"><span class="wire" aria-hidden="true"></span>01 · Services</p>
+        <p class="eyebrow">Our services</p>
         <h2 id="services-title">Every circuit, start to finish.</h2>
         <p class="section-lead">Pick a line from the directory to see what's included, how long it takes and where pricing starts.</p>
       </header>
@@ -116,7 +131,7 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
   <section class="section planner-section" id="planner" aria-labelledby="planner-title">
     <div class="wrap">
       <header class="section-head on-dark">
-        <p class="eyebrow"><span class="wire" aria-hidden="true"></span>02 · Panel planner</p>
+        <p class="eyebrow">Panel planner</p>
         <h2 id="planner-title">Will your panel handle it?</h2>
         <p class="section-lead">Going electric adds load. Switch on what you're planning and see how close your service gets to its limit, before anyone opens a wall.</p>
       </header>
@@ -146,38 +161,50 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
             <div><dt>New circuits</dt><dd id="readout-items">None yet</dd></div>
             <div><dt>Ballpark</dt><dd id="readout-price">$0</dd></div>
           </dl>
-          <button class="btn btn-volt btn-block" type="button" id="send-plan">Send this plan with my booking <span aria-hidden="true">→</span></button>
+          <button class="btn btn-accent btn-block" type="button" id="send-plan">Send this plan with my booking <span aria-hidden="true">→</span></button>
           <p class="fine">A quick guide, not a load calculation. On site we measure your actual usage and run the full calculation the code asks for before quoting.</p>
         </div>
       </div>
     </div>
   </section>
 
-  <section class="section" id="how" aria-labelledby="how-title">
+  <section class="section" id="about" aria-labelledby="about-title">
     <div class="wrap">
-      <div class="plate-grid">
-        <header class="section-head">
-          <p class="eyebrow"><span class="wire" aria-hidden="true"></span>03 · How it works</p>
-          <h2 id="how-title">Licensed, insured, and on the record.</h2>
-          <p class="section-lead">No surprise invoices and no "while we're in there." You get a written flat price before any wire is cut, and the inspection report when we're done.</p>
-        </header>
-        <div class="rating-plate" role="group" aria-label="Company credentials">
-          <div class="plate-head">
-            <span data-bind="name"></span>
-            <span>Rating plate</span>
+      <div class="about-grid">
+        <figure class="about-media">
+          <img src="photos/panel-work.jpg" width="681" height="1024" alt="An electrician working inside an open breaker panel" loading="lazy">
+          <svg class="stamp" viewBox="0 0 120 120" aria-hidden="true">
+            <defs><path id="stamp-ring" d="M60 60m-45 0a45 45 0 1 1 90 0a45 45 0 1 1-90 0"/></defs>
+            <circle cx="60" cy="60" r="58" fill="#e8462b"/>
+            <circle cx="60" cy="60" r="33" fill="none" stroke="#fff" stroke-width="1.5" stroke-dasharray="3 3"/>
+            <text><textPath href="#stamp-ring" textLength="278" lengthAdjust="spacing">PASSED INSPECTION · PERMIT CLOSED ·</textPath></text>
+            <path d="m47 61 9 9 18-20" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <figcaption class="years-badge"><strong data-bind="years"></strong><span>years wiring <span data-bind="regionShort"></span></span></figcaption>
+        </figure>
+        <div class="about-copy">
+          <header class="section-head">
+            <p class="eyebrow">About us</p>
+            <h2 id="about-title">Licensed, insured, and on the record.</h2>
+            <p class="section-lead">No surprise invoices and no "while we're in there." You get a written flat price before any wire is cut, and the inspection report when we're done.</p>
+          </header>
+          <div class="rating-plate" role="group" aria-label="Company credentials">
+            <div class="plate-head">
+              <span data-bind="name"></span>
+              <span>Rating plate</span>
+            </div>
+            <dl class="plate-rows" id="plate-rows"></dl>
           </div>
-          <dl class="plate-rows" id="plate-rows"></dl>
-          <div class="plate-foot" aria-hidden="true"><span class="wire wire-lg"></span><span>Made in <span data-bind="regionShort"></span></span></div>
         </div>
       </div>
-      <ol class="steps" id="steps"></ol>
+      <ol class="steps" id="steps" aria-label="How a visit works"></ol>
     </div>
   </section>
 
   <section class="section reviews-section" id="reviews" aria-labelledby="reviews-title">
     <div class="wrap">
       <header class="section-head">
-        <p class="eyebrow"><span class="wire" aria-hidden="true"></span>04 · Reviews</p>
+        <p class="eyebrow">Reviews</p>
         <h2 id="reviews-title"><span data-bind="rating"></span> stars from <span data-bind="reviewCount"></span> neighbors.</h2>
       </header>
       <div class="reviews" id="reviews-list"></div>
@@ -188,7 +215,7 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
     <div class="wrap faq-grid">
       <div>
         <header class="section-head">
-          <p class="eyebrow"><span class="wire" aria-hidden="true"></span>05 · Questions</p>
+          <p class="eyebrow">Questions</p>
           <h2 id="faq-title">Straight answers.</h2>
         </header>
         <div class="area">
@@ -204,7 +231,7 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
   <section class="section book-section" id="book" aria-labelledby="book-title">
     <div class="wrap book-grid">
       <div class="book-copy">
-        <p class="eyebrow"><span class="wire" aria-hidden="true"></span>06 · Book</p>
+        <p class="eyebrow">Book</p>
         <h2 id="book-title">Book a visit.</h2>
         <p class="section-lead">Tell us what's going on and when suits you. We confirm a two-hour arrival window by text, usually within the hour.</p>
         <ul class="book-facts">
@@ -232,7 +259,7 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
         </fieldset>
         <label class="field"><span>Details</span><textarea name="details" id="details" rows="4" placeholder="What's happening, which rooms, anything we should know about access or pets."></textarea></label>
         <p class="form-error" id="form-error" role="alert" hidden></p>
-        <button class="btn btn-volt btn-block" type="submit">Request my visit <span aria-hidden="true">→</span></button>
+        <button class="btn btn-accent btn-block" type="submit">Request my visit <span aria-hidden="true">→</span></button>
         <p class="fine">We only use your details to schedule this visit.</p>
       </form>
       <div class="book-done" id="book-done" hidden tabindex="-1">
@@ -249,7 +276,7 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
   <div class="wrap footer-grid">
     <div>
       <a class="brand brand-light" href="#top">
-        <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#ffcc1f"/><path d="M36 8 16 36h13l-3 20 22-30H34l2-18Z" fill="#14161a"/></svg>
+        <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#e8462b"/><path d="M36 8 16 36h13l-3 20 22-30H34l2-18Z" fill="#fff"/></svg>
         <span class="brand-name" data-bind="name"></span>
       </a>
       <p class="footer-note">Residential and light commercial electrical work across <span data-bind="region"></span>.</p>
@@ -266,7 +293,6 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
     </ul>
   </div>
   <div class="wrap footer-base">
-    <span class="wire wire-lg" aria-hidden="true"></span>
     <p>© <span id="year"></span> <span data-bind="name"></span>. All work permitted and inspected where required.</p>
   </div>
 </footer>
