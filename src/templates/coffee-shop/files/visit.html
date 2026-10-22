@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Visit · Morrow Coffee</title>
+<meta name="description" content="Opening hours, directions and how to reach Morrow Coffee on Larch Street. No reservations needed, and you can write to us about groups, catering or beans.">
+<meta name="theme-color" content="#151413">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amatic+SC:wght@400;700&family=Caveat+Brush&family=Work+Sans:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="styles.css">
+<script src="content.js" defer></script>
+<script src="app.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-header">
+    <div class="wrap header-inner">
+        <a class="logo" href="index.html" aria-label="Morrow Coffee, home">
+            <svg viewBox="0 0 240 240" aria-hidden="true">
+                <circle class="badge-disc" cx="120" cy="120" r="118"/>
+                <path class="badge-ring" d="M131 21c50 4 89 46 88 99-1 56-45 99-100 99-54 0-98-44-98-99 0-54 43-98 98-99"/>
+                <text class="badge-word" x="120" y="136" text-anchor="middle" style="font-size:62px">Morrow</text>
+                <path class="badge-sprout" d="M176 196c6-10 14-17 24-20"/>
+                <path class="badge-leaf" d="M200 176c-2-9 4-17 14-18 1 10-5 17-14 18z"/>
+            </svg>
+        </a>
+        <nav class="nav-links" id="nav-links" aria-label="Main" data-nav-links>
+            <a href="index.html">Home</a>
+            <a href="menu.html">Menu</a>
+            <a href="about.html">Our story</a>
+            <a href="visit.html" aria-current="page">Visit</a>
+        </nav>
+        <div class="header-side">
+            <p class="header-address" data-address-line>214 Larch Street, Portland</p>
+            <div class="header-actions">
+                <p class="status" data-status="short"><span class="status-dot" aria-hidden="true"></span><span data-status-text>Opening hours</span></p>
+                <a class="pill pill-coral pill-sm" href="visit.html" data-order>Order ahead</a>
+                <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links" data-nav-toggle>
+                    <span class="sr-only">Open the menu</span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16M4 16h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+</header>
+
+<main id="main">
+    <section class="page-hero" style="--photo: url('photos/front-door.jpg')" aria-labelledby="page-title">
+        <div>
+            <h1 class="tape" id="page-title">Come visit</h1>
+            <p>Walk in any day. There's always a seat, or a spot at the bar.</p>
+        </div>
+    </section>
+
+    <section class="info-band" aria-label="Find us, opening hours and contact" data-info-band="visit"></section>
+
+    <section class="section">
+        <div class="wrap visit-grid">
+            <div class="visit-hours">
+                <span class="script">Getting here</span>
+                <h2>Easy to find, easy to park</h2>
+                <p class="status" data-status="long"><span class="status-dot" aria-hidden="true"></span><span data-status-text>&nbsp;</span></p>
+                <ul class="getting-here" data-getting-here></ul>
+                <p class="visit-note">No reservations, ever. Coming with a group of eight or more? Send us a note and we'll keep the big table for you.</p>
+            </div>
+
+            <div class="contact-card" id="contact">
+                <span class="script">Write to us</span>
+                <h2>Say hello</h2>
+                <p>Questions, a group of eight or more, catering or wholesale beans. We answer every message within a day or two.</p>
+                <form class="contact-form" data-contact novalidate>
+                    <div class="field">
+                        <label for="c-name">Your name</label>
+                        <input id="c-name" name="name" type="text" autocomplete="name" required>
+                    </div>
+                    <div class="field">
+                        <label for="c-email">Email</label>
+                        <input id="c-email" name="email" type="email" autocomplete="email" required>
+                    </div>
+                    <div class="field field-wide">
+                        <label for="c-topic">What's it about?</label>
+                        <select id="c-topic" name="topic"></select>
+                    </div>
+                    <div class="field field-wide">
+                        <label for="c-message">Message</label>
+                        <textarea id="c-message" name="message" required></textarea>
+                    </div>
+                    <div class="contact-actions">
+                        <button class="cut" type="submit">Send it</button>
+                        <p class="form-msg" role="status" data-contact-msg></p>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <section class="section section-paper">
+        <div class="wrap storefront">
+            <figure class="row-photo"><img src="photos/storefront.jpg" alt="Orange folding chairs on the patio outside the shop" width="1200" height="800" loading="lazy"></figure>
+            <div class="row-copy">
+                <span class="script">Look for the orange chairs</span>
+                <h2>On the corner of Larch &amp; 32nd</h2>
+                <p>Between the bookshop and the bike repair, across from the park. The patio is open whenever it isn't pouring.</p>
+                <a class="cut" href="#" data-map-link>Open in Maps</a>
+            </div>
+        </div>
+    </section>
+</main>
+
+<footer class="site-footer">
+    <div class="wrap footer-grid">
+        <div class="footer-brand">
+            <a class="logo" href="index.html" aria-label="Morrow Coffee, home">
+                <svg viewBox="0 0 240 240" aria-hidden="true">
+                    <circle class="badge-disc" cx="120" cy="120" r="118"/>
+                    <path class="badge-ring" d="M131 21c50 4 89 46 88 99-1 56-45 99-100 99-54 0-98-44-98-99 0-54 43-98 98-99"/>
+                    <text class="badge-word" x="120" y="136" text-anchor="middle" style="font-size:62px">Morrow</text>
+                    <path class="badge-sprout" d="M176 196c6-10 14-17 24-20"/>
+                    <path class="badge-leaf" d="M200 176c-2-9 4-17 14-18 1 10-5 17-14 18z"/>
+                </svg>
+            </a>
+            <p><span data-address></span></p>
+        </div>
+        <nav aria-label="Footer">
+            <h2>Pages</h2>
+            <ul class="footer-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="menu.html">Menu</a></li>
+                <li><a href="about.html">Our story</a></li>
+                <li><a href="visit.html">Visit</a></li>
+            </ul>
+        </nav>
+        <div class="letter">
+            <h2>The Tuesday letter</h2>
+            <p>New beans the day they leave the roaster. One short email a week, never more.</p>
+            <form class="letter-form" data-letter novalidate>
+                <label class="sr-only" for="letter-email">Email address</label>
+                <input id="letter-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required>
+                <button class="pill pill-coral" type="submit">Sign me up</button>
+            </form>
+            <p class="form-msg" role="status" data-letter-msg></p>
+        </div>
+    </div>
+    <div class="wrap footer-base">
+        <p>© <span data-year></span> <span data-shop="name">Morrow Coffee</span></p>
+        <ul class="socials" data-socials></ul>
+    </div>
+</footer>
+</body>
+</html>

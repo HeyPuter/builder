@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Our story · Morrow Coffee</title>
+<meta name="description" content="How a coffee cart became a corner shop with a roaster in the back room. We roast on Tuesdays, bake from 6 am and keep a seat by the window for you.">
+<meta name="theme-color" content="#151413">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amatic+SC:wght@400;700&family=Caveat+Brush&family=Work+Sans:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="styles.css">
+<script src="content.js" defer></script>
+<script src="app.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-header">
+    <div class="wrap header-inner">
+        <a class="logo" href="index.html" aria-label="Morrow Coffee, home">
+            <svg viewBox="0 0 240 240" aria-hidden="true">
+                <circle class="badge-disc" cx="120" cy="120" r="118"/>
+                <path class="badge-ring" d="M131 21c50 4 89 46 88 99-1 56-45 99-100 99-54 0-98-44-98-99 0-54 43-98 98-99"/>
+                <text class="badge-word" x="120" y="136" text-anchor="middle" style="font-size:62px">Morrow</text>
+                <path class="badge-sprout" d="M176 196c6-10 14-17 24-20"/>
+                <path class="badge-leaf" d="M200 176c-2-9 4-17 14-18 1 10-5 17-14 18z"/>
+            </svg>
+        </a>
+        <nav class="nav-links" id="nav-links" aria-label="Main" data-nav-links>
+            <a href="index.html">Home</a>
+            <a href="menu.html">Menu</a>
+            <a href="about.html" aria-current="page">Our story</a>
+            <a href="visit.html">Visit</a>
+        </nav>
+        <div class="header-side">
+            <p class="header-address" data-address-line>214 Larch Street, Portland</p>
+            <div class="header-actions">
+                <p class="status" data-status="short"><span class="status-dot" aria-hidden="true"></span><span data-status-text>Opening hours</span></p>
+                <a class="pill pill-coral pill-sm" href="visit.html" data-order>Order ahead</a>
+                <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links" data-nav-toggle>
+                    <span class="sr-only">Open the menu</span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16M4 16h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+</header>
+
+<main id="main">
+    <section class="page-hero" style="--photo: url('photos/about-hero.jpg')" aria-labelledby="page-title">
+        <div>
+            <h1 class="tape" id="page-title">Our story</h1>
+            <p>A coffee cart, a corner shop, and a lot of early mornings.</p>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="wrap narrow">
+            <p class="intro-text"><span class="script">Hello from Larch Street</span>Morrow started in 2016 as a coffee cart outside the farmers market. Two years later we moved into the old flower shop on the corner, kept the big windows, and put a small roaster in the back room. We still roast every Tuesday, bake every morning and know most of you by your order.</p>
+        </div>
+    </section>
+
+    <section class="section section-paper">
+        <div class="wrap rows">
+            <article class="row">
+                <figure class="row-photo"><img src="photos/beans.jpg" alt="Freshly roasted coffee beans" width="900" height="675" loading="lazy"></figure>
+                <div class="row-copy">
+                    <span class="script">Tuesdays</span>
+                    <h2>We roast it ourselves</h2>
+                    <p>We buy from a handful of farms we've worked with for years, and roast in small batches on a two-kilo roaster in the back room. Beans rest a few days, then go into the hopper and onto the shelf, dated by hand.</p>
+                    <a class="cut" href="menu.html#beans">Beans on the shelf</a>
+                </div>
+            </article>
+            <article class="row">
+                <figure class="row-photo"><img src="photos/bakery.jpg" alt="Pastries and baked goods on a dark table" width="900" height="675" loading="lazy"></figure>
+                <div class="row-copy">
+                    <span class="script">From 6 am</span>
+                    <h2>Everything is baked here</h2>
+                    <p>Croissant dough takes three days, so someone is always folding butter. The first bake is out at 7, the second at 11:30, and anything left after 5 is half price.</p>
+                    <a class="cut" href="menu.html#bakery">See the bakery</a>
+                </div>
+            </article>
+            <article class="row" id="room">
+                <figure class="row-photo"><img src="photos/room.jpg" alt="Morning light through arched windows over leather booths" width="1200" height="800" loading="lazy"></figure>
+                <div class="row-copy">
+                    <span class="script">The room</span>
+                    <h2>Stay as long as you like</h2>
+                    <p>Thirty-two seats, a long bar to lean on and a patio out front. The only thing we ask is that you leave the big table free for groups at the weekend.</p>
+                    <ul class="amenities" data-amenities></ul>
+                </div>
+            </article>
+        </div>
+    </section>
+
+    <section class="section" aria-labelledby="regulars-title">
+        <div class="wrap regulars">
+            <div>
+                <span class="script">For regulars</span>
+                <h2 id="regulars-title">Every tenth cup is on us</h2>
+                <p>Ask for a stamp card at the bar. No app, no account, no email. Just a little card that lives in your wallet.</p>
+            </div>
+            <div class="stamp-card" data-stamps aria-hidden="true"></div>
+        </div>
+    </section>
+
+    <section class="quote-banner">
+        <p>“Pull up a chair. We'll bring the coffee.”</p>
+        <span>No reservations, ever</span>
+    </section>
+</main>
+
+<footer class="site-footer">
+    <div class="wrap footer-grid">
+        <div class="footer-brand">
+            <a class="logo" href="index.html" aria-label="Morrow Coffee, home">
+                <svg viewBox="0 0 240 240" aria-hidden="true">
+                    <circle class="badge-disc" cx="120" cy="120" r="118"/>
+                    <path class="badge-ring" d="M131 21c50 4 89 46 88 99-1 56-45 99-100 99-54 0-98-44-98-99 0-54 43-98 98-99"/>
+                    <text class="badge-word" x="120" y="136" text-anchor="middle" style="font-size:62px">Morrow</text>
+                    <path class="badge-sprout" d="M176 196c6-10 14-17 24-20"/>
+                    <path class="badge-leaf" d="M200 176c-2-9 4-17 14-18 1 10-5 17-14 18z"/>
+                </svg>
+            </a>
+            <p><span data-address></span></p>
+        </div>
+        <nav aria-label="Footer">
+            <h2>Pages</h2>
+            <ul class="footer-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="menu.html">Menu</a></li>
+                <li><a href="about.html">Our story</a></li>
+                <li><a href="visit.html">Visit</a></li>
+            </ul>
+        </nav>
+        <div class="letter">
+            <h2>The Tuesday letter</h2>
+            <p>New beans the day they leave the roaster. One short email a week, never more.</p>
+            <form class="letter-form" data-letter novalidate>
+                <label class="sr-only" for="letter-email">Email address</label>
+                <input id="letter-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required>
+                <button class="pill pill-coral" type="submit">Sign me up</button>
+            </form>
+            <p class="form-msg" role="status" data-letter-msg></p>
+        </div>
+    </div>
+    <div class="wrap footer-base">
+        <p>© <span data-year></span> <span data-shop="name">Morrow Coffee</span></p>
+        <ul class="socials" data-socials></ul>
+    </div>
+</footer>
+</body>
+</html>

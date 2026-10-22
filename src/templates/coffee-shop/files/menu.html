@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Menu · Morrow Coffee</title>
+<meta name="description" content="Coffee, brunch and bakes at Morrow Coffee: espresso, slow bar pour-overs, brunch until 3 and pastries baked in house, plus the beans on our shelf this week.">
+<meta name="theme-color" content="#151413">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amatic+SC:wght@400;700&family=Caveat+Brush&family=Work+Sans:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="styles.css">
+<script src="content.js" defer></script>
+<script src="app.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-header">
+    <div class="wrap header-inner">
+        <a class="logo" href="index.html" aria-label="Morrow Coffee, home">
+            <svg viewBox="0 0 240 240" aria-hidden="true">
+                <circle class="badge-disc" cx="120" cy="120" r="118"/>
+                <path class="badge-ring" d="M131 21c50 4 89 46 88 99-1 56-45 99-100 99-54 0-98-44-98-99 0-54 43-98 98-99"/>
+                <text class="badge-word" x="120" y="136" text-anchor="middle" style="font-size:62px">Morrow</text>
+                <path class="badge-sprout" d="M176 196c6-10 14-17 24-20"/>
+                <path class="badge-leaf" d="M200 176c-2-9 4-17 14-18 1 10-5 17-14 18z"/>
+            </svg>
+        </a>
+        <nav class="nav-links" id="nav-links" aria-label="Main" data-nav-links>
+            <a href="index.html">Home</a>
+            <a href="menu.html" aria-current="page">Menu</a>
+            <a href="about.html">Our story</a>
+            <a href="visit.html">Visit</a>
+        </nav>
+        <div class="header-side">
+            <p class="header-address" data-address-line>214 Larch Street, Portland</p>
+            <div class="header-actions">
+                <p class="status" data-status="short"><span class="status-dot" aria-hidden="true"></span><span data-status-text>Opening hours</span></p>
+                <a class="pill pill-coral pill-sm" href="visit.html" data-order>Order ahead</a>
+                <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links" data-nav-toggle>
+                    <span class="sr-only">Open the menu</span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16M4 16h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+</header>
+
+<main id="main">
+    <section class="page-hero" style="--photo: url('photos/menu-hero.jpg')" aria-labelledby="page-title">
+        <div>
+            <h1 class="tape" id="page-title">The menu</h1>
+            <p>Coffee, brunch and bakes. Served all day, every day.</p>
+        </div>
+    </section>
+
+    <section class="section" aria-label="Menu">
+        <div class="wrap menu-layout">
+            <div class="menu-main">
+                <div class="menu-controls">
+                    <div class="tabs" role="tablist" aria-label="Menu sections" data-menu-tabs></div>
+                    <div class="sizes" role="radiogroup" aria-label="Cup size" data-sizes></div>
+                </div>
+                <div class="board" role="tabpanel" tabindex="0" data-menu-panel></div>
+                <p class="menu-note" data-menu-note></p>
+            </div>
+
+            <aside class="finder" aria-labelledby="finder-title">
+                <h2 id="finder-title">Order like a regular</h2>
+                <p>Not sure what to get? Three taps and we'll point you to it.</p>
+                <form class="finder-form" data-finder>
+                    <fieldset>
+                        <legend>Hot or iced?</legend>
+                        <div class="seg">
+                            <label><input type="radio" name="temp" value="hot" checked><span>Hot</span></label>
+                            <label><input type="radio" name="temp" value="iced"><span>Iced</span></label>
+                        </div>
+                    </fieldset>
+                    <fieldset>
+                        <legend>Black or with milk?</legend>
+                        <div class="seg">
+                            <label><input type="radio" name="milk" value="black"><span>Black</span></label>
+                            <label><input type="radio" name="milk" value="milk" checked><span>Milk</span></label>
+                        </div>
+                    </fieldset>
+                    <fieldset>
+                        <legend>Gentle or bold?</legend>
+                        <div class="seg">
+                            <label><input type="radio" name="mood" value="gentle" checked><span>Gentle</span></label>
+                            <label><input type="radio" name="mood" value="bold"><span>Bold</span></label>
+                        </div>
+                    </fieldset>
+                </form>
+                <div class="finder-result" aria-live="polite" data-finder-result></div>
+            </aside>
+        </div>
+    </section>
+
+    <section class="section section-paper" id="beans" aria-labelledby="beans-title">
+        <div class="wrap">
+            <div class="beans-top">
+                <div class="section-head">
+                    <span class="script">On the shelf</span>
+                    <h2 id="beans-title">Roasted Tuesday, gone by Sunday</h2>
+                    <p class="lead">Every bag is roasted here and dated by hand. Grab one at the counter, or ask us to set one aside.</p>
+                </div>
+                <div class="roast" data-roast>
+                    <p class="roast-label">Next roast</p>
+                    <p class="roast-when" data-roast-when>&nbsp;</p>
+                    <ol class="roast-week" data-roast-week aria-hidden="true"></ol>
+                </div>
+            </div>
+            <ul class="bags" data-beans></ul>
+        </div>
+    </section>
+
+    <section class="order-strip" aria-labelledby="order-title">
+        <div class="wrap">
+            <h2 id="order-title">In a hurry? Order ahead and skip the line.</h2>
+            <a class="pill pill-ink" href="visit.html" data-order>Order ahead</a>
+        </div>
+    </section>
+</main>
+
+<footer class="site-footer">
+    <div class="wrap footer-grid">
+        <div class="footer-brand">
+            <a class="logo" href="index.html" aria-label="Morrow Coffee, home">
+                <svg viewBox="0 0 240 240" aria-hidden="true">
+                    <circle class="badge-disc" cx="120" cy="120" r="118"/>
+                    <path class="badge-ring" d="M131 21c50 4 89 46 88 99-1 56-45 99-100 99-54 0-98-44-98-99 0-54 43-98 98-99"/>
+                    <text class="badge-word" x="120" y="136" text-anchor="middle" style="font-size:62px">Morrow</text>
+                    <path class="badge-sprout" d="M176 196c6-10 14-17 24-20"/>
+                    <path class="badge-leaf" d="M200 176c-2-9 4-17 14-18 1 10-5 17-14 18z"/>
+                </svg>
+            </a>
+            <p><span data-address></span></p>
+        </div>
+        <nav aria-label="Footer">
+            <h2>Pages</h2>
+            <ul class="footer-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="menu.html">Menu</a></li>
+                <li><a href="about.html">Our story</a></li>
+                <li><a href="visit.html">Visit</a></li>
+            </ul>
+        </nav>
+        <div class="letter">
+            <h2>The Tuesday letter</h2>
+            <p>New beans the day they leave the roaster. One short email a week, never more.</p>
+            <form class="letter-form" data-letter novalidate>
+                <label class="sr-only" for="letter-email">Email address</label>
+                <input id="letter-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required>
+                <button class="pill pill-coral" type="submit">Sign me up</button>
+            </form>
+            <p class="form-msg" role="status" data-letter-msg></p>
+        </div>
+    </div>
+    <div class="wrap footer-base">
+        <p>© <span data-year></span> <span data-shop="name">Morrow Coffee</span></p>
+        <ul class="socials" data-socials></ul>
+    </div>
+</footer>
+</body>
+</html>
