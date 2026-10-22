@@ -4630,6 +4630,11 @@ body.preview-active.chat-hidden .chat {
         padding: 8px 16px;
         font-size: 14px;
     }
+    /* The toolbar is tight on phones; paid users' Benefits button is
+       informational, so it goes (free users keep Upgrade). */
+    .upgrade-btn.is-paid {
+        display: none;
+    }
     /* Comfortable touch targets for the account panel rows and theme segments. */
     .user-panel-item {
         min-height: 44px;
