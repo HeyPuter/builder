@@ -49,6 +49,12 @@ window.FEATURE_FLAGS = {
     // so the landing screen is the plain centered layout again. Disabled for
     // now; re-enable by setting true.
     featuredFeed: false,
+    // The AI model picker in the composer (js/model-picker.js, rules and the
+    // per-model request shaping in js/model-core.js). A paid Puter plan picks
+    // the model a project builds with; free users see the list locked with an
+    // upgrade offer. When false the button is gone and every project builds
+    // with the default model, whatever it was set to.
+    modelPicker: true,
     // The Code view: a Preview | Code toggle in the preview toolbar that shows
     // the project's files (js/code-editor.js, with the pure rules in
     // js/editor-core.js). Free users read, search and copy them, and a paid
@@ -438,6 +444,8 @@ function updateSendButtonState(processing) {
     // Same for an open Issues panel: its send actions are blocked during a turn
     // and must un-grey the moment the turn ends. Cheap no-op when closed.
     if (typeof window.refreshIssuesSendState === 'function') window.refreshIssuesSendState();
+    // The model picker is part of the composer: locked for the whole turn.
+    window.ModelPicker?.setBusy?.(processing);
 }
 
 /**
@@ -1014,9 +1022,13 @@ window.MARKED_OPTIONS = {
 /**
  * Strip DOM-only metadata (like messageId) from chatHistory before sending to AI
  * Similar to cacheLast but also removes messageId and other DOM-only fields
- * @param {Array} historyArray 
+ * @param {Array} historyArray
+ * @param {string} [modelId] The model this request goes to (ModelCore id). The
+ *   copy is shaped for it last (window.ModelCore.shapeHistory); omitted means
+ *   the default model.
+ * @param {{unavailableTools?: Array}} [opts] Passed on to shapeHistory.
  */
-function prepareHistoryForAI(historyArray) {
+function prepareHistoryForAI(historyArray, modelId, opts) {
     const copy = structuredClone(historyArray);
     // Remove messageId and other DOM-only metadata from all messages
     copy.forEach(msg => {
@@ -1045,6 +1057,11 @@ function prepareHistoryForAI(historyArray) {
         // "Started from" note; never sent to the chat endpoint.
         if (msg.templateOrigin) {
             delete msg.templateOrigin;
+        }
+        // The project's AI model choice (model-picker.js), kept on its system
+        // message; never sent.
+        if ('buildModel' in msg) {
+            delete msg.buildModel;
         }
         // Bookkeeping fields that record the AI response cost + token usage on
         // assistant messages (see handleMessageStream / sumChatCostCents /
@@ -1095,6 +1112,11 @@ function prepareHistoryForAI(historyArray) {
     if (deduped.length > 0) {
         deduped[deduped.length - 1].cache_control = { type: "ephemeral" };
     }
+    // Per-model shaping last, on the finished copy: it drops the `model` stamps
+    // and, for a non-Claude target, Anthropic-only fields and media placement.
+    const modelCore = typeof window !== 'undefined' ? window.ModelCore : null;
+    if (modelCore) return modelCore.shapeHistory(deduped, modelId, opts);
+    for (const m of deduped) if (m && 'model' in m) delete m.model;
     return deduped;
 }
 
@@ -1723,6 +1745,13 @@ window.applyFileEdit = function (content, oldContent, newContent) {
     }
     if (!oldContent) {
         throw new Error("old_content cannot be empty. Use the 'write' tool to create new files.");
+    }
+    // A missing new_content used to become '' and delete the matched block while
+    // the tool reported success. Strict schemas rule it out on Claude, but a
+    // call cut off at the output limit, or a route that ignores strict, can send
+    // one. An empty string is still allowed: deleting on purpose is valid.
+    if (typeof newContent !== 'string') {
+        throw new Error("new_content is missing. Send the replacement text in new_content (an empty string deletes the matched text).");
     }
 
     // Compare the RAW inputs (as the original tool did) so an edit that only

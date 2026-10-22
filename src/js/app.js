@@ -1,3 +1,6 @@
+// The default build model. A paid plan can set another one per project (the
+// composer's model picker, js/model-picker.js). A turn reads its model once
+// when it starts and keeps it for every round, retry and Resume.
 let MODEL = 'claude-opus-5-5';
 let system_prompt
 let chatHistory;
@@ -1022,6 +1025,8 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
         chatHistory = chat.history;
         currentChatId = chatId;
         currentAppDir = `/${window.user.username}/AppData/${puter.appID}/${chatId}`;
+        // The composer's model picker shows this project's model.
+        window.ModelPicker?.render?.();
         // A project with no live preview tears the previous chat's preview pane
         // down NOW, before this chat's own state is restored below.
         // hideAppPreview() clears the preview AND published globals (they
@@ -2567,6 +2572,7 @@ async function initAuthenticatedState() {
         ]
     };
     chatHistory = [system_prompt];
+    window.ModelPicker?.render?.();
 
     await ensureChatHistoryFolder();
     await loadSavedChats();
@@ -3047,7 +3053,9 @@ function new_chat({ updateUrl = true } = {}) {
         chatHistory = [system_prompt];
         window._authInitDone = authReady;
     }
-    
+    // A new project starts on the user's last pick (model-picker.js).
+    window.ModelPicker?.render?.();
+
     // Reset input and button state
     $('.chat-input-message').val('').prop('disabled', false);
     $('.attachment-button').prop('disabled', false);
@@ -3316,7 +3324,11 @@ function restoreTodosForResume(history) {
         const blocks = Array.isArray(m.content)
             ? m.content
             : (m.content && typeof m.content === 'object' ? [m.content] : []);
-        for (const b of blocks) {
+        // From the end: in a batch of calls (one reply, see
+        // handleMessageStream) the last TodoWrite is the newest list, the
+        // same rule as promoteFinishedTodos.
+        for (let j = blocks.length - 1; j >= 0; j--) {
+            const b = blocks[j];
             if (b && b.type === 'tool_use' && b.name === 'TodoWrite'
                 && b.input && Array.isArray(b.input.todos)) {
                 todos = b.input.todos;
@@ -3796,6 +3808,14 @@ function isTransientTurnError(error) {
     // Usage-limit has its own upgrade CTA; retrying can't clear it.
     if (error.error && error.error.delegate === 'usage-limited-chat') return false;
 
+    // Puter's own codes for an upstream chain that failed before streaming
+    // (every route overloaded, down, timing out or rate limited). The text is
+    // 'AI provider unavailable' or 'All AI providers failed', which the phrase
+    // list below never matched, so these ended the turn on an error card.
+    const code = String(error.code || error.errorCode || '');
+    if (['upstream_provider_unavailable', 'upstream_failed', 'upstream_timeout', 'upstream_rate_limited'].includes(code)) return true;
+    if (['upstream_bad_request', 'upstream_credits_exhausted', 'upstream_auth_failed', 'permission_denied', 'insufficient_funds'].includes(code)) return false;
+
     const text = extractErrorText(error).toLowerCase();
     if (!text) return false;
 
@@ -3813,6 +3833,7 @@ function isTransientTurnError(error) {
     // Transient phrasing (network / capacity / timeout).
     const TRANSIENT = [
         'overloaded', 'no fallback model available',
+        'ai provider unavailable', 'all ai providers failed', 'ai provider timed out',
         'rate limit', 'too many requests',
         'bad gateway', 'gateway timeout', 'service unavailable', 'internal server error',
         'timeout', 'timed out', 'etimedout',
@@ -4639,6 +4660,15 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // resume. The end-of-turn save in `finally` flips this to false once the turn
     // has finished cleanly (or surfaced an error card).
     const turnSaveContext = { chatHistory, currentChatId: turnChatId, appDir: turnAppDir, interrupted: true };
+    // The model the project is set to, claimed before this turn's message joins
+    // the history (a new project keeps the model it started on). The turn's
+    // model is settled from it, with a plan check, just before the first
+    // request (see allowedForTurn below); every round, the auto-retries and a
+    // stall recovery then reuse it (tools.js reads it from the turn's context).
+    const chosenModel = window.ModelPicker
+        ? window.ModelPicker.claimForTurn(turnSaveContext.chatHistory)
+        : window.ModelCore.DEFAULT_MODEL;
+    let turnModel = window.ModelCore.resolveTurnModel({ fallback: MODEL });
     // True once this turn has been abandoned while still setting up: the user
     // clicked Stop (activeTurnInterrupted — the only flag Stop can set before
     // an AbortController exists; resetUIForAbort also drops isProcessing, so
@@ -4987,7 +5017,10 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // the work already in chatHistory so completed rounds/file-writes are never
         // redone. `context` is declared out here so the catch below can clean up a
         // partial bubble. See the MAX_TURN_RETRIES / isTransientTurnError block.
-        const turnTools = window.getTurnTools();
+        // A plan that ended since the page loaded must not keep a paid model.
+        if (window.ModelPicker) turnModel = await window.ModelPicker.allowedForTurn(chosenModel);
+        const turnTools = window.getTurnTools(turnModel);
+        const turnUnavailableTools = window.getUnavailableTools?.(turnModel) || [];
         turnAccountRead = readTurnAccount().then(a => { turnAccount = a; }, () => {});
         while (true) {
             // A fresh AbortController per attempt. This is also the guard for a chat
@@ -5010,13 +5043,10 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                 // The SDK ignores the signal option, so the open is raced
                 // against the signal locally (abortableAwait) — otherwise an
                 // abort couldn't unstick a connection that dies mid-open.
-                const stream = await abortableAwait(puter.ai.chat(prepareHistoryForAI(turnSaveContext.chatHistory), {
-                    model: MODEL,
-                    tools: turnTools,
-                    stream: true,
-                    reasoning_effort: 'medium',
-                    signal: abortController.signal
-                }), abortController.signal);
+                const stream = await abortableAwait(puter.ai.chat(
+                    prepareHistoryForAI(turnSaveContext.chatHistory, turnModel, { unavailableTools: turnUnavailableTools }),
+                    window.ModelCore.buildChatOptions(turnModel, { tools: turnTools, signal: abortController.signal })
+                ), abortController.signal);
 
                 // Reset auto-scroll flag when starting a new message
                 window.shouldAutoScroll = true;
@@ -5028,7 +5058,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                 // (handleToolCalls) keep the chat flagged in-progress until the
                 // end-of-turn save clears it — this is what makes a refresh during a
                 // long multi-round build resumable.
-                context = {abortController, tools: turnTools, chatHistory: turnSaveContext.chatHistory, currentMessage: null, currentMessageContent: '', currentChatId: turnChatId, appDir: turnAppDir, interrupted: true, turnStats};
+                context = {abortController, tools: turnTools, model: turnModel, unavailableTools: turnUnavailableTools, chatHistory: turnSaveContext.chatHistory, currentMessage: null, currentMessageContent: '', currentChatId: turnChatId, appDir: turnAppDir, interrupted: true, turnStats};
                 await handleMessageStream(stream, context);
                 if (abortController === attemptController) _turnAwaitingStream = false;
                 break; // stream drained (completed, or aborted/switched — handled below)
@@ -5160,7 +5190,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             const costCents = u && typeof u.cents === 'number' && u.cents > 0 ? u.cents : 0;
             window.track?.(
                 'Build Completed',
-                { first_build: isFirstBuildTurn, model: MODEL, cost_cents: Number(costCents.toFixed(4)),
+                { first_build: isFirstBuildTurn, model: turnModel, cost_cents: Number(costCents.toFixed(4)),
                     cost_band: costBand(costCents), plan: turnAccount.plan, credits_at_start: turnAccount.credits },
                 costCents > 0 ? { currency: 'USD', amount: -(costCents / 100) } : undefined,
             );
@@ -5169,7 +5199,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             // it lands here, not in the catch below. puter.js shows Low Balance
             // for it, so count the limit hit, and don't take it as an unblock.
             if (context && context.usageLimited) {
-                trackLimitHit({ first_build: isFirstBuildTurn, model: MODEL, kind: 'credits', ...usageLimitHitProps(turnSaveContext.chatHistory, savedChats, turnChatId, window.currentPublishedUrl) });
+                trackLimitHit({ first_build: isFirstBuildTurn, model: turnModel, kind: 'credits', ...usageLimitHitProps(turnSaveContext.chatHistory, savedChats, turnChatId, window.currentPublishedUrl) });
                 recordUsageLimitHit('credits');
             } else {
                 reportUnblockAfterLimit();
@@ -5190,7 +5220,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         if (!shouldStop && !activeTurnInterrupted && turnChatId === currentChatId) {
             turnErrored = true;
             if(error.error?.delegate === "usage-limited-chat"){
-                trackLimitHit({ first_build: isFirstBuildTurn, model: MODEL, kind: 'tier', ...usageLimitHitProps(turnSaveContext.chatHistory, savedChats, turnChatId, window.currentPublishedUrl) });
+                trackLimitHit({ first_build: isFirstBuildTurn, model: turnModel, kind: 'tier', ...usageLimitHitProps(turnSaveContext.chatHistory, savedChats, turnChatId, window.currentPublishedUrl) });
                 recordUsageLimitHit('tier');
                 appendMessage('You have reached the current tier\'s usage limit. Please upgrade your Puter account to continue. <button class="upgrade-button">Upgrade</button>', false, false, false, true);
                 window.announce?.('You have reached the current tier\'s usage limit. Upgrade your Puter account to continue.', { assertive: true });
@@ -5204,7 +5234,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                 // the stream or as a stream error line. Counted only when puter.js
                 // would show its Low Balance prompt for it.
                 if (isLowBalanceRefusal(error)) {
-                    trackLimitHit({ first_build: isFirstBuildTurn, model: MODEL, kind: 'credits', ...usageLimitHitProps(turnSaveContext.chatHistory, savedChats, turnChatId, window.currentPublishedUrl) });
+                    trackLimitHit({ first_build: isFirstBuildTurn, model: turnModel, kind: 'credits', ...usageLimitHitProps(turnSaveContext.chatHistory, savedChats, turnChatId, window.currentPublishedUrl) });
                     recordUsageLimitHit('credits');
                 }
                 const friendlyError = friendlyErrorMessage(errorText);

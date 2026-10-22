@@ -46,6 +46,11 @@ After deployment, full propagation may take 5-30 seconds across edge servers. Wo
         if (!new RegExp('^[A-Za-z0-9_-]{1,' + maxLen + '}$').test(name)) {
             throw new Error(`Invalid worker name "${name}": use only letters, numbers, hyphens and underscores (1-${maxLen} characters).`);
         }
+        // A call cut off at the output limit can arrive without its code, and
+        // deploying that would replace a live backend with an empty one.
+        if (typeof args.code !== 'string' || !args.code.trim()) {
+            throw new Error("code is missing. Send the worker's full source in code.");
+        }
         // The project directory, from the turn's captured state so a mid-turn
         // chat switch can't redirect the write (see window.projectRootDir).
         const root = window.projectRootDir(state);

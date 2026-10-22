@@ -5,13 +5,14 @@ import vm from 'node:vm';
 // ---- Regression guard: a refused build still counts its calls and cost ------
 // The Usage Limit Hit event's `calls` tells a build refused on its first call
 // from one that ran out mid-build. Puter sends each call's usage chunk LAST,
-// after its tool_use, and handleMessageStream runs the tool round (and opens the
-// next call) as soon as it reads the tool_use. So when a later call is refused,
-// every earlier stream is still parked in its tool round and never reads its
-// usage. Counting at usage alone reported calls: 0 for every mid-build refusal.
-// The same unread usage carried each call's cost, so a build cut short saved
-// little or nothing of what it spent, and Project Published's cost_band read
-// low. Each parked stream now reads its usage on the way out (drainUsage).
+// after its tool_use. handleMessageStream used to run the tool round (and open
+// the next call) as soon as it read the tool_use, so when a later call was
+// refused every earlier stream was still parked in its tool round and never
+// read its usage. Counting at usage alone reported calls: 0 for every
+// mid-build refusal, and the same unread usage carried each call's cost. The
+// tool round now waits for the usage line (see pendingTools), and a stream
+// whose usage line never comes still reads what's left on the way out
+// (drainUsage).
 // Runs the REAL handleMessageStream.js, with tool rounds that recurse into the
 // next scripted call on the same context, like tools.js.
 
@@ -132,8 +133,10 @@ await check('a finished build records each call once (no double count from the d
 });
 
 await check('a dead connection stalls the unwind at most once, not once per round', async () => {
-    // Every parked stream hangs after its tool_use: its usage never arrives.
-    async function* hangs(id) { yield tool('write', id); await new Promise(() => {}); }
+    // Every parked stream goes silent after its reply (tool_use, then usage):
+    // the end of the stream never arrives. The drain on the way out shares one
+    // deadline across the rounds.
+    async function* hangs(id) { yield tool('write', id); yield usage(); await new Promise(() => {}); }
     const h = setup([() => hangs('w2'), () => hangs('w3'), 'refused']);
     const t0 = Date.now();
     await assert.rejects(h.env.handleMessageStream(hangs('w1'), h.context), /Insufficient funds/);

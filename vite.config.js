@@ -52,10 +52,14 @@ const SCRIPTS = [
   // Pure half of the Code view (access rules, file kinds, buffer states, the
   // note that tells the AI about hand edits); js/code-editor.js is the UI half.
   'js/editor-core.js',
+  // Pure: the build-model registry and the per-model request shaping.
+  'js/model-core.js',
   'js/tools.js',
   // Before ui.js, which paints the avatar from window.profilePicture.
   'js/profile-picture.js',
   'js/ui.js',
+  // The composer's AI model picker (premium); its rules are in model-core.js.
+  'js/model-picker.js',
   'js/mcp-ui.js',
   'js/featured.js',
   'js/templates.js',

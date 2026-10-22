@@ -28,6 +28,11 @@ window.tools.push({
         // the file outside the project (in a sibling project, even) while this
         // guard reported it as in-bounds. See window.assertPathInProject.
         const path = window.assertPathInProject(args.path, state);
+        // A call cut off at the output limit, or from a route that ignores the
+        // strict schema, can arrive without data. Writing it would empty the file.
+        if (typeof args.data !== 'string') {
+            throw new Error("data is missing. Send the file's full content in data.");
+        }
         // The user edited this file by hand in the Code view since the model
         // last read it: a whole-file write from the model's memory would drop
         // their change, so it must read the file first (see code-editor.js).

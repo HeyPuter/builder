@@ -12,9 +12,23 @@ const showError = (placeholderMessage, errorText) => {
 window.tools = [];
 
 
-window.getTurnTools = function() {
-    return [...window.tools, ...(window.mcpManager?.getTools() || [])];
+// The tools for a turn on `modelId`: the builder's own, then the MCP tools
+// that model can take (see ModelCore.turnTools).
+window.getTurnTools = function(modelId) {
+    const mcp = window.mcpManager?.getTools() || [];
+    return window.ModelCore ? window.ModelCore.turnTools(modelId, window.tools, mcp) : [...window.tools, ...mcp];
 };
+// The MCP tools left out of a turn on `modelId` ({label, server}), which the
+// model is told about (ModelCore.unavailableToolsNote).
+window.getUnavailableTools = function(modelId) {
+    const mcp = window.mcpManager?.getTools() || [];
+    return window.ModelCore ? window.ModelCore.unavailableTools(modelId, mcp) : [];
+};
+
+// The answer to a tool call whose reply hit the output limit before its
+// arguments were complete. Puter turns cut-off JSON into {}, so running it
+// would fail on a missing field at best, and at worst write an empty file.
+const CUT_OFF_TOOL_ERROR = 'This call was cut off at the output limit before its arguments were complete, so it was not run. Send it again. If it was a large file, write it in smaller parts (a shorter write, then edits).';
 
 window.findTool = function(name, state) {
     return (state?.tools || window.getTurnTools()).find(tool => tool.function.name === name);
@@ -65,10 +79,21 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
     // Extract text content
     const textContent = completion.text;
     delete completion.text;
-    
-    // Normalize completion to array
+
+    // Normalize completion to array. A batch (every tool call of one reply,
+    // see handleMessageStream) arrives as an array of chunks, each still
+    // carrying its own empty `text`.
     if(!Array.isArray(completion))
         completion = [completion];
+    // Calls handleMessageStream found cut off at the output limit (_cutOff).
+    // The marker is bookkeeping, never stored.
+    const cutOffIds = new Set();
+    for (const block of completion) {
+        if (!block || typeof block !== 'object') continue;
+        if ('text' in block && block.type === 'tool_use') delete block.text;
+        if (block._cutOff) cutOffIds.add(block.id);
+        delete block._cutOff;
+    }
 
     // Add text content to history if present. Suppress the UI bubble while
     // the progress checklist has unfinished items, so mid-turn narration that
@@ -86,10 +111,13 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
         }
     }
 
-    // Add tool_use to history
+    // Add tool_use to history, stamped with the model that made the calls so a
+    // later request to another model can drop provider-only fields
+    // (ModelCore.shapeHistory, which also strips the stamp before sending).
     c.chatHistory.push({
         role: "assistant",
-        content: completion.length === 1 ? completion[0] : completion
+        content: completion.length === 1 ? completion[0] : completion,
+        ...(c.model ? { model: c.model } : {})
     });
 
     // Process tool calls - execute all tools
@@ -115,7 +143,14 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
             liftReadGuards();
             return { error: 'Aborted', history: c.chatHistory };
         }
-        
+
+        if (cutOffIds.has(toolCall.id)) {
+            if (!hasToolResultFor(c.chatHistory, toolCall.id)) {
+                addToolResultToHistory(c.chatHistory, toolCall.id, { error: CUT_OFF_TOOL_ERROR }, true);
+            }
+            continue;
+        }
+
         // Tell the background-freeze watchdog (app.js) a local tool is running:
         // the turn isn't waiting on its stream meanwhile, so silence isn't a stall.
         const watchdogKey = c.abortController;
@@ -238,13 +273,12 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
     // and feeding the wrong conversation to the model here would corrupt the turn.
     // abortableAwait: the SDK ignores the signal option, so the open must be
     // raced against the signal locally or an abort can't unstick a dead open.
-    const stream = await abortableAwait(puter.ai.chat(prepareHistoryForAI(c.chatHistory), {
-        model: MODEL,
-        tools: c.tools || window.tools,
-        stream: true,
-        reasoning_effort: 'medium',
-        signal: c.abortController.signal
-    }), c.abortController.signal);
+    // The turn's model (c.model, fixed when the turn started) drives the
+    // history shape and the request options for every round.
+    const stream = await abortableAwait(puter.ai.chat(
+        prepareHistoryForAI(c.chatHistory, c.model, { unavailableTools: c.unavailableTools }),
+        window.ModelCore.buildChatOptions(c.model, { tools: c.tools || window.tools, signal: c.abortController.signal })
+    ), c.abortController.signal);
     // Round handoff = liveness for the background-freeze watchdog (see
     // mobile-lifecycle-keepalive in app.js). Guarded so a stale turn's rounds
     // can't mask a stall of the chat the user actually has open.

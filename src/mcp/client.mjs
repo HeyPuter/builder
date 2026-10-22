@@ -269,6 +269,9 @@ export function createMcpManager({ getOwner, storage, browserFetch, relayFetch, 
                 return {
                     type: 'function',
                     label: definition.name,
+                    // The connection's name, for telling the model which
+                    // server's tools a model can't take (ModelCore).
+                    server: record.name,
                     function: {
                         name: `mcp_${record.id}_${suffix}`,
                         description: `External tool from ${record.name}: ${definition.name}. ${definition.description || ''}`.slice(0, 4000),

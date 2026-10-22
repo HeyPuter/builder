@@ -829,6 +829,148 @@ select:focus-visible,
     color: #333;
 }
 
+/* ---- AI model picker (composer) ----
+   A quiet text button next to the attachment button, with its panel opening
+   upward from the composer (js/model-picker.js). The panel reuses the toolbar
+   popovers' chrome. */
+.model-picker-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 25px;
+    max-width: 170px;
+    padding: 0 8px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: #666;
+    font: inherit;
+    font-size: 12.5px;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: 0.2s ease background-color;
+}
+.model-picker-btn[hidden] { display: none; }
+.model-picker-btn:hover:not(:disabled),
+.model-picker-btn[aria-expanded="true"] {
+    background-color: #f0f0f0;
+    color: #333;
+}
+.model-picker-btn:disabled { cursor: not-allowed; opacity: 0.55; }
+.model-picker-label { overflow: hidden; text-overflow: ellipsis; }
+.model-picker-btn svg { flex: 0 0 auto; }
+
+/* Fixed on <body> and placed by positionPanel() in model-picker.js: inside the
+   composer it was clipped by the landing column's scroll box. Above the
+   toolbar menus (1000-1001), below the modals. */
+.model-picker-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 330px;
+    max-width: calc(100vw - 16px);
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+    z-index: 1002;
+    font-size: 13px;
+    text-align: left;
+}
+/* On a short window only the list scrolls; the header and the upgrade offer stay. */
+.model-panel-header,
+.model-panel-upsell { flex: 0 0 auto; }
+.model-picker-panel:focus,
+.model-picker-panel:focus-visible { outline: none; }
+.model-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    font-weight: 600;
+    color: #333;
+    border-bottom: 1px solid #eee;
+}
+.model-panel-close {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    width: 22px;
+    height: 22px;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    color: #555;
+}
+.model-panel-close:hover { background: #ececec; }
+.model-panel-body {
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+}
+.model-panel-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    width: 100%;
+    padding: 8px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: #333;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+.model-panel-option:hover { background: #f2f2f2; }
+.model-option-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.model-option-name {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+}
+.model-option-note { color: #666; font-size: 12px; line-height: 1.35; }
+.model-option-tag {
+    padding: 0 6px;
+    border: 1px solid #ddd;
+    border-radius: 999px;
+    color: #555;
+    font-size: 10.5px;
+    font-weight: 600;
+    line-height: 16px;
+}
+.model-option-check,
+.model-option-lock { display: inline-flex; flex: 0 0 auto; margin-top: 1px; }
+.model-option-check { color: #2d7d46; }
+.model-option-lock { color: #888; }
+.model-panel-option.locked .model-option-name { color: #555; }
+.model-panel-upsell {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 12px;
+    border-top: 1px solid #eee;
+}
+.model-panel-upsell p { margin: 0; color: #555; font-size: 12.5px; line-height: 1.35; }
+
 .attachment-button:disabled {
     cursor: default;
     opacity: 0.5;
@@ -1877,7 +2019,8 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
     color: #333;
 }
 .upgrade-card-inner span { flex: 1 1 auto; min-width: 0; }
-.upgrade-card-btn {
+.upgrade-card-btn,
+.model-panel-upgrade {
     flex: 0 0 auto;
     border: none;
     border-radius: 8px;
@@ -1890,7 +2033,8 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
     cursor: pointer;
     transition: background-color 0.15s ease;
 }
-.upgrade-card-btn:hover { background: #000; }
+.upgrade-card-btn:hover,
+.model-panel-upgrade:hover { background: #000; }
 
 .clarify-summary {
     animation: suggestionsIn 0.2s ease;
@@ -4417,6 +4561,10 @@ body.preview-active.chat-hidden .chat {
         width: 34px;
         height: 34px;
     }
+    .model-picker-btn {
+        height: 34px;
+        font-size: 13px;
+    }
     .chat-input-message-actions {
         height: 48px;
     }
@@ -5490,6 +5638,29 @@ html[data-theme="dark"] .chat-input-message:focus-within,
 html[data-theme="dark"] .chat-input-message:focus { border-color: var(--border-strong); }
 
 /* Attachment button (its SVG stroke is hardcoded #666 — follow the button colour) */
+html[data-theme="dark"] .model-picker-btn { color: var(--text-muted); }
+html[data-theme="dark"] .model-picker-btn:hover:not(:disabled),
+html[data-theme="dark"] .model-picker-btn[aria-expanded="true"] {
+    background-color: var(--surface-hover);
+    color: var(--text);
+}
+html[data-theme="dark"] .model-picker-panel {
+    background: var(--surface);
+    border-color: var(--border);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+html[data-theme="dark"] .model-panel-header { color: var(--text); border-bottom-color: var(--border); }
+html[data-theme="dark"] .model-panel-close { color: var(--text-secondary); }
+html[data-theme="dark"] .model-panel-close:hover { background: var(--surface-hover); }
+html[data-theme="dark"] .model-panel-option { color: var(--text); }
+html[data-theme="dark"] .model-panel-option:hover { background: var(--surface-hover); }
+html[data-theme="dark"] .model-option-note,
+html[data-theme="dark"] .model-panel-upsell p { color: var(--text-secondary); }
+html[data-theme="dark"] .model-option-tag { color: var(--text-secondary); border-color: var(--border); }
+html[data-theme="dark"] .model-option-check { color: #8fe3ab; }
+html[data-theme="dark"] .model-option-lock { color: var(--text-muted); }
+html[data-theme="dark"] .model-panel-option.locked .model-option-name { color: var(--text-secondary); }
+html[data-theme="dark"] .model-panel-upsell { border-top-color: var(--border); }
 html[data-theme="dark"] .attachment-button { color: var(--text-muted); }
 html[data-theme="dark"] .attachment-button svg { stroke: currentColor; }
 html[data-theme="dark"] .attachment-button:hover:not(:disabled) {
@@ -5915,10 +6086,12 @@ html[data-theme="dark"] .publish-badge-toggle { color: var(--text); }
 html[data-theme="dark"] .publish-badge-toggle.is-locked label { color: var(--text-secondary); }
 html[data-theme="dark"] .upgrade-card-inner { background: var(--surface); border-color: var(--border); color: var(--text); }
 html[data-theme="dark"] .upgrade-card-btn,
+html[data-theme="dark"] .model-panel-upgrade,
 html[data-theme="dark"] .publish-branding-btn,
 html[data-theme="dark"] .upgrade-btn,
 html[data-theme="dark"] a.upgrade-go { background: #eef2f7; border-color: #eef2f7; color: #0b1118; }
 html[data-theme="dark"] .upgrade-card-btn:hover,
+html[data-theme="dark"] .model-panel-upgrade:hover,
 html[data-theme="dark"] .publish-branding-btn:hover,
 html[data-theme="dark"] .upgrade-btn:hover,
 html[data-theme="dark"] a.upgrade-go:hover { background: #fff; }

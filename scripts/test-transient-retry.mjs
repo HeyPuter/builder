@@ -72,6 +72,12 @@ const TRANSIENT = [
     { message: '503 service unavailable' },
     // Wrapped '400 {json}' envelope whose inner message is transient → unwrapped.
     '400 {"error":{"message":"The service is temporarily overloaded"}}',
+    // Puter's normalized chain failures (every route failed before streaming):
+    // HTTP 400 bodies whose text alone never matched before.
+    { error: 'AI provider unavailable', message: 'AI provider unavailable', code: 'upstream_provider_unavailable', upstreamStatus: 529 },
+    { error: 'All AI providers failed', message: 'All AI providers failed', code: 'upstream_failed' },
+    { message: 'AI provider timed out', code: 'upstream_timeout' },
+    'AI provider unavailable',
 ];
 for (const e of TRANSIENT) {
     check('transient → retry: ' + label(e), isTransientTurnError(e) === true);
@@ -101,6 +107,10 @@ const NON_TRANSIENT = [
     // Word-boundary guard: a token/context-length number must NOT read as a 5xx.
     'context length exceeded: maximum is 500000 tokens',
     'maximum 5000 tokens allowed',
+    // Puter codes for failures a retry can't fix, even when the text sounds busy.
+    { message: 'The service is overloaded', code: 'upstream_bad_request' },
+    { message: 'Upstream credits exhausted, try again later', code: 'upstream_credits_exhausted' },
+    { message: 'The model X is only available to subscribers', code: 'permission_denied' },
 ];
 for (const e of NON_TRANSIENT) {
     check('non-transient → no retry: ' + label(e), isTransientTurnError(e) === false);
