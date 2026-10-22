@@ -4817,11 +4817,12 @@ body.preview-active.chat-hidden .chat {
     }
     /* (Segment sizing/padding is owned by the scoped `.view-seg .view-seg-btn`
        base rule, which already outranks `.preview-toolbar button`.) */
-    /* The switcher gets its own row under the toolbar's controls. Squeezed
-       into the middle of the one row, it collided with the right-hand cluster
-       (Upgrade / Benefits + GitHub + avatar). The toolbar grows to two rows
-       while a preview is open — --toolbar-h, so the chat column below shrinks
-       to match — and the right cluster stays centred on the first row. */
+    /* The switcher gets its own row under the toolbar's controls when the
+       one-row layout below can't hold it: very narrow phones, and inside
+       Puter, where the cluster can also hold Send feedback and the theme
+       toggle. The toolbar grows to two rows — --toolbar-h, so the chat column
+       below shrinks to match — and the right cluster stays centred on the
+       first row. */
     body.preview-active {
         --toolbar-h: 92px;
     }
@@ -4833,6 +4834,43 @@ body.preview-active.chat-hidden .chat {
         left: 50%;
         bottom: 6px;
         transform: translateX(-50%);
+    }
+    /* Otherwise the switcher shares the toolbar's one row, centred in the
+       space between the burger / new-chat pair (absolutely placed, so padded
+       around) and the right-hand cluster, which joins the flex row so the
+       space between them is known. The GitHub link steps aside to make room. */
+    @media (min-width: 360px) {
+        body.preview-active:not(:has(.toolbar .feedback-btn)) {
+            --toolbar-h: 44px;
+        }
+        body.preview-active .toolbar:not(:has(.feedback-btn)) {
+            padding: 0 8px 0 104px;
+            gap: 8px;
+        }
+        body.preview-active .toolbar:not(:has(.feedback-btn)) .user-menu-container {
+            position: relative;
+            top: auto;
+            right: auto;
+            transform: none;
+        }
+        body.preview-active .toolbar:not(:has(.feedback-btn)) .github-link {
+            display: none;
+        }
+        body.preview-active .toolbar:not(:has(.feedback-btn)) .view-seg-toolbar {
+            position: static;
+            transform: none;
+            margin: 0 auto;
+        }
+        /* Beside the wide Upgrade button there's only room for the icons; the
+           labels stay as the buttons' accessible names. */
+        body.preview-active .toolbar:not(:has(.feedback-btn)):has(.upgrade-btn:not(.is-paid)) .view-seg-toolbar .view-seg-btn span {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+            clip-path: inset(50%);
+            white-space: nowrap;
+        }
     }
 
     /* Phones can't fit the version-history / download buttons beside the centered
