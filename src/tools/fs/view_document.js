@@ -51,6 +51,11 @@ window.tools.push({
     exec: async function (args, state) {
         const raw = ((args && args.path) || '').trim();
         if (!raw) throw new Error('No document path provided.');
+        // Only Claude's route carries a PDF to the model (see ModelCore). On
+        // the others the pages would arrive as an error note or not at all.
+        if (state && state.model && window.ModelCore && !window.ModelCore.supportsPdf(state.model)) {
+            throw new Error("This model can't read PDF files. Do not retry. Use the file by its path if the app only needs to serve or link it, and tell the user that reading a PDF's content needs a Claude model.");
+        }
 
         // Resolve relative paths against the current app directory. The attachment
         // note also gives the model the absolute path, so an absolute path always

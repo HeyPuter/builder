@@ -138,6 +138,11 @@ function renderSkeleton() {
             h += `<div class="chat-input-message-actions">`;
                 h += `<button class="attachment-button" title="Attach files from your computer">${attachment_svg}</button>`;
                 h += `<input type="file" class="attachment-file-input" accept="${ATTACHMENT_ACCEPT}" multiple style="display:none">`;
+                // The AI model picker (js/model-picker.js), shown once the
+                // account is known; its label and state come from render().
+                if (window.FEATURE_FLAGS?.modelPicker) {
+                    h += `<button type="button" class="model-picker-btn" aria-haspopup="dialog" aria-expanded="false" hidden><span class="model-picker-label">Opus 5.5</span><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg></button>`;
+                }
                 // The label flips to "Stop" while a turn runs (updateSendButtonState).
                 h += `<button class="send" disabled title="Send message" aria-label="Send message">${send_svg}</button>`;
             h += `</div>`;
@@ -259,6 +264,9 @@ function updateUserMenu() {
     // Reconcile the theme when auth resolves or changes. Signed-out users
     // follow the system even if this browser has a saved account preference.
     applyTheme(getEffectiveTheme());
+    // The composer's model picker follows the account too (hidden, locked or
+    // open), including when a plan changes.
+    window.ModelPicker?.render?.();
     const $container = $('.user-menu-container');
     if (!$container.length) return;
     const loggedIn = !!(window.user && !window.user.is_temp);
@@ -5002,13 +5010,18 @@ function openUpgradeModal(source, { justUpgraded = false } = {}) {
     // Opened from the Code view (or the AI's code-editing card): lead with the
     // editor, and sketch it instead of the badge.
     const forCode = !!window.FEATURE_FLAGS?.codeEditor && (source === 'code_editor' || source === 'chat_code_editor');
+    const codePerk = 'Edit your app’s code in Builder';
+    const modelPerk = 'Choose the AI model that builds your app';
     const perkList = [
         'More credits for building apps',
-        ...(window.FEATURE_FLAGS?.codeEditor ? ['Edit your app’s code in Builder'] : []),
+        ...(window.FEATURE_FLAGS?.codeEditor ? [codePerk] : []),
+        ...(window.FEATURE_FLAGS?.modelPicker ? [modelPerk] : []),
         'Remove “Made with Puter” badge on your sites',
         'Premium features we release in the future',
     ];
-    if (forCode) perkList.unshift(perkList.splice(1, 1)[0]);
+    // Lead with the perk the user came for.
+    const lead = forCode ? codePerk : (source === 'model_picker' && window.FEATURE_FLAGS?.modelPicker ? modelPerk : null);
+    if (lead) perkList.unshift(perkList.splice(perkList.indexOf(lead), 1)[0]);
     const perks =
         '<ul class="upgrade-perks">' +
             perkList.map((p) => `<li>${check}<span>${p}</span></li>`).join('') +

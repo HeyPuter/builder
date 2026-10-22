@@ -56,6 +56,18 @@ function recordUsageChunk(context, completion) {
         cents: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0,
     });
     acc.cents += num(u.usd_cents);
+    // Token keys are each vendor's own. Claude's (and the Responses API's)
+    // input_tokens/output_tokens are read as before. Routes that name them
+    // otherwise (prompt_tokens, Gemini's counts) fall back to Puter's
+    // provider-neutral usageDetails, which carries at least the totals.
+    const d = completion.usageDetails;
+    if (!('input_tokens' in u) && !('output_tokens' in u) && d && typeof d === 'object') {
+        acc.input += num(d.inputTokens);
+        acc.output += num(d.outputTokens);
+        acc.cacheRead += num(d.cacheReadTokens);
+        acc.cacheWrite += num(d.cacheWrite5mTokens) + num(d.cacheWrite1hTokens);
+        return;
+    }
     acc.input += num(u.input_tokens);
     acc.output += num(u.output_tokens);
     acc.cacheRead += num(u.cache_read_input_tokens);
@@ -234,6 +246,57 @@ async function drainUsage(stream, context) {
     } catch (_) { /* best-effort: the turn's own error is what surfaces */ }
 }
 
+// How long a reply's tool calls wait for its usage line before they run
+// anyway (see pendingTools in handleMessageStream). Puter writes the usage line
+// right after the last call, so this only matters when a connection dies in
+// between, where waiting for the line would hang the turn on a dead socket.
+const TOOL_USAGE_WAIT_MS = 1500;
+const STREAM_IDLE = Symbol('stream-idle');
+
+// Yield `iterable`'s chunks. While idleMs() returns a positive number, a chunk
+// that takes longer than that yields STREAM_IDLE first (a private symbol, so no
+// real chunk can be mistaken for it); the read stays pending and its chunk is
+// yielded when it arrives.
+async function* withIdleTicks(iterable, idleMs) {
+    const it = iterable[Symbol.asyncIterator]();
+    let next = null;
+    try {
+        while (true) {
+            if (!next) {
+                next = it.next();
+                // Handled where it's awaited; this only keeps a read that is
+                // abandoned (the consumer stopped) from reporting unhandled.
+                next.catch(() => {});
+            }
+            const ms = idleMs();
+            let r;
+            if (ms > 0) {
+                let timer;
+                const tick = new Promise(resolve => { timer = setTimeout(() => resolve(STREAM_IDLE), ms); });
+                try {
+                    r = await Promise.race([next, tick]);
+                } finally {
+                    clearTimeout(timer);
+                }
+                if (r === STREAM_IDLE) {
+                    yield STREAM_IDLE;
+                    continue;
+                }
+            } else {
+                r = await next;
+            }
+            next = null;
+            if (r.done) return;
+            yield r.value;
+        }
+    } finally {
+        try {
+            const p = it.return && it.return();
+            if (p && p.catch) p.catch(() => {});
+        } catch (_) { /* best-effort close */ }
+    }
+}
+
 /**
  *
  * @param {*} stream
@@ -269,15 +332,63 @@ async function handleMessageStream(stream, context) {
         thinkingPreview?.remove();
         thinkingPreview = null;
     };
+    // This reply's tool calls, run together once the reply is complete: at its
+    // usage line, which Puter writes last, or at the end of the stream. Running
+    // each call the moment it arrived started the next model round before the
+    // rest of the reply was read, so a reply with several calls (GPT and
+    // Gemini make them, and so does Opus when Puter serves it through a
+    // reseller) ran calls 2..N after the turn had moved on: late, out of
+    // order, over newer files. A reply that ends in an error or an abort drops
+    // its calls unrun. They were never stored, so nothing is left dangling.
+    let pendingTools = [];
+    const runPendingTools = async (stopReason) => {
+        const batch = pendingTools;
+        pendingTools = [];
+        if (batch.length === 0) return null;
+        // Cut off at the output limit: the last call's arguments are
+        // incomplete (Puter hands them over as {}), so it is answered with an
+        // error instead of run (see CUT_OFF_TOOL_ERROR in tools.js).
+        if (stopReason === 'max_tokens' || stopReason === 'length') batch[batch.length - 1]._cutOff = true;
+        // Save before and after a tool call incase the user quits. All of the
+        // reply's narration, including text that came after a call, becomes one
+        // message ahead of the calls.
+        saveCurrentMessage(context);
+        let result;
+        try {
+            // One call stays a plain object, as before, so a Claude history is
+            // stored and sent byte for byte as it always was.
+            result = await handleToolCalls(batch.length === 1 ? batch[0] : batch, true, context);
+        } catch (err) {
+            await drainUsage(stream, context);
+            throw err;
+        }
+        saveCurrentMessage(context);
+        return result;
+    };
+    let toolRoundEnded = false;
     try {
         // Abort-aware iteration: puter.ai.chat ignores the signal option, so this
         // race is what actually makes an abort take effect while the stream is
         // silent (see the abortable-stream block above).
-        for await (const completion of abortableStream(stream, context.abortController && context.abortController.signal)) {
+        // Idle ticks only while calls wait for their usage line (see
+        // TOOL_USAGE_WAIT_MS); context.toolUsageWaitMs shortens it in tests.
+        const usageWaitMs = () => (pendingTools.length > 0 ? (context.toolUsageWaitMs ?? TOOL_USAGE_WAIT_MS) : 0);
+        for await (const completion of withIdleTicks(abortableStream(stream, context.abortController && context.abortController.signal), usageWaitMs)) {
             // Bail if the request was aborted OR the user has since switched chats —
             // in either case nothing from this turn should render into the live chat.
             if (isAborted(context.abortController) || isStaleTurn(context)) {
                 return;
+            }
+
+            // The usage line is late: run the waiting calls now. Not a sign of
+            // life, so it skips the liveness stamp below.
+            if (completion === STREAM_IDLE) {
+                const result = await runPendingTools();
+                if (result && (result.error || shouldStop)) {
+                    toolRoundEnded = true;
+                    break;
+                }
+                continue;
             }
 
             // Liveness stamp for the background-freeze watchdog (see
@@ -356,26 +467,19 @@ async function handleMessageStream(stream, context) {
                 if (completion.metadata && completion.metadata.usage_limited === true) {
                     context.usageLimited = true;
                 }
+                // The reply is complete: run its tool calls (see pendingTools).
+                const result = await runPendingTools(completion.stopReason || completion.finish_reason);
+                if (result && (result.error || shouldStop)) {
+                    toolRoundEnded = true;
+                    break;
+                }
             }
             if (completion.type === "tool_use") {
                 countCall();
                 clearThinking();
                 window.noteTurnProgress?.();
                 startSpinnerStub();
-
-                // Save before and after a tool call incase the user quits
-                saveCurrentMessage(context);
-                let result;
-                try {
-                    result = await handleToolCalls(completion, true, context);
-                } catch (err) {
-                    await drainUsage(stream, context);
-                    throw err;
-                }
-                saveCurrentMessage(context);
-                if (result.error || shouldStop) {
-                    break;
-                }
+                pendingTools.push(completion);
             }
         }
     } finally {
@@ -384,6 +488,12 @@ async function handleMessageStream(stream, context) {
         clearThinking();
     }
     if (isAborted(context.abortController) || isStaleTurn(context)) return;
+    // A stream that ended without its usage line still ran to its end (an
+    // error line would have thrown above), so its calls run now.
+    if (!toolRoundEnded && pendingTools.length > 0) {
+        await runPendingTools();
+        if (isAborted(context.abortController) || isStaleTurn(context)) return;
+    }
     if (recurser) {
         // The top-level stream has drained — the entire turn (every recursive
         // round via handleToolCalls) is done generating. Tear down the trailing

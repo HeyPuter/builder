@@ -26,7 +26,7 @@ function setup({ activeTodos = true, preRendered = [] } = {}) {
         attr(name, value) { if (name === 'data-message-id') entry.id = value; },
     });
     const env = {
-        AbortController, DOMException,
+        AbortController, DOMException, setTimeout, clearTimeout,
         currentChatId: 'one', shouldStop: false,
         window: {},
         marked: { parse: s => s },

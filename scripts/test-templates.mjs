@@ -669,7 +669,7 @@ if (built) {
         HELPERS.match(/^const _SURROGATE_RE = .*$/m)[0],
         extract(HELPERS, 'function wellFormedText(s) {'),
         extract(HELPERS, 'function wellFormedDeep(value) {'),
-        extract(HELPERS, 'function prepareHistoryForAI(historyArray) {'),
+        extract(HELPERS, 'function prepareHistoryForAI(historyArray, modelId, opts) {'),
         extract(HELPERS, 'function dropDuplicateToolResults(messages) {'),
         extract(HELPERS, 'function stubStaleDocumentBlocks(messages) {'),
     ].join('\n'), sandbox);

@@ -202,8 +202,11 @@ window.tools.push({
         const original = await puter.fs.read(path);
         const sniffed = sniffImageType(new Uint8Array(await original.slice(0, 16).arrayBuffer()));
         // Unknown bytes (AVIF, HEIC, BMP… behind a .png name) are re-encoded to
-        // PNG/JPEG when the browser can decode them.
-        const fit = await fitImageForVision(original, sniffed || mediaType, { force: !sniffed });
+        // PNG/JPEG when the browser can decode them. So is a GIF for a model
+        // that doesn't take GIFs (Gemini, see ModelCore).
+        const gifUnsupported = sniffed === 'image/gif' && state && state.model
+            && window.ModelCore && !window.ModelCore.supportsGif(state.model);
+        const fit = await fitImageForVision(original, sniffed || mediaType, { force: !sniffed || gifUnsupported });
         // Bytes no modern browser can decode (a corrupt or truncated file) would
         // be rejected by the API too.
         if (fit.decodable === false || (!sniffed && !fit.fitted)) {
