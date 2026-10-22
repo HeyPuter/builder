@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<title>Tumbletown Early Learning · Daycare & preschool for 6 weeks to 5 years</title>
+<meta name="description" content="Tumbletown is a neighborhood daycare and preschool for children from 6 weeks to 5 years. Four rooms, small groups, a nut-free kitchen and a garden. Book a tour.">
+<meta name="theme-color" content="#2d4bd8">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=DM+Mono:wght@400;500&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="crayons" aria-hidden="true"></div>
+
+<header class="nav" id="top">
+  <a class="brand" href="#top" aria-label="Tumbletown Early Learning, home">
+    <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><path d="M10 58V40a14 14 0 0 1 28 0v18z" fill="#2d4bd8"/><rect x="34" y="34" width="22" height="24" rx="3" fill="#ef4a2b"/><circle cx="26" cy="15" r="11" fill="#ffc233"/></svg>
+    <span class="brand-name" data-text="name">Tumbletown</span>
+  </a>
+  <nav class="nav-links" id="nav-links" aria-label="Main">
+    <a href="#rooms">Rooms</a>
+    <a href="#day">Our day</a>
+    <a href="#tuition">Tuition</a>
+    <a href="#fridge">The fridge</a>
+    <a href="#grownups">Grown-ups</a>
+    <a href="#faq">FAQ</a>
+    <a class="nav-cta" href="#tour">Book a tour</a>
+  </nav>
+  <button class="nav-toggle" id="nav-toggle" aria-expanded="false" aria-controls="nav-links"><span></span><span></span><span class="sr">Menu</span></button>
+</header>
+
+<main id="main">
+
+<!-- HERO: a sentence set huge, with photos cut into toy-block shapes -->
+<section class="hero">
+  <div class="hero-meta">
+    <span class="status" id="status"><i></i><b>Checking hours…</b></span>
+    <span class="mono" data-text="heroMeta">Ages 6 weeks – 5 years · Fernvale</span>
+  </div>
+  <h1 class="hero-title">
+    <span class="hl hl-1">Big days <span class="blk arch ph" style="background-image:url(photos/hopscotch-lawn.jpg)" role="img" aria-label="A hopscotch path painted in bright colors"></span><span class="blk dot sun" aria-hidden="true"></span></span>
+    <span class="hl hl-2"><span class="blk circle ph" style="background-image:url(photos/rainbow-swing.jpg)" role="img" aria-label="A rainbow-striped baby swing"></span> for small</span>
+    <span class="hl hl-3">people.<span class="blk pill ph" style="background-image:url(photos/hand-in-hand.jpg)" role="img" aria-label="Two children walking hand in hand down a garden path"></span></span>
+  </h1>
+  <a class="sticker" href="#tour" aria-label="Book a tour">
+    <svg viewBox="0 0 200 200" aria-hidden="true"><defs><path id="ring" d="M100,100 m-74,0 a74,74 0 1,1 148,0 a74,74 0 1,1 -148,0"/></defs><circle cx="100" cy="100" r="98" fill="#ef4a2b"/><text><textPath href="#ring" textLength="462" lengthAdjust="spacing">BOOK A TOUR ✶ COME AND PLAY ✶</textPath></text></svg>
+    <span class="sticker-arrow" aria-hidden="true">↘</span>
+  </a>
+  <div class="hero-foot">
+    <p class="hero-lede" data-text="lede">A neighborhood daycare and preschool with four small rooms, a garden, a nut-free kitchen and teachers who stay for years.</p>
+    <ul class="hero-facts">
+      <li><b data-text="factRatio">1:3</b><span>infant ratio</span></li>
+      <li><b data-text="factHours">7–6:30</b><span>Mon to Fri</span></li>
+      <li><b data-text="factSince">2009</b><span>open since</span></li>
+    </ul>
+    <div class="hero-ctas">
+      <a class="btn btn-ink" href="#tour">Book a tour</a>
+      <a class="btn btn-line" href="#rooms">Find your room</a>
+    </div>
+  </div>
+</section>
+
+<!-- ROOMS: a stack of blocks to pick from, and a birthday room finder -->
+<section class="rooms" id="rooms">
+  <div class="rooms-head">
+    <h2 class="display">Four rooms.<br><span class="soft">One for every age.</span></h2>
+    <p class="rooms-note">Children move up when they are ready, not on a set date. Pick a block to look inside, or tell us a birthday.</p>
+  </div>
+  <div class="blocks" id="blocks" role="tablist" aria-label="Rooms"></div>
+  <article class="room" id="room" role="tabpanel" aria-live="polite"></article>
+  <form class="finder" id="finder">
+    <label class="finder-q" for="finder-dob">Born on</label>
+    <input type="date" id="finder-dob" required>
+    <label class="finder-q" for="finder-start">starting</label>
+    <input type="date" id="finder-start">
+    <button class="btn btn-ink" type="submit">Find the room</button>
+    <p class="finder-out" id="finder-out" aria-live="polite">We'll tell you which room they'd join and when they'd move up.</p>
+  </form>
+</section>
+
+<!-- DAY: the daily schedule laid out as a hopscotch, with a stone on "right now" -->
+<section class="day" id="day">
+  <div class="day-head">
+    <h2 class="display">A day,<br>hop by hop.</h2>
+    <div class="day-side">
+      <div class="seg" id="day-tabs" role="tablist" aria-label="Choose a room"></div>
+      <p class="now-line" id="now-line" aria-live="polite"></p>
+    </div>
+  </div>
+  <ol class="hop" id="hop"></ol>
+</section>
+
+<!-- TUITION: a live estimate, with one giant number -->
+<section class="tuition" id="tuition">
+  <div class="tu-controls">
+    <h2 class="display">What it costs.</h2>
+    <p class="tu-intro">Everything is included: meals, diapers and wipes, art supplies, sunscreen. No surprise fees.</p>
+    <fieldset>
+      <legend>Room</legend>
+      <div class="chips" id="tu-room"></div>
+    </fieldset>
+    <fieldset>
+      <legend>Days a week</legend>
+      <div class="chips" id="tu-days"></div>
+    </fieldset>
+    <fieldset>
+      <legend>Day length</legend>
+      <div class="chips" id="tu-length"></div>
+    </fieldset>
+    <label class="check"><input type="checkbox" id="tu-sibling"><span>A brother or sister is already at Tumbletown</span></label>
+  </div>
+  <div class="tu-result">
+    <p class="mono tu-label">Your estimate, per month</p>
+    <p class="tu-price" id="tu-price" aria-live="polite">$0</p>
+    <ul class="receipt" id="tu-receipt"></ul>
+    <p class="tu-small" data-text="tuitionNote">Subsidies and employer vouchers accepted. Tuition is billed monthly; there is no charge for 2 weeks of family vacation a year.</p>
+    <a class="btn btn-paper" href="#tour" id="tu-take">Bring this estimate to a tour →</a>
+  </div>
+</section>
+
+<!-- FRIDGE: the weekly menu and notices, stuck to a fridge door -->
+<section class="fridge-wall" id="fridge">
+  <div class="fridge">
+    <div class="fridge-handle" aria-hidden="true"></div>
+    <h2 class="magnets" aria-label="On the fridge"></h2>
+    <div class="note menu-note">
+      <span class="tape" aria-hidden="true"></span>
+      <div class="note-head">
+        <h3>This week's menu</h3>
+        <span class="mono" id="menu-week"></span>
+      </div>
+      <div class="menu-days" id="menu-days" role="tablist" aria-label="Day of the week"></div>
+      <dl class="menu-list" id="menu-list"></dl>
+      <p class="note-foot" data-text="menuNote">Cooked here every morning by Mei. Nut-free kitchen; dairy-free and vegetarian swaps every day.</p>
+    </div>
+    <div class="note cal-note">
+      <span class="magnet m-red" aria-hidden="true"></span><span class="magnet m-blue" aria-hidden="true"></span>
+      <h3>Mark the calendar</h3>
+      <ul class="cal-list" id="cal-list"></ul>
+    </div>
+    <figure class="polaroid">
+      <img src="photos/art-easels.jpg" alt="Two small easels on a paint-splattered table in the art studio" loading="lazy">
+      <figcaption>Studio Wednesdays ✎</figcaption>
+    </figure>
+    <svg class="drawing" viewBox="0 0 220 170" aria-hidden="true">
+      <rect width="220" height="170" fill="#fffdf6"/>
+      <circle cx="170" cy="40" r="20" fill="none" stroke="#ffc233" stroke-width="6"/>
+      <path d="M170 8v8M170 64v8M138 40h8M194 40h8M148 18l6 6M186 56l6 6M148 62l6-6M186 24l6-6" stroke="#ffc233" stroke-width="5" stroke-linecap="round"/>
+      <path d="M40 140V92l40-34 40 34v48z" fill="none" stroke="#ef4a2b" stroke-width="6" stroke-linejoin="round"/>
+      <path d="M70 140v-26h20v26" fill="none" stroke="#2d4bd8" stroke-width="6"/>
+      <path d="M8 146c40-8 160-8 204 0" stroke="#1e9e63" stroke-width="7" fill="none" stroke-linecap="round"/>
+      <path d="M140 140c0-14 6-22 12-22s12 8 12 22" stroke="#ff9ec4" stroke-width="5" fill="none"/>
+    </svg>
+    <blockquote class="note quote-note">
+      <span class="tape tape-r" aria-hidden="true"></span>
+      <p id="fridge-quote"></p>
+      <cite id="fridge-cite"></cite>
+    </blockquote>
+  </div>
+</section>
+
+<!-- GROWN-UPS: a roll call, not a card grid -->
+<section class="grownups" id="grownups">
+  <div class="gu-head">
+    <h2 class="display">Roll call<span class="tomato">.</span></h2>
+    <p>The grown-ups your child will see every day. Our lead teachers have been here <b id="avg-years">9</b> years on average.</p>
+  </div>
+  <ul class="roll" id="roll"></ul>
+</section>
+
+<!-- PROMISES: big numbers, tiny words -->
+<section class="promises" aria-label="Our promises">
+  <ul class="nums" id="nums"></ul>
+</section>
+
+<!-- WORDS: one parent at a time -->
+<section class="words">
+  <div class="words-photo blk-shape half ph" style="background-image:url(photos/kite-field.jpg)" role="img" aria-label="A child holding a kite up in a field"></div>
+  <figure class="words-quote">
+    <blockquote><p id="review-text"></p></blockquote>
+    <figcaption><span id="review-who"></span><span class="words-nav"><button type="button" id="review-prev" aria-label="Previous review">←</button><span class="mono" id="review-count"></span><button type="button" id="review-next" aria-label="Next review">→</button></span></figcaption>
+  </figure>
+</section>
+
+<!-- FAQ -->
+<section class="faq" id="faq">
+  <h2 class="display">Good<br>questions.</h2>
+  <div class="faq-list" id="faq-list"></div>
+</section>
+
+<!-- TOUR: pick a day and time, or join the waitlist -->
+<section class="tour" id="tour">
+  <div class="tour-head">
+    <h2 class="display">Come play<br>for an hour.</h2>
+    <p>Tours are 45 minutes, during a normal day, and your child is welcome to come and explore. Can't see a time that works? Call us on <a data-href="phone" data-text="phone" href="tel:+15550142290">(555) 014-2290</a>.</p>
+  </div>
+  <form class="tour-form" id="tour-form" novalidate>
+    <div class="seg seg-light" role="tablist" aria-label="What would you like to do?">
+      <button type="button" class="on" data-mode="tour" aria-pressed="true">Book a tour</button>
+      <button type="button" data-mode="waitlist" aria-pressed="false">Join the waitlist</button>
+    </div>
+
+    <div class="tour-when" id="tour-when">
+      <p class="field-label">Pick a day</p>
+      <div class="day-tiles" id="day-tiles"></div>
+      <p class="field-label">Pick a time</p>
+      <div class="chips chips-light" id="slot-chips"></div>
+    </div>
+    <div class="tour-when" id="wait-when" hidden>
+      <label class="field-label" for="f-start">Hoped-for start month</label>
+      <input type="month" id="f-start" name="start">
+    </div>
+
+    <div class="fields">
+      <label><span>Your name</span><input name="parent" autocomplete="name" required></label>
+      <label><span>Email</span><input name="email" type="email" autocomplete="email" required></label>
+      <label><span>Phone</span><input name="phone" type="tel" autocomplete="tel"></label>
+      <label><span>Child's first name</span><input name="child" required></label>
+      <label><span>Child's birthday (or due date)</span><input name="dob" type="date" id="f-dob" required></label>
+      <label><span>Room</span><input name="room" id="f-room" readonly placeholder="Fills in from the birthday"></label>
+      <label class="wide"><span>Anything we should know?</span><textarea name="notes" rows="3" placeholder="Allergies, days you need, questions…"></textarea></label>
+    </div>
+    <p class="estimate-chip" id="estimate-chip" hidden></p>
+    <p class="form-error" id="form-error" role="alert"></p>
+    <button class="btn btn-sun btn-big" type="submit" id="tour-submit">Book my tour</button>
+  </form>
+  <div class="ticket" id="ticket" hidden tabindex="-1"></div>
+</section>
+</main>
+
+<footer class="foot">
+  <p class="foot-word" id="foot-word" aria-label="Tumbletown"></p>
+  <div class="foot-cols">
+    <div>
+      <h3>Find us</h3>
+      <p data-text="address">48 Larkspur Street<br>Fernvale</p>
+      <a data-href="map" href="#" target="_blank" rel="noopener">Open in maps →</a>
+    </div>
+    <div>
+      <h3>Hours</h3>
+      <ul class="hours" id="hours"></ul>
+    </div>
+    <div>
+      <h3>Say hello</h3>
+      <p><a data-href="phone" data-text="phone" href="tel:+15550142290">(555) 014-2290</a><br><a data-href="email" data-text="email" href="mailto:hello@tumbletown.example">hello@tumbletown.example</a></p>
+      <p class="mono small" data-text="license">State license #CC-40917 · Inspected yearly</p>
+    </div>
+  </div>
+  <p class="foot-legal mono small"><span id="year"></span> <span data-text="legalName">Tumbletown Early Learning</span></p>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
