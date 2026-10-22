@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aube — Rooftop yoga, facing east</title>
+<meta name="description" content="Aube is a rooftop yoga house facing east. Sunrise flow, slow vinyasa, yin and breathwork, seven days a week. Reserve a mat online.">
+<meta name="theme-color" content="#12141f">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<!-- Photos: Wikimedia Commons, CC0 (originally published on Unsplash under CC0).
+     cave.jpg "Yoga sunrise." · saltflat.jpg "Yoga Uyuni Salt Flat" · field.jpg "Woman yoga pose sunrise"
+     fog.jpg "Patrick Hendry - Yoga Fog" · shore.jpg "Yoga in the beach" · sea.jpg "Yoga by the sea"
+     pool.jpg "Pool meditation" · candle.jpg "Hands" -->
+</head>
+<body>
+<a class="skip" href="#schedule">Skip to the schedule</a>
+
+<header class="nav" id="top">
+  <a class="nav-mark" href="#top" aria-label="Aube, back to top">
+    <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M6 26a14 14 0 0 1 28 0Z" fill="currentColor"/><rect x="2" y="29" width="36" height="2.4" rx="1.2" fill="currentColor"/></svg>
+    <span data-text="name">Aube</span>
+  </a>
+  <nav class="nav-links" aria-label="Sections">
+    <a href="#schedule">Schedule</a>
+    <a href="#styles">Classes</a>
+    <a href="#prices">Prices</a>
+    <a href="#teachers">Teachers</a>
+    <a href="#visit">Visit</a>
+  </nav>
+  <button class="nav-mat" type="button" data-open-mat>Your mat <span class="mat-count" data-mat-count>0</span></button>
+</header>
+
+<main>
+  <!-- 05:12 — before sunrise -->
+  <section class="hero" aria-labelledby="hero-title">
+    <img class="hero-img" src="images/cave.jpg" alt="A person holding warrior pose at the mouth of a sea cave as the sun comes up" width="1920" height="1280">
+    <div class="hero-shade" aria-hidden="true"></div>
+    <p class="hour hour-hero"><span data-hero-clock>05:12</span> — before sunrise</p>
+    <div class="hero-copy">
+      <h1 id="hero-title" class="hero-title">Practise at the hour<br><em>the light arrives.</em></h1>
+      <p class="hero-sub"><span data-text="tagline">A rooftop yoga house facing east</span>, with glass on three sides and classes from first light until the stars.</p>
+    </div>
+    <aside class="sunclock" aria-label="Today at the studio">
+      <div class="sunclock-row"><span class="label">Sunrise today</span><span class="sunclock-big" data-sunrise>—</span></div>
+      <div class="sunclock-row"><span class="label">Sunset</span><span data-sunset>—</span></div>
+      <div class="sunclock-next" data-next-class>
+        <span class="label">Next class</span>
+        <span class="sunclock-name">Loading…</span>
+      </div>
+      <a class="btn btn-ember" href="#schedule">Reserve a mat</a>
+    </aside>
+    <p class="wordmark" aria-hidden="true" data-text="name">aube</p>
+  </section>
+
+  <!-- 05:45 — first light -->
+  <section class="first-light" aria-labelledby="fl-title">
+    <p class="hour">05:45 — first light</p>
+    <div class="fl-grid">
+      <h2 id="fl-title" class="fl-title">Seventy minutes before the city wakes, the room turns <em>gold.</em></h2>
+      <div class="fl-notes">
+        <p>We built Aube on a seventh-floor roof because of one window: due east, nothing in the way. Every sunrise class is timed so the sun clears the harbour while you are standing.</p>
+        <p>Heat comes from the light, not a heater. Mats, blocks and a cup of something warm are waiting when you arrive.</p>
+      </div>
+    </div>
+    <figure class="fl-photo">
+      <img src="images/saltflat.jpg" alt="A person in a deep backbend on a mirror-flat salt lake at dawn, reflected perfectly below" width="1280" height="853" loading="lazy">
+      <figcaption><span class="label">Fig. 01</span> The whole studio is a horizon.</figcaption>
+    </figure>
+    <ul class="fl-facts" data-facts></ul>
+  </section>
+
+  <!-- 06:30 — the day's timetable -->
+  <section class="schedule" id="schedule" aria-labelledby="sched-title">
+    <div class="sched-head">
+      <p class="hour hour-dark">06:30 — the timetable</p>
+      <h2 id="sched-title" class="display">Find your <em>hour.</em></h2>
+      <p class="sched-lead">Reserve a mat up to seven days ahead. Cancel up to two hours before and the class goes back on your pass.</p>
+    </div>
+
+    <div class="days" role="tablist" aria-label="Choose a day" data-days></div>
+
+    <div class="daybar" aria-hidden="true">
+      <div class="daybar-track" data-daybar></div>
+      <div class="daybar-scale"><span>05:00</span><span>09:00</span><span>13:00</span><span>17:00</span><span>21:00</span></div>
+    </div>
+
+    <div class="filters" aria-label="Filter classes">
+      <div class="chips" data-style-filter></div>
+      <label class="toggle"><input type="checkbox" data-beginner> <span>New-to-yoga friendly only</span></label>
+    </div>
+
+    <ol class="classes" data-classes aria-live="polite"></ol>
+  </section>
+
+  <!-- 09:00 — the practices -->
+  <section class="styles" id="styles" aria-labelledby="styles-title">
+    <div class="styles-head">
+      <p class="hour hour-dark">09:00 — the practices</p>
+      <h2 id="styles-title" class="display">From <em>still</em><br>to strong.</h2>
+    </div>
+    <figure class="styles-photo">
+      <img src="images/fog.jpg" alt="A lone figure in tree pose on a hilltop in thick morning fog" width="1400" height="933" loading="lazy">
+    </figure>
+    <ol class="style-list" data-styles></ol>
+  </section>
+
+  <!-- 12:00 — the people -->
+  <section class="teachers" id="teachers" aria-labelledby="teachers-title">
+    <p class="hour hour-dark">12:00 — the people who hold the room</p>
+    <h2 id="teachers-title" class="visually-hidden">Teachers</h2>
+    <div class="teacher-stage">
+      <ul class="teacher-roll" data-teachers></ul>
+      <figure class="teacher-portrait" aria-hidden="true"><img data-teacher-img src="images/shore.jpg" alt="" width="900" height="1350" loading="lazy"></figure>
+    </div>
+  </section>
+
+  <!-- 15:00 — prices -->
+  <section class="prices" id="prices" aria-labelledby="prices-title">
+    <p class="hour hour-dark">15:00 — what it costs</p>
+    <div class="prices-grid">
+      <div class="prices-intro">
+        <h2 id="prices-title" class="display">One price<br>per <em>sunrise.</em></h2>
+        <p>No joining fee, no contract. Every pass works at every class, and you can pause a membership for up to a month a year.</p>
+        <div class="seal" aria-hidden="true">
+          <svg viewBox="0 0 200 200" class="seal-ring"><defs><path id="seal-path" d="M100,100 m-78,0 a78,78 0 1,1 156,0 a78,78 0 1,1 -156,0"/></defs><text><textPath href="#seal-path" data-seal-text>NEW HERE · FOURTEEN DAYS UNLIMITED · NEW HERE · FOURTEEN DAYS UNLIMITED ·</textPath></text></svg>
+          <span class="seal-price" data-seal-price>$40</span>
+        </div>
+      </div>
+      <ol class="ledger" data-prices></ol>
+    </div>
+  </section>
+
+  <!-- 19:30 — breath -->
+  <section class="breath" id="breath" aria-labelledby="breath-title">
+    <p class="hour">19:30 — the breath room</p>
+    <div class="breath-grid">
+      <div class="breath-copy">
+        <h2 id="breath-title" class="display">Before you book,<br><em>take one breath</em> with us.</h2>
+        <p>The 4–7–8 pattern closes every evening class. Breathe in for four, hold for seven, let it go for eight. Four rounds is about a minute.</p>
+        <button class="btn btn-ghost" type="button" data-breath-toggle>Begin four rounds</button>
+      </div>
+      <div class="breath-orb" data-breath-orb>
+        <div class="orb" aria-hidden="true"></div>
+        <p class="orb-word" data-breath-word aria-live="polite">Ready</p>
+        <p class="orb-count" data-breath-count aria-hidden="true"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 21:00 — visit -->
+  <section class="visit" id="visit" aria-labelledby="visit-title">
+    <p class="hour">21:00 — finding us</p>
+    <div class="visit-grid">
+      <div class="visit-where">
+        <h2 id="visit-title" class="visit-address" data-address></h2>
+        <p class="open-now" data-open-now></p>
+        <p class="visit-how" data-text="directions"></p>
+        <div class="visit-links">
+          <a class="btn btn-ember" data-map-link target="_blank" rel="noopener">Open in maps</a>
+          <a class="link" data-phone-link></a>
+          <a class="link" data-email-link></a>
+        </div>
+      </div>
+      <table class="hours" aria-label="Opening hours"><tbody data-hours></tbody></table>
+    </div>
+
+    <div class="first-visit">
+      <figure class="fv-photo"><img src="images/candle.jpg" alt="Two hands holding a lit candle in a glass jar" width="1000" height="666" loading="lazy"></figure>
+      <div class="fv-copy">
+        <h3 class="fv-title">Your first visit</h3>
+        <div class="faq" data-faq></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <p class="footer-line">See you at <em>first light.</em></p>
+  <form class="letter" data-letter>
+    <label for="letter-email" class="label">The Sunday letter — next week's sunrise times and new classes</label>
+    <div class="letter-row">
+      <input id="letter-email" type="email" required placeholder="you@example.com" autocomplete="email">
+      <button class="btn btn-ember" type="submit">Subscribe</button>
+    </div>
+    <p class="letter-done" data-letter-done hidden>Thank you. The first letter arrives on Sunday morning.</p>
+  </form>
+  <div class="footer-base">
+    <span>© <span data-year></span> <span data-text="name">Aube</span></span>
+    <span data-text="handle"></span>
+    <a href="#top">Back to sunrise ↑</a>
+  </div>
+</footer>
+
+<!-- Reserve a mat -->
+<dialog class="sheet" data-book-dialog aria-labelledby="book-title">
+  <form method="dialog" class="sheet-inner" data-book-form>
+    <button class="sheet-close" value="cancel" formnovalidate aria-label="Close">×</button>
+    <p class="label" data-book-when></p>
+    <h3 id="book-title" class="sheet-title" data-book-title></h3>
+    <p class="sheet-meta" data-book-meta></p>
+    <div class="sheet-fields" data-book-fields>
+      <label>Name<input name="name" required autocomplete="name"></label>
+      <label>Email<input name="email" type="email" required autocomplete="email"></label>
+      <label class="check"><input type="checkbox" name="mat"> Rent a mat and towel <span data-mat-price></span></label>
+      <label class="check"><input type="checkbox" name="first"> This is my first class at Aube</label>
+      <p class="sheet-note" data-first-note hidden></p>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn btn-ember" type="submit" value="confirm" data-book-submit>Reserve my mat</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Your mat: reservations -->
+<dialog class="sheet" data-mat-dialog aria-labelledby="mat-title">
+  <div class="sheet-inner">
+    <form method="dialog"><button class="sheet-close" aria-label="Close">×</button></form>
+    <p class="label">Saved on this device</p>
+    <h3 id="mat-title" class="sheet-title">Your mat</h3>
+    <ol class="mat-list" data-mat-list></ol>
+  </div>
+</dialog>
+
+<!-- Choose a pass -->
+<dialog class="sheet" data-pass-dialog aria-labelledby="pass-title">
+  <form method="dialog" class="sheet-inner" data-pass-form>
+    <button class="sheet-close" value="cancel" formnovalidate aria-label="Close">×</button>
+    <p class="label" data-pass-price></p>
+    <h3 id="pass-title" class="sheet-title" data-pass-title></h3>
+    <p class="sheet-meta" data-pass-meta></p>
+    <div class="sheet-fields" data-pass-fields>
+      <label>Name<input name="name" required autocomplete="name"></label>
+      <label>Email<input name="email" type="email" required autocomplete="email"></label>
+      <label>Start on<input name="start" type="date" required></label>
+    </div>
+    <div class="sheet-actions"><button class="btn btn-ember" type="submit" value="confirm" data-pass-submit>Hold this pass</button></div>
+  </form>
+</dialog>
+
+<script src="app.js"></script>
+</body>
+</html>
