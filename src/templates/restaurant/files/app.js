@@ -73,12 +73,11 @@ const SEATING = [
   { id: 'bar', label: 'Bar seats', note: 'Full menu, high stools', icon: 'wine', maxParty: 3 },
 ];
 
-// Shown in the hero and beside the menus with today's date. The `feature`
-// special is the one in the hero.
+// Shown beside the menus under today's date.
 const SPECIALS = {
   note: 'From this morning\'s market, until they run out.',
   items: [
-    { name: 'Hearth-roasted halibut', desc: 'Brown butter, charred leeks, potato purée', price: 38, feature: true },
+    { name: 'Hearth-roasted halibut', desc: 'Brown butter, charred leeks, potato purée', price: 38 },
     { name: 'Wild mushroom toast', desc: 'Sourdough, thyme, aged sherry', price: 15 },
     { name: 'Pear and bay leaf sorbet', desc: 'Candied walnut, olive oil', price: 9 },
   ],
@@ -225,21 +224,21 @@ const MENUS = [
 // Private dining rooms and buyouts.
 const ROOMS = [
   {
-    id: 'cellar', name: 'The Cellar', photo: 'photos/dining-room.jpg',
+    id: 'cellar', name: 'The Cellar', photo: 'photos/room-cellar.jpg',
     alt: 'A dim, candlelit room with set tables and whitewashed walls',
     blurb: 'A candlelit room below the dining room, lined with our three hundred bottles.',
     seated: 12, standing: null, minimum: '$1,200',
     features: ['Set menu planned with the chef', 'Your own sommelier for the night', 'Private entrance from the courtyard'],
   },
   {
-    id: 'garden', name: 'The Garden Room', photo: 'photos/long-table.jpg',
+    id: 'garden', name: 'The Garden Room', photo: 'photos/room-garden.jpg',
     alt: 'A long table set with glasses and linen in a bright room',
     blurb: 'One long table under the skylight, with doors onto the heated terrace.',
     seated: 28, standing: 45, minimum: '$2,500',
     features: ['Screen and microphone for toasts', 'Terrace for a welcome drink', 'Family-style or plated menus'],
   },
   {
-    id: 'buyout', name: 'The whole house', photo: 'photos/bar.jpg',
+    id: 'buyout', name: 'The whole house', photo: 'photos/room-house.jpg',
     alt: 'Two bartenders smiling as they mix cocktails at a busy bar',
     blurb: 'The dining room, bar and terrace, all yours, for weddings and big celebrations.',
     seated: 80, standing: 140, minimum: 'On request',
@@ -423,6 +422,12 @@ function fillDetails() {
     if (field === 'phone') el.setAttribute('href', `tel:${CONFIG.phoneHref}`);
     if (field === 'email') el.setAttribute('href', `mailto:${CONFIG.email}`);
     if (field === 'instagram') { el.setAttribute('href', CONFIG.instagram); continue; }
+    if (field === 'addressLines') {
+      // "214 Mercer Street, Riverside, CA 94000" -> street on one line, town on the next.
+      const [street, ...rest] = CONFIG.address.split(', ');
+      el.replaceChildren(street, ...(rest.length ? [h('br'), rest.join(', ')] : []));
+      continue;
+    }
     if (!keepText && CONFIG[field] != null) el.textContent = CONFIG[field];
   }
   $('#directions').href = mapsUrl;
@@ -443,8 +448,8 @@ function renderStatus() {
   }
 }
 
-// Days in order Monday to Sunday, with the same hours grouped: "Tue–Thu 5–10 pm".
-function summarize(service) {
+// Days in order Monday to Sunday, with the same hours grouped: ["Tue–Thu 5–10 pm", …].
+function summaryRuns(service) {
   const order = [1, 2, 3, 4, 5, 6, 0];
   const runs = [];
   for (const d of order) {
@@ -457,8 +462,9 @@ function summarize(service) {
   return runs.filter((r) => r.text).map((r) => {
     const a = DAY_NAMES[r.from].slice(0, 3), b = DAY_NAMES[r.to].slice(0, 3);
     return `${r.from === r.to ? a : `${a}–${b}`} ${r.text}`;
-  }).join(' · ');
+  });
 }
+const summarize = (service) => summaryRuns(service).join(' · ');
 
 function renderHours() {
   const table = $('#hours');
@@ -481,7 +487,9 @@ function renderHours() {
   });
   $('#closures').textContent = closed.length ? `Closed all day on ${closed.join(' and ')}.` : '';
 
-  $('#footer-hours').replaceChildren(...HOURS.flatMap((s, i) => [...(i ? [h('br')] : []), `${s.label}: ${summarize(s)}`]));
+  $('#footer-hours').replaceChildren(...HOURS.map((s) => h('p', {},
+    h('strong', {}, s.label),
+    ...summaryRuns(s).flatMap((run, i) => [...(i ? [h('br')] : []), run]))));
 }
 
 // ---------------------------------------------------------------------------
@@ -497,9 +505,6 @@ function renderSpecials() {
     item.desc ? h('span', { class: 'desc' }, item.desc) : null,
   )));
   $('#specials-note').textContent = SPECIALS.note;
-  const feature = SPECIALS.items.find((i) => i.feature) || SPECIALS.items[0];
-  const slot = $('[data-special-feature]');
-  if (feature && slot) slot.textContent = `${feature.name}${feature.desc ? `, ${feature.desc.split(',').slice(0, 2).join(',').toLowerCase()}` : ''}`;
 }
 
 const menuState = { menu: MENUS[0].id, diets: new Set() };
@@ -517,7 +522,7 @@ function renderMenuTabs() {
 
 function onTabKeys(e) {
   const idx = MENUS.findIndex((m) => m.id === menuState.menu);
-  const dir = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+  const dir = ['ArrowRight', 'ArrowDown'].includes(e.key) ? 1 : ['ArrowLeft', 'ArrowUp'].includes(e.key) ? -1 : 0;
   if (!dir) return;
   e.preventDefault();
   menuState.menu = MENUS[(idx + dir + MENUS.length) % MENUS.length].id;
@@ -832,16 +837,16 @@ function showBookingForm() {
 
 function renderRooms() {
   $('#rooms').replaceChildren(...ROOMS.map((room) => h('article', { class: 'room' },
-    h('img', { src: room.photo, alt: room.alt, loading: 'lazy', width: 1200, height: 800 }),
-    h('div', { class: 'room-body' },
-      h('h3', {}, room.name),
-      h('p', {}, room.blurb),
-      h('dl', { class: 'capacity' },
-        h('div', {}, h('dt', {}, 'Seated'), h('dd', {}, room.seated)),
-        h('div', {}, h('dt', {}, 'Standing'), h('dd', {}, room.standing || '—')),
-        h('div', {}, h('dt', {}, 'Min. spend'), h('dd', { class: 'spend' }, room.minimum))),
-      h('ul', { class: 'features' }, ...room.features.map((f) => h('li', {}, icon('check'), h('span', {}, f)))),
-      h('button', { class: 'btn btn-outline', type: 'button', onclick: () => openEventDialog(room.id) }, `Enquire about ${room.name.replace(/^The /, 'the ')}`)))));
+    h('figure', { class: 'room-photo' },
+      h('img', { src: room.photo, alt: room.alt, loading: 'lazy', width: 900, height: 1230 }),
+      h('figcaption', {}, h('h3', {}, room.name))),
+    h('p', { class: 'room-blurb' }, room.blurb),
+    h('dl', { class: 'capacity' },
+      h('div', {}, h('dt', {}, 'Seated'), h('dd', {}, room.seated)),
+      h('div', {}, h('dt', {}, 'Standing'), h('dd', {}, room.standing || '—')),
+      h('div', {}, h('dt', {}, 'Min. spend'), h('dd', {}, room.minimum))),
+    h('ul', { class: 'features' }, ...room.features.map((f) => h('li', {}, f))),
+    h('button', { class: 'btn btn-line', type: 'button', onclick: () => openEventDialog(room.id) }, `Enquire about ${room.name.replace(/^The /, 'the ')}`))));
   const select = $('#event-room');
   select.replaceChildren(...ROOMS.map((r) => h('option', { value: r.id }, r.name)), h('option', { value: '' }, 'Not sure yet'));
 }
@@ -935,7 +940,7 @@ function renderAmounts() {
 }
 
 function showFormMessage(form, text, isError = false) {
-  const msg = $('.form-msg', form.closest('.gift, .letter-body') || form);
+  const msg = $('.form-msg', form.closest('[data-msg-scope]') || form);
   msg.textContent = text;
   msg.classList.toggle('is-error', isError);
   msg.hidden = false;
@@ -981,22 +986,38 @@ async function submitLetter(e) {
 // ---------------------------------------------------------------------------
 
 function setupChrome() {
-  const header = $('.site-header');
-  const onScroll = () => header.classList.toggle('scrolled', window.scrollY > 8);
-  window.addEventListener('scroll', onScroll, { passive: true });
-  onScroll();
-
-  const toggle = $('.menu-toggle');
-  const nav = $('#nav');
-  const setNav = (open) => {
-    nav.classList.toggle('open', open);
-    toggle.setAttribute('aria-expanded', String(open));
-    toggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+  // The compact bar slides in once the hero has scrolled out of view, and is
+  // inert while hidden so keyboard users don't tab into it.
+  const bar = $('#bar');
+  const sheet = $('#sheet-nav');
+  let barShown = false;
+  const showBar = (show) => {
+    barShown = show;
+    bar.classList.toggle('show', show);
+    bar.inert = !show || !sheet.hidden;
   };
-  toggle.addEventListener('click', () => setNav(!nav.classList.contains('open')));
-  nav.addEventListener('click', (e) => { if (e.target.closest('a')) setNav(false); });
+  showBar(false);
+  new IntersectionObserver(([entry]) => showBar(!entry.isIntersecting), { rootMargin: '-64px 0px 0px 0px' })
+    .observe($('.hero'));
+
+  // Full-screen menu on small screens. The page behind it is inert while open.
+  const openers = $$('.menu-btn[aria-controls="sheet-nav"]');
+  let opener = null;
+  const setNav = (open) => {
+    sheet.hidden = !open;
+    document.body.style.overflow = open ? 'hidden' : '';
+    $('main').inert = open;
+    $('.footer').inert = open;
+    showBar(barShown);
+    for (const b of openers) b.setAttribute('aria-expanded', String(open));
+    if (open) $('[data-close-nav]', sheet).focus();
+    else if (opener) opener.focus({ preventScroll: true });
+  };
+  for (const b of openers) b.addEventListener('click', () => { opener = b; setNav(true); drawIcons(); });
+  $('[data-close-nav]', sheet).addEventListener('click', () => setNav(false));
+  sheet.addEventListener('click', (e) => { if (e.target.closest('a')) { opener = null; setNav(false); } });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && nav.classList.contains('open')) { setNav(false); toggle.focus(); }
+    if (e.key === 'Escape' && !sheet.hidden) setNav(false);
   });
 
   // Links that preset the occasion, e.g. the hearth menu or a supper night.
@@ -1029,6 +1050,7 @@ function init() {
   for (const b of $$('[data-party]')) b.addEventListener('click', () => bumpParty(Number(b.dataset.party)));
   for (const b of $$('[data-scroll]')) b.addEventListener('click', () => scrollDates(Number(b.dataset.scroll)));
   $('#party-note').addEventListener('click', (e) => { e.preventDefault(); openEventDialog(null, CONFIG.maxPartyOnline + 2); });
+  $('[data-event-open]').addEventListener('click', (e) => { e.preventDefault(); openEventDialog(null); });
   $('#add-calendar').addEventListener('click', downloadCalendar);
   $('#book-again').addEventListener('click', () => { showBookingForm(); booking.time = null; renderBooking(); });
   $('#event-form').addEventListener('submit', submitEvent);

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Alder &amp; Ash · Kitchen &amp; Bar</title>
 <meta name="description" content="Wood-fired cooking, a 300-bottle cellar and a late bar on Mercer Street. See tonight's menu, book a table or plan a private dinner.">
-<meta name="theme-color" content="#1f3a30">
+<meta name="theme-color" content="#121212">
 <script>
 window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
 window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
@@ -16,181 +16,216 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,700;0,900;1,700&display=swap">
 <link rel="stylesheet" href="styles.css">
 <script type="module" src="app.js"></script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
 
-<div class="notice" id="notice">
-  <div class="wrap notice-inner">
-    <span class="notice-tag">Coming up</span>
-    <p><strong>Harvest Supper</strong> · Thursday 30 October · six courses with Ridgeline Cellars, $120 a guest</p>
-    <a href="#reserve" data-occasion="Harvest Supper">Save seats <i data-lucide="arrow-right"></i></a>
-  </div>
-</div>
-
-<header class="site-header" id="top">
-  <div class="wrap header-inner">
-    <a class="brand" href="#top" aria-label="Alder &amp; Ash, back to top">
-      <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="currentColor"/><path d="M32 11c2.4 8.2 12.5 13.4 12.5 25.6a12.5 12.5 0 0 1-25 0c0-6.2 3.1-10.6 6.4-13.6-.1 5.2 1.9 8.4 5.3 9.4-2.2-7.4.8-14.3.8-21.4z" fill="#d9a54a"/><path d="M17 52h30" stroke="#f3eee6" stroke-width="3.2" stroke-linecap="round"/></svg>
-      <span class="brand-name" data-field="name">Alder &amp; Ash</span>
-    </a>
-    <nav class="nav" id="nav" aria-label="Main">
-      <a href="#menus">Menus</a>
-      <a href="#story">Our house</a>
-      <a href="#private">Private dining</a>
-      <a href="#visit">Hours &amp; visit</a>
+<!-- Compact bar that takes over once the hero has scrolled away -->
+<header class="bar" id="bar" aria-label="Site">
+  <div class="wrap bar-inner">
+    <a class="wordmark" href="#top" data-field="name">Alder &amp; Ash</a>
+    <nav class="bar-nav" aria-label="Main">
+      <a href="#menus">Menu</a>
+      <a href="#private">Spaces</a>
+      <a href="#reserve">Book a table</a>
+      <a href="#visit">Visit</a>
       <a href="#gifts">Gift cards</a>
     </nav>
-    <div class="header-actions">
-      <a class="status" href="#visit" data-status>
-        <span class="status-dot" aria-hidden="true"></span>
-        <span data-status-text>Checking hours…</span>
-      </a>
-      <a class="btn btn-primary btn-sm" href="#reserve">Reserve</a>
-      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="nav" aria-label="Open menu">
-        <i data-lucide="menu"></i>
-      </button>
-    </div>
+    <a class="live live-dark" href="#visit" data-status><span class="dot" aria-hidden="true"></span><span data-status-text>open</span></a>
+    <a class="btn btn-solid btn-sm" href="#reserve">Reserve</a>
+    <button class="menu-btn" type="button" aria-expanded="false" aria-controls="sheet-nav" aria-label="Open menu"><i data-lucide="menu"></i></button>
   </div>
 </header>
+
+<!-- Full-screen menu for small screens -->
+<div class="sheet-nav" id="sheet-nav" hidden>
+  <div class="sheet-nav-head">
+    <span class="wordmark" data-field="name">Alder &amp; Ash</span>
+    <button class="menu-btn is-light" type="button" data-close-nav aria-label="Close menu"><i data-lucide="x"></i></button>
+  </div>
+  <nav aria-label="Mobile">
+    <a href="#menus">menu</a>
+    <a href="#private">spaces</a>
+    <a href="#reserve">book a table</a>
+    <a href="#visit">visit</a>
+    <a href="#gifts">gift cards</a>
+  </nav>
+  <div class="sheet-nav-foot">
+    <a class="live" href="#visit" data-status><span class="dot" aria-hidden="true"></span><span data-status-text>open</span></a>
+    <a data-field="phone" href="tel:+15550142290">(555) 014-2290</a>
+  </div>
+</div>
 
 <main id="main">
 
   <!-- Hero -->
-  <section class="hero">
-    <div class="wrap hero-grid">
-      <div class="hero-copy">
-        <p class="eyebrow"><span>N° 214 Mercer Street</span><span>Kitchen &amp; Bar</span><span>Since 2014</span></p>
-        <h1>Cooked over fire, <em>served with care.</em></h1>
-        <p class="lead">A neighborhood dining room built around one wood-fired hearth. Plates from farms within a hundred miles, a cellar of three hundred bottles, and a bar that keeps the lamps low until late.</p>
-
-        <form class="quickbook" id="quickbook" aria-label="Find a table">
-          <label class="qb-field">
-            <span>Guests</span>
-            <select name="party" id="qb-party"></select>
-          </label>
-          <label class="qb-field">
-            <span>Date</span>
-            <select name="date" id="qb-date"></select>
-          </label>
-          <label class="qb-field">
-            <span>Time</span>
-            <select name="time" id="qb-time"></select>
-          </label>
-          <button class="btn btn-primary" type="submit">Find a table <i data-lucide="arrow-right"></i></button>
-        </form>
-
-        <ul class="hero-meta">
-          <li class="meta-status"><a class="status" href="#visit" data-status><span class="status-dot" aria-hidden="true"></span><span data-status-text>Checking hours…</span></a></li>
-          <li><i data-lucide="map-pin"></i><a href="#visit" data-field="addressShort">214 Mercer Street, Riverside</a></li>
-          <li><i data-lucide="phone"></i><a data-field="phone" href="tel:+15550142290">(555) 014-2290</a></li>
-          <li><i data-lucide="wine"></i><span>Walk-ins welcome at the bar</span></li>
-        </ul>
+  <section class="hero" id="top" aria-label="Welcome">
+    <img class="hero-bg" src="photos/hero.jpg" alt="" width="1920" height="1200" fetchpriority="high">
+    <div class="hero-shade" aria-hidden="true"></div>
+    <div class="wrap hero-inner">
+      <div class="hero-head grid">
+        <a class="wordmark wordmark-light" href="#top" data-field="name">Alder &amp; Ash</a>
+        <nav class="hero-nav" aria-label="Sections">
+          <a href="#menus">menu</a>
+          <a href="#private">spaces</a>
+          <a href="#reserve">book a table</a>
+          <a href="#visit">visit</a>
+        </nav>
+        <a class="btn btn-line btn-line-light" href="#reserve">Reservation</a>
+        <button class="menu-btn is-light" type="button" aria-expanded="false" aria-controls="sheet-nav" aria-label="Open menu"><i data-lucide="menu"></i></button>
       </div>
 
-      <figure class="hero-figure">
-        <img src="photos/hero-plate.jpg" alt="A plated dish with a glass of white wine on a candlelit table" width="1000" height="1250" fetchpriority="high">
-        <figcaption class="docket docket-float">
-          <span class="docket-label">Tonight from the hearth</span>
-          <span class="docket-title" data-special-feature>Hearth-roasted halibut, brown butter, charred leeks</span>
-        </figcaption>
+      <div class="hero-foot grid">
+        <h1>Cooked over fire, served with care.</h1>
+        <div class="hero-info">
+          <a class="live" href="#visit" data-status><span class="dot" aria-hidden="true"></span><span data-status-text>open</span></a>
+          <address data-field="addressLines">214 Mercer Street<br>Riverside, CA 94000</address>
+          <a class="hero-event" href="#reserve" data-occasion="Harvest Supper">Harvest Supper · Thu 30 Oct <i data-lucide="arrow-up-right"></i></a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quick booking strip -->
+  <section class="quick" aria-labelledby="quick-title">
+    <div class="wrap grid quick-grid">
+      <p class="label" id="quick-title">Find a table</p>
+      <form class="quickbook" id="quickbook">
+        <label class="qb-field"><span>Guests</span><select name="party" id="qb-party"></select></label>
+        <label class="qb-field"><span>Date</span><select name="date" id="qb-date"></select></label>
+        <label class="qb-field"><span>Time</span><select name="time" id="qb-time"></select></label>
+        <button class="btn btn-solid" type="submit">Find a table <i data-lucide="arrow-right"></i></button>
+      </form>
+    </div>
+  </section>
+
+  <!-- About -->
+  <section class="section about" id="story" aria-labelledby="story-title">
+    <div class="wrap grid">
+      <figure class="about-photo">
+        <img src="photos/about.jpg" alt="A seared steak with broccolini and red wine sauce on a white plate" width="1000" height="1150" loading="lazy">
+        <svg class="badge" viewBox="0 0 120 120" role="img" aria-label="Wood-fired since 2014">
+          <circle cx="60" cy="60" r="60" fill="#121212"/>
+          <defs><path id="badge-ring" d="M60 60m-43 0a43 43 0 1 1 86 0a43 43 0 1 1-86 0"/></defs>
+          <g class="badge-spin">
+            <text><textPath href="#badge-ring" startOffset="0">WOOD-FIRED · SINCE 2014 · KITCHEN &amp; BAR ·</textPath></text>
+          </g>
+          <path d="M60 41c1.6 5.5 8.4 9 8.4 17.2a8.4 8.4 0 0 1-16.8 0c0-4.2 2.1-7.1 4.3-9.1-.1 3.5 1.3 5.6 3.6 6.3-1.5-5 .5-9.6.5-14.4z" fill="#fafafa"/>
+          <path d="M50 79h20" stroke="#fafafa" stroke-width="2.4" stroke-linecap="round"/>
+        </svg>
       </figure>
+      <div class="about-copy">
+        <h2 class="statement" id="story-title">Welcome to Alder &amp; Ash, a neighborhood dining room built around one wood-fired hearth, where farms within a hundred miles set the menu and the lamps stay low until late.</h2>
+        <div class="about-small">
+          <p>We opened in a former printworks in 2014 with one idea: cook everything over a real fire, and look after people the way you would at home. Chef Mara Ellison lights the hearth at noon and cooks with whatever the farms bring in that morning.</p>
+          <p>Dinner is unhurried. Your table is yours for the evening, the bread keeps coming, and the cellar holds three hundred bottles to pour from.</p>
+          <a class="btn btn-line" href="#menus">View menu</a>
+        </div>
+      </div>
     </div>
   </section>
 
   <!-- Menus -->
-  <section class="section" id="menus" aria-labelledby="menus-title">
+  <section class="section menus" id="menus" aria-labelledby="menus-title">
     <div class="wrap">
-      <div class="section-head">
-        <div>
-          <p class="kicker"><span>01</span> Menus</p>
-          <h2 id="menus-title">What we're cooking</h2>
-        </div>
-        <p class="section-sub">Menus follow the market and change most weeks. Every dish is cooked to order, so tell us about allergies and we'll adjust what we can.</p>
+      <div class="sec-head grid">
+        <h2 class="title" id="menus-title">Our menu</h2>
+        <p>Plates follow the market and change most weeks. Everything is cooked to order over oak and alder, so tell us about allergies and we'll adjust what we can.</p>
       </div>
 
-      <div class="menu-toolbar">
-        <div class="tabs" role="tablist" aria-label="Menus" id="menu-tabs"></div>
-        <div class="filters" role="group" aria-label="Dietary filter" id="menu-filters"></div>
+      <div class="mosaic">
+        <img src="photos/dish-salmon.jpg" alt="Seared salmon with vegetables in a wide bowl" width="800" height="800" loading="lazy">
+        <img src="photos/dish-pasta.jpg" alt="Plates of pasta and red wine on a white tablecloth" width="1200" height="800" loading="lazy">
+        <img src="photos/dish-chocolate.jpg" alt="A chocolate dessert" width="800" height="800" loading="lazy">
       </div>
 
-      <div class="menu-layout">
-        <div class="menu-board" id="menu-panel" role="tabpanel" tabindex="0"></div>
+      <div class="menu-ui grid">
+        <aside class="menu-side">
+          <div class="tabs" role="tablist" aria-label="Menus" aria-orientation="vertical" id="menu-tabs"></div>
+          <div class="filters" role="group" aria-label="Dietary filter" id="menu-filters"></div>
 
-        <aside class="menu-aside">
-          <div class="docket tonight" aria-labelledby="tonight-title">
-            <div class="docket-head">
-              <span class="docket-label" id="tonight-title">Tonight's specials</span>
-              <span class="docket-date" data-today>—</span>
+          <div class="tonight" aria-labelledby="tonight-title">
+            <div class="tonight-head">
+              <p class="label" id="tonight-title">Tonight</p>
+              <p class="label" data-today>—</p>
             </div>
-            <ul class="docket-list" id="specials"></ul>
-            <p class="docket-note" id="specials-note"></p>
+            <ul class="tonight-list" id="specials"></ul>
+            <p class="tonight-note" id="specials-note"></p>
           </div>
 
           <div class="tasting">
-            <img src="photos/salmon.jpg" alt="Seared salmon over vegetables in a wide bowl" width="480" height="640" loading="lazy">
-            <div class="tasting-body">
-              <p class="kicker-sm">The hearth menu</p>
-              <h3>Six courses, chosen by the kitchen</h3>
-              <p><span class="price-lg" data-tasting-price>95</span> a guest · wine pairing <span data-pairing-price>60</span></p>
-              <p class="muted">For the whole table, Tuesday to Thursday. Tell us when you book.</p>
-              <a class="link-arrow" href="#reserve" data-occasion="Hearth menu">Book the hearth menu <i data-lucide="arrow-right"></i></a>
-            </div>
+            <p class="label">The hearth menu</p>
+            <p class="tasting-title">Six courses, chosen by the kitchen</p>
+            <p class="tasting-price"><span data-tasting-price>95</span> a guest · pairing <span data-pairing-price>60</span></p>
+            <a class="btn btn-line" href="#reserve" data-occasion="Hearth menu">Book the hearth menu</a>
           </div>
         </aside>
-      </div>
 
+        <div class="menu-board" id="menu-panel" role="tabpanel" tabindex="0"></div>
+      </div>
       <p class="legend" id="menu-legend"></p>
     </div>
   </section>
 
-  <!-- Story -->
-  <section class="section section-alt" id="story" aria-labelledby="story-title">
-    <div class="wrap story-grid">
-      <div class="story-photos">
-        <img class="story-main" src="photos/chef-plating.jpg" alt="A chef finishing a row of plates at the pass" width="1400" height="900" loading="lazy">
-        <img class="story-inset" src="photos/dining-room.jpg" alt="The dining room in low evening light" width="1200" height="800" loading="lazy">
+  <!-- Spaces -->
+  <section class="section spaces" id="private" aria-labelledby="private-title">
+    <div class="wrap grid">
+      <div class="spaces-intro">
+        <p class="label">Spaces</p>
+        <h2 class="title" id="private-title">Gather a crowd</h2>
+        <p>Birthdays, rehearsal dinners, team suppers and the occasional wedding. Our events lead plans the menu and the evening with you.</p>
+        <a class="btn btn-line" href="#private" data-event-open>Plan an event</a>
       </div>
-      <div class="story-copy">
-        <p class="kicker"><span>02</span> Our house</p>
-        <h2 id="story-title">An invitation to stay a while</h2>
-        <p>We opened Alder &amp; Ash in a former printworks with one idea: cook everything over a real fire, and look after people the way you would at home. Chef Mara Ellison and her team light the hearth at noon and cook with whatever the farms bring in that morning.</p>
-        <p>Dinner is unhurried. Your table is yours for the evening, the bread keeps coming, and if you'd like to try a little of everything, the kitchen is happy to choose for you.</p>
-        <dl class="stats">
-          <div><dt>Farms we buy from</dt><dd>40</dd></div>
-          <div><dt>Bottles in the cellar</dt><dd>300</dd></div>
-          <div><dt>Hours the hearth burns</dt><dd>12</dd></div>
-        </dl>
-        <blockquote class="pull">
-          <p>“The halibut alone is worth crossing town for, and the room makes you want one more glass.”</p>
-          <cite>The Riverside Ledger</cite>
-        </blockquote>
-      </div>
+      <div class="rooms" id="rooms"></div>
     </div>
   </section>
 
+  <!-- Quote -->
+  <section class="quote" aria-label="What people say">
+    <div class="wrap">
+      <figure class="quote-inner">
+        <figcaption>The Riverside Ledger</figcaption>
+        <blockquote>“The halibut alone is worth crossing town for. The bread keeps coming, the cellar is a joy, and the room makes you want one more glass before you go.”</blockquote>
+      </figure>
+      <ul class="press">
+        <li><strong>Northbound Eats</strong> “Exactly what a neighborhood restaurant should be.”</li>
+        <li><strong>City Table Guide</strong> Best Neighborhood Spot 2025</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Scattered gallery -->
+  <section class="gallery" aria-label="Around the house">
+    <img class="g g1" src="photos/g-chef.jpg" alt="A chef finishing plates at the pass" width="900" height="600" loading="lazy">
+    <img class="g g2" src="photos/g-snacks.jpg" alt="Wine and small plates on a wooden table" width="600" height="600" loading="lazy">
+    <img class="g g3" src="photos/g-bulbs.jpg" alt="Glowing filament bulbs above the bar" width="600" height="800" loading="lazy">
+    <img class="g g4" src="photos/g-kitchen.jpg" alt="Chefs at work in the open kitchen" width="900" height="600" loading="lazy">
+    <img class="g g5" src="photos/g-ingredients.jpg" alt="Herbs and vegetables being prepared" width="600" height="600" loading="lazy">
+    <img class="g g6" src="photos/g-drinks.jpg" alt="Cocktails on a table in the dining room" width="900" height="675" loading="lazy">
+  </section>
+
   <!-- Reserve -->
-  <section class="section section-dark" id="reserve" aria-labelledby="reserve-title">
-    <div class="wrap reserve-grid">
+  <section class="section reserve" id="reserve" aria-labelledby="reserve-title">
+    <div class="wrap grid">
       <div class="reserve-intro">
-        <p class="kicker"><span>03</span> Reservations</p>
-        <h2 id="reserve-title">Book a table</h2>
+        <p class="label">Book a table</p>
+        <h2 class="title" id="reserve-title">Reservations</h2>
         <p>Choose a time and send us your request. We confirm every booking by email within the hour while we're open.</p>
         <ul class="policy">
-          <li><i data-lucide="clock"></i><span>We hold tables for 15 minutes. Running late? Call us and we'll do our best.</span></li>
-          <li><i data-lucide="calendar-x"></i><span>Free cancellation up to 24 hours before. Let us know sooner if you can.</span></li>
-          <li><i data-lucide="users"></i><span>Seven or more? Our <a href="#private">private rooms</a> are made for it.</span></li>
-          <li><i data-lucide="wine"></i><span>No booking needed for the bar. Half the seats are always kept for walk-ins.</span></li>
+          <li>We hold tables for 15 minutes. Running late? Call us.</li>
+          <li>Free cancellation up to 24 hours before.</li>
+          <li>Seven or more? Our <a href="#private">private rooms</a> are made for it.</li>
+          <li>No booking needed for the bar; half the seats are kept for walk-ins.</li>
         </ul>
       </div>
 
       <div class="booking" id="booking">
         <form id="booking-form" novalidate>
           <fieldset class="step">
-            <legend><span class="step-n">1</span> Guests</legend>
+            <legend><span class="step-n">01</span> Guests</legend>
             <div class="party">
               <button type="button" class="round" data-party="-1" aria-label="Fewer guests"><i data-lucide="minus"></i></button>
               <output id="party-out" aria-live="polite">2 guests</output>
@@ -200,7 +235,7 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
           </fieldset>
 
           <fieldset class="step">
-            <legend><span class="step-n">2</span> Date</legend>
+            <legend><span class="step-n">02</span> Date</legend>
             <div class="dates-wrap">
               <button type="button" class="round sm" data-scroll="-1" aria-label="Earlier dates"><i data-lucide="chevron-left"></i></button>
               <div class="dates" id="dates"></div>
@@ -209,17 +244,17 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
           </fieldset>
 
           <fieldset class="step">
-            <legend><span class="step-n">3</span> Where you'd like to sit</legend>
+            <legend><span class="step-n">03</span> Seating</legend>
             <div class="seating" id="seating"></div>
           </fieldset>
 
           <fieldset class="step">
-            <legend><span class="step-n">4</span> Time</legend>
+            <legend><span class="step-n">04</span> Time</legend>
             <div id="slots" class="slots"></div>
           </fieldset>
 
           <fieldset class="step">
-            <legend><span class="step-n">5</span> Your details</legend>
+            <legend><span class="step-n">05</span> Your details</legend>
             <div class="fields">
               <label class="field"><span>Name</span><input name="name" autocomplete="name" required></label>
               <label class="field"><span>Phone</span><input name="phone" type="tel" autocomplete="tel" required></label>
@@ -240,132 +275,90 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
           </fieldset>
 
           <div class="summary">
-            <div class="docket ticket" aria-live="polite">
-              <span class="docket-label">Your request</span>
-              <span class="ticket-line" id="summary">Choose a date and time</span>
+            <div class="summary-text" aria-live="polite">
+              <span class="label">Your request</span>
+              <span class="summary-line" id="summary">Choose a date and time</span>
             </div>
-            <button class="btn btn-brass" type="submit" id="booking-submit">Request this table</button>
+            <button class="btn btn-solid" type="submit" id="booking-submit">Request this table <i data-lucide="arrow-right"></i></button>
           </div>
           <p class="form-error" id="booking-error" role="alert" hidden></p>
         </form>
 
         <div class="booked" id="booked" hidden tabindex="-1">
-          <div class="docket ticket ticket-lg">
-            <span class="docket-label"><span id="booked-state">Request sent</span> · <span id="booked-ref"></span></span>
-            <span class="ticket-line" id="booked-line"></span>
-            <span class="ticket-sub" id="booked-sub"></span>
-          </div>
-          <p id="booked-msg">We'll email you to confirm shortly. Nothing is charged until you dine.</p>
+          <p class="label"><span id="booked-state">Request sent</span> · <span id="booked-ref"></span></p>
+          <p class="booked-line" id="booked-line"></p>
+          <p class="booked-sub" id="booked-sub"></p>
+          <p class="booked-msg" id="booked-msg">We'll email you to confirm shortly. Nothing is charged until you dine.</p>
           <div class="booked-actions">
-            <button class="btn btn-brass" type="button" id="add-calendar"><i data-lucide="calendar-plus"></i> Add to calendar</button>
-            <button class="btn btn-ghost-light" type="button" id="book-again">Book another table</button>
+            <button class="btn btn-solid" type="button" id="add-calendar"><i data-lucide="calendar-plus"></i> Add to calendar</button>
+            <button class="btn btn-outline" type="button" id="book-again">Book another table</button>
           </div>
         </div>
       </div>
-    </div>
-  </section>
-
-  <!-- Private dining -->
-  <section class="section" id="private" aria-labelledby="private-title">
-    <div class="wrap">
-      <div class="section-head">
-        <div>
-          <p class="kicker"><span>04</span> Private dining &amp; events</p>
-          <h2 id="private-title">Gather a crowd</h2>
-        </div>
-        <p class="section-sub">Birthdays, rehearsal dinners, team suppers and the occasional wedding. Our events lead builds the menu and the evening with you, from the first glass to the last cab.</p>
-      </div>
-      <div class="rooms" id="rooms"></div>
-    </div>
-  </section>
-
-  <!-- Press -->
-  <section class="press" aria-label="What people say">
-    <div class="wrap press-grid">
-      <figure>
-        <blockquote>“Exactly what a neighborhood restaurant should be: generous, warm and quietly brilliant.”</blockquote>
-        <figcaption>Northbound Eats</figcaption>
-      </figure>
-      <figure>
-        <blockquote>“Order the bread. Order the ribeye. Then let them pour you something from the cellar.”</blockquote>
-        <figcaption>City Table Guide · Best Neighborhood Spot 2025</figcaption>
-      </figure>
-      <figure>
-        <blockquote>“We booked the Cellar for my dad’s 70th. Every detail was looked after.”</blockquote>
-        <figcaption>Priya S., guest</figcaption>
-      </figure>
     </div>
   </section>
 
   <!-- Visit -->
-  <section class="section section-alt" id="visit" aria-labelledby="visit-title">
+  <section class="section visit" id="visit" aria-labelledby="visit-title">
     <div class="wrap">
-      <div class="section-head">
-        <div>
-          <p class="kicker"><span>05</span> Hours &amp; visit</p>
-          <h2 id="visit-title">Find us on Mercer Street</h2>
-        </div>
-        <p class="section-sub status-line" data-status-long>Checking today's hours…</p>
+      <div class="sec-head grid">
+        <h2 class="title" id="visit-title">Visit us</h2>
+        <p class="status-line" data-status-long>Checking today's hours…</p>
       </div>
-
-      <div class="visit-grid">
-        <div class="hours-card">
+      <div class="grid visit-grid">
+        <div class="visit-hours">
+          <h3 class="mini-head">Open hours</h3>
           <table class="hours" id="hours">
             <caption class="sr-only">Opening hours by day</caption>
             <thead><tr><th scope="col">Day</th></tr></thead>
             <tbody></tbody>
           </table>
-          <p class="muted small" id="closures"></p>
+          <p class="small muted" id="closures"></p>
         </div>
-
-        <div class="where">
-          <div class="map" role="img" aria-label="Map showing Alder &amp; Ash on Mercer Street, a block from Riverside station">
-            <svg viewBox="0 0 560 210" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-              <rect width="560" height="210" fill="#e4dccd"/>
-              <g fill="#d6ccba">
-                <rect x="10" y="50" width="98" height="48"/><rect x="132" y="50" width="96" height="48"/>
-                <rect x="252" y="50" width="96" height="48"/><rect x="372" y="50" width="86" height="48"/>
-                <rect x="132" y="124" width="96" height="30"/><rect x="372" y="124" width="86" height="30"/>
-              </g>
-              <path d="M-10 182 C 100 158, 180 212, 290 186 S 470 140, 570 160" fill="none" stroke="#b9cdc1" stroke-width="24"/>
-              <g stroke="#f7f3ec" fill="none">
-                <path d="M0 40 H560" stroke-width="9"/>
-                <path d="M120 0 V210M240 0 V210M360 0 V210M470 0 V210" stroke-width="9"/>
-                <path d="M30 210 L190 0" stroke-width="6"/>
-                <path d="M0 110 H560" stroke-width="16"/>
-              </g>
-              <text x="140" y="114">MERCER ST</text>
-              <circle cx="360" cy="110" r="9" fill="#1f3a30"/><circle cx="360" cy="110" r="3.5" fill="#f7f3ec"/>
-              <text x="350" y="140" text-anchor="end">RIVERSIDE STN</text>
-              <path d="M300 56c-11 0-20 9-20 20 0 15 20 34 20 34s20-19 20-34c0-11-9-20-20-20z" fill="#b8863b"/>
-              <circle cx="300" cy="76" r="7" fill="#1f3a30"/>
-            </svg>
-          </div>
-          <div class="where-body">
-            <address>
-              <strong data-field="name">Alder &amp; Ash</strong><br>
-              <span data-field="address">214 Mercer Street, Riverside, CA 94000</span>
-            </address>
-            <p><a data-field="phone" href="tel:+15550142290">(555) 014-2290</a> · <a data-field="email" href="mailto:hello@alderandash.example">hello@alderandash.example</a></p>
-            <a class="btn btn-outline" id="directions" href="#" target="_blank" rel="noopener"><i data-lucide="navigation"></i> Get directions</a>
-            <ul class="getting-here">
-              <li><i data-lucide="train-front"></i><span>Two minutes from Riverside station, lines 2 and 5.</span></li>
-              <li><i data-lucide="car"></i><span>Valet from 5 pm, $15. Street parking is free after 6 pm.</span></li>
-              <li><i data-lucide="accessibility"></i><span>Step-free entrance and restroom; the Cellar is reached by lift.</span></li>
-            </ul>
-          </div>
+        <div class="visit-where">
+          <h3 class="mini-head">Address</h3>
+          <address><span data-field="address">214 Mercer Street, Riverside, CA 94000</span></address>
+          <p class="contact-line"><i data-lucide="phone"></i><a data-field="phone" href="tel:+15550142290">(555) 014-2290</a></p>
+          <p class="contact-line"><i data-lucide="mail"></i><a data-field="email" href="mailto:hello@alderandash.example">hello@alderandash.example</a></p>
+          <h3 class="mini-head">Getting here</h3>
+          <ul class="getting-here">
+            <li>Two minutes from Riverside station, lines 2 and 5.</li>
+            <li>Valet from 5 pm, $15. Street parking is free after 6 pm.</li>
+            <li>Step-free entrance and restroom; the Cellar is reached by lift.</li>
+          </ul>
+          <a class="btn btn-line" id="directions" href="#" target="_blank" rel="noopener">Get directions</a>
+        </div>
+        <div class="map" role="img" aria-label="Map showing Alder &amp; Ash on Mercer Street, a block from Riverside station">
+          <svg viewBox="0 0 400 420" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+            <rect width="400" height="420" fill="#ececec"/>
+            <g fill="#e0e0e0">
+              <rect x="10" y="20" width="110" height="150"/><rect x="146" y="20" width="108" height="150"/><rect x="280" y="20" width="110" height="150"/>
+              <rect x="10" y="226" width="110" height="80"/><rect x="146" y="226" width="108" height="80"/><rect x="280" y="226" width="110" height="80"/>
+            </g>
+            <path d="M-10 360 C 90 330, 170 400, 260 370 S 360 330, 420 345" fill="none" stroke="#d6d6d6" stroke-width="30"/>
+            <g stroke="#fafafa" fill="none">
+              <path d="M133 0V420M267 0V420" stroke-width="10"/>
+              <path d="M0 198H400" stroke-width="18"/>
+              <path d="M40 420L190 0" stroke-width="6"/>
+            </g>
+            <text x="18" y="202">MERCER ST</text>
+            <circle cx="267" cy="198" r="9" fill="#121212"/><circle cx="267" cy="198" r="3.5" fill="#fafafa"/>
+            <text x="282" y="232">RIVERSIDE STN</text>
+            <path d="M200 144c-11 0-20 9-20 20 0 15 20 34 20 34s20-19 20-34c0-11-9-20-20-20z" fill="#121212"/>
+            <circle cx="200" cy="164" r="7" fill="#fafafa"/>
+          </svg>
         </div>
       </div>
     </div>
   </section>
 
   <!-- FAQ -->
-  <section class="section" id="faq" aria-labelledby="faq-title">
-    <div class="wrap faq-grid">
-      <div>
-        <p class="kicker"><span>06</span> Good to know</p>
-        <h2 id="faq-title">Before you come</h2>
-        <p class="muted">Anything else? Call us on <a data-field="phone" href="tel:+15550142290">(555) 014-2290</a> and we'll happily help.</p>
+  <section class="section faq-section" id="faq" aria-labelledby="faq-title">
+    <div class="wrap grid">
+      <div class="faq-intro">
+        <p class="label">Good to know</p>
+        <h2 class="title" id="faq-title">Before you come</h2>
+        <p class="muted">Anything else? Call us on <a data-field="phone" href="tel:+15550142290">(555) 014-2290</a>.</p>
       </div>
       <div class="faq">
         <details open>
@@ -396,70 +389,82 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
     </div>
   </section>
 
-  <!-- Gifts & letters -->
-  <section class="section section-alt" id="gifts" aria-labelledby="gifts-title">
-    <div class="wrap gifts-grid">
-      <div class="gift">
-        <p class="kicker"><span>07</span> Gift cards</p>
-        <h2 id="gifts-title">Give someone dinner</h2>
-        <p>Gift cards are good for food, drink and private events, and never expire. Choose an amount and we'll email a payment link, then send the card wherever you like.</p>
+  <!-- Gift cards -->
+  <section class="section gifts" id="gifts" aria-labelledby="gifts-title">
+    <div class="wrap grid">
+      <p class="label gifts-label">Gift cards</p>
+      <div class="gift" data-msg-scope>
+        <h2 class="statement" id="gifts-title">Give someone dinner. Gift cards are good for food, drink and private events, and they never expire.</h2>
+        <p class="muted">Choose an amount and we'll email you a payment link, then send the card wherever you like.</p>
         <form class="gift-form" id="gift-form" novalidate>
           <div class="amounts" role="radiogroup" aria-label="Amount" id="amounts"></div>
           <div class="fields">
             <label class="field"><span>For</span><input name="recipient" placeholder="Their name" required></label>
             <label class="field"><span>Your email</span><input name="email" type="email" autocomplete="email" required></label>
           </div>
-          <button class="btn btn-primary" type="submit"><i data-lucide="gift"></i> Request a gift card</button>
+          <button class="btn btn-solid" type="submit">Request a gift card</button>
           <p class="form-msg" role="status" hidden></p>
         </form>
       </div>
-      <div class="letter">
-        <img src="photos/pasta.jpg" alt="Plates of pasta with red wine on a white tablecloth, seen from above" width="720" height="960" loading="lazy">
-        <div class="letter-body">
-          <p class="kicker-sm">The Supper Letter</p>
-          <h3>First to hear about suppers, menus and new bottles</h3>
-          <p class="muted">Once a month, never more. Unsubscribe anytime.</p>
-          <form class="inline-form" id="letter-form" novalidate>
-            <label class="sr-only" for="letter-email">Email</label>
-            <input id="letter-email" name="email" type="email" placeholder="you@example.com" autocomplete="email" required>
-            <button class="btn btn-primary" type="submit">Join</button>
-          </form>
-          <p class="form-msg" role="status" hidden></p>
-        </div>
-      </div>
+      <img class="gifts-photo" src="photos/gift.jpg" alt="A table set for two with wine and soup by the window" width="800" height="1000" loading="lazy">
     </div>
   </section>
+
+  <!-- Booking call to action -->
+  <a class="book-bar" href="#reserve">
+    <span class="book-bar-fill"><span class="wrap">Book a table</span></span>
+    <span class="book-bar-arrow" aria-hidden="true"><svg viewBox="0 0 64 40"><path d="M2 20h58M42 2l18 18-18 18" fill="none" stroke="currentColor" stroke-width="2.5"/></svg></span>
+  </a>
 </main>
 
 <footer class="footer">
-  <div class="wrap footer-grid">
-    <div>
-      <a class="brand brand-light" href="#top">
-        <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="currentColor"/><path d="M32 11c2.4 8.2 12.5 13.4 12.5 25.6a12.5 12.5 0 0 1-25 0c0-6.2 3.1-10.6 6.4-13.6-.1 5.2 1.9 8.4 5.3 9.4-2.2-7.4.8-14.3.8-21.4z" fill="#d9a54a"/><path d="M17 52h30" stroke="#1f3a30" stroke-width="3.2" stroke-linecap="round"/></svg>
-        <span class="brand-name" data-field="name">Alder &amp; Ash</span>
-      </a>
-      <p class="footer-tag">Kitchen &amp; Bar. Cooked over fire since 2014.</p>
+  <div class="wrap">
+    <div class="grid footer-cols">
+      <a class="wordmark footer-mark" href="#top" data-field="name">Alder &amp; Ash</a>
+      <div>
+        <h3>Restaurant</h3>
+        <ul>
+          <li><a href="#menus">Menu</a></li>
+          <li><a href="#reserve">Reservations</a></li>
+          <li><a href="#private">Private dining</a></li>
+          <li><a href="#gifts">Gift cards</a></li>
+        </ul>
+      </div>
+      <div>
+        <h3>Contact</h3>
+        <ul>
+          <li data-field="address">214 Mercer Street, Riverside, CA 94000</li>
+          <li><a data-field="phone" href="tel:+15550142290">(555) 014-2290</a></li>
+          <li><a data-field="email" href="mailto:hello@alderandash.example">hello@alderandash.example</a></li>
+        </ul>
+      </div>
+      <div>
+        <h3>Hours</h3>
+        <div id="footer-hours"></div>
+      </div>
+      <div data-msg-scope>
+        <h3>Follow</h3>
+        <ul>
+          <li><a data-field="instagram" href="https://instagram.com/" target="_blank" rel="noopener">Instagram <i data-lucide="arrow-up-right"></i></a></li>
+        </ul>
+        <form class="letter-form" id="letter-form" novalidate>
+          <label for="letter-email">The Supper Letter, once a month</label>
+          <div class="letter-row">
+            <input id="letter-email" name="email" type="email" placeholder="you@example.com" autocomplete="email" required>
+            <button class="btn btn-solid btn-sm" type="submit">Join</button>
+          </div>
+        </form>
+        <p class="form-msg" role="status" hidden></p>
+      </div>
     </div>
-    <div>
-      <h3>Visit</h3>
-      <p data-field="address">214 Mercer Street, Riverside, CA 94000</p>
-      <p><a data-field="phone" href="tel:+15550142290">(555) 014-2290</a></p>
+
+    <p class="giant" aria-hidden="true" data-field="name">Alder &amp; Ash</p>
+
+    <div class="footer-base">
+      <a class="to-top" href="#top" aria-label="Back to top"><i data-lucide="arrow-up"></i></a>
+      <span>© <span data-year></span> <span data-field="name">Alder &amp; Ash</span></span>
+      <span>Photos: CC0, via Wikimedia Commons</span>
     </div>
-    <div>
-      <h3>Hours</h3>
-      <p id="footer-hours"></p>
-    </div>
-    <div>
-      <h3>Follow</h3>
-      <a class="social" data-field="instagram" href="https://instagram.com/" target="_blank" rel="noopener">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="17.3" cy="6.7" r="1.2" fill="currentColor"/></svg>
-        <span>Instagram</span>
-      </a>
-    </div>
-  </div>
-  <div class="wrap footer-base">
-    <span>© <span data-year></span> <span data-field="name">Alder &amp; Ash</span></span>
-    <span>Photos: CC0, via Wikimedia Commons</span>
   </div>
 </footer>
 
@@ -467,8 +472,8 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
   <form id="event-form" method="dialog" novalidate>
     <div class="sheet-head">
       <div>
-        <p class="kicker-sm">Private dining enquiry</p>
-        <h2 id="event-title">Plan your event</h2>
+        <p class="label">Private dining enquiry</p>
+        <h2 class="title" id="event-title">Plan your event</h2>
       </div>
       <button class="round" type="button" data-close aria-label="Close"><i data-lucide="x"></i></button>
     </div>
@@ -492,8 +497,8 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
     </div>
     <p class="form-error" role="alert" hidden></p>
     <div class="sheet-foot">
-      <span class="muted small" id="event-hint"></span>
-      <button class="btn btn-primary" type="submit">Send enquiry</button>
+      <span class="small muted" id="event-hint"></span>
+      <button class="btn btn-solid" type="submit">Send enquiry</button>
     </div>
   </form>
 </dialog>
