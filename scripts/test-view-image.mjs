@@ -24,7 +24,7 @@ function check(name, cond, detail) {
 
 const src = fs.readFileSync(new URL('../src/tools/fs/view_image.js', import.meta.url), 'utf8');
 const readSrc = fs.readFileSync(new URL('../src/tools/fs/read.js', import.meta.url), 'utf8');
-const win = { tools: [], assertPathInProject: (p) => p };
+const win = { tools: [], assertPathInProject: (p) => p, assertPathInProjectOrMedia: (p) => p };
 const puterProxy = { fs: { read: (...a) => globalThis.puter.fs.read(...a) } };
 new Function('window', 'puter', readSrc)(win, puterProxy);
 new Function('window', 'puter', src)(win, puterProxy);

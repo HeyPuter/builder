@@ -49,6 +49,14 @@ window.FEATURE_FLAGS = {
     // so the landing screen is the plain centered layout again. Disabled for
     // now; re-enable by setting true.
     featuredFeed: false,
+    // The Code view: a Preview | Code toggle in the preview toolbar that shows
+    // the project's files (js/code-editor.js, with the pure rules in
+    // js/editor-core.js). Free users read, search and copy them, and a paid
+    // Puter plan unlocks editing and saving. CodeMirror is fetched only when
+    // Code first opens (src/editor/). When false the toggle, the phone menu
+    // row and every editor hook are gone, and OfferUpgrade only offers the
+    // badge.
+    codeEditor: true,
     // Official project templates (js/templates.js, sources in src/templates/):
     // the "Start from a template" section under the landing hero, the
     // /?template=<slug> link the /templates/<slug>/ pages send visitors
@@ -1514,6 +1522,39 @@ window.assertPathInProject = function (path, state, label) {
     return abs;
 };
 
+// ---- Generated media folder ------------------------------------------------
+// Images, videos and audio the assistant generates for the chat live OUTSIDE
+// the project directory, in /<user>/AppData/<appID>/.media/<chatId>/ (a sibling
+// of .versions/). Version snapshots copy and restores rewrite the project dir,
+// so keeping media out of it means a chat full of pictures never bloats its
+// snapshots, and restoring an older version of a site never deletes them.
+// Media meant for the website is copied INTO the project (save_to_project on
+// the generation tools, or the copy tool, which may read from this folder).
+// The folder is derived from the project dir: same parent, ".media/<chatId>".
+window.mediaDirForAppDir = function (appDir) {
+    if (typeof appDir !== 'string' || !appDir) return '';
+    const norm = window.normalizePosixPath(appDir);
+    const cut = norm.lastIndexOf('/');
+    if (cut <= 0) return '';
+    return norm.slice(0, cut) + '/.media/' + norm.slice(cut + 1);
+};
+window.chatMediaDir = function (state) {
+    return window.mediaDirForAppDir(window.projectRootDir(state));
+};
+
+// assertPathInProject, but also accepting a path inside this chat's generated
+// media folder. For the READ side of tools only (ViewImage, the copy source,
+// the reference images given to GenerateImage/GenerateVideo): nothing may be
+// written into the media folder except by the generation tools themselves.
+window.assertPathInProjectOrMedia = function (path, state, label) {
+    const media = window.chatMediaDir(state);
+    if (media && typeof path === 'string' && path.startsWith('/')) {
+        const abs = window.normalizePosixPath(path);
+        if (abs === abs.trim() && (abs === media || abs.startsWith(media + '/'))) return abs;
+    }
+    return window.assertPathInProject(path, state, label);
+};
+
 // assertPathInProject for an array of paths (move/mkdir paths_array). Returns the
 // normalized paths; a missing/empty array is a model-directed error.
 window.assertPathsInProject = function (paths, state, label) {
@@ -1618,7 +1659,10 @@ window.writeFileVerified = async function (path, data) {
     const normalize = (s) => {
         if (typeof s !== 'string') return s;
         let out = (isHtml && window.stripPreviewCacheBust) ? window.stripPreviewCacheBust(s) : s;
-        return out.replace(/\r\n/g, '\n');
+        // The read-back decodes with Blob.text(), which drops a leading UTF-8
+        // byte order mark, so a file that keeps one (the Code view writes it
+        // back as it found it) is compared without it on both sides.
+        return out.replace(/^﻿/, '').replace(/\r\n/g, '\n');
     };
     const want = normalize(data);
     const MAX_TRIES = 3;

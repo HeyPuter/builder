@@ -20,15 +20,17 @@ const a = app.indexOf(marker);
 const b = app.indexOf('\n});\n', a);
 const handlerSrc = app.slice(a + marker.length, b + 2);
 
-function world({ url, open, listed, loadFails = false }) {
+function world({ url, open, listed, loadFails = false, unsavedCode = false, leave = true }) {
     const s = { url, currentChatId: open, savedChats: listed.map((id) => ({ id })), urlWrites: [], loads: [] };
+    // The Code view's unsaved edits gate a switch like a running turn does.
+    s.window = { CodeEditor: { hasUnsaved: () => unsavedCode } };
     s.readUrlChatId = () => (s.url.match(/[?&]p=([^&]+)/) || [])[1] || null;
     s.setUrlChat = (id, { replace }) => { s.urlWrites.push({ id, replace }); s.url = id ? '/?p=' + id : '/'; };
     s.loadChat = async (id) => { s.loads.push(id); if (loadFails) throw new Error('read failed'); s.currentChatId = id; };
     s.isProcessing = false;
     s.chatHistory = [{ role: 'system' }, { role: 'user' }];
     s.new_chat = () => { s.newChat = true; };
-    s.confirmLeaveActiveChat = async () => true;
+    s.confirmLeaveActiveChat = async () => { s.asked = true; return leave; };
     s.handler = new Function('s', `with (s) { return (${handlerSrc}); }`)(s);
     return s;
 }
@@ -53,6 +55,18 @@ function world({ url, open, listed, loadFails = false }) {
     const w = world({ url: '/?p=chat_a', open: 'chat_b', listed: ['chat_a', 'chat_b'] });
     await w.handler();
     check('an ordinary Back still opens the project and leaves its URL alone', w.currentChatId === 'chat_a' && w.urlWrites.length === 0);
+    check('…and asks nothing when there is no unsaved code', !w.asked);
+}
+{
+    const w = world({ url: '/?p=chat_a', open: 'chat_b', listed: ['chat_a', 'chat_b'], unsavedCode: true, leave: false });
+    await w.handler();
+    check('Back with unsaved code asks first, and staying puts the address back',
+        w.asked === true && w.loads.length === 0 && w.urlWrites[0]?.id === 'chat_b' && w.url === '/?p=chat_b', JSON.stringify(w.urlWrites));
+}
+{
+    const w = world({ url: '/?p=chat_a', open: 'chat_b', listed: ['chat_a', 'chat_b'], unsavedCode: true, leave: true });
+    await w.handler();
+    check('…and leaving goes ahead', w.asked === true && w.currentChatId === 'chat_a');
 }
 
 if (failures) { console.error(`\n${failures} check(s) FAILED`); process.exit(1); }

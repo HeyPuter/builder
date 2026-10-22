@@ -1,9 +1,9 @@
 import fs from 'node:fs';
 
 // ---- Regression guard for the paid "remove branding" perk -------------------
-// Subscribers publish without the "Made with Puter" badge: the publish flow
-// strips the runtime tag from the release's HTML (see src/js/branding.js and
-// stagePublishRelease in ui.js). A regex that misses a tag variant leaves a
+// Subscribers who tick "Remove the badge" publish without the "Made with
+// Puter" badge: the publish flow strips the runtime tag from the release's
+// HTML (see src/js/branding.js and stagePublishRelease in ui.js). A regex that misses a tag variant leaves a
 // paying user's badge up; one that over-matches deletes the user's own scripts.
 
 const read = (rel) => fs.readFileSync(new URL(rel, import.meta.url), 'utf8');
@@ -56,10 +56,18 @@ check('isSubscribed: truthy non-boolean is not enough', !B.isSubscribed({ subscr
 check('isSubscribed: temp user never counts', !B.isSubscribed({ is_temp: true, subscribed: true }));
 check('upgrade url is puter.com billing', B.UPGRADE_URL === 'https://puter.com/#billing');
 
-// Wiring: the module is bundled, and staging a release strips only for subscribers.
+// Wiring: the module is bundled, and staging a release strips only when a
+// subscriber ticked the box. Never automatically.
 check('branding.js is in the bundle', viteSrc.includes("'js/branding.js'"));
-check('stagePublishRelease strips for subscribers, on a fresh plan check',
-    /const user = window\.refreshUserPlan \? await window\.refreshUserPlan\(\) : window\.user;\s*const branding = window\.Branding\?\.isSubscribed\(user\) \? 'removed' : 'kept';\s*if \(branding === 'removed'\) await stripBrandingFromRelease\(releaseDir\)/.test(uiSrc));
+check('stagePublishRelease strips only when ticked by a subscriber, on a fresh plan check',
+    /const user = window\.refreshUserPlan \? await window\.refreshUserPlan\(\) : window\.user;\s*const branding = removeBadge && window\.Branding\?\.isSubscribed\(user\) \? 'removed' : 'kept';\s*if \(branding === 'removed'\) await stripBrandingFromRelease\(releaseDir\)/.test(uiSrc));
+check('removeBadge defaults to off', uiSrc.includes('async function stagePublishRelease(chatId, appDir, srcPath, { removeBadge = false } = {})'));
+check('doPublish passes the box state to staging', uiSrc.includes('stagePublishRelease(chatId, appDir, path, { removeBadge })'));
+check('the box is locked for free users, with an Upgrade button',
+    /class="publish-remove-badge"\$\{checked \? ' checked' : ''\}\$\{paid \? '' : ' disabled'\}/.test(uiSrc) &&
+    uiSrc.includes('data-action="upgrade" data-source="publish_panel">Upgrade</button>'));
+check('the box is shown in both the first-publish and live views',
+    (uiSrc.match(/publishBadgeToggleHtml\(\) \+/g) || []).length === 2);
 check('settings asks before switching away from a running build',
     /async function publishFromSettings\(\) \{[\s\S]*?confirmLeaveActiveChat\(\)[\s\S]*?close\(\);/.test(uiSrc));
 check('the chat card is skipped for a stopped turn',
@@ -70,8 +78,28 @@ const upgradeToolSrcForTracking = read('../src/tools/chat_ui/upgrade.js');
 for (const ev of ['Upgrade Prompt Shown', 'Upgrade Opened', 'Upgrade Clicked', 'Upgrade Completed']) {
     check(`tracks '${ev}'`, uiSrc.includes(`'${ev}'`) || upgradeToolSrcForTracking.includes(`'${ev}'`));
 }
-check('the chat card reports its impression', upgradeToolSrcForTracking.includes("'Upgrade Prompt Shown', { source: 'chat' }"));
+// The card's impression carries the source of the perk it offers: 'chat' for
+// the badge (as before the code editor), 'chat_code_editor' for editing code.
+check('the chat card reports its impression, per perk',
+    upgradeToolSrcForTracking.includes("'Upgrade Prompt Shown', { source: CARDS[feature].source }") &&
+    /badge: \{[^}]*source: 'chat' \}/.test(upgradeToolSrcForTracking) &&
+    /code_editor: \{[^}]*source: 'chat_code_editor' \}/.test(upgradeToolSrcForTracking));
+check('the card button opens the dialog with its own source',
+    uiSrc.includes("openUpgradeModal($(this).attr('data-source') || 'chat')") &&
+    upgradeToolSrcForTracking.includes('data-source="${card.source}"'));
 check('chat badge requests are tracked', upgradeToolSrcForTracking.includes("'Badge Removal Requested'"));
+check('chat code-editing requests are tracked', upgradeToolSrcForTracking.includes("'Code Editing Requested'"));
+// The code editor's case: a required feature while the flag is on, the badge
+// otherwise (and for offers saved before it existed).
+check('OfferUpgrade asks which perk when the code editor ships',
+    upgradeToolSrcForTracking.includes('enum: ["badge", "code_editor"]') && upgradeToolSrcForTracking.includes('required: ["feature"]'));
+check('anything but code_editor is the badge',
+    upgradeToolSrcForTracking.includes("args.feature === 'code_editor' ? 'code_editor' : 'badge'"));
+check('a reloaded chat replays the card for its perk',
+    read('../src/js/app.js').includes('window.renderUpgradeCard?.({ feature: toolResponse.feature })'));
+check('the tool never limits changes made in chat', upgradeToolSrcForTracking.includes('keep making every change the user asks for in chat, on any plan'));
+check('the dialog lists the code editor perk', uiSrc.includes("'Edit your app’s code in Builder'"));
+check('upgrading from the editor offers to start editing', uiSrc.includes('upgrade-start-editing'));
 check('Project Published carries branding', /'Project Published', \{[^}]*branding/.test(uiSrc));
 check('usage-limit upgrade button is tracked', uiSrc.includes("'Upgrade Clicked', { source: 'usage_limit' }"));
 

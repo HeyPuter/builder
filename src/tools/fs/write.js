@@ -28,6 +28,10 @@ window.tools.push({
         // the file outside the project (in a sibling project, even) while this
         // guard reported it as in-bounds. See window.assertPathInProject.
         const path = window.assertPathInProject(args.path, state);
+        // The user edited this file by hand in the Code view since the model
+        // last read it: a whole-file write from the model's memory would drop
+        // their change, so it must read the file first (see code-editor.js).
+        await window.CodeEditor?.assertModelMayOverwrite?.(path);
         // Take the path's write-lock so this write can't interleave with the
         // background preview cache-bust's read-modify-write on the same file (a
         // stale-buffer write-back would otherwise clobber it). See withFileLock.
