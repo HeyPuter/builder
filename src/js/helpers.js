@@ -2189,3 +2189,66 @@ const ATTACHMENT_ACCEPT = '*/*';
 function isSupportedFileType(file) {
     return !!(file && (file.name || file.type));
 }
+
+// ===== keyboard-viewport (start) =====
+// Keep the composer above the on-screen keyboard on phones (iOS above all).
+//
+// Opening the keyboard does not shrink the layout on iOS (100dvh stays put):
+// the keyboard covers the bottom of the page, and Safari pans the visual
+// viewport up to reveal the focused field. The app is a fixed-height column
+// with the composer at its bottom, so it was only visible while that pan held.
+// Scrolling the conversation past its end, the composer growing a line, or the
+// layout shifting under a streaming reply would reset the pan, and the composer
+// dropped behind the keyboard until the user dismissed and re-summoned it.
+//
+// So while a field in the chat column has focus, size the app to the visible
+// area (visualViewport.height, as --app-h; styles.css applies it under
+// html.vv-sized) and undo Safari's pan, leaving nothing for it to lose. Scoped
+// to fields in .chat on purpose: dialogs, the sidebar search and the preview
+// iframe still rely on Safari's own pan to reveal their fields, so they are
+// left alone. Touch devices only (desktop has no on-screen keyboard), and never
+// while pinch-zoomed, where the visual viewport is a magnified window onto the
+// page rather than the space the keyboard left.
+const KEYBOARD_VIEWPORT_TOUCH_QUERY = '(hover: none), (pointer: coarse)';
+let _kbViewportLastHeight = 0;
+
+function isChatFieldFocused() {
+    const el = document.activeElement;
+    if (!el || !el.closest || !el.closest('.chat')) return false;
+    return !!(el.isContentEditable || (el.matches && el.matches('input, textarea')));
+}
+
+function syncKeyboardViewport() {
+    const vv = window.visualViewport;
+    const root = document.documentElement;
+    if (!vv || !root) return;
+    const touch = !!(window.matchMedia && window.matchMedia(KEYBOARD_VIEWPORT_TOUCH_QUERY).matches);
+    if (!touch || Math.abs(vv.scale - 1) > 0.01 || !isChatFieldFocused()) {
+        root.classList.remove('vv-sized');
+        _kbViewportLastHeight = 0;
+        return;
+    }
+    const height = Math.round(vv.height);
+    root.style.setProperty('--app-h', height + 'px');
+    root.classList.add('vv-sized');
+    // The keyboard just opened (or grew): the focused field may now sit below
+    // the fold of a scrolling column (the landing page's hero), so bring it
+    // back into view. No-op for the active chat's composer, which is pinned.
+    if (_kbViewportLastHeight && height < _kbViewportLastHeight && document.activeElement.scrollIntoView) {
+        document.activeElement.scrollIntoView({ block: 'nearest' });
+    }
+    _kbViewportLastHeight = height;
+    // The app now fits the visible area exactly; undo Safari's pan (and the
+    // window scroll scrollIntoView may have added) so the toolbar stays on top.
+    if (window.scrollX || window.scrollY) window.scrollTo(0, 0);
+}
+
+if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', syncKeyboardViewport);
+    window.visualViewport.addEventListener('scroll', syncKeyboardViewport);
+    document.addEventListener('focusin', syncKeyboardViewport);
+    // On focusout, activeElement is still the old field (or <body> on its way
+    // to the next one): check again once the move has settled.
+    document.addEventListener('focusout', function () { setTimeout(syncKeyboardViewport, 0); });
+}
+// ===== keyboard-viewport (end) =====

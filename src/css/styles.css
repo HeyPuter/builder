@@ -87,6 +87,28 @@ select:focus-visible,
 }
 .chat:not(.active)::-webkit-scrollbar { display: none; }
 
+/* On-screen keyboard open over a chat field (phones): size the column to the
+   area the keyboard leaves visible, so the composer sits right above it instead
+   of depending on Safari's pan to stay in view. html.vv-sized and --app-h are
+   maintained by the keyboard-viewport block in js/helpers.js; without the class
+   none of this applies. */
+html.vv-sized body {
+    height: var(--app-h);
+}
+html.vv-sized .chat {
+    max-height: calc(var(--app-h) - var(--toolbar-h));
+}
+html.vv-sized .chat:not(.active) {
+    height: calc(var(--app-h) - var(--toolbar-h));
+}
+/* A swipe past either end of the conversation would otherwise chain into a pan
+   of the page and slide the composer behind the keyboard. Only while the
+   keyboard is up, so pull-to-refresh behaves as before the rest of the time. */
+html.vv-sized .chat-box,
+html.vv-sized .chat:not(.active) {
+    overscroll-behavior-y: contain;
+}
+
 /* Landing hero: a real flex column here (display:contents in the active state,
    see .home-hero below) that fills the space above the footer and centers its
    children in it. When that space is shorter than the hero, it grows to its
