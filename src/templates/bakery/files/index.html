@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#15100c">
+<title>Small Hours Bakery — baked between 2 and 6 am</title>
+<meta name="description" content="Small Hours is a night-shift bakery. Sourdough, laminated pastry and cakes, baked through the night and out of the oven on a timetable.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="bar" id="top">
+  <a class="bar__mark" href="#top" aria-label="Small Hours, back to top">Small Hours</a>
+  <nav class="bar__nav" aria-label="Sections">
+    <a href="#oven">Oven</a>
+    <a href="#counter">Counter</a>
+    <a href="#cakes">Cakes</a>
+    <a href="#visit">Visit</a>
+  </nav>
+  <span class="status" id="status"><i></i><span>—</span></span>
+  <button class="bar__box" id="openBox" type="button" aria-haspopup="dialog">Box <b id="boxCount">0</b></button>
+</header>
+
+<main>
+  <!-- HERO -->
+  <section class="hero" aria-labelledby="heroTitle">
+    <img class="hero__img" src="images/hero.jpg" alt="A tray of butter croissants fresh from the oven">
+    <div class="hero__shade"></div>
+    <p class="hero__kicker mono"><span id="heroLine">The ovens are lit at 02:00</span></p>
+    <aside class="ticket" aria-live="polite">
+      <div class="ticket__row"><span>Now</span><b id="tNow">--:--</b></div>
+      <div class="ticket__row"><span id="tNextLabel">Next out</span><b id="tNextTime">--:--</b></div>
+      <p class="ticket__item" id="tNextItem">—</p>
+      <div class="ticket__count" id="tCount">—</div>
+      <a class="ticket__link" href="#oven">Full oven board ↓</a>
+    </aside>
+    <div class="hero__foot">
+      <p class="hero__lede">A night-shift bakery. We start at two, the street wakes at seven, and by then the bread is <em>already cooling.</em></p>
+      <div class="hero__ctas">
+        <a class="btn btn--ember" href="#counter">Pre-order for pickup</a>
+        <a class="btn btn--line" href="#cakes">Order a cake</a>
+      </div>
+    </div>
+    <h1 class="hero__word" id="heroTitle"><span>Small</span><span>Hours</span></h1>
+  </section>
+
+  <!-- OVEN BOARD -->
+  <section class="oven" id="oven" aria-labelledby="ovenTitle">
+    <div class="oven__side">
+      <p class="num">01</p>
+      <h2 class="oven__title" id="ovenTitle">Out of<br>the oven</h2>
+      <p class="mono small">Every bake, on a timetable. Come at the minute it lands and it's still crackling. Times refresh on their own.</p>
+      <p class="mono small oven__date" id="ovenDate"></p>
+    </div>
+    <div class="board" role="table" aria-label="Today's bakes">
+      <div class="board__head" role="row">
+        <span role="columnheader">Time</span>
+        <span role="columnheader">Bake</span>
+        <span role="columnheader">Batch</span>
+        <span role="columnheader">Status</span>
+      </div>
+      <div id="boardRows"></div>
+    </div>
+  </section>
+
+  <!-- COUNTER -->
+  <section class="counter" id="counter" aria-labelledby="counterTitle">
+    <div class="counter__top">
+      <h2 class="counter__title" id="counterTitle">The<br>counter</h2>
+      <div class="counter__aside">
+        <p class="num num--dark">02</p>
+        <p class="mono small">Add what you want to your box and pick it up warm. Pre-orders close at 20:00 the night before; we bake them into the morning run.</p>
+        <div class="filters" role="tablist" aria-label="Filter the counter" id="filters"></div>
+      </div>
+    </div>
+    <ol class="menu" id="menu"></ol>
+    <figure class="peek" id="peek" aria-hidden="true"><img alt=""></figure>
+  </section>
+
+  <!-- PROCESS -->
+  <section class="process" aria-labelledby="processTitle">
+    <img class="process__img" src="images/bakers.jpg" alt="Three bakers pulling a pan of loaves from the oven">
+    <div class="process__shade"></div>
+    <div class="process__big" aria-hidden="true">36</div>
+    <h2 class="process__title" id="processTitle"><span class="mono small">03 — From starter to crust</span>Hours,<br>every loaf.</h2>
+    <ol class="ruler" id="ruler"></ol>
+  </section>
+
+  <!-- CAKES -->
+  <section class="cakes" id="cakes" aria-labelledby="cakesTitle">
+    <div class="cakes__head">
+      <p class="num num--dark">04</p>
+      <h2 class="cakes__title" id="cakesTitle">Cakes<br><span>on 72 hours'</span><br>notice.</h2>
+      <img class="cakes__img" src="images/cake.jpg" alt="A slice of layered cake">
+    </div>
+    <form class="slip" id="cakeForm" novalidate>
+      <div class="slip__top mono"><span>Cake order slip</span><span id="slipNo">No. —</span></div>
+      <fieldset class="slip__group">
+        <legend>Cake</legend>
+        <div class="choices" id="cakeChoices"></div>
+      </fieldset>
+      <fieldset class="slip__group">
+        <legend>Size</legend>
+        <div class="choices choices--row" id="sizeChoices"></div>
+      </fieldset>
+      <div class="slip__grid">
+        <label>Pickup date<input type="date" name="date" id="cakeDate" required></label>
+        <label>Your name<input type="text" name="name" autocomplete="name" required></label>
+        <label>Phone<input type="tel" name="phone" autocomplete="tel" required></label>
+        <label>Inscription <span class="mono tiny" id="inscCount">0/30</span><input type="text" name="inscription" maxlength="30" placeholder="Happy 40th, Ana"></label>
+      </div>
+      <p class="slip__err mono" id="cakeErr" role="alert"></p>
+      <div class="slip__foot">
+        <div><span class="mono tiny">Estimate</span><b id="cakeTotal">$0</b></div>
+        <button class="btn btn--ink" type="submit">Place cake order</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- VISIT -->
+  <section class="visit" id="visit" aria-labelledby="visitTitle">
+    <p class="num">05</p>
+    <h2 class="visit__addr" id="visitTitle"><span id="addrLine1"></span><span id="addrLine2"></span></h2>
+    <div class="visit__grid">
+      <div class="hours">
+        <p class="mono tiny label">Hours</p>
+        <table id="hoursTable"><tbody></tbody></table>
+      </div>
+      <div class="visit__info">
+        <p class="mono tiny label">Find us</p>
+        <p class="mono" id="contactLines"></p>
+        <a class="btn btn--line" id="mapLink" target="_blank" rel="noopener">Open in maps ↗</a>
+      </div>
+      <form class="ping" id="pingForm" novalidate>
+        <p class="mono tiny label">The sourdough text</p>
+        <p class="ping__lede">One text, the minute the country loaf comes out. Nothing else, ever.</p>
+        <div class="ping__row">
+          <label class="sr" for="pingPhone">Phone number</label>
+          <input id="pingPhone" type="tel" placeholder="Your phone number" autocomplete="tel">
+          <button class="btn btn--ember" type="submit">Text me</button>
+        </div>
+        <p class="mono tiny ping__msg" id="pingMsg" role="status"></p>
+      </form>
+    </div>
+    <img class="visit__img" src="images/rolls.jpg" alt="Racks of bread rolls cooling">
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="foot__row mono tiny">
+    <span id="footName"></span>
+    <span>Flour, water, salt, time.</span>
+    <a href="#top">Back to top ↑</a>
+  </div>
+  <p class="foot__word" aria-hidden="true"><span>Small Hours</span></p>
+</footer>
+
+<!-- BOX DRAWER -->
+<div class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="boxTitle" hidden>
+  <div class="drawer__scrim" data-close></div>
+  <div class="drawer__panel">
+    <div class="receipt" id="receipt">
+      <div class="receipt__head">
+        <h2 id="boxTitle">Your box</h2>
+        <button class="x" type="button" data-close aria-label="Close">×</button>
+      </div>
+      <div id="boxBody"></div>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
