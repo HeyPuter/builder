@@ -35,6 +35,7 @@ export default {
         'This is a one-page website for a roofing contractor: index.html, styles.css, app.js and photos/.',
         'Business details, estimator prices, materials and their colors, roof shapes, pitch and height surcharges and the storm check items are plain data at the top of app.js (BUSINESS, MATERIALS, SHAPES, PRICING, STORM_SIGNS, VERDICTS). Change that data rather than the code below it.',
         'The phone number, email, license number, address and service towns are also written in index.html. When the user changes one, update every place it appears in both files.',
+        'The hero photos are the .hero-slide images in index.html, one numbered .pager-dot button each; add or remove both together. The quick price card under the hero fills in the estimator and lists the materials from MATERIALS.',
         'The estimator drawing is SVG built by drawHouse() in app.js, placed in a 600 x 470 space with a viewBox that zooms to fit the house. Keep new shapes on or near the house so they stay in frame, and give a new material a texture pattern in index.html whose id is tex-<texture>.',
         'The request form posts JSON to BUSINESS.formEndpoint when it is set; otherwise it writes the request into the visitor\'s email app, addressed to BUSINESS.email. Do not tell the user requests are saved or delivered anywhere else unless you build that.',
         'The prices are illustrative. When the user gives their own, replace them and keep the note under the price.',

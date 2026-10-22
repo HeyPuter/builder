@@ -167,6 +167,60 @@ const money = (n) => '$' + Math.round(n).toLocaleString('en-US');
 const roundTo = (n, step) => Math.round(n / step) * step;
 const range = ([lo, hi], step = 10) => `${money(roundTo(lo, step))} – ${money(roundTo(hi, step))}`;
 const shortMoney = (n) => (n >= 1000 ? `$${(n / 1000).toFixed(n >= 100000 ? 0 : 1)}k` : money(n));
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ---------------------------------------------------------------------------
+// Header: a solid bar once the page scrolls, and a menu on small screens
+
+const header = $('.site-header');
+const menuButton = $('.menu-toggle');
+const nav = $('#site-nav');
+const updateHeader = () => header.classList.toggle('is-stuck', window.scrollY > 160);
+window.addEventListener('scroll', updateHeader, { passive: true });
+updateHeader();
+
+function setMenu(open) {
+  nav.classList.toggle('is-open', open);
+  menuButton.setAttribute('aria-expanded', String(open));
+}
+menuButton.addEventListener('click', () => setMenu(menuButton.getAttribute('aria-expanded') !== 'true'));
+nav.addEventListener('click', (ev) => { if (ev.target.closest('a')) setMenu(false); });
+document.addEventListener('click', (ev) => { if (!header.contains(ev.target)) setMenu(false); });
+document.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Escape' && nav.classList.contains('is-open')) {
+    setMenu(false);
+    menuButton.focus();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Hero photos: a slow crossfade with numbered buttons and a pause button
+
+const slides = $$('.hero-slide');
+const dots = $$('.pager-dot');
+const playButton = $('.pager-play');
+let slide = 0;
+let slideTimer = null;
+let paused = reduceMotion;
+
+function showSlide(i) {
+  slide = (i + slides.length) % slides.length;
+  slides.forEach((s, k) => s.classList.toggle('is-active', k === slide));
+  dots.forEach((d, k) => d.setAttribute('aria-pressed', String(k === slide)));
+}
+function scheduleSlides() {
+  clearInterval(slideTimer);
+  if (!paused) slideTimer = setInterval(() => showSlide(slide + 1), 6500);
+}
+function setPaused(value) {
+  paused = value;
+  playButton.toggleAttribute('data-paused', value);
+  playButton.setAttribute('aria-label', value ? 'Play the slideshow' : 'Pause the slideshow');
+  scheduleSlides();
+}
+dots.forEach((dot, k) => dot.addEventListener('click', () => { showSlide(k); scheduleSlides(); }));
+playButton.addEventListener('click', () => setPaused(!paused));
+setPaused(paused);
 
 // ---------------------------------------------------------------------------
 // Estimator
@@ -305,6 +359,23 @@ $('#compare').addEventListener('click', (ev) => {
   selectMaterial(row.dataset.material);
   const next = $(`#compare [data-material="${row.dataset.material}"]`);
   if (next) next.focus();
+});
+
+// The quick price card under the hero fills in the estimator and jumps to it.
+
+$('#q-material').innerHTML = MATERIALS.map((m) => `<option value="${m.id}">${esc(m.name)}</option>`).join('');
+$('#quick-form').addEventListener('submit', (ev) => {
+  ev.preventDefault();
+  const input = $('#q-footprint');
+  const footprint = Math.min(4000, Math.max(800, Math.round((Number(input.value) || 2000) / 50) * 50));
+  input.value = footprint;
+  $('#footprint').value = footprint;
+  const stories = $(`input[name=stories][value="${$('#q-stories').value}"]`, estForm);
+  if (stories) stories.checked = true;
+  state.touched = true;
+  selectMaterial($('#q-material').value);
+  $('#estimate').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth' });
+  $('#estimate-title').focus({ preventScroll: true });
 });
 
 // ---------------------------------------------------------------------------

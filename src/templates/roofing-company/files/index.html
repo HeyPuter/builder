@@ -12,89 +12,141 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Slatewright Roofing | Roof replacement, repair and storm response</title>
 <meta name="description" content="Full tear-off roof replacements, leak repair and 24/7 storm tarping in Hollis County. Price your roof online in a minute, then book a free inspection.">
-<meta name="theme-color" content="#1b2126">
+<meta name="theme-color" content="#13212e">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400..800&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
 
-<div class="utility">
-  <div class="wrap utility-in">
-    <p><span class="pulse" aria-hidden="true"></span>Storm line, 24/7: <a href="tel:+13125550148">(312) 555-0148</a></p>
-    <p class="utility-meta">License RC-20418 · $2M liability · Workers' comp on every crew</p>
-  </div>
-</div>
-
 <header class="site-header" id="top">
+  <div class="topbar">
+    <div class="wrap topbar-in">
+      <p class="topbar-note">Free inspections across Hollis County · License RC-20418 · Fully insured</p>
+      <ul class="contact-strip">
+        <li>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.5"/></svg>
+          <span><small>Visit us</small>418 Foundry Lane, Harlan</span>
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="1"/><path d="m3 7 9 6 9-6"/></svg>
+          <span><small>Email us</small><a href="mailto:hello@slatewright.example">hello@slatewright.example</a></span>
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>
+          <span><small>Storm line, 24/7</small><a href="tel:+13125550148">(312) 555-0148</a></span>
+        </li>
+      </ul>
+    </div>
+  </div>
   <div class="wrap header-in">
     <a class="brand" href="#top" aria-label="Slatewright Roofing, back to top">
-      <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#1b2126"/><path d="M9 35 32 14l23 21" fill="none" stroke="#e0874f" stroke-width="7"/><path d="M19 42h26M19 50h26" stroke="#f2eee6" stroke-width="5"/></svg>
-      <span class="brand-name">Slatewright <small>Roofing Co.</small></span>
+      <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="12" fill="#b84a17"/><path d="M9 35 32 14l23 21" fill="none" stroke="#fff" stroke-width="7"/><path d="M19 42h26M19 50h26" stroke="#fff" stroke-opacity=".75" stroke-width="5"/></svg>
+      <span class="brand-name">Slatewright<small>Roofing Co.</small></span>
     </a>
-    <nav class="nav" aria-label="Main">
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav">
+      <span class="sr-only">Menu</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="nav" id="site-nav" aria-label="Main">
       <a href="#estimate">Estimate</a>
       <a href="#services">Services</a>
       <a href="#storm">Storm damage</a>
       <a href="#work">Our work</a>
       <a href="#warranty">Warranty</a>
       <a href="#faq">FAQ</a>
+      <a class="nav-book" href="#book">Book inspection</a>
     </nav>
-    <a class="btn btn-copper header-cta" href="#book">Free inspection</a>
+    <a class="estimate-tab" href="#book">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M8 7h8M8 11h2M12 11h2M16 11h0M8 15h2M12 15h2M8 18h8"/></svg>
+      Free inspection
+    </a>
   </div>
 </header>
 
 <main id="main">
 
   <section class="hero" aria-labelledby="hero-title">
-    <div class="wrap hero-grid">
-      <div class="hero-copy">
-        <p class="eyebrow"><span>Residential roofing</span><span>Hollis County</span><span>Since 1998</span></p>
-        <h1 id="hero-title">Roofs that outlast the weather report.</h1>
-        <p class="lead">Full tear-off replacements, honest repairs and same-night storm tarping, from a crew that answers its own phone. Price your roof below in about a minute. No email required.</p>
-        <div class="hero-ctas">
-          <a class="btn btn-copper btn-lg" href="#estimate">Price my roof</a>
-          <a class="btn btn-line btn-lg" href="tel:+13125550148">Call (312) 555-0148</a>
-        </div>
-        <dl class="hero-stats">
-          <div><dt>Rating</dt><dd class="stat-big">4.9<span aria-hidden="true">★</span></dd><dd>612 reviews</dd></div>
-          <div><dt>Roofs</dt><dd class="stat-big">4,100+</dd><dd>since 1998</dd></div>
-          <div><dt>Labor warranty</dt><dd class="stat-big">15 yr</dd><dd>in writing</dd></div>
-        </dl>
-      </div>
-      <figure class="hero-photo crop">
-        <img src="photos/crew-ridge.jpg" alt="Two roofers in safety harnesses working along the ridge of a gable roof" width="1400" height="936">
-        <figcaption class="ticket">
-          <span class="ticket-id">Job 26-117 · Elm St</span>
-          <strong>Tear-off &amp; re-roof</strong>
-          <dl>
-            <div><dt>Area</dt><dd>28.4 sq</dd></div>
-            <div><dt>Pitch</dt><dd>8/12</dd></div>
-            <div><dt>Crew</dt><dd>6</dd></div>
-            <div><dt>On site</dt><dd>2 days</dd></div>
-          </dl>
-        </figcaption>
-      </figure>
+    <div class="hero-slides" aria-hidden="true">
+      <img class="hero-slide is-active" src="photos/crew-ridge.jpg" alt="" width="1400" height="936">
+      <img class="hero-slide" src="photos/charcoal-seam.jpg" alt="" width="960" height="832" loading="lazy">
+      <img class="hero-slide" src="photos/farmhouse-shingle.jpg" alt="" width="1024" height="853" loading="lazy">
     </div>
+    <div class="hero-shade" aria-hidden="true"></div>
+    <div class="wrap hero-in">
+      <div class="hero-copy">
+        <p class="eyebrow">Residential roofing since 1998</p>
+        <h1 id="hero-title">Roofs that outlast <span>the weather report.</span></h1>
+        <p class="lead">Full tear-off replacements, honest repairs and same-night storm tarping, from a crew that answers its own phone.</p>
+        <div class="hero-ctas">
+          <a class="btn btn-split" href="#estimate">
+            <span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m6 6 6 6-6 6M13 6l6 6-6 6"/></svg></span>
+            <span class="btn-label">Price my roof</span>
+          </a>
+          <a class="btn btn-ghost" href="tel:+13125550148">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>
+            (312) 555-0148
+          </a>
+        </div>
+        <ul class="hero-proof">
+          <li><strong>4.9</strong><span class="stars" aria-hidden="true">★★★★★</span><span>612 reviews</span></li>
+          <li><strong>15 yr</strong><span>labor warranty</span></li>
+          <li><strong>24/7</strong><span>storm line</span></li>
+        </ul>
+      </div>
+      <div class="hero-pager" role="group" aria-label="Background photo">
+        <button type="button" class="pager-dot" aria-pressed="true" aria-label="Photo 1 of 3">01</button>
+        <button type="button" class="pager-dot" aria-pressed="false" aria-label="Photo 2 of 3">02</button>
+        <button type="button" class="pager-dot" aria-pressed="false" aria-label="Photo 3 of 3">03</button>
+        <button type="button" class="pager-play" aria-label="Pause the slideshow">
+          <svg class="icon-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6v12M15 6v12"/></svg>
+          <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7Z"/></svg>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section class="quick" aria-labelledby="quick-title">
     <div class="wrap">
-      <ul class="proof-strip" aria-label="Why homeowners pick us">
-        <li>Manufacturer-certified installers</li>
-        <li>Full tear-off on every job</li>
-        <li>Class 4 impact roofs</li>
-        <li>Insurance claim help</li>
-        <li>Financing available</li>
-      </ul>
+      <div class="quick-card">
+        <div class="quick-intro">
+          <h2 id="quick-title">Price your roof in a minute</h2>
+          <p>Three answers for a ballpark. Fine-tune pitch, shape and color below.</p>
+        </div>
+        <form class="quick-form" id="quick-form" novalidate>
+          <div class="qf">
+            <label for="q-footprint">Home footprint</label>
+            <div class="qf-unit">
+              <input id="q-footprint" name="footprint" type="number" inputmode="numeric" min="800" max="4000" step="50" value="2000">
+              <span>sq ft</span>
+            </div>
+          </div>
+          <div class="qf">
+            <label for="q-stories">Stories</label>
+            <select id="q-stories" name="stories">
+              <option value="1">1 story</option>
+              <option value="2" selected>2 stories</option>
+              <option value="3">3 stories</option>
+            </select>
+          </div>
+          <div class="qf">
+            <label for="q-material">Material</label>
+            <select id="q-material" name="material"></select>
+          </div>
+          <button class="btn btn-copper" type="submit">See my price</button>
+        </form>
+      </div>
     </div>
   </section>
 
   <section class="section estimate" id="estimate" aria-labelledby="estimate-title">
     <div class="wrap">
       <header class="section-head">
-        <p class="label"><span>01</span>Instant estimate</p>
-        <h2 id="estimate-title">Price your roof in sixty seconds.</h2>
+        <p class="label">Instant estimate</p>
+        <h2 id="estimate-title" tabindex="-1">Your roof, priced line by line.</h2>
         <p>The same math our estimators use: footprint, pitch and shape give the squares; material, tear-off and height give the price. Change anything and the drawing and the number follow.</p>
       </header>
 
@@ -111,7 +163,7 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
 
           <fieldset class="field">
             <legend>Stories</legend>
-            <div class="seg seg-3">
+            <div class="seg">
               <label><input type="radio" name="stories" value="1"><span>1</span></label>
               <label><input type="radio" name="stories" value="2" checked><span>2</span></label>
               <label><input type="radio" name="stories" value="3"><span>3</span></label>
@@ -120,7 +172,7 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
 
           <fieldset class="field">
             <legend>Roof shape</legend>
-            <div class="seg seg-3 seg-shape">
+            <div class="seg seg-shape">
               <label><input type="radio" name="shape" value="gable" checked><span><svg viewBox="0 0 40 24" aria-hidden="true"><path d="M3 21 20 4l17 17Z"/></svg>Gable</span></label>
               <label><input type="radio" name="shape" value="hip"><span><svg viewBox="0 0 40 24" aria-hidden="true"><path d="M3 21 14 7h12l11 14Z"/></svg>Hip</span></label>
               <label><input type="radio" name="shape" value="complex"><span><svg viewBox="0 0 40 24" aria-hidden="true"><path d="M3 21 14 7h12l11 14Z"/><path d="M6 21 14 11l8 10"/></svg>Cut-up</span></label>
@@ -191,7 +243,7 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
           </div>
 
           <div class="quote">
-            <p class="label" id="result-title">Estimated installed price</p>
+            <p class="quote-label" id="result-title">Estimated installed price</p>
             <p class="price" id="price">$0</p>
             <p class="sr-only" id="price-live" aria-live="polite"></p>
             <ul class="quote-facts">
@@ -204,10 +256,13 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
               <tbody id="breakdown"></tbody>
             </table>
             <div class="compare">
-              <p class="label">Same roof, every material</p>
+              <p class="quote-label">Same roof, every material</p>
               <ul id="compare" class="compare-list"></ul>
             </div>
-            <a class="btn btn-copper btn-block btn-lg" href="#book" id="lock-estimate">Lock this in with a free measure</a>
+            <a class="btn btn-split btn-block" href="#book" id="lock-estimate">
+              <span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m6 6 6 6-6 6M13 6l6 6-6 6"/></svg></span>
+              <span class="btn-label">Lock this in with a free measure</span>
+            </a>
             <p class="fine">Illustrative 2026 pricing for Hollis County. A free on-roof measure confirms it before you sign anything.</p>
           </div>
         </aside>
@@ -219,49 +274,49 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
     <div class="wrap">
       <header class="section-head section-head-row">
         <div>
-          <p class="label"><span>02</span>What we do</p>
+          <p class="label">What we do</p>
           <h2 id="services-title">One crew for the whole roof.</h2>
         </div>
         <p>Our own employees on every job, never day-labor subs. The estimator who measures your roof is the one who checks it on install day.</p>
       </header>
       <ul class="service-grid">
         <li class="service">
-          <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M4 26 24 8l20 18"/><path d="M10 21v19h28V21"/><path d="M16 30h16M16 35h16"/></svg>
+          <span class="service-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M4 26 24 8l20 18"/><path d="M10 21v19h28V21"/><path d="M16 30h16M16 35h16"/></svg></span>
           <h3>Roof replacement</h3>
           <p>Full tear-off to the deck, new underlayment, flashing and ventilation. Most homes are done in one or two days.</p>
           <p class="tag">From $9,800</p>
           <a class="service-link" href="#estimate">Price it</a>
         </li>
         <li class="service">
-          <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M4 22 24 6l20 16"/><path d="M24 22c-4 6-6 9-6 12a6 6 0 0 0 12 0c0-3-2-6-6-12Z"/></svg>
+          <span class="service-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M4 22 24 6l20 16"/><path d="M24 22c-4 6-6 9-6 12a6 6 0 0 0 12 0c0-3-2-6-6-12Z"/></svg></span>
           <h3>Leak repair</h3>
           <p>We trace the water, not just the stain. A fixed price before we start, and photos of the fix when we're done.</p>
           <p class="tag">From $395</p>
           <a class="service-link" href="#book" data-service="repair">Book a repair</a>
         </li>
         <li class="service">
-          <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M12 22a9 9 0 0 1 3-17 11 11 0 0 1 21 3 7 7 0 0 1-1 14Z"/><path d="m26 25-6 10h7l-4 9"/></svg>
+          <span class="service-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M12 22a9 9 0 0 1 3-17 11 11 0 0 1 21 3 7 7 0 0 1-1 14Z"/><path d="m26 25-6 10h7l-4 9"/></svg></span>
           <h3>Storm &amp; hail damage</h3>
           <p>24/7 tarping, a written damage report your insurer can use, and an estimator standing next to your adjuster.</p>
           <p class="tag">Free inspection</p>
           <a class="service-link" href="#storm">Check storm damage</a>
         </li>
         <li class="service">
-          <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M4 26 24 8l20 18"/><path d="M12 19v21M20 12v28M28 12v28M36 19v21"/></svg>
+          <span class="service-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M4 26 24 8l20 18"/><path d="M12 19v21M20 12v28M28 12v28M36 19v21"/></svg></span>
           <h3>Standing-seam metal</h3>
           <p>24-gauge steel with concealed fasteners. Quiet, Class A fire rated, and good for fifty years or more.</p>
           <p class="tag">From $1,050 / square</p>
           <a class="service-link" href="#estimate" data-material="metal">Price metal</a>
         </li>
         <li class="service">
-          <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M4 14h40l-3 8H7Z"/><path d="M36 22v12a4 4 0 0 1-4 4h-4"/><path d="M24 40v4"/></svg>
+          <span class="service-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M4 14h40l-3 8H7Z"/><path d="M36 22v12a4 4 0 0 1-4 4h-4"/><path d="M24 40v4"/></svg></span>
           <h3>Gutters &amp; ventilation</h3>
           <p>Seamless 6-inch gutters and guards, with ridge and soffit vents balanced so the attic breathes and shingles last.</p>
           <p class="tag">From $14 / foot</p>
           <a class="service-link" href="#book" data-service="gutters">Ask about gutters</a>
         </li>
         <li class="service">
-          <svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="21" cy="21" r="13"/><path d="m31 31 12 12"/><path d="M14 23 21 16l7 7"/></svg>
+          <span class="service-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="21" cy="21" r="13"/><path d="m31 31 12 12"/><path d="M14 23 21 16l7 7"/></svg></span>
           <h3>Roof inspections</h3>
           <p>A 40-photo report for buyers, sellers and insurers, with the remaining life of every slope in plain words.</p>
           <p class="tag">Free with any quote</p>
@@ -275,7 +330,7 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
     <div class="wrap">
       <header class="section-head section-head-row">
         <div>
-          <p class="label"><span>03</span>Storm check</p>
+          <p class="label">Storm check</p>
           <h2 id="storm-title">Storm last night? Check from the ground.</h2>
         </div>
         <p>Never climb up after a storm. Tick what you can see from the yard and the attic, and we'll tell you how fast to move.</p>
@@ -290,7 +345,7 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
       </div>
 
       <div class="claim">
-        <figure class="claim-photo crop">
+        <figure class="claim-photo">
           <img src="photos/storm-damage.jpg" alt="Roof tiles torn loose by wind, with underlayment flapping beside a brick chimney" width="1024" height="768" loading="lazy">
           <figcaption>Wind lifted these tiles at 2 a.m. Tarped by 5:40.</figcaption>
         </figure>
@@ -312,7 +367,7 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
     <div class="wrap">
       <header class="section-head section-head-row">
         <div>
-          <p class="label"><span>04</span>Install day</p>
+          <p class="label">Install day</p>
           <h2 id="day-title">What replacement day looks like.</h2>
         </div>
         <p>Most homes are a one-day job. This is the schedule our crews run, down to the last nail sweep. We never leave a roof open overnight.</p>
@@ -332,7 +387,7 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
     <div class="wrap">
       <header class="section-head section-head-row">
         <div>
-          <p class="label"><span>05</span>Recent work</p>
+          <p class="label">Recent work</p>
           <h2 id="work-title">Roofs we put on this year.</h2>
         </div>
         <div class="chips" role="group" aria-label="Filter projects by material">
@@ -343,11 +398,10 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
       </header>
       <ul class="projects" id="projects">
         <li class="project" data-kind="shingle">
-          <figure class="crop"><img src="photos/farmhouse-shingle.jpg" alt="White two-story farmhouse with a new gray architectural shingle roof and wraparound porch" width="1024" height="853" loading="lazy"></figure>
+          <figure><img src="photos/farmhouse-shingle.jpg" alt="White two-story farmhouse with a new gray architectural shingle roof and wraparound porch" width="1024" height="853" loading="lazy"><figcaption>Architectural shingle</figcaption></figure>
           <div class="project-body">
             <h3>Oak Hollow Rd, Harlan</h3>
             <dl>
-              <div><dt>Material</dt><dd>Architectural shingle</dd></div>
               <div><dt>Color</dt><dd>Pewter Gray</dd></div>
               <div><dt>Area</dt><dd>34.2 sq</dd></div>
               <div><dt>On site</dt><dd>2 days</dd></div>
@@ -355,23 +409,21 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
           </div>
         </li>
         <li class="project" data-kind="shingle">
-          <figure class="crop"><img src="photos/craftsman-shingle.jpg" alt="Craftsman house with a brown shingle roof, upper balcony and brick front steps" width="1024" height="768" loading="lazy"></figure>
+          <figure><img src="photos/craftsman-shingle.jpg" alt="Craftsman house with a brown shingle roof, upper balcony and brick front steps" width="1024" height="768" loading="lazy"><figcaption>Class 4 impact shingle</figcaption></figure>
           <div class="project-body">
             <h3>Linden Ave, Westbury</h3>
             <dl>
-              <div><dt>Material</dt><dd>Class 4 impact shingle</dd></div>
               <div><dt>Color</dt><dd>Barkwood</dd></div>
               <div><dt>Area</dt><dd>22.8 sq</dd></div>
-              <div><dt>On site</dt><dd>1 day · hail claim</dd></div>
+              <div><dt>On site</dt><dd>1 day</dd></div>
             </dl>
           </div>
         </li>
         <li class="project" data-kind="metal">
-          <figure class="crop"><img src="photos/charcoal-seam.jpg" alt="Aerial view of a sprawling home with a charcoal standing-seam metal roof" width="960" height="832" loading="lazy"></figure>
+          <figure><img src="photos/charcoal-seam.jpg" alt="Aerial view of a sprawling home with a charcoal standing-seam metal roof" width="960" height="832" loading="lazy"><figcaption>Standing-seam metal</figcaption></figure>
           <div class="project-body">
             <h3>Quarry Rd, Millbrook</h3>
             <dl>
-              <div><dt>Material</dt><dd>Standing-seam metal</dd></div>
               <div><dt>Color</dt><dd>Charcoal</dd></div>
               <div><dt>Area</dt><dd>41.0 sq</dd></div>
               <div><dt>On site</dt><dd>6 days</dd></div>
@@ -379,11 +431,10 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
           </div>
         </li>
         <li class="project" data-kind="metal">
-          <figure class="crop"><img src="photos/white-seam.jpg" alt="Aerial view of a house with a bright white metal roof and three gable dormers" width="960" height="693" loading="lazy"></figure>
+          <figure><img src="photos/white-seam.jpg" alt="Aerial view of a house with a bright white metal roof and three gable dormers" width="960" height="693" loading="lazy"><figcaption>Standing-seam metal</figcaption></figure>
           <div class="project-body">
             <h3>Bluff Line, Corwin</h3>
             <dl>
-              <div><dt>Material</dt><dd>Standing-seam metal</dd></div>
               <div><dt>Color</dt><dd>Bright White</dd></div>
               <div><dt>Area</dt><dd>38.5 sq</dd></div>
               <div><dt>On site</dt><dd>5 days</dd></div>
@@ -391,11 +442,10 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
           </div>
         </li>
         <li class="project" data-kind="metal">
-          <figure class="crop"><img src="photos/burgundy-seam.jpg" alt="Single-story stone building with a burgundy standing-seam metal roof seen from above" width="960" height="720" loading="lazy"></figure>
+          <figure><img src="photos/burgundy-seam.jpg" alt="Single-story stone building with a burgundy standing-seam metal roof seen from above" width="960" height="720" loading="lazy"><figcaption>Standing-seam metal</figcaption></figure>
           <div class="project-body">
             <h3>Main St, Harlan</h3>
             <dl>
-              <div><dt>Material</dt><dd>Standing-seam metal</dd></div>
               <div><dt>Color</dt><dd>Colonial Red</dd></div>
               <div><dt>Area</dt><dd>46.0 sq</dd></div>
               <div><dt>On site</dt><dd>7 days</dd></div>
@@ -403,11 +453,10 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
           </div>
         </li>
         <li class="project" data-kind="metal">
-          <figure class="crop"><img src="photos/ranch-seam.jpg" alt="Aerial view of a ranch house with a gray standing-seam metal roof and long driveway" width="960" height="720" loading="lazy"></figure>
+          <figure><img src="photos/ranch-seam.jpg" alt="Aerial view of a ranch house with a gray standing-seam metal roof and long driveway" width="960" height="720" loading="lazy"><figcaption>Standing-seam metal</figcaption></figure>
           <div class="project-body">
             <h3>County Rd 9, Pike Grove</h3>
             <dl>
-              <div><dt>Material</dt><dd>Standing-seam metal</dd></div>
               <div><dt>Color</dt><dd>Pewter</dd></div>
               <div><dt>Area</dt><dd>31.0 sq</dd></div>
               <div><dt>On site</dt><dd>4 days</dd></div>
@@ -421,7 +470,7 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
   <section class="section proof" id="warranty" aria-labelledby="warranty-title">
     <div class="wrap proof-grid">
       <div class="warranty">
-        <p class="label"><span>06</span>Warranty</p>
+        <p class="label">Warranty</p>
         <h2 id="warranty-title">Paper that holds up as well as the roof.</h2>
         <ul class="terms">
           <li><strong>50 yr</strong><span>Manufacturer material warranty, registered in your name before we leave the driveway.</span></li>
@@ -464,7 +513,7 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
   <section class="section area-faq" id="faq" aria-labelledby="area-title">
     <div class="wrap af-grid">
       <div class="area">
-        <p class="label"><span>07</span>Service area</p>
+        <p class="label">Service area</p>
         <h2 id="area-title">Where we roof.</h2>
         <p>Hollis County and the towns around it. Storm tarping reaches every one of them within four hours, day or night.</p>
         <table class="towns">
@@ -484,6 +533,7 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
       </div>
 
       <div class="faq">
+        <p class="label">FAQ</p>
         <h2 class="faq-title">Questions we get on every roof</h2>
         <details>
           <summary>How close is the online estimate to the real price?</summary>
@@ -514,78 +564,79 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
   </section>
 
   <section class="section book" id="book" aria-labelledby="book-title">
-    <div class="wrap book-grid">
-      <div class="book-info">
-        <p class="label"><span>08</span>Free inspection</p>
-        <h2 id="book-title">Book a free inspection.</h2>
-        <p>An estimator, not a salesperson, on your roof within days. You get photos of every slope and a written price that matches what we bill.</p>
-        <ol class="next-steps">
-          <li>We call within two business hours to set a time.</li>
-          <li>A 40-minute visit: attic, every slope, gutters and flashing.</li>
-          <li>Written quote and photo report the same day.</li>
-        </ol>
-        <p class="direct">Rather talk? <a href="tel:+13125550148">(312) 555-0148</a><br>Or write: <a href="mailto:hello@slatewright.example">hello@slatewright.example</a></p>
-      </div>
+    <div class="wrap">
+      <div class="book-card">
+        <div class="book-info">
+          <h2 id="book-title">Book a free roof inspection</h2>
+          <p>An estimator, not a salesperson, on your roof within days. You get photos of every slope and a written price that matches what we bill.</p>
+          <ol class="next-steps">
+            <li>We call within two business hours to set a time.</li>
+            <li>A 40-minute visit: attic, every slope, gutters and flashing.</li>
+            <li>Written quote and photo report the same day.</li>
+          </ol>
+          <p class="direct">Rather talk? <a href="tel:+13125550148">(312) 555-0148</a><br>Or write: <a href="mailto:hello@slatewright.example">hello@slatewright.example</a></p>
+        </div>
 
-      <div class="book-panel">
-        <form class="book-form" id="book-form" novalidate>
-          <div class="form-row">
-            <div class="input">
-              <label for="b-name">Name</label>
-              <input id="b-name" name="name" type="text" autocomplete="name" required>
+        <div class="book-panel">
+          <form class="book-form" id="book-form" novalidate>
+            <div class="form-row">
+              <div class="input">
+                <label for="b-name">Name</label>
+                <input id="b-name" name="name" type="text" autocomplete="name" required>
+              </div>
+              <div class="input">
+                <label for="b-phone">Phone</label>
+                <input id="b-phone" name="phone" type="tel" autocomplete="tel" required>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="input">
+                <label for="b-email">Email <span class="opt">optional</span></label>
+                <input id="b-email" name="email" type="email" autocomplete="email">
+              </div>
+              <div class="input">
+                <label for="b-service">What do you need?</label>
+                <select id="b-service" name="service">
+                  <option value="inspection">Free roof inspection</option>
+                  <option value="storm">Storm or hail damage</option>
+                  <option value="repair">Leak or repair</option>
+                  <option value="replacement">Replacement quote</option>
+                  <option value="metal">Metal roof quote</option>
+                  <option value="gutters">Gutters &amp; ventilation</option>
+                </select>
+              </div>
             </div>
             <div class="input">
-              <label for="b-phone">Phone</label>
-              <input id="b-phone" name="phone" type="tel" autocomplete="tel" required>
+              <label for="b-address">Property address</label>
+              <input id="b-address" name="address" type="text" autocomplete="street-address" required>
             </div>
-          </div>
-          <div class="form-row">
+            <fieldset class="input">
+              <legend>Best time to visit</legend>
+              <div class="seg">
+                <label><input type="radio" name="time" value="Morning" checked><span>Morning</span></label>
+                <label><input type="radio" name="time" value="Afternoon"><span>Afternoon</span></label>
+                <label><input type="radio" name="time" value="Any time"><span>Any time</span></label>
+              </div>
+            </fieldset>
             <div class="input">
-              <label for="b-email">Email <span class="opt">optional</span></label>
-              <input id="b-email" name="email" type="email" autocomplete="email">
+              <label for="b-notes">Anything we should know? <span class="opt">optional</span></label>
+              <textarea id="b-notes" name="notes" rows="3" placeholder="Where it leaks, when the storm hit, the gate code…"></textarea>
             </div>
-            <div class="input">
-              <label for="b-service">What do you need?</label>
-              <select id="b-service" name="service">
-                <option value="inspection">Free roof inspection</option>
-                <option value="storm">Storm or hail damage</option>
-                <option value="repair">Leak or repair</option>
-                <option value="replacement">Replacement quote</option>
-                <option value="metal">Metal roof quote</option>
-                <option value="gutters">Gutters &amp; ventilation</option>
-              </select>
-            </div>
-          </div>
-          <div class="input">
-            <label for="b-address">Property address</label>
-            <input id="b-address" name="address" type="text" autocomplete="street-address" required>
-          </div>
-          <fieldset class="input">
-            <legend>Best time to visit</legend>
-            <div class="seg seg-3">
-              <label><input type="radio" name="time" value="Morning" checked><span>Morning</span></label>
-              <label><input type="radio" name="time" value="Afternoon"><span>Afternoon</span></label>
-              <label><input type="radio" name="time" value="Any time"><span>Any time</span></label>
-            </div>
-          </fieldset>
-          <div class="input">
-            <label for="b-notes">Anything we should know? <span class="opt">optional</span></label>
-            <textarea id="b-notes" name="notes" rows="3" placeholder="Where it leaks, when the storm hit, the gate code…"></textarea>
-          </div>
-          <label class="attach" id="attach-wrap" hidden>
-            <input type="checkbox" id="attach-estimate" checked>
-            <span>Include my online estimate<small id="attach-summary"></small></span>
-          </label>
-          <button class="btn btn-copper btn-lg btn-block" type="submit">Request my free inspection</button>
-          <p class="form-status" id="form-status" role="alert"></p>
-        </form>
+            <label class="attach" id="attach-wrap" hidden>
+              <input type="checkbox" id="attach-estimate" checked>
+              <span>Include my online estimate<small id="attach-summary"></small></span>
+            </label>
+            <button class="btn btn-copper btn-lg btn-block" type="submit">Request my free inspection</button>
+            <p class="form-status" id="form-status" role="alert"></p>
+          </form>
 
-        <div class="book-done" id="book-done" tabindex="-1" hidden>
-          <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M4 26 24 8l20 18"/><path d="m16 30 6 6 11-12"/></svg>
-          <h3 id="done-title">Request received.</h3>
-          <p id="done-text"></p>
-          <ul class="done-summary" id="done-summary"></ul>
-          <button type="button" class="btn btn-line" id="book-again">Send another request</button>
+          <div class="book-done" id="book-done" tabindex="-1" hidden>
+            <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M4 26 24 8l20 18"/><path d="m16 30 6 6 11-12"/></svg>
+            <h3 id="done-title">Request received.</h3>
+            <p id="done-text"></p>
+            <ul class="done-summary" id="done-summary"></ul>
+            <button type="button" class="btn btn-line" id="book-again">Send another request</button>
+          </div>
         </div>
       </div>
     </div>
@@ -596,7 +647,7 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
 <footer class="site-footer">
   <div class="wrap footer-grid">
     <div class="footer-brand">
-      <p class="brand-name">Slatewright <small>Roofing Co.</small></p>
+      <p class="brand-name">Slatewright<small>Roofing Co.</small></p>
       <p>Residential roofing, repair and storm response in Hollis County since 1998.</p>
     </div>
     <div>
