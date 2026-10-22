@@ -13,8 +13,8 @@ export default {
         { label: 'Switch to pounds', prompt: 'Make pounds the default unit across the site: the plate calculator, the logbook results and the board.' },
     ],
     page: {
-        title: 'Personal Training Website Template — Free | Puter Builder',
-        description: 'A personal training and strength studio website you can copy and customize with AI: training options with a live price builder, coach roster, client results, a 1RM plate calculator and free-consult booking.',
+        title: 'Personal Training Website Template, Free | Puter Builder',
+        description: 'A personal training studio website to copy and change with AI: a live price builder, coach roster, client results, a 1RM plate calculator and consult booking.',
         ogTagline: 'Personal training studio website template',
         features: [
             { title: 'Today on the board', body: 'A whiteboard card in the hero shows the session written up for each day of the week, next to a live open-or-closed line from your hours.' },
