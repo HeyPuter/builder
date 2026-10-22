@@ -10,260 +10,174 @@ window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&
 </script>
 <script src="https://builder.puter.com/runtime.js" defer></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Morrow Coffee · Espresso bar &amp; roastery</title>
-<meta name="description" content="A neighborhood espresso bar and roastery. Coffee roasted out back every Tuesday, pastries from the oven at 7, and a room with big windows.">
-<meta name="theme-color" content="#c4381e">
+<title>Morrow Coffee · Coffee, brunch &amp; bakery in Portland</title>
+<meta name="description" content="A neighborhood coffee shop with brunch until 3, pastries from the oven at 7 and beans roasted out back every Tuesday. No reservations, just come in.">
+<meta name="theme-color" content="#151413">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amatic+SC:wght@400;700&family=Caveat+Brush&family=Work+Sans:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="styles.css">
+<script src="content.js" defer></script>
 <script src="app.js" defer></script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
 
-<div class="ticker" role="region" aria-label="News from the bar">
-    <div class="ticker-track" data-ticker></div>
-</div>
-
-<header class="nav" data-nav>
-    <div class="wrap nav-inner">
-        <a class="brand" href="#top">
-            <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
-                <rect width="64" height="64" rx="16" fill="#c4381e"/>
-                <path d="M18 30a12 12 0 0 1 24 0z" fill="#f2c75c"/>
-                <path d="M11 33h38v3a16 16 0 0 1-16 16h-6a16 16 0 0 1-16-16z" fill="#fbf7f0"/>
-                <path d="M48.5 37h2a6 6 0 0 1 0 12h-4" fill="none" stroke="#fbf7f0" stroke-width="4.5" stroke-linecap="round"/>
+<header class="site-header">
+    <div class="wrap header-inner">
+        <a class="logo" href="index.html" aria-label="Morrow Coffee, home">
+            <svg viewBox="0 0 240 240" aria-hidden="true">
+                <circle class="badge-disc" cx="120" cy="120" r="118"/>
+                <path class="badge-ring" d="M131 21c50 4 89 46 88 99-1 56-45 99-100 99-54 0-98-44-98-99 0-54 43-98 98-99"/>
+                <text class="badge-word" x="120" y="136" text-anchor="middle" style="font-size:62px">Morrow</text>
+                <path class="badge-sprout" d="M176 196c6-10 14-17 24-20"/>
+                <path class="badge-leaf" d="M200 176c-2-9 4-17 14-18 1 10-5 17-14 18z"/>
             </svg>
-            <span class="brand-name" data-shop="shortName">Morrow</span>
         </a>
         <nav class="nav-links" id="nav-links" aria-label="Main" data-nav-links>
-            <a href="#menu">Menu</a>
-            <a href="#beans">Beans</a>
-            <a href="#room">The room</a>
-            <a href="#visit">Visit</a>
+            <a href="index.html" aria-current="page">Home</a>
+            <a href="menu.html">Menu</a>
+            <a href="about.html">Our story</a>
+            <a href="visit.html">Visit</a>
         </nav>
-        <div class="nav-actions">
-            <p class="status" data-status><span class="status-dot" aria-hidden="true"></span><span data-status-short>Opening hours</span></p>
-            <a class="btn btn-ink btn-sm" href="#visit" data-order>Order ahead</a>
-            <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links" data-nav-toggle>
-                <span class="sr-only">Open the menu</span>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16M4 16h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-            </button>
+        <div class="header-side">
+            <p class="header-address" data-address-line>214 Larch Street, Portland</p>
+            <div class="header-actions">
+                <p class="status" data-status="short"><span class="status-dot" aria-hidden="true"></span><span data-status-text>Opening hours</span></p>
+                <a class="pill pill-coral pill-sm" href="visit.html" data-order>Order ahead</a>
+                <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links" data-nav-toggle>
+                    <span class="sr-only">Open the menu</span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16M4 16h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                </button>
+            </div>
         </div>
     </div>
 </header>
 
 <main id="main">
-    <section class="hero" id="top" aria-labelledby="hero-title">
-        <div class="wrap hero-grid">
-            <div class="hero-copy">
-                <p class="eyebrow">Espresso bar &amp; roastery · Since 2016</p>
-                <h1 class="hero-title" id="hero-title">Good coffee,<br><em>slow</em> mornings.</h1>
-                <p class="hero-lead">We roast small batches out back every Tuesday, bake from 6 am and pour until the light goes. Pull up a stool, or grab it to go. Either way, it's made properly.</p>
-                <div class="hero-ctas">
-                    <a class="btn btn-cherry" href="#menu">See the menu</a>
-                    <a class="btn btn-line" href="#visit">Plan a visit</a>
-                </div>
-                <dl class="hero-facts">
-                    <div><dt>Roasted</dt><dd>Tuesdays, in the back room</dd></div>
-                    <div><dt>Baked</dt><dd>From 6 am, twice a day</dd></div>
-                    <div><dt>Milk</dt><dd>Oat &amp; almond at no extra charge</dd></div>
-                </dl>
-            </div>
-            <div class="hero-art">
-                <div class="arch">
-                    <img src="photos/hero-latte.jpg" alt="A barista pouring a leaf of milk into a latte" width="640" height="852" fetchpriority="high">
-                </div>
-                <svg class="stamp" viewBox="0 0 200 200" aria-hidden="true">
-                    <defs><path id="stamp-ring" d="M100 100m-72 0a72 72 0 1 1 144 0a72 72 0 1 1-144 0"/></defs>
-                    <circle cx="100" cy="100" r="98" fill="#f2c75c"/>
-                    <g class="stamp-text">
-                        <text><textPath href="#stamp-ring" textLength="448" lengthAdjust="spacing">ROASTED IN HOUSE · EVERY TUESDAY ·</textPath></text>
-                    </g>
-                    <g transform="translate(100 100) rotate(-28)">
-                        <ellipse rx="22" ry="30" fill="#24170f"/>
-                        <path d="M0-30C-9-14 9 14 0 30" fill="none" stroke="#f2c75c" stroke-width="4" stroke-linecap="round"/>
-                    </g>
+    <section class="photo-hero" style="--photo: url('photos/hero-counter.jpg')" aria-labelledby="hero-title">
+        <div class="hero-stack">
+            <div class="hero-badge">
+                <svg viewBox="0 0 240 240" role="img" aria-label="Morrow Coffee">
+                    <defs>
+                        <path id="badge-top" d="M42 120a78 78 0 0 1 156 0"/>
+                        <path id="badge-bottom" d="M48 120a72 72 0 0 0 144 0"/>
+                    </defs>
+                    <circle class="badge-disc" cx="120" cy="120" r="118"/>
+                    <path class="badge-ring" d="M131 21c50 4 89 46 88 99-1 56-45 99-100 99-54 0-98-44-98-99 0-54 43-98 98-99"/>
+                    <text class="badge-small"><textPath href="#badge-top" startOffset="50%" text-anchor="middle">COFFEE · BRUNCH · BAKERY</textPath></text>
+                    <text class="badge-word" x="120" y="134" text-anchor="middle">Morrow</text>
+                    <path class="badge-ring" d="M84 146c22-5 50-6 72-1" style="stroke-width:2.2"/>
+                    <text class="badge-small"><textPath href="#badge-bottom" startOffset="50%" text-anchor="middle">SINCE 2016</textPath></text>
+                    <path class="badge-sprout" d="M176 196c6-10 14-17 24-20"/>
+                    <path class="badge-leaf" d="M200 176c-2-9 4-17 14-18 1 10-5 17-14 18z"/>
                 </svg>
-                <div class="today" data-today>
-                    <p class="today-label" data-today-label>Today</p>
-                    <p class="today-hours" data-today-hours>&nbsp;</p>
-                    <p class="today-note" data-today-note>&nbsp;</p>
-                </div>
+            </div>
+            <h1 class="tape hero-title" id="hero-title">Coffee, brunch &amp; a seat by the window</h1>
+            <p class="hero-today" data-today-hours>Open every day</p>
+            <div class="hero-ctas">
+                <a class="pill pill-coral" href="menu.html">See the menu</a>
+                <a class="pill pill-chalk" href="visit.html">Find us</a>
             </div>
         </div>
     </section>
 
-    <section class="dayparts" aria-labelledby="now-title">
+    <section class="no-booking" aria-labelledby="booking-title">
+        <div class="wrap">
+            <h2 id="booking-title">No reservations. Just come in.</h2>
+            <a class="scribble-link" href="menu.html#brunch">See what's cooking for brunch</a>
+            <svg class="doodle-arrow" viewBox="0 0 70 40" aria-hidden="true"><path d="M3 30c12-14 28-20 44-14 6 2 10 7 9 12M50 20l7 9-10 2" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+    </section>
+
+    <div class="photo-band" style="--photo: url('photos/band-table.jpg')" role="img" aria-label="Brunch for four: waffles, eggs and coffee on a round table"></div>
+
+    <section class="section">
+        <div class="wrap rows">
+            <article class="row">
+                <figure class="row-photo"><img src="photos/morning.jpg" alt="A latte with a croissant on a wooden table" width="900" height="675" loading="lazy"></figure>
+                <div class="row-copy">
+                    <span class="script">The coffee</span>
+                    <h2>Roasted out back, every Tuesday</h2>
+                    <p>Our house blend, Daybreak, goes into every espresso. The slow bar pours whatever single origin came out of the roaster this week, and every bag on the shelf is dated by hand.</p>
+                    <a class="cut" href="about.html">Our story</a>
+                </div>
+            </article>
+            <article class="row">
+                <figure class="row-photo"><img src="photos/brunch.jpg" alt="A brunch plate with eggs, greens and toast" width="900" height="675" loading="lazy"></figure>
+                <div class="row-copy">
+                    <span class="script">The kitchen</span>
+                    <h2>Brunch until 3, bread until it's gone</h2>
+                    <p>Eggs, greens and good sourdough from 8 am. Croissants and cardamom buns come out of the oven at 7 and again at 11:30, and the soup changes with the market.</p>
+                    <a class="cut" href="menu.html#brunch">See the menu</a>
+                </div>
+            </article>
+        </div>
+    </section>
+
+    <section class="section section-paper" aria-labelledby="now-title">
         <div class="wrap">
             <div class="section-head">
-                <p class="eyebrow">All day at Morrow</p>
+                <span class="script">All day at Morrow</span>
                 <h2 id="now-title" data-now-title>What's on right now</h2>
             </div>
-            <ol class="daypart-list" data-dayparts></ol>
+            <ol class="board-list" data-dayparts></ol>
         </div>
     </section>
 
-    <section class="menu" id="menu" aria-labelledby="menu-title">
-        <div class="wrap menu-grid">
-            <div class="menu-main">
-                <div class="section-head">
-                    <p class="eyebrow">The menu</p>
-                    <h2 id="menu-title">Pulled, poured <em>&amp; baked</em> here.</h2>
-                    <p class="section-lead">Espresso is our house blend, Daybreak. The slow bar rotates through whatever came out of the roaster this week.</p>
-                </div>
-                <div class="menu-controls">
-                    <div class="tabs" role="tablist" aria-label="Menu sections" data-menu-tabs></div>
-                    <div class="sizes" role="radiogroup" aria-label="Cup size" data-sizes></div>
-                </div>
-                <div class="menu-panel" role="tabpanel" tabindex="0" data-menu-panel></div>
-                <p class="menu-note" data-menu-note></p>
-            </div>
-
-            <aside class="finder" aria-labelledby="finder-title">
-                <img class="finder-photo" src="photos/barista-milk.jpg" alt="Steamed milk poured from a jug into a cup" width="900" height="600" loading="lazy">
-                <div class="finder-body">
-                    <h3 id="finder-title">Order like a regular</h3>
-                    <p>Not sure what to get? Three taps and we'll point you to it.</p>
-                    <form class="finder-form" data-finder>
-                        <fieldset>
-                            <legend>Hot or iced?</legend>
-                            <div class="seg">
-                                <label><input type="radio" name="temp" value="hot" checked><span>Hot</span></label>
-                                <label><input type="radio" name="temp" value="iced"><span>Iced</span></label>
-                            </div>
-                        </fieldset>
-                        <fieldset>
-                            <legend>Black or with milk?</legend>
-                            <div class="seg">
-                                <label><input type="radio" name="milk" value="black"><span>Black</span></label>
-                                <label><input type="radio" name="milk" value="milk" checked><span>Milk</span></label>
-                            </div>
-                        </fieldset>
-                        <fieldset>
-                            <legend>Gentle or bold?</legend>
-                            <div class="seg">
-                                <label><input type="radio" name="mood" value="gentle" checked><span>Gentle</span></label>
-                                <label><input type="radio" name="mood" value="bold"><span>Bold</span></label>
-                            </div>
-                        </fieldset>
-                    </form>
-                    <div class="finder-result" aria-live="polite" data-finder-result></div>
-                </div>
-            </aside>
-        </div>
-    </section>
-
-    <section class="beans" id="beans" aria-labelledby="beans-title">
+    <section class="section" aria-labelledby="reviews-title">
         <div class="wrap">
-            <div class="beans-head">
-                <div class="section-head">
-                    <p class="eyebrow">On the shelf</p>
-                    <h2 id="beans-title">Roasted Tuesday, <em>gone by Sunday.</em></h2>
-                    <p class="section-lead">Every bag is roasted here and dated by hand. Grab one at the counter, or ask us to set one aside.</p>
-                </div>
-                <div class="roast" data-roast>
-                    <p class="roast-label">Next roast</p>
-                    <p class="roast-when" data-roast-when>&nbsp;</p>
-                    <ol class="roast-week" data-roast-week aria-hidden="true"></ol>
-                </div>
+            <div class="section-head">
+                <span class="script">Kind words</span>
+                <h2 id="reviews-title">What the regulars say</h2>
             </div>
-            <ul class="bags" data-beans></ul>
+            <ul class="review-list" data-reviews></ul>
+            <p class="reviews-note" data-reviews-note></p>
         </div>
     </section>
 
-    <section class="room" id="room" aria-labelledby="room-title">
-        <div class="wrap room-grid">
-            <figure class="room-photo">
-                <img src="photos/room.jpg" alt="Morning light through arched windows over leather booths" width="1200" height="800" loading="lazy">
-                <figcaption>The front room, 7:40 on a Tuesday.</figcaption>
-            </figure>
-            <div class="room-copy">
-                <p class="eyebrow">The room</p>
-                <h2 id="room-title">A small room with <em>big windows.</em></h2>
-                <p>Thirty-two seats, a long bar you can lean on and a patio out front. Stay for one cup or the whole morning. The only thing we ask is that you leave the big table free for groups at the weekend.</p>
-                <ul class="amenities" data-amenities></ul>
-            </div>
-        </div>
-    </section>
-
-    <section class="regulars" aria-labelledby="regulars-title">
-        <div class="wrap regulars-grid">
-            <div class="card-pitch">
-                <p class="eyebrow">For regulars</p>
-                <h2 id="regulars-title">Every tenth cup <em>is on us.</em></h2>
-                <p>Ask for a stamp card at the bar. No app, no account, no email. Just a little card that lives in your wallet.</p>
-                <div class="stamp-card" data-stamps aria-hidden="true"></div>
-            </div>
-            <div class="reviews">
-                <ul class="review-list" data-reviews></ul>
-                <p class="reviews-note" data-reviews-note></p>
-            </div>
-        </div>
-    </section>
-
-    <section class="visit" id="visit" aria-labelledby="visit-title">
-        <div class="wrap visit-grid">
-            <div class="visit-copy">
-                <p class="eyebrow">Visit</p>
-                <h2 id="visit-title">Come by. <em>No booking needed.</em></h2>
-                <address class="visit-address" data-address></address>
-                <div class="visit-actions">
-                    <a class="btn btn-butter" href="#" target="_blank" rel="noopener" data-map-link>Open in Maps</a>
-                    <a class="btn btn-line-light" href="#" data-phone-link>Call the bar</a>
-                </div>
-                <ul class="getting-here" data-getting-here></ul>
-            </div>
-            <div class="hours">
-                <div class="hours-head">
-                    <h3>Opening hours</h3>
-                    <p class="status status-light" data-status-long><span class="status-dot" aria-hidden="true"></span><span data-status-text>&nbsp;</span></p>
-                </div>
-                <table class="hours-table" data-hours>
-                    <caption class="sr-only">Opening hours by day</caption>
-                </table>
-            </div>
-            <figure class="visit-photo">
-                <img src="photos/storefront.jpg" alt="Orange folding chairs on the patio outside the shop" width="720" height="900" loading="lazy">
-            </figure>
-        </div>
-    </section>
+    <section class="info-band" aria-label="Find us, opening hours and contact" data-info-band></section>
 </main>
 
-<footer class="footer">
+<footer class="site-footer">
     <div class="wrap footer-grid">
+        <div class="footer-brand">
+            <a class="logo" href="index.html" aria-label="Morrow Coffee, home">
+                <svg viewBox="0 0 240 240" aria-hidden="true">
+                    <circle class="badge-disc" cx="120" cy="120" r="118"/>
+                    <path class="badge-ring" d="M131 21c50 4 89 46 88 99-1 56-45 99-100 99-54 0-98-44-98-99 0-54 43-98 98-99"/>
+                    <text class="badge-word" x="120" y="136" text-anchor="middle" style="font-size:62px">Morrow</text>
+                    <path class="badge-sprout" d="M176 196c6-10 14-17 24-20"/>
+                    <path class="badge-leaf" d="M200 176c-2-9 4-17 14-18 1 10-5 17-14 18z"/>
+                </svg>
+            </a>
+            <p><span data-address></span></p>
+        </div>
+        <nav aria-label="Footer">
+            <h2>Pages</h2>
+            <ul class="footer-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="menu.html">Menu</a></li>
+                <li><a href="about.html">Our story</a></li>
+                <li><a href="visit.html">Visit</a></li>
+            </ul>
+        </nav>
         <div class="letter">
             <h2>The Tuesday letter</h2>
             <p>New beans the day they leave the roaster. One short email a week, never more.</p>
             <form class="letter-form" data-letter novalidate>
                 <label class="sr-only" for="letter-email">Email address</label>
                 <input id="letter-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required>
-                <button class="btn btn-cherry" type="submit">Sign me up</button>
+                <button class="pill pill-coral" type="submit">Sign me up</button>
             </form>
-            <p class="letter-msg" role="status" data-letter-msg></p>
-        </div>
-        <div class="footer-cols">
-            <div>
-                <h3>Find us</h3>
-                <p data-footer-address></p>
-            </div>
-            <div>
-                <h3>Say hello</h3>
-                <p><a href="#" data-phone-link data-shop="phone"></a><br><a href="#" data-email-link data-shop="email"></a></p>
-            </div>
-            <div>
-                <h3>Follow</h3>
-                <ul class="socials" data-socials></ul>
-            </div>
+            <p class="form-msg" role="status" data-letter-msg></p>
         </div>
     </div>
     <div class="wrap footer-base">
         <p>© <span data-year></span> <span data-shop="name">Morrow Coffee</span></p>
-        <a href="#top">Back to top</a>
+        <ul class="socials" data-socials></ul>
     </div>
-    <p class="footer-mark" aria-hidden="true" data-shop="shortName">Morrow</p>
 </footer>
 </body>
 </html>

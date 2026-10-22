@@ -1,219 +1,12 @@
 // =============================================================================
-// Morrow Coffee: content
-// Everything a coffee shop changes from week to week lives in the data below:
-// the shop's details, opening hours, menu, beans on the shelf and so on. The
-// page is drawn from it, so editing a line here updates every place it shows.
-// =============================================================================
-
-const SHOP = {
-    name: 'Morrow Coffee',
-    shortName: 'Morrow',
-    street: '214 Larch Street',
-    city: 'Portland, OR 97214',
-    phone: '(503) 555-0142',
-    email: 'hello@morrowcoffee.example',
-    // The shop's own time zone, so "open now" is right for every visitor.
-    timezone: 'America/Los_Angeles',
-    // Online ordering link (Square, Toast, ...). Empty: "Order ahead" calls the bar.
-    orderUrl: '',
-    // A maps link for the shop. Empty: a map search for the address above.
-    mapUrl: '',
-    // Where Tuesday letter sign-ups are sent, as a JSON POST of { email }.
-    // Empty: the sign-up opens an email to the shop instead.
-    letterEndpoint: '',
-    // The day beans are roasted: 0 = Sunday, 1 = Monday ... 6 = Saturday.
-    roastDay: 2,
-    socials: [
-        { label: 'Instagram', url: 'https://www.instagram.com/' },
-        { label: 'TikTok', url: 'https://www.tiktok.com/' },
-        { label: 'Google reviews', url: 'https://www.google.com/maps' },
-    ],
-};
-
-// 24-hour times. Leave a day out to show it as closed.
-const HOURS = [
-    { day: 1, open: '07:00', close: '18:00' },
-    { day: 2, open: '07:00', close: '18:00' },
-    { day: 3, open: '07:00', close: '18:00' },
-    { day: 4, open: '07:00', close: '18:00' },
-    { day: 5, open: '07:00', close: '19:00' },
-    { day: 6, open: '08:00', close: '17:00' },
-    { day: 0, open: '08:00', close: '15:00' },
-];
-
-// What a quick note on the hero card says, by day (0 = Sunday). Optional.
-const TODAY_NOTES = {
-    0: 'Slow Sunday: pour-overs all day',
-    2: 'Roasting today, the back room smells amazing',
-    5: 'Open late until 7 pm',
-    default: 'Pastries out of the oven at 7 & 11:30',
-};
-
-const TICKER = [
-    'Roasted in house every Tuesday',
-    'Oat & almond milk at no extra charge',
-    'Cardamom buns out of the oven at 7',
-    'Dogs welcome on the patio',
-    'Bring your own cup, take 25¢ off',
-    'Half-price pastries after 5 pm',
-];
-
-// The day in three parts. The one happening now is highlighted.
-const DAYPARTS = [
-    {
-        name: 'Morning', from: '07:00', to: '11:00', icon: 'sunrise', photo: 'photos/morning.jpg',
-        line: 'Pastries straight from the oven and batch brew on tap.',
-        items: ['Cardamom buns', 'Batch brew', 'Egg & cheddar toastie'],
-    },
-    {
-        name: 'Midday', from: '11:00', to: '15:00', icon: 'sun', photo: 'photos/midday.jpg',
-        line: 'The second bake lands at 11:30. Everything comes iced.',
-        items: ['Espresso tonic', 'Seasonal galette', 'Iced honey oat latte'],
-    },
-    {
-        name: 'Afternoon', from: '15:00', to: '19:00', icon: 'sunset', photo: 'photos/afternoon.jpg',
-        line: 'The slow bar opens up: pour-overs, cold brew and half-price pastries after 5.',
-        items: ['Pour-over', 'Affogato', 'Cascara fizz'],
-    },
-];
-
-// Sizes for drinks with two prices. Items with one price ignore them.
-const SIZES = [
-    { id: 'small', label: '8 oz' },
-    { id: 'regular', label: '12 oz' },
-];
-
-// Tags: 'fav' (house favourite), 'iced' (can be iced), 'vg' (vegan), 'gf' (gluten free).
-const MENU = [
-    {
-        id: 'espresso',
-        label: 'Espresso bar',
-        intro: 'Daybreak blend, pulled as a double.',
-        items: [
-            { id: 'espresso', name: 'Espresso', price: 3.25, desc: 'A double shot. Chocolate, hazelnut, a little brown sugar.' },
-            { id: 'cortado', name: 'Cortado', price: 4.25, desc: 'Equal parts espresso and silky milk, in a glass.' },
-            { id: 'flat-white', name: 'Flat white', price: [4.5, 5.25], desc: 'Two ristretto shots under a thin layer of microfoam.', tags: ['iced'] },
-            { id: 'latte', name: 'Latte', price: [4.75, 5.5], desc: 'Espresso and plenty of steamed milk.', tags: ['iced'] },
-            { id: 'honey-oat-latte', name: 'Honey oat latte', price: [5.25, 6], desc: 'Oat milk, wildflower honey and a pinch of sea salt.', tags: ['fav', 'iced'] },
-            { id: 'cappuccino', name: 'Cappuccino', price: [4.5, 5.25], desc: 'Equal espresso, milk and foam. Cocoa on request.' },
-            { id: 'mocha', name: 'Mocha', price: [5.25, 6], desc: '70% dark chocolate melted into a latte.', tags: ['iced'] },
-            { id: 'espresso-tonic', name: 'Espresso tonic', price: 5, desc: 'A double over tonic and ice with an orange peel.', tags: ['iced'] },
-        ],
-    },
-    {
-        id: 'slow-bar',
-        label: 'Slow bar',
-        intro: 'Single origins, brewed by hand.',
-        items: [
-            { id: 'batch-brew', name: 'Batch brew', price: [3.25, 3.75], desc: 'Brewed every 30 minutes. Free refill if you stay.' },
-            { id: 'pour-over', name: 'Pour-over', price: 5.5, desc: 'Any bean on the shelf, brewed to order. Takes about four minutes.', tags: ['fav'] },
-            { id: 'cold-brew', name: 'Cold brew', price: [4.5, 5.25], desc: 'Steeped for 18 hours. Smooth, low acid, a bit like cola.', tags: ['iced'] },
-            { id: 'shakerato', name: 'Maple shakerato', price: 5.25, desc: 'Espresso shaken hard with maple and ice, served up.', tags: ['iced'] },
-            { id: 'affogato', name: 'Affogato', price: 6, desc: 'A shot poured over vanilla bean gelato from down the street.' },
-            { id: 'tasting-flight', name: 'Tasting flight', price: 9, desc: 'Three of this week\'s beans side by side, with notes.' },
-        ],
-    },
-    {
-        id: 'not-coffee',
-        label: 'Not coffee',
-        intro: 'For the friend who doesn\'t.',
-        items: [
-            { id: 'chai', name: 'Chai latte', price: [4.75, 5.5], desc: 'House-brewed with black tea, ginger and cardamom.', tags: ['iced'] },
-            { id: 'dirty-chai', name: 'Dirty chai', price: [5.5, 6.25], desc: 'Our chai with a shot of espresso in it.', tags: ['iced'] },
-            { id: 'matcha', name: 'Matcha latte', price: [5.25, 6], desc: 'Ceremonial-grade matcha, whisked to order.', tags: ['iced'] },
-            { id: 'hot-chocolate', name: 'Hot chocolate', price: [4.25, 5], desc: 'Real chocolate, whole milk, a big marshmallow.' },
-            { id: 'cascara-fizz', name: 'Cascara fizz', price: 4.5, desc: 'Sparkling tea made from dried coffee cherries. Tart, like hibiscus.', tags: ['iced', 'vg'] },
-            { id: 'tea', name: 'Loose-leaf tea', price: 3.75, desc: 'Earl grey, sencha, chamomile or mint.', tags: ['vg'] },
-        ],
-    },
-    {
-        id: 'food',
-        label: 'Pastry & food',
-        intro: 'Baked in house from 6 am.',
-        items: [
-            { id: 'croissant', name: 'Butter croissant', price: 3.75, desc: 'Three days of laminating. Worth it.' },
-            { id: 'cardamom-bun', name: 'Cardamom bun', price: 4.25, desc: 'Swedish-style knot with pearl sugar. Gone by 10.', tags: ['fav'] },
-            { id: 'banana-bread', name: 'Banana bread', price: 3.95, desc: 'Brown butter and walnuts, served warm.', tags: ['gf'] },
-            { id: 'galette', name: 'Seasonal galette', price: 4.75, desc: 'Whatever fruit the market had this week.' },
-            { id: 'toastie', name: 'Egg & cheddar toastie', price: 8.5, desc: 'Soft scrambled egg, aged cheddar and chili crisp on sourdough.' },
-            { id: 'avocado-toast', name: 'Avocado toast', price: 9.5, desc: 'Lemon, chili flakes and seeds on toasted rye.', tags: ['vg'] },
-        ],
-    },
-];
-
-const MENU_NOTE = 'Oat, almond and whole milk at no extra charge · Extra shot +$1 · Decaf on request';
-
-// "Order like a regular": temperature, then milk, then mood → a menu item id.
-const FINDER = {
-    'hot-black-gentle': { item: 'batch-brew', why: 'Clean and easy. And the refill is free if you stay.' },
-    'hot-black-bold': { item: 'espresso', why: 'Short, sweet and to the point. Our house blend at its best.' },
-    'hot-milk-gentle': { item: 'honey-oat-latte', why: 'The one most of our regulars order. Soft, sweet, a little salty.' },
-    'hot-milk-bold': { item: 'cortado', why: 'All the espresso flavor, with just enough milk to round it off.' },
-    'iced-black-gentle': { item: 'cold-brew', why: 'Steeped overnight, so it\'s smooth with no bitterness.' },
-    'iced-black-bold': { item: 'espresso-tonic', why: 'Bright, fizzy and properly strong. A summer favourite.' },
-    'iced-milk-gentle': { item: 'latte', why: 'Ask for it iced, maybe with a pump of honey.' },
-    'iced-milk-bold': { item: 'dirty-chai', why: 'Spiced chai with a shot of espresso in it. Iced, it\'s dangerous.' },
-};
-
-// Beans on the shelf. roast: 1 (light) to 5 (dark). fresh: shows a sticker.
-const BEANS = [
-    {
-        name: 'Daybreak', kind: 'House blend', origin: 'Brazil & Colombia',
-        process: 'Natural / washed', altitude: '1,100–1,700 m', brew: 'Espresso, milk',
-        notes: ['Milk chocolate', 'Hazelnut', 'Brown sugar'], roast: 3,
-        price: 18, size: '12 oz', band: '#f2c75c',
-    },
-    {
-        name: 'Kiambu AA', kind: 'Single origin', origin: 'Kenya · Kiambu County',
-        process: 'Washed', altitude: '1,750 m', brew: 'Filter',
-        notes: ['Blackcurrant', 'Grapefruit', 'Cane sugar'], roast: 1,
-        price: 22, size: '12 oz', band: '#c4381e', bandInk: '#ffffff', fresh: true,
-    },
-    {
-        name: 'Pink Bourbon', kind: 'Single origin', origin: 'Colombia · Huila',
-        process: 'Washed', altitude: '1,850 m', brew: 'Filter, espresso',
-        notes: ['Strawberry', 'Rose', 'Honey'], roast: 2,
-        price: 24, size: '12 oz', band: '#eba9a1',
-    },
-    {
-        name: 'Night Shift', kind: 'Decaf', origin: 'Colombia · Tolima',
-        process: 'Sugarcane decaf', altitude: '1,600 m', brew: 'Anything',
-        notes: ['Cocoa', 'Caramel', 'Red apple'], roast: 4,
-        price: 18, size: '12 oz', band: '#9fb89a',
-    },
-];
-
-const AMENITIES = [
-    { icon: 'wifi', label: 'Fast wifi, no time limit' },
-    { icon: 'plug', label: 'Outlets along the bar' },
-    { icon: 'paw', label: 'Dogs welcome on the patio' },
-    { icon: 'step', label: 'Step-free entrance & restroom' },
-    { icon: 'leaf', label: 'Compostable cups, or bring yours' },
-    { icon: 'group', label: 'Big table for groups of 10' },
-];
-
-const STAMP_CARD = { stamps: 10, filled: 6 };
-
-// These are sample reviews to show the layout. Replace them with real ones
-// (and remove REVIEWS_NOTE) before you publish.
-const REVIEWS = [
-    { quote: 'The cardamom buns are the reason I get up on Saturdays.', name: 'Priya', source: 'Google', stars: 5 },
-    { quote: 'Best flat white in the neighborhood, and they remember your order by the second visit.', name: 'Tomás', source: 'Google', stars: 5 },
-    { quote: 'Bright, quiet in the mornings, great for an hour of work with a pour-over.', name: 'Hannah', source: 'Yelp', stars: 5 },
-];
-const REVIEWS_NOTE = 'Sample reviews. Swap in your own before publishing.';
-
-const GETTING_HERE = [
-    { label: 'Bus', text: 'Lines 14 and 15 stop at Larch & 32nd, right outside.' },
-    { label: 'Bike', text: 'Racks out front, plus a pump if you need air.' },
-    { label: 'Car', text: 'Free street parking on Larch and the side streets.' },
-];
-
-// =============================================================================
-// Page code. You shouldn't need to change anything below to update content.
+// Morrow Coffee: page code, shared by every page.
+// The content lives in content.js. Each part below only runs on the pages that
+// have a place for it, so you shouldn't need to change this file to update
+// the menu, hours or anything else the shop says.
 // =============================================================================
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const WEEK = [1, 2, 3, 4, 5, 6, 0];
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -231,6 +24,9 @@ const ICONS = {
     leaf: '<path d="M5 19c0-8 5-14 15-14 0 10-6 15-14 15M5 19c2.5-4 5.5-7 9-9"/>',
     group: '<circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2.5 20a5.5 5.5 0 0 1 11 0M14 15.2a4.5 4.5 0 0 1 7.5 3.3"/>',
     cup: '<path d="M4 9h13v4a6 6 0 0 1-6 6h-1a6 6 0 0 1-6-6zM17 10.5h1.5a2.5 2.5 0 0 1 0 5H16.5M8 3.5c-.8 1 .8 2 0 3M12 3.5c-.8 1 .8 2 0 3"/>',
+    pin: '<path d="M12 21s-6.5-6.2-6.5-11.2a6.5 6.5 0 0 1 13 0C18.5 14.8 12 21 12 21z"/><circle cx="12" cy="9.8" r="2.4" class="accent"/>',
+    clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2" class="accent-line"/>',
+    mail: '<rect x="3" y="5.5" width="18" height="13" rx="1.5"/><path d="M3.5 6.5l8.5 6.5 8.5-6.5" class="accent-line"/>',
 };
 const icon = (name) =>
     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
@@ -242,14 +38,14 @@ const toMinutes = (hhmm) => {
     return h * 60 + (m || 0);
 };
 
-// "07:00" → "7 am", "18:30" → "6:30 pm"
-function formatTime(hhmm) {
-    const mins = toMinutes(hhmm) % (24 * 60);
-    const h = Math.floor(mins / 60);
+// 420 → "7 am", 1110 → "6:30 pm"
+function clock(mins) {
+    const h = Math.floor(mins / 60) % 24;
     const m = mins % 60;
-    const h12 = h % 12 || 12;
-    return `${h12}${m ? ':' + String(m).padStart(2, '0') : ''} ${h < 12 ? 'am' : 'pm'}`;
+    return `${h % 12 || 12}${m ? ':' + String(m).padStart(2, '0') : ''} ${h < 12 ? 'am' : 'pm'}`;
 }
+const formatTime = (hhmm) => clock(toMinutes(hhmm));
+const span = (h) => `${formatTime(h.open)} – ${formatTime(h.close)}`;
 
 // Menu prices always show cents ("$6.00"); bag prices drop them when whole ("$18").
 const formatPrice = (n, cents = true) => '$' + (cents || !Number.isInteger(n) ? n.toFixed(2) : String(n));
@@ -277,14 +73,12 @@ function openStatus(now = shopNow()) {
         const open = toMinutes(today.open);
         const close = toMinutes(today.close);
         if (now.minutes >= open && now.minutes < close) {
-            const left = close - now.minutes;
+            const soon = close - now.minutes <= 30;
             return {
                 open: true,
-                soon: left <= 30,
-                short: left <= 30 ? `Closing soon · ${formatTime(today.close)}` : `Open · until ${formatTime(today.close)}`,
-                long: left <= 30
-                    ? `Closing at ${formatTime(today.close)}, last orders now`
-                    : `Open now until ${formatTime(today.close)}`,
+                soon,
+                short: soon ? `Closing soon · ${formatTime(today.close)}` : `Open · until ${formatTime(today.close)}`,
+                long: soon ? `Closing at ${formatTime(today.close)}, last orders now` : `Open now until ${formatTime(today.close)}`,
             };
         }
         if (now.minutes < open) {
@@ -301,7 +95,24 @@ function openStatus(now = shopNow()) {
     return { open: false, short: 'Closed', long: 'Closed for now' };
 }
 
-// ---- Shop details -----------------------------------------------------------
+// Days with the same hours, grouped: "Monday – Thursday · 7 am – 6 pm".
+function groupedHours() {
+    const groups = [];
+    for (const day of WEEK) {
+        const h = hoursFor(day);
+        const text = h ? span(h) : 'Closed';
+        const last = groups[groups.length - 1];
+        if (last && last.text === text) last.days.push(day);
+        else groups.push({ days: [day], text });
+    }
+    return groups.map((g) => ({
+        label: g.days.length === 1 ? DAY_NAMES[g.days[0]] : `${DAY_NAMES[g.days[0]]} – ${DAY_NAMES[g.days[g.days.length - 1]]}`,
+        text: g.text,
+        days: g.days,
+    }));
+}
+
+// ---- Shop details (every page) -------------------------------------------------
 
 const phoneHref = () => 'tel:' + SHOP.phone.replace(/[^\d+]/g, '');
 const mapHref = () => SHOP.mapUrl ||
@@ -314,7 +125,7 @@ function renderShop() {
     });
     $$('[data-phone-link]').forEach((a) => { a.href = phoneHref(); });
     $$('[data-email-link]').forEach((a) => { a.href = 'mailto:' + SHOP.email; });
-    $$('[data-map-link]').forEach((a) => { a.href = mapHref(); });
+    $$('[data-map-link]').forEach((a) => { a.href = mapHref(); a.target = '_blank'; a.rel = 'noopener'; });
     $$('[data-order]').forEach((a) => {
         if (SHOP.orderUrl) {
             a.href = SHOP.orderUrl;
@@ -325,56 +136,46 @@ function renderShop() {
             a.title = `Call ${SHOP.phone} to order ahead`;
         }
     });
-    const address = `${esc(SHOP.street)}<br>${esc(SHOP.city)}`;
-    $('[data-address]').innerHTML = address;
-    $('[data-footer-address]').innerHTML = address;
-    $('[data-socials]').innerHTML = SHOP.socials
-        .map((s) => `<li><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.label)}</a></li>`).join('');
-    $('[data-year]').textContent = new Date().getFullYear();
+    $$('[data-address]').forEach((el) => { el.innerHTML = `${esc(SHOP.street)}<br>${esc(SHOP.city)}`; });
+    $$('[data-address-line]').forEach((el) => { el.textContent = `${SHOP.street}, ${SHOP.city.split(',')[0]}`; });
+    $$('[data-socials]').forEach((el) => {
+        el.innerHTML = SHOP.socials
+            .map((s) => `<li><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.label)}</a></li>`).join('');
+    });
+    $$('[data-year]').forEach((el) => { el.textContent = new Date().getFullYear(); });
 }
 
-function renderTicker() {
-    const track = $('[data-ticker]');
-    const run = TICKER.map((t) => `<span>${esc(t)}</span>`).join('');
-    // Two copies so the loop is seamless; the second is hidden from screen readers.
-    track.innerHTML = reducedMotion ? run : run + `<div style="display:contents" aria-hidden="true">${run}</div>`;
-}
-
-// ---- Hours, status and the parts of the day ----------------------------------
+// ---- Hours and "open now" --------------------------------------------------------
 
 function renderStatus() {
     const now = shopNow();
     const status = openStatus(now);
     const today = hoursFor(now.day);
 
-    $$('[data-status], [data-status-long]').forEach((el) => {
+    $$('[data-status]').forEach((el) => {
         el.classList.toggle('is-open', status.open && !status.soon);
         el.classList.toggle('is-soon', !!status.soon);
+        const text = $('[data-status-text]', el);
+        if (text) text.textContent = el.dataset.status === 'long' ? status.long : status.short;
     });
-    $('[data-status-short]').textContent = status.short;
-    $('[data-status-text]').textContent = status.long;
+    $$('[data-today-hours]').forEach((el) => {
+        el.textContent = today ? `Today ${span(today)}` : 'Closed today';
+    });
+    $$('[data-hours-summary]').forEach((el) => {
+        el.innerHTML = groupedHours().map((g) => {
+            const today = g.days.includes(now.day);
+            return `<li class="${today ? 'is-today' : ''}"${today ? ' aria-current="date"' : ''}>
+                <span>${esc(g.label)}</span><span>${esc(g.text)}</span></li>`;
+        }).join('');
+    });
 
-    $('[data-today-label]').innerHTML = `<span class="status-dot" aria-hidden="true"></span>Today · ${DAY_NAMES[now.day]}`;
-    $('[data-today-label]').classList.toggle('is-open', status.open);
-    $('[data-today-hours]').textContent = today ? `${formatTime(today.open)} – ${formatTime(today.close)}` : 'Closed today';
-    $('[data-today-note]').textContent = TODAY_NOTES[now.day] || TODAY_NOTES.default || '';
-
-    const order = [1, 2, 3, 4, 5, 6, 0];
-    $('[data-hours]').innerHTML = '<caption class="sr-only">Opening hours by day</caption><tbody>' + order.map((day) => {
-        const h = hoursFor(day);
-        const isToday = day === now.day;
-        return `<tr class="${isToday ? 'is-today' : ''}">
-            <th scope="row">${DAY_NAMES[day]}${isToday ? '<span class="today-tag">Today</span>' : ''}</th>
-            <td>${h ? `${formatTime(h.open)} – ${formatTime(h.close)}` : '<span class="closed">Closed</span>'}</td>
-        </tr>`;
-    }).join('') + '</tbody>';
-
-    renderDayparts(now, status);
-    renderRoast(now);
+    if ($('[data-dayparts]')) renderDayparts(now, status);
+    if ($('[data-roast]')) renderRoast(now);
 }
 
+// The three parts of the day, trimmed to the hours of the day they show.
 function renderDayparts(now, status) {
-    // Show today while we're open or still to open; after closing, the next open day.
+    // Today while we're open or still to open; after closing, the next open day.
     const today = hoursFor(now.day);
     let day = now.day;
     let title = 'What\'s on today';
@@ -386,12 +187,11 @@ function renderDayparts(now, status) {
         }
         title = `What's on ${day === (now.day + 1) % 7 ? 'tomorrow' : DAY_NAMES[day]}`;
     }
-    $('[data-now-title]').textContent = title;
+    $$('[data-now-title]').forEach((el) => { el.textContent = title; });
     const hours = hoursFor(day);
     const open = hours ? toMinutes(hours.open) : 0;
     const close = hours ? toMinutes(hours.close) : 24 * 60;
 
-    // Each part, trimmed to that day's opening hours.
     const parts = DAYPARTS.map((p) => {
         const from = Math.max(toMinutes(p.from), open);
         const to = Math.min(toMinutes(p.to), close);
@@ -403,19 +203,17 @@ function renderDayparts(now, status) {
     const next = current === -1
         ? parts.findIndex((p) => !p.off && (day !== now.day || p.to > now.minutes))
         : -1;
-    const clock = (mins) => formatTime(`${Math.floor(mins / 60)}:${mins % 60}`);
 
     $('[data-dayparts]').innerHTML = parts.map((p, i) => {
         const state = i === current ? 'is-now' : i === next ? 'is-next' : p.off ? 'is-off' : '';
         const badge = i === current ? 'Now' : 'Up next';
         const time = p.off ? `Not on ${day === now.day ? 'today' : DAY_NAMES[day]}` : `${clock(p.from)} – ${clock(p.to)}`;
-        return `<li class="daypart ${state}">
-            <span class="daypart-badge">${badge}</span>
-            <p class="daypart-time">${icon(p.icon)}${time}</p>
+        return `<li class="board-card ${state}">
+            <span class="board-tape">${badge}</span>
+            <p class="board-time">${icon(p.icon)}${time}</p>
             <h3>${esc(p.name)}</h3>
-            <img class="daypart-photo" src="${esc(p.photo)}" alt="" width="84" height="84" loading="lazy">
-            <p class="daypart-line">${esc(p.line)}</p>
-            <ul class="daypart-items">${p.items.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>
+            <p class="board-line">${esc(p.line)}</p>
+            <ul class="board-items">${p.items.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>
         </li>`;
     }).join('');
 }
@@ -423,17 +221,41 @@ function renderDayparts(now, status) {
 function renderRoast(now) {
     const days = (SHOP.roastDay - now.day + 7) % 7;
     const when = days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : DAY_NAMES[SHOP.roastDay];
-    const sub = days === 0
-        ? 'Fresh bags on the shelf by noon'
-        : `In ${days} day${days === 1 ? '' : 's'}. Fresh bags by noon`;
+    const sub = days === 0 ? 'Fresh bags on the shelf by noon' : `In ${days} day${days === 1 ? '' : 's'}. Fresh bags by noon`;
     $('[data-roast-when]').innerHTML = `${esc(when)}<small>${esc(sub)}</small>`;
-    $('[data-roast-week]').innerHTML = [1, 2, 3, 4, 5, 6, 0].map((day) => {
+    $('[data-roast-week]').innerHTML = WEEK.map((day) => {
         const cls = [day === SHOP.roastDay ? 'is-roast' : '', day === now.day ? 'is-today' : ''].join(' ');
         return `<li class="${cls}">${DAY_NAMES[day][0]}</li>`;
     }).join('');
 }
 
-// ---- Menu -------------------------------------------------------------------
+// The address, hours and contact columns shown on the home and Visit pages.
+function renderInfoBand() {
+    $$('[data-info-band]').forEach((band) => {
+        const contactHref = band.dataset.infoBand === 'visit' ? '#contact' : 'visit.html#contact';
+        band.innerHTML = `
+            <div class="info-col info-sage">
+                <span class="info-icon">${icon('pin')}</span>
+                <h3>Find us</h3>
+                <p class="info-big" data-address></p>
+                <a class="scribble-link" href="#" data-map-link>Open in Maps</a>
+            </div>
+            <div class="info-col info-oat">
+                <span class="info-icon">${icon('clock')}</span>
+                <h3>Opening hours</h3>
+                <ul class="hours-summary" data-hours-summary></ul>
+                <p class="status" data-status="long"><span class="status-dot" aria-hidden="true"></span><span data-status-text></span></p>
+            </div>
+            <div class="info-col info-peach">
+                <span class="info-icon">${icon('mail')}</span>
+                <h3>Say hello</h3>
+                <p class="info-big"><a href="#" data-phone-link data-shop="phone"></a><br><a href="#" data-email-link data-shop="email"></a></p>
+                <a class="scribble-link" href="${contactHref}">Write to us</a>
+            </div>`;
+    });
+}
+
+// ---- Menu (menu page) ---------------------------------------------------------------
 
 let activeSection = MENU[0].id;
 let activeSize = SIZES[SIZES.length - 1].id;
@@ -450,8 +272,9 @@ const findItem = (id) => {
 
 const TAG_LABELS = { fav: 'House fav', iced: 'Iced ok', vg: 'Vegan', gf: 'GF' };
 
-function renderMenuTabs() {
+function setupMenu() {
     const tabs = $('[data-menu-tabs]');
+    if (!tabs) return;
     tabs.innerHTML = MENU.map((s) =>
         `<button class="tab" type="button" role="tab" id="tab-${esc(s.id)}" aria-controls="menu-panel" data-tab="${esc(s.id)}">${esc(s.label)}</button>`,
     ).join('');
@@ -478,10 +301,17 @@ function renderMenuTabs() {
         renderMenuPanel();
         renderFinder();
     });
-
-    const panel = $('[data-menu-panel]');
-    panel.id = 'menu-panel';
+    $('[data-menu-panel]').id = 'menu-panel';
     $('[data-menu-note]').textContent = MENU_NOTE;
+
+    // menu.html#brunch opens that section.
+    const fromHash = () => {
+        const id = decodeURIComponent(location.hash.slice(1));
+        if (MENU.some((s) => s.id === id)) selectSection(id);
+    };
+    window.addEventListener('hashchange', fromHash);
+    selectSection(activeSection);
+    fromHash();
 }
 
 function selectSection(id, { focusTab = false } = {}) {
@@ -499,10 +329,9 @@ function renderMenuPanel() {
     const section = MENU.find((s) => s.id === activeSection) || MENU[0];
     const panel = $('[data-menu-panel]');
     panel.setAttribute('aria-labelledby', `tab-${section.id}`);
-    const sized = section.items.some((i) => Array.isArray(i.price));
-    $('[data-sizes]').classList.toggle('is-idle', !sized);
+    $('[data-sizes]').classList.toggle('is-idle', !section.items.some((i) => Array.isArray(i.price)));
     panel.innerHTML = `
-        <div class="menu-panel-intro"><h3>${esc(section.label)}</h3><p>${esc(section.intro || '')}</p></div>
+        <div class="board-head"><h2>${esc(section.label)}</h2><p>${esc(section.intro || '')}</p></div>
         <ul class="menu-items">${section.items.map((item) => {
             const tags = (item.tags || []).map((t) => `<span class="tag${t === 'fav' ? ' tag-fav' : ''}">${esc(TAG_LABELS[t] || t)}</span>`).join('');
             return `<li class="menu-item" id="item-${esc(item.id)}" tabindex="-1">
@@ -516,17 +345,17 @@ function renderMenuPanel() {
         }).join('')}</ul>`;
 }
 
-// ---- Order like a regular ----------------------------------------------------
+// ---- Order like a regular (menu page) ------------------------------------------------
 
 function finderPick() {
     const form = $('[data-finder]');
     const value = (name) => (form.querySelector(`input[name="${name}"]:checked`) || {}).value;
-    const key = [value('temp'), value('milk'), value('mood')].join('-');
-    return FINDER[key] || null;
+    return FINDER[[value('temp'), value('milk'), value('mood')].join('-')] || null;
 }
 
 function renderFinder() {
     const out = $('[data-finder-result]');
+    if (!out) return;
     const pick = finderPick();
     const found = pick && findItem(pick.item);
     if (!found) {
@@ -534,10 +363,10 @@ function renderFinder() {
         return;
     }
     out.innerHTML = `
-        <p class="finder-result-label">Try the</p>
-        <p class="finder-result-name">${esc(found.item.name)} <span>${formatPrice(priceOf(found.item))}</span></p>
-        <p>${esc(pick.why)}</p>
-        <button class="finder-go" type="button" data-finder-go="${esc(found.item.id)}">Find it on the menu</button>`;
+        <p class="finder-label">Try the</p>
+        <p class="finder-name">${esc(found.item.name)} <span>${formatPrice(priceOf(found.item))}</span></p>
+        <p class="finder-why">${esc(pick.why)}</p>
+        <button class="scribble-link finder-go" type="button" data-finder-go="${esc(found.item.id)}">Find it on the menu</button>`;
 }
 
 function showOnMenu(id) {
@@ -552,41 +381,59 @@ function showOnMenu(id) {
     setTimeout(() => row.classList.remove('is-picked'), 1400);
 }
 
-// ---- Beans, room and regulars -------------------------------------------------
+function setupFinder() {
+    const form = $('[data-finder]');
+    if (!form) return;
+    form.addEventListener('change', renderFinder);
+    form.addEventListener('submit', (e) => e.preventDefault());
+    $('[data-finder-result]').addEventListener('click', (e) => {
+        const go = e.target.closest('[data-finder-go]');
+        if (go) showOnMenu(go.dataset.finderGo);
+    });
+    renderFinder();
+}
+
+// ---- Beans, the room, regulars and reviews ---------------------------------------------
 
 function renderBeans() {
-    $('[data-beans]').innerHTML = BEANS.map((b, i) => {
+    const list = $('[data-beans]');
+    if (!list) return;
+    list.innerHTML = BEANS.map((b, i) => {
         const subject = encodeURIComponent(`Please set aside a bag of ${b.name}`);
         const body = encodeURIComponent(`Hi! Could you set aside a ${b.size} bag of ${b.name} for me? I'll pick it up on:\n\nName:\n`);
         const meter = Array.from({ length: 5 }, (_, n) => `<i class="${n < b.roast ? 'on' : ''}"></i>`).join('');
         const roastWord = ['light', 'light-medium', 'medium', 'medium-dark', 'dark'][Math.min(4, Math.max(0, b.roast - 1))];
-        return `<li class="bag" style="--band:${esc(b.band)};--band-ink:${esc(b.bandInk || '#24170f')}">
-            <p class="bag-band"><span>${esc(b.kind)}</span><span>No. ${String(i + 1).padStart(2, '0')}</span></p>
+        return `<li class="bag">
+            <span class="bag-fold" aria-hidden="true"></span>
             ${b.fresh ? '<span class="bag-sticker">Just<br>roasted</span>' : ''}
-            <div class="bag-body">
+            <div class="bag-label">
+                <p class="bag-kind">${esc(b.kind)} · No. ${String(i + 1).padStart(2, '0')}</p>
                 <h3 class="bag-name">${esc(b.name)}</h3>
                 <p class="bag-origin">${esc(b.origin)}</p>
                 <dl class="bag-specs">
                     <div><dt>Process</dt><dd>${esc(b.process)}</dd></div>
-                    <div><dt>Altitude</dt><dd>${esc(b.altitude)}</dd></div>
                     <div><dt>Brew as</dt><dd>${esc(b.brew)}</dd></div>
                 </dl>
-                <ul class="bag-notes" aria-label="Tasting notes">${b.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>
+                <p class="bag-notes">${b.notes.map(esc).join(' · ')}</p>
                 <p class="roast-meter" role="img" aria-label="Roast: ${roastWord}"><span>Light</span>${meter}<span>Dark</span></p>
-                <div class="bag-foot">
-                    <span class="bag-price">${formatPrice(b.price, false)} <small>/ ${esc(b.size)}</small></span>
-                    <a class="bag-reserve" href="mailto:${esc(SHOP.email)}?subject=${subject}&amp;body=${body}">Set one aside</a>
-                </div>
+            </div>
+            <div class="bag-foot">
+                <span class="bag-price">${formatPrice(b.price, false)} <small>/ ${esc(b.size)}</small></span>
+                <a class="bag-reserve" href="mailto:${esc(SHOP.email)}?subject=${subject}&amp;body=${body}">Set one aside</a>
             </div>
         </li>`;
     }).join('');
 }
 
 function renderAmenities() {
-    $('[data-amenities]').innerHTML = AMENITIES.map((a) => `<li>${icon(a.icon)}<span>${esc(a.label)}</span></li>`).join('');
+    $$('[data-amenities]').forEach((el) => {
+        el.innerHTML = AMENITIES.map((a) => `<li>${icon(a.icon)}<span>${esc(a.label)}</span></li>`).join('');
+    });
 }
 
 function renderStampCard() {
+    const el = $('[data-stamps]');
+    if (!el) return;
     const slots = Array.from({ length: STAMP_CARD.stamps }, (_, i) => {
         if (i === STAMP_CARD.stamps - 1) return '<span class="stamp-slot is-free">Free</span>';
         if (i < STAMP_CARD.filled) {
@@ -595,77 +442,135 @@ function renderStampCard() {
         }
         return `<span class="stamp-slot">${i + 1}</span>`;
     }).join('');
-    $('[data-stamps]').innerHTML = `
+    el.innerHTML = `
         <div class="stamp-card-head"><strong>${esc(SHOP.shortName)}</strong><span>Regular's card</span></div>
         <div class="stamp-grid">${slots}</div>`;
 }
 
 function renderReviews() {
-    $('[data-reviews]').innerHTML = REVIEWS.map((r) => `
+    const list = $('[data-reviews]');
+    if (!list) return;
+    list.innerHTML = REVIEWS.map((r) => `
         <li><figure class="review">
             <blockquote>“${esc(r.quote)}”</blockquote>
-            <figcaption><span class="stars" aria-label="${r.stars} out of 5 stars">${'★'.repeat(r.stars)}</span>${esc(r.name)} · ${esc(r.source)}</figcaption>
+            <figcaption>${esc(r.name)} · ${esc(r.source)}</figcaption>
         </figure></li>`).join('');
-    $('[data-reviews-note]').textContent = REVIEWS_NOTE || '';
+    $$('[data-reviews-note]').forEach((el) => { el.textContent = REVIEWS_NOTE || ''; });
 }
 
 function renderGettingHere() {
-    $('[data-getting-here]').innerHTML = GETTING_HERE
-        .map((g) => `<li><strong>${esc(g.label)}</strong><span>${esc(g.text)}</span></li>`).join('');
+    $$('[data-getting-here]').forEach((el) => {
+        el.innerHTML = GETTING_HERE.map((g) => `<li><strong>${esc(g.label)}</strong><span>${esc(g.text)}</span></li>`).join('');
+    });
 }
 
-// ---- Tuesday letter -----------------------------------------------------------
+// ---- Forms: contact (Visit page) and the Tuesday letter (every page) ----------------------
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// POST to an endpoint when one is set, else open an email to the shop.
+async function deliver({ endpoint, payload, subject, body }) {
+    if (endpoint) {
+        const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error('status ' + res.status);
+        return 'sent';
+    }
+    window.location.href = `mailto:${SHOP.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    return 'mail';
+}
 
 function setupLetter() {
-    const form = $('[data-letter]');
-    const input = form.querySelector('input[type="email"]');
-    const msg = $('[data-letter-msg]');
-    const say = (text, error = false) => {
-        msg.textContent = text;
-        msg.classList.toggle('is-error', error);
-    };
-    input.addEventListener('input', () => input.removeAttribute('aria-invalid'));
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const email = input.value.trim();
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-            input.setAttribute('aria-invalid', 'true');
-            say('That email doesn\'t look quite right.', true);
-            input.focus();
-            return;
-        }
-        if (SHOP.letterEndpoint) {
+    $$('[data-letter]').forEach((form) => {
+        const input = form.querySelector('input[type="email"]');
+        const msg = form.parentElement.querySelector('[data-letter-msg]');
+        const say = (text, error = false) => {
+            msg.textContent = text;
+            msg.classList.toggle('is-error', error);
+        };
+        input.addEventListener('input', () => input.removeAttribute('aria-invalid'));
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = input.value.trim();
+            if (!EMAIL_RE.test(email)) {
+                input.setAttribute('aria-invalid', 'true');
+                say('That email doesn\'t look quite right.', true);
+                input.focus();
+                return;
+            }
             const button = form.querySelector('button');
             button.disabled = true;
             try {
-                const res = await fetch(SHOP.letterEndpoint, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email }),
+                const how = await deliver({
+                    endpoint: SHOP.letterEndpoint,
+                    payload: { email },
+                    subject: 'Add me to the Tuesday letter',
+                    body: `Please add ${email} to the Tuesday letter.`,
                 });
-                if (!res.ok) throw new Error('status ' + res.status);
-                form.reset();
-                say('You\'re on the list. See you Tuesday.');
+                if (how === 'sent') form.reset();
+                say(how === 'sent' ? 'You\'re on the list. See you Tuesday.' : 'Your email app should open with a note to us. Hit send and you\'re in.');
             } catch (err) {
                 say('We couldn\'t sign you up just now. Please try again in a moment.', true);
             } finally {
                 button.disabled = false;
             }
-            return;
-        }
-        const subject = encodeURIComponent('Add me to the Tuesday letter');
-        const body = encodeURIComponent(`Please add ${email} to the Tuesday letter.`);
-        window.location.href = `mailto:${SHOP.email}?subject=${subject}&body=${body}`;
-        say('Your email app should open with a note to us. Hit send and you\'re in.');
+        });
     });
 }
 
-// ---- Navigation -------------------------------------------------------------------
+function setupContact() {
+    const form = $('[data-contact]');
+    if (!form) return;
+    const topic = form.querySelector('select[name="topic"]');
+    topic.innerHTML = CONTACT_TOPICS.map((t) => `<option>${esc(t)}</option>`).join('');
+    const msg = $('[data-contact-msg]');
+    const say = (text, error = false) => {
+        msg.textContent = text;
+        msg.classList.toggle('is-error', error);
+    };
+    form.addEventListener('input', (e) => e.target.removeAttribute('aria-invalid'));
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const data = Object.fromEntries(new FormData(form).entries());
+        for (const key of Object.keys(data)) data[key] = String(data[key]).trim();
+        const bad = [];
+        if (!data.name) bad.push(['name', 'Please tell us your name.']);
+        if (!EMAIL_RE.test(data.email || '')) bad.push(['email', 'Please check your email address.']);
+        if (!data.message) bad.push(['message', 'Please write a short message.']);
+        if (bad.length) {
+            bad.forEach(([name]) => form.elements[name].setAttribute('aria-invalid', 'true'));
+            say(bad[0][1], true);
+            form.elements[bad[0][0]].focus();
+            return;
+        }
+        const button = form.querySelector('button[type="submit"]');
+        button.disabled = true;
+        try {
+            const how = await deliver({
+                endpoint: SHOP.contactEndpoint,
+                payload: data,
+                subject: `${data.topic}: from ${data.name}`,
+                body: `${data.message}\n\n${data.name}\n${data.email}`,
+            });
+            if (how === 'sent') form.reset();
+            say(how === 'sent' ? 'Thanks! We\'ll write back within a day or two.' : 'Your email app should open with your message. Hit send and we\'ll write back soon.');
+        } catch (err) {
+            say(`We couldn't send that just now. You can always email ${SHOP.email}.`, true);
+        } finally {
+            button.disabled = false;
+        }
+    });
+}
+
+// ---- Navigation ------------------------------------------------------------------------
 
 function setupNav() {
-    const nav = $('[data-nav]');
     const toggle = $('[data-nav-toggle]');
     const links = $('[data-nav-links]');
+    if (!toggle || !links) return;
     const setOpen = (open) => {
         links.classList.toggle('is-open', open);
         toggle.setAttribute('aria-expanded', String(open));
@@ -679,34 +584,23 @@ function setupNav() {
             toggle.focus();
         }
     });
-    const onScroll = () => nav.classList.toggle('is-stuck', window.scrollY > 8);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    onScroll();
 }
 
-// ---- Start ----------------------------------------------------------------------
+// ---- Start -------------------------------------------------------------------------------
 
+renderInfoBand();
 renderShop();
-renderTicker();
 renderStatus();
-renderMenuTabs();
-selectSection(activeSection);
+setupMenu();
+setupFinder();
 renderBeans();
 renderAmenities();
 renderStampCard();
 renderReviews();
 renderGettingHere();
+setupContact();
 setupLetter();
 setupNav();
-
-const finderForm = $('[data-finder]');
-finderForm.addEventListener('change', renderFinder);
-finderForm.addEventListener('submit', (e) => e.preventDefault());
-$('[data-finder-result]').addEventListener('click', (e) => {
-    const go = e.target.closest('[data-finder-go]');
-    if (go) showOnMenu(go.dataset.finderGo);
-});
-renderFinder();
 
 // Keep "open now" and the part of the day current while the page stays open.
 setInterval(renderStatus, 60 * 1000);
