@@ -246,57 +246,6 @@ async function drainUsage(stream, context) {
     } catch (_) { /* best-effort: the turn's own error is what surfaces */ }
 }
 
-// How long a reply's tool calls wait for its usage line before they run
-// anyway (see pendingTools in handleMessageStream). Puter writes the usage line
-// right after the last call, so this only matters when a connection dies in
-// between, where waiting for the line would hang the turn on a dead socket.
-const TOOL_USAGE_WAIT_MS = 1500;
-const STREAM_IDLE = Symbol('stream-idle');
-
-// Yield `iterable`'s chunks. While idleMs() returns a positive number, a chunk
-// that takes longer than that yields STREAM_IDLE first (a private symbol, so no
-// real chunk can be mistaken for it); the read stays pending and its chunk is
-// yielded when it arrives.
-async function* withIdleTicks(iterable, idleMs) {
-    const it = iterable[Symbol.asyncIterator]();
-    let next = null;
-    try {
-        while (true) {
-            if (!next) {
-                next = it.next();
-                // Handled where it's awaited; this only keeps a read that is
-                // abandoned (the consumer stopped) from reporting unhandled.
-                next.catch(() => {});
-            }
-            const ms = idleMs();
-            let r;
-            if (ms > 0) {
-                let timer;
-                const tick = new Promise(resolve => { timer = setTimeout(() => resolve(STREAM_IDLE), ms); });
-                try {
-                    r = await Promise.race([next, tick]);
-                } finally {
-                    clearTimeout(timer);
-                }
-                if (r === STREAM_IDLE) {
-                    yield STREAM_IDLE;
-                    continue;
-                }
-            } else {
-                r = await next;
-            }
-            next = null;
-            if (r.done) return;
-            yield r.value;
-        }
-    } finally {
-        try {
-            const p = it.return && it.return();
-            if (p && p.catch) p.catch(() => {});
-        } catch (_) { /* best-effort close */ }
-    }
-}
-
 /**
  *
  * @param {*} stream
@@ -340,6 +289,10 @@ async function handleMessageStream(stream, context) {
     // reseller) ran calls 2..N after the turn had moved on: late, out of
     // order, over newer files. A reply that ends in an error or an abort drops
     // its calls unrun. They were never stored, so nothing is left dangling.
+    // No timer runs them early: a healthy reply can be silent for minutes while
+    // its next call is written (Puter sends each call only once complete), so
+    // silence never means the reply is done. A connection that dies mid-reply
+    // is ended by Stop or the stall watchdog, and Resume continues the build.
     let pendingTools = [];
     const runPendingTools = async (stopReason) => {
         const batch = pendingTools;
@@ -370,25 +323,11 @@ async function handleMessageStream(stream, context) {
         // Abort-aware iteration: puter.ai.chat ignores the signal option, so this
         // race is what actually makes an abort take effect while the stream is
         // silent (see the abortable-stream block above).
-        // Idle ticks only while calls wait for their usage line (see
-        // TOOL_USAGE_WAIT_MS); context.toolUsageWaitMs shortens it in tests.
-        const usageWaitMs = () => (pendingTools.length > 0 ? (context.toolUsageWaitMs ?? TOOL_USAGE_WAIT_MS) : 0);
-        for await (const completion of withIdleTicks(abortableStream(stream, context.abortController && context.abortController.signal), usageWaitMs)) {
+        for await (const completion of abortableStream(stream, context.abortController && context.abortController.signal)) {
             // Bail if the request was aborted OR the user has since switched chats —
             // in either case nothing from this turn should render into the live chat.
             if (isAborted(context.abortController) || isStaleTurn(context)) {
                 return;
-            }
-
-            // The usage line is late: run the waiting calls now. Not a sign of
-            // life, so it skips the liveness stamp below.
-            if (completion === STREAM_IDLE) {
-                const result = await runPendingTools();
-                if (result && (result.error || shouldStop)) {
-                    toolRoundEnded = true;
-                    break;
-                }
-                continue;
             }
 
             // Liveness stamp for the background-freeze watchdog (see

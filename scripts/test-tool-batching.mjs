@@ -163,17 +163,33 @@ await check('a stream that ends without its usage line still runs its calls', as
     assert.deepEqual(h.executed, ['write:a', 'write:b']);
 });
 
-await check('a connection that dies after the calls runs them after a short wait', async () => {
+await check('silence after a call is not the end of the reply: nothing runs until it ends', async () => {
+    // Puter sends each call only once it is complete, so a healthy reply can
+    // be silent for minutes while it writes the next one. Running the first
+    // call during that silence started a new round before the second arrived.
+    let release;
+    const gate = new Promise((r) => { release = r; });
+    async function* slow() { yield tool('write', 'a'); await gate; yield tool('write', 'b'); yield usage(); }
+    const h = setup([]);
+    const run = h.env.handleMessageStream(slow(), h.context);
+    await new Promise((r) => setTimeout(r, 50));
+    assert.deepEqual(h.executed, [], 'the first call waits for the rest of the reply');
+    release();
+    await run;
+    assert.deepEqual(h.executed, ['write:a', 'write:b']);
+    assert.equal(h.requests.length, 1, 'one follow-up round for the whole reply');
+});
+
+await check('a connection that dies mid-reply runs nothing, and Stop ends the turn', async () => {
     async function* dies() { yield tool('write', 'a'); await new Promise(() => {}); }
     const h = setup([]);
-    h.context.toolUsageWaitMs = 30;
-    const t0 = Date.now();
-    // The parked read never settles, so Stop is what ends the turn here.
     const run = h.env.handleMessageStream(dies(), h.context);
-    while (h.executed.length === 0 && Date.now() - t0 < 2000) await new Promise((r) => setTimeout(r, 10));
-    assert.deepEqual(h.executed, ['write:a']);
+    await new Promise((r) => setTimeout(r, 50));
+    assert.deepEqual(h.executed, []);
     h.context.abortController.abort();
     await run.catch(() => {});
+    assert.deepEqual(h.executed, [], 'the unfinished reply\'s call never runs');
+    assert.equal(h.requests.length, 0);
 });
 
 await check('a stopped turn runs no waiting calls', async () => {

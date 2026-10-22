@@ -3324,7 +3324,11 @@ function restoreTodosForResume(history) {
         const blocks = Array.isArray(m.content)
             ? m.content
             : (m.content && typeof m.content === 'object' ? [m.content] : []);
-        for (const b of blocks) {
+        // From the end: in a batch of calls (one reply, see
+        // handleMessageStream) the last TodoWrite is the newest list, the
+        // same rule as promoteFinishedTodos.
+        for (let j = blocks.length - 1; j >= 0; j--) {
+            const b = blocks[j];
             if (b && b.type === 'tool_use' && b.name === 'TodoWrite'
                 && b.input && Array.isArray(b.input.todos)) {
                 todos = b.input.todos;

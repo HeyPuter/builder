@@ -397,7 +397,7 @@ check('each agentic round handoff stamps liveness (stale-guarded)',
 // race the pending open/read against the signal. Without them, a watchdog
 // abort of a dead socket would unhang NOTHING and the recovery never runs.
 check('handleMessageStream iterates via the abort-aware wrapper',
-    HMS.includes('for await (const completion of withIdleTicks(abortableStream(stream, context.abortController && context.abortController.signal), usageWaitMs))'));
+    HMS.includes('for await (const completion of abortableStream(stream, context.abortController && context.abortController.signal))'));
 check('first-round open is abort-aware (app.js)', SEND.includes('await abortableAwait(puter.ai.chat('));
 check('round-handoff open is abort-aware (tools.js)', TOOLS.includes('await abortableAwait(puter.ai.chat('));
 

@@ -133,12 +133,11 @@ await check('a finished build records each call once (no double count from the d
 });
 
 await check('a dead connection stalls the unwind at most once, not once per round', async () => {
-    // Every parked stream hangs after its tool_use: its usage never arrives.
-    // Each call runs after the short wait for its usage line (shortened here),
-    // and the drain on the way out shares one deadline.
-    async function* hangs(id) { yield tool('write', id); await new Promise(() => {}); }
+    // Every parked stream goes silent after its reply (tool_use, then usage):
+    // the end of the stream never arrives. The drain on the way out shares one
+    // deadline across the rounds.
+    async function* hangs(id) { yield tool('write', id); yield usage(); await new Promise(() => {}); }
     const h = setup([() => hangs('w2'), () => hangs('w3'), 'refused']);
-    h.context.toolUsageWaitMs = 50;
     const t0 = Date.now();
     await assert.rejects(h.env.handleMessageStream(hangs('w1'), h.context), /Insufficient funds/);
     const took = Date.now() - t0;

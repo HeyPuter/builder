@@ -183,5 +183,40 @@ const APP = fs.readFileSync(new URL('../src/js/app.js', import.meta.url), 'utf8'
         labels(build(todos, false).html) === 'Done,Not done,Not done');
 }
 
+// === A reply's calls run as one batch: the last TodoWrite in it wins ========
+// GPT and Gemini can put two checklist updates in one reply, and the builder
+// stores the whole reply as one assistant message (handleMessageStream). The
+// later list is the current one, for the end-of-turn backstop and for Resume.
+const batchedTodoWrites = (first, second) => ({
+    role: 'assistant',
+    content: [
+        { type: 'tool_use', id: 'b1', name: 'TodoWrite', input: { todos: first } },
+        { type: 'tool_use', id: 'w1', name: 'write', input: { path: 'a.html', data: '<p>' } },
+        { type: 'tool_use', id: 'b2', name: 'TodoWrite', input: { todos: second } },
+    ],
+});
+{
+    const older = [{ content: 'Plan', status: 'in_progress' }, { content: 'Build', status: 'pending' }];
+    const newer = [{ content: 'Plan', status: 'completed' }, { content: 'Build', status: 'in_progress' }];
+    const promote = makePromote({});
+    const changed = promote([batchedTodoWrites(older, newer)], 0);
+    check('backstop: the last TodoWrite in a batch is the one promoted', changed && newer[1].status === 'completed');
+    check('backstop: the superseded list in the same batch is left alone', older[0].status === 'in_progress');
+}
+{
+    const fnAt = APP.indexOf('function restoreTodosForResume(history) {');
+    if (fnAt < 0) throw new Error('could not find restoreTodosForResume in app.js');
+    const fnEnd = APP.indexOf('\n}\n', fnAt) + 2;
+    const fakeWindow = {};
+    const shown = [];
+    const restore = new Function('window', 'updateTodoDisplay', '$', APP.slice(fnAt, fnEnd) + '\nreturn restoreTodosForResume;')(
+        fakeWindow, (todos) => shown.push(todos), () => ({ length: 0 }));
+    const older = [{ content: 'Plan', status: 'in_progress' }];
+    const newer = [{ content: 'Plan', status: 'completed' }, { content: 'Build', status: 'in_progress' }];
+    restore([{ role: 'user', content: 'go' }, batchedTodoWrites(older, newer)]);
+    check('Resume: restores the last checklist of a batch, not the superseded one', fakeWindow.currentTodos === newer);
+    check('Resume: renders that list', shown.length === 1 && shown[0] === newer);
+}
+
 console.log(failures === 0 ? '\nAll todo-finalize tests passed.' : `\n${failures} todo-finalize test(s) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);

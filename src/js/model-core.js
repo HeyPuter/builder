@@ -118,13 +118,26 @@ window.ModelCore = (function () {
     // A schema that still has a reference or a field of several types is left
     // out of the turn, and the model is told (unavailableToolsNote).
     const MAX_INLINE_DEPTH = 8;
+    // Where a schema holds other schemas. Only these are walked: everything
+    // else is data (a parameter's name inside `properties`, an enum value, a
+    // default, an example) and is copied as it is, so a parameter named
+    // `definitions` or `$id`, or an example object holding a `$ref` key, is
+    // never mistaken for a keyword.
+    const SCHEMA_MAPS = new Set(['properties', 'patternProperties', 'dependentSchemas']);
+    const SCHEMA_ONE = new Set(['items', 'additionalProperties', 'additionalItems', 'contains', 'not', 'if', 'then', 'else', 'propertyNames', 'unevaluatedProperties', 'unevaluatedItems']);
+    const SCHEMA_LIST = new Set(['anyOf', 'oneOf', 'allOf', 'prefixItems']);
+    // Keywords dropped from a schema node: the reference store, now inlined,
+    // and identifiers the model doesn't need.
+    const DROPPED = new Set(['$defs', 'definitions', '$schema', '$id']);
+    const isObject = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+
     function portableSchema(schema) {
-        if (!schema || typeof schema !== 'object' || Array.isArray(schema)) return null;
-        const defs = { ...(schema.definitions || {}), ...(schema.$defs || {}) };
+        if (!isObject(schema)) return null;
+        const defs = { ...(isObject(schema.definitions) ? schema.definitions : {}), ...(isObject(schema.$defs) ? schema.$defs : {}) };
         let ok = true;
         const walk = (node, depth, seen) => {
-            if (Array.isArray(node)) return node.map((n) => walk(n, depth, seen));
-            if (!node || typeof node !== 'object') return node;
+            // true / false schemas and anything malformed pass through as they are.
+            if (!isObject(node)) return node;
             if (typeof node.$ref === 'string') {
                 const m = /^#\/(?:\$defs|definitions)\/([^/]+)$/.exec(node.$ref);
                 const name = m ? m[1] : null;
@@ -138,14 +151,22 @@ window.ModelCore = (function () {
             }
             const out = {};
             for (const [key, value] of Object.entries(node)) {
-                if (key === '$defs' || key === 'definitions' || key === '$schema' || key === '$id') continue;
+                if (DROPPED.has(key)) continue;
                 if (key === 'type' && Array.isArray(value)) {
                     const types = value.filter((t) => t !== 'null');
                     if (types.length > 1) ok = false;
                     out.type = types.length === 1 ? types[0] : (types.length ? value : 'null');
-                    continue;
+                } else if (SCHEMA_MAPS.has(key) && isObject(value)) {
+                    const map = {};
+                    for (const [name, sub] of Object.entries(value)) map[name] = walk(sub, depth, seen);
+                    out[key] = map;
+                } else if (SCHEMA_ONE.has(key)) {
+                    out[key] = Array.isArray(value) ? value.map((v) => walk(v, depth, seen)) : walk(value, depth, seen);
+                } else if (SCHEMA_LIST.has(key) && Array.isArray(value)) {
+                    out[key] = value.map((v) => walk(v, depth, seen));
+                } else {
+                    out[key] = value;
                 }
-                out[key] = walk(value, depth, seen);
             }
             return out;
         };

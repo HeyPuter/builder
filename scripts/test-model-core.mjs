@@ -179,6 +179,63 @@ check('references are inlined and "or null" types narrowed', () => {
     assert.ok(JSON.stringify(withRefs.function.parameters).includes('$ref'), 'the server\'s own schema is not changed');
 });
 
+check('parameters named like schema keywords are kept, with their required entries', () => {
+    const tool = mcpTool('define', {
+        type: 'object',
+        properties: {
+            definitions: { type: 'string', description: 'Glossary text' },
+            $defs: { type: 'string' },
+            $schema: { type: 'string' },
+            $id: { type: 'string' },
+            type: { type: ['string', 'null'] },
+            properties: { type: 'object', additionalProperties: { $ref: '#/$defs/Val' } },
+        },
+        required: ['definitions', '$id', 'type'],
+        additionalProperties: false,
+        $defs: { Val: { type: 'number' } },
+    });
+    const [, out] = M.turnTools('gpt-6.1-sol', ['own'], [tool]);
+    const p = out.function.parameters;
+    assert.deepEqual(plain(Object.keys(p.properties)), ['definitions', '$defs', '$schema', '$id', 'type', 'properties']);
+    assert.equal(p.properties.definitions.description, 'Glossary text');
+    assert.deepEqual(plain(p.required), ['definitions', '$id', 'type']);
+    assert.equal(p.additionalProperties, false);
+    assert.equal(p.properties.type.type, 'string', 'a property\'s own schema is still simplified');
+    assert.deepEqual(plain(p.properties.properties.additionalProperties), { type: 'number' }, 'a reference inside a property map is still inlined');
+    assert.equal('$defs' in p, false, 'the root\'s own reference store is dropped');
+});
+
+check('examples, defaults and enums are data, never read as keywords', () => {
+    const tool = mcpTool('styled', {
+        type: 'object',
+        properties: {
+            style: { type: 'object', default: { $ref: '#/$defs/Nope', type: ['a', 'b'] }, examples: [{ $id: 'kept' }] },
+            mode: { enum: [{ type: ['x', 'y'] }, 'plain'] },
+        },
+    });
+    const [, out] = M.turnTools('gemini-4-argon', ['own'], [tool]);
+    assert.ok(out, 'not left out: a $ref inside a default is not a reference');
+    assert.deepEqual(plain(out.function.parameters.properties.style.default), { $ref: '#/$defs/Nope', type: ['a', 'b'] });
+    assert.deepEqual(plain(out.function.parameters.properties.style.examples), [{ $id: 'kept' }]);
+    assert.deepEqual(plain(out.function.parameters.properties.mode.enum), [{ type: ['x', 'y'] }, 'plain']);
+});
+
+check('references are inlined inside anyOf, items lists and nested objects', () => {
+    const tool = mcpTool('nested', {
+        type: 'object',
+        properties: {
+            target: { anyOf: [{ $ref: '#/$defs/Id' }, { type: 'null' }] },
+            pair: { type: 'array', prefixItems: [{ $ref: '#/$defs/Id' }, { type: 'number' }] },
+        },
+        $defs: { Id: { type: 'string', pattern: '^[a-z]+$' } },
+    });
+    const [, out] = M.turnTools('gpt-6.1-sol', ['own'], [tool]);
+    const p = out.function.parameters;
+    assert.deepEqual(plain(p.properties.target.anyOf[0]), { type: 'string', pattern: '^[a-z]+$' });
+    assert.deepEqual(plain(p.properties.pair.prefixItems[0]), { type: 'string', pattern: '^[a-z]+$' });
+    assert.equal(JSON.stringify(p).includes('$ref'), false);
+});
+
 check('a field of several types, a self-reference or an outside reference is left out', () => {
     const mcp = [simple, multiType, recursive, remoteRef];
     assert.deepEqual(plain(M.turnTools('gpt-6.1-sol', [], mcp).map((t) => t.label)), ['search']);
