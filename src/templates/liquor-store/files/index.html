@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lowlight Liquor &amp; Wine | Neighborhood bottle shop, open late</title>
+<meta name="description" content="Lowlight is a neighborhood liquor and wine shop open until 1am. Order ahead for pickup or delivery, build a mixed case, plan a party and join our free tastings.">
+<meta name="theme-color" content="#100d0b">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=Caveat:wght@500;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- 21+ gate. app.js hides it once a visitor confirms (and remembers that if asked). -->
+<div class="gate" id="gate" role="dialog" aria-modal="true" aria-labelledby="gate-title" hidden>
+  <div class="gate-inner">
+    <p class="mono gate-meta" data-store="gateMeta"></p>
+    <h2 id="gate-title" class="gate-title">You'll need to be <span class="neon-text" data-store="minAge"></span> to come in.</h2>
+    <p class="gate-copy">Same as the front door: we check ID on every pickup and every delivery.</p>
+    <div class="gate-actions">
+      <button class="btn btn-neon" id="gate-yes" type="button">I'm <span data-store="minAge"></span> or older</button>
+      <button class="btn btn-ghost" id="gate-no" type="button">Not yet</button>
+    </div>
+    <label class="gate-remember mono"><input type="checkbox" id="gate-remember" checked> Remember me on this device</label>
+    <p class="gate-sorry" id="gate-sorry" hidden>Come back when you're <span data-store="minAge"></span>. We'll leave the light on.</p>
+  </div>
+</div>
+
+<header class="topbar" id="top">
+  <a class="brand" href="#top" aria-label="Lowlight Liquor &amp; Wine, back to top">
+    <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 20h20" stroke="currentColor" stroke-width="2"/><path d="M11 20a5 5 0 0 1 10 0" fill="currentColor"/></svg>
+    <span data-store="name"></span>
+  </a>
+  <nav class="nav" id="nav" aria-label="Sections">
+    <a href="#board">The Board</a>
+    <a href="#picks">Staff picks</a>
+    <a href="#party">Party math</a>
+    <a href="#case">Mixed case</a>
+    <a href="#tastings">Tastings</a>
+    <a href="#visit">Visit</a>
+  </nav>
+  <button class="bag-btn" id="bag-open" type="button" aria-haspopup="dialog">
+    <span>Bag</span> <span class="bag-count" id="bag-count">0</span>
+  </button>
+  <button class="menu-btn" id="menu-btn" type="button" aria-expanded="false" aria-controls="nav">Menu</button>
+</header>
+
+<main>
+  <!-- Hero: full-bleed photo, a live neon sign, and the wordmark bleeding off the bottom. -->
+  <section class="hero" aria-labelledby="hero-title">
+    <img class="hero-img" src="photos/hero-shelves.jpg" alt="Shelves of bottles glowing in low, warm light">
+    <div class="hero-shade"></div>
+
+    <div class="neon-sign" id="neon" aria-live="polite">
+      <span class="neon-word" id="neon-word">Open</span>
+      <span class="neon-sub mono" id="neon-sub"></span>
+    </div>
+
+    <div class="hero-meta mono">
+      <span data-store="heroMeta"></span>
+      <span class="rule"></span>
+      <span>Nº <span data-store="number"></span></span>
+    </div>
+
+    <div class="hero-copy">
+      <h1 id="hero-title" class="hero-line">The corner shop that stays up <em>with you.</em></h1>
+      <p class="hero-sub"><span data-store="countLine"></span> Order ahead and it's bagged when you walk in.</p>
+      <div class="hero-actions">
+        <a class="btn btn-amber" href="#board">Shop the board</a>
+        <a class="btn btn-line" href="#party">Planning a party?</a>
+      </div>
+    </div>
+
+    <p class="wordmark" aria-hidden="true">Lowlight</p>
+  </section>
+
+  <!-- Weekly deals ticker -->
+  <div class="ticker" aria-label="This week's deals">
+    <div class="ticker-track" id="ticker"></div>
+  </div>
+
+  <!-- The Board: the whole shop as a price list -->
+  <section class="board" id="board" aria-labelledby="board-title">
+    <div class="board-side">
+      <p class="mono kicker">§01 — Everything on the shelves</p>
+      <h2 id="board-title" class="board-title">The<br>Board</h2>
+      <p class="board-note">Prices are what you pay at the register. Tap a bottle for the staff note. Add it to your bag and we'll pull it before you get here.</p>
+      <label class="search">
+        <span class="mono">Find a bottle</span>
+        <input type="search" id="board-search" placeholder="mezcal, riesling, under 20…" autocomplete="off">
+      </label>
+      <label class="sort mono">Sort
+        <select id="board-sort">
+          <option value="cat">By shelf</option>
+          <option value="low">Price, low to high</option>
+          <option value="high">Price, high to low</option>
+          <option value="az">A to Z</option>
+        </select>
+      </label>
+    </div>
+    <div class="board-main">
+      <div class="tabs" id="board-tabs" role="tablist" aria-label="Shelves"></div>
+      <ol class="price-list" id="board-list"></ol>
+      <p class="board-empty" id="board-empty" hidden>Nothing on that shelf matches. Ask at the counter: we can usually special-order it in two days.</p>
+    </div>
+  </section>
+
+  <!-- Staff picks as shelf talkers pinned over a shelf photo -->
+  <section class="picks" id="picks" aria-labelledby="picks-title">
+    <img class="picks-img" src="photos/picks-cellar.jpg" alt="Oak barrels lined up under a brick-arched cellar ceiling" loading="lazy">
+    <div class="picks-shade"></div>
+    <h2 id="picks-title" class="picks-title">Staff<br>picks</h2>
+    <p class="mono picks-kicker">§02 — Written by hand, taped to the barrels</p>
+    <div class="talkers" id="talkers"></div>
+  </section>
+
+  <!-- Party math -->
+  <section class="party" id="party" aria-labelledby="party-title">
+    <div class="party-answer" aria-live="polite">
+      <p class="mono kicker">§03 — Party math</p>
+      <p class="party-big"><span id="party-drinks">0</span></p>
+      <p class="party-unit">drinks, give or take.</p>
+      <ul class="party-breakdown" id="party-breakdown"></ul>
+      <button class="btn btn-amber" id="party-add" type="button">Put it all in my bag</button>
+      <p class="party-fine mono">Two drinks a guest the first hour, one an hour after. Anything unopened comes back for a refund within 14 days with the receipt.</p>
+    </div>
+    <form class="party-controls" id="party-form" aria-labelledby="party-title">
+      <h2 id="party-title" class="party-title">How much do I need?</h2>
+      <label class="range">
+        <span class="range-head"><span>Guests</span><output id="guests-out">24</output></span>
+        <input type="range" id="guests" min="2" max="150" value="24">
+      </label>
+      <label class="range">
+        <span class="range-head"><span>Hours</span><output id="hours-out">4</output></span>
+        <input type="range" id="hours" min="1" max="8" value="4">
+      </label>
+      <fieldset class="seg">
+        <legend>The crowd drinks mostly</legend>
+        <div class="seg-row" id="party-mix"></div>
+      </fieldset>
+      <label class="check"><input type="checkbox" id="party-ice" checked> Add ice (a pound a guest)</label>
+    </form>
+  </section>
+
+  <!-- Mixed case builder with a thermal receipt -->
+  <section class="case" id="case" aria-labelledby="case-title">
+    <div class="case-copy">
+      <p class="mono kicker">§04 — Mixed case</p>
+      <h2 id="case-title" class="case-title">Name a price.<br>We'll fill<br>the box.</h2>
+      <p>Tell us what you like and what you want to spend a bottle. We pick from what's open on the counter this week, and the whole case is <strong data-store="caseOff"></strong> off.</p>
+      <form id="case-form" class="case-form">
+        <fieldset class="seg">
+          <legend>About a bottle</legend>
+          <div class="seg-row" id="case-budget"></div>
+        </fieldset>
+        <fieldset class="seg">
+          <legend>What goes in</legend>
+          <div class="seg-row" id="case-style"></div>
+        </fieldset>
+        <fieldset class="seg">
+          <legend>How many</legend>
+          <div class="seg-row" id="case-size"></div>
+        </fieldset>
+        <button class="btn btn-neon" type="submit">Print my case</button>
+      </form>
+    </div>
+    <div class="receipt-wrap">
+      <div class="receipt" id="receipt" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <!-- Tastings -->
+  <section class="tastings" id="tastings" aria-labelledby="tastings-title">
+    <div class="tastings-head">
+      <h2 id="tastings-title" class="tastings-title">Free tastings at the counter</h2>
+      <img class="tastings-photo" src="photos/old-fashioned.jpg" alt="An old fashioned with a big ice ball and an orange twist on a sunny wooden table">
+      <p class="mono kicker">§05 — Pour, sip, decide. Seats are limited, so save one.</p>
+    </div>
+    <ol class="events" id="events"></ol>
+  </section>
+
+  <!-- Visit: address, hours, delivery -->
+  <section class="visit" id="visit" aria-labelledby="visit-title">
+    <div class="visit-address">
+      <p class="mono kicker">§06 — Find us</p>
+      <h2 id="visit-title" class="visit-street" data-store="street"></h2>
+      <p class="visit-city" data-store="city"></p>
+      <p class="visit-links">
+        <a class="btn btn-line" id="directions" target="_blank" rel="noopener">Directions</a>
+        <a class="btn btn-line" id="call">Call the counter</a>
+      </p>
+      <p class="mono visit-small" data-store="parking"></p>
+    </div>
+    <div class="visit-hours">
+      <h3 class="mono">Hours</h3>
+      <table class="hours" id="hours-table"></table>
+    </div>
+    <div class="visit-delivery">
+      <h3 class="mono">Delivery</h3>
+      <p data-store="deliveryLine"></p>
+      <form class="zip" id="zip-form">
+        <label for="zip" class="mono">Your ZIP</label>
+        <div class="zip-row">
+          <input id="zip" inputmode="numeric" maxlength="5" pattern="[0-9]{5}" placeholder="11211" required>
+          <button class="btn btn-amber" type="submit">Check</button>
+        </div>
+        <p class="zip-result" id="zip-result" aria-live="polite"></p>
+      </form>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <p class="footer-sign" aria-hidden="true">Lowlight</p>
+  <div class="footer-row mono">
+    <span data-store="footerLine"></span>
+    <span>Please drink responsibly. Never drink and drive.</span>
+    <a href="#top">Back to top ↑</a>
+  </div>
+</footer>
+
+<!-- Bag drawer: reserve for pickup or delivery -->
+<div class="drawer-shade" id="drawer-shade" hidden></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title" hidden>
+  <div class="drawer-head">
+    <h2 id="drawer-title">Your bag</h2>
+    <button class="icon-btn" id="bag-close" type="button" aria-label="Close bag">✕</button>
+  </div>
+  <div class="drawer-body" id="drawer-body">
+    <ul class="bag-items" id="bag-items"></ul>
+    <p class="bag-empty" id="bag-empty">Nothing in here yet. Head to the Board and tap + on a bottle.</p>
+    <div class="bag-totals mono" id="bag-totals"></div>
+    <form class="order" id="order-form" novalidate>
+      <fieldset class="seg">
+        <legend>How do you want it?</legend>
+        <div class="seg-row">
+          <label class="seg-opt"><input type="radio" name="mode" value="pickup" checked><span>Pickup</span></label>
+          <label class="seg-opt"><input type="radio" name="mode" value="delivery"><span>Delivery</span></label>
+        </div>
+      </fieldset>
+      <label class="field"><span>Name (as on your ID)</span><input name="name" autocomplete="name" required></label>
+      <label class="field"><span>Phone</span><input name="phone" type="tel" autocomplete="tel" required></label>
+      <label class="field delivery-only" hidden><span>Street address</span><input name="address" autocomplete="street-address"></label>
+      <label class="field delivery-only" hidden><span>ZIP</span><input name="zip" inputmode="numeric" maxlength="5" autocomplete="postal-code"></label>
+      <label class="field"><span id="slot-label">Pickup time</span><select name="slot" id="slot" required></select></label>
+      <label class="field"><span>Anything we should know?</span><textarea name="note" rows="2" placeholder="Chill the bubbles, please"></textarea></label>
+      <p class="order-error" id="order-error" role="alert"></p>
+      <button class="btn btn-neon btn-wide" type="submit" id="order-submit">Reserve it</button>
+      <p class="mono order-fine">You pay at pickup or at the door. Bring a valid photo ID; whoever collects the order must be <span data-store="minAge"></span>+.</p>
+    </form>
+  </div>
+  <div class="drawer-done" id="drawer-done" hidden></div>
+</aside>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
