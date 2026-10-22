@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Northline Chiropractic · Chiropractic, soft tissue and rehab in Boulder</title>
+<meta name="description" content="Hands-on chiropractic care, soft-tissue work and home exercises in downtown Boulder. Clear plans, clear prices and same-week first visits.">
+<meta name="theme-color" content="#12352f">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Urbanist:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="styles.css">
+<script src="app.js" defer></script>
+</head>
+<body>
+<svg class="sprite" aria-hidden="true" focusable="false"><symbol id="sprig" viewBox="0 0 170 260"><path d="M92 252 Q52 140 86 14" fill="none" stroke="#5b8574" stroke-width="2.6" stroke-linecap="round"/><line x1="86.1" y1="234.0" x2="103.8" y2="223.7" stroke="#5b8574" stroke-width="1.6"/><ellipse cx="103.8" cy="223.7" rx="19.0" ry="15.9" transform="rotate(-72 103.8 223.7)" fill="#7fa898"/><line x1="99.6" y1="236.3" x2="107.9" y2="211.1" stroke="#ffffff" stroke-opacity=".28" stroke-width="1.2" stroke-linecap="round"/><line x1="80.8" y1="214.4" x2="61.5" y2="214.5" stroke="#5b8574" stroke-width="1.6"/><ellipse cx="61.5" cy="214.5" rx="17.8" ry="15.0" transform="rotate(-139 61.5 214.5)" fill="#93b8a8"/><line x1="70.9" y1="222.8" x2="52.1" y2="206.3" stroke="#ffffff" stroke-opacity=".28" stroke-width="1.2" stroke-linecap="round"/><line x1="76.5" y1="194.7" x2="93.0" y2="187.4" stroke="#5b8574" stroke-width="1.6"/><ellipse cx="93.0" cy="187.4" rx="16.7" ry="14.0" transform="rotate(-65 93.0 187.4)" fill="#6b9886"/><line x1="88.2" y1="198.0" x2="97.9" y2="176.7" stroke="#ffffff" stroke-opacity=".28" stroke-width="1.2" stroke-linecap="round"/><line x1="73.4" y1="174.7" x2="56.7" y2="172.9" stroke="#5b8574" stroke-width="1.6"/><ellipse cx="56.7" cy="172.9" rx="15.6" ry="13.1" transform="rotate(-132 56.7 172.9)" fill="#a7c7b9"/><line x1="64.0" y1="181.0" x2="49.3" y2="164.8" stroke="#ffffff" stroke-opacity=".28" stroke-width="1.2" stroke-linecap="round"/><line x1="71.4" y1="154.5" x2="86.3" y2="149.8" stroke="#5b8574" stroke-width="1.6"/><ellipse cx="86.3" cy="149.8" rx="14.5" ry="12.2" transform="rotate(-59 86.3 149.8)" fill="#7fa898"/><line x1="81.1" y1="158.5" x2="91.5" y2="141.1" stroke="#ffffff" stroke-opacity=".28" stroke-width="1.2" stroke-linecap="round"/><line x1="70.4" y1="134.1" x2="56.3" y2="131.0" stroke="#5b8574" stroke-width="1.6"/><ellipse cx="56.3" cy="131.0" rx="13.4" ry="11.2" transform="rotate(-126 56.3 131.0)" fill="#93b8a8"/><line x1="61.9" y1="138.6" x2="50.8" y2="123.5" stroke="#ffffff" stroke-opacity=".28" stroke-width="1.2" stroke-linecap="round"/><line x1="70.6" y1="113.5" x2="83.6" y2="110.9" stroke="#5b8574" stroke-width="1.6"/><ellipse cx="83.6" cy="110.9" rx="12.3" ry="10.3" transform="rotate(-53 83.6 110.9)" fill="#6b9886"/><line x1="78.4" y1="117.8" x2="88.7" y2="104.0" stroke="#ffffff" stroke-opacity=".28" stroke-width="1.2" stroke-linecap="round"/><line x1="71.9" y1="92.7" x2="60.5" y2="88.9" stroke="#5b8574" stroke-width="1.6"/><ellipse cx="60.5" cy="88.9" rx="11.1" ry="9.4" transform="rotate(-120 60.5 88.9)" fill="#a7c7b9"/><line x1="64.4" y1="95.7" x2="56.5" y2="82.2" stroke="#ffffff" stroke-opacity=".28" stroke-width="1.2" stroke-linecap="round"/><line x1="74.2" y1="71.7" x2="85.0" y2="70.7" stroke="#5b8574" stroke-width="1.6"/><ellipse cx="85.0" cy="70.7" rx="10.0" ry="8.4" transform="rotate(-47 85.0 70.7)" fill="#7fa898"/><line x1="80.2" y1="75.8" x2="89.7" y2="65.5" stroke="#ffffff" stroke-opacity=".28" stroke-width="1.2" stroke-linecap="round"/><line x1="77.6" y1="50.5" x2="68.9" y2="46.6" stroke="#5b8574" stroke-width="1.6"/><ellipse cx="68.9" cy="46.6" rx="8.9" ry="7.5" transform="rotate(-114 68.9 46.6)" fill="#93b8a8"/><line x1="71.4" y1="52.3" x2="66.3" y2="40.9" stroke="#ffffff" stroke-opacity=".28" stroke-width="1.2" stroke-linecap="round"/><line x1="82.2" y1="29.1" x2="90.6" y2="29.1" stroke="#5b8574" stroke-width="1.6"/><ellipse cx="90.6" cy="29.1" rx="7.8" ry="6.5" transform="rotate(-42 90.6 29.1)" fill="#6b9886"/><line x1="86.5" y1="32.7" x2="94.6" y2="25.4" stroke="#ffffff" stroke-opacity=".28" stroke-width="1.2" stroke-linecap="round"/></symbol></svg>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav" data-nav>
+    <div class="wrap nav-in">
+        <a class="brand" href="#top" aria-label="Back to top">
+            <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="currentColor"/><rect x="24" y="12" width="18" height="10" rx="5" fill="#f6fbf8"/><rect x="19" y="27" width="24" height="10" rx="5" fill="#f6fbf8"/><rect x="21" y="42" width="27" height="10" rx="5" fill="#e3876a"/></svg>
+            <span class="brand-name" data-practice="name"></span>
+        </a>
+        <nav class="nav-links" aria-label="Sections">
+            <a href="#spine">Where it hurts</a>
+            <a href="#first-visit">First visit</a>
+            <a href="#fees">Fees</a>
+            <a href="#team">Team</a>
+            <a href="#stories">Stories</a>
+            <a href="#visit">Visit</a>
+        </nav>
+        <a class="nav-phone" data-practice-link="phone"></a>
+        <a class="btn btn-dark btn-sm nav-book" href="#book">Book a visit</a>
+        <button class="menu-btn" type="button" aria-expanded="false" aria-controls="mobile-menu" data-menu-btn>
+            <span class="menu-bars" aria-hidden="true"></span><span class="sr-only">Menu</span>
+        </button>
+    </div>
+    <nav class="mobile-menu" id="mobile-menu" aria-label="Sections" hidden data-menu>
+        <a href="#spine">Where it hurts</a>
+        <a href="#first-visit">Your first visit</a>
+        <a href="#fees">Fees &amp; insurance</a>
+        <a href="#team">Team</a>
+        <a href="#stories">Patient stories</a>
+        <a href="#visit">Hours &amp; directions</a>
+        <a class="btn btn-dark" href="#book">Book a visit</a>
+    </nav>
+</header>
+
+<main id="main">
+
+<!-- Hero: a rounded panel where the photo fades into the headline's color -->
+<section class="hero" id="top">
+    <div class="wrap">
+        <div class="hero-panel">
+            <figure class="hero-media">
+                <img src="photos/hands-on-care.jpg" alt="A chiropractor's hands working on a patient's lower back" width="1104" height="1024" fetchpriority="high">
+                <div class="annot" aria-hidden="true">
+                    <span class="annot-line"></span>
+                    <span class="annot-dot" style="top:0"></span>
+                    <span class="annot-dot" style="top:50%"></span>
+                    <span class="annot-dot is-on" style="top:100%"></span>
+                    <span class="annot-chip">L4&ndash;L5 &middot; moving freely</span>
+                </div>
+                <p class="hero-status" data-status><span class="status-dot" aria-hidden="true"></span><span data-status-text>Hours below</span></p>
+                <blockquote class="hero-quote" data-hero-quote></blockquote>
+            </figure>
+            <div class="hero-copy">
+                <p class="eyebrow">Chiropractic &middot; Soft tissue &middot; Rehab <span class="eyebrow-place" data-practice="neighborhood"></span></p>
+                <h1>Get back to<br> what your <em>back</em><br> keeps cancelling.</h1>
+                <p class="lead">Hands-on chiropractic care, soft-tissue work and a few simple exercises, all aimed at one goal you set with us. Visits taper off as you improve, and you always know what comes next.</p>
+                <div class="hero-cta">
+                    <a class="btn btn-clay btn-lg" href="#book">Book a first visit <span class="arrow" aria-hidden="true">&rarr;</span></a>
+                    <a class="btn btn-glass btn-lg" href="#spine">Where does it hurt?</a>
+                </div>
+                <ul class="proof" data-proof></ul>
+            </div>
+        </div>
+        <svg class="sprig sprig-hero" aria-hidden="true" focusable="false"><use href="#sprig"/></svg>
+    </div>
+</section>
+
+<!-- About: text beside a rounded photo -->
+<section class="about" aria-labelledby="about-title">
+    <div class="wrap about-grid">
+        <div class="about-copy">
+            <h2 id="about-title">Care with an <em>end date</em></h2>
+            <p class="about-lead">We would rather you didn&rsquo;t need us. Every plan starts with a goal in your words and ends with a re-check, so you know roughly how many visits to expect before the first one.</p>
+            <ul class="about-points">
+                <li><strong>The same doctor, every visit.</strong> No rotating cast, and your massage therapist works from the same plan.</li>
+                <li><strong>Five-minute homework.</strong> Two or three exercises that fit between meetings or at bedtime.</li>
+                <li><strong>Visits that taper off.</strong> More at the start, fewer as you improve, then you&rsquo;re on your own.</li>
+            </ul>
+            <a class="btn btn-white" href="#first-visit">See how the first visit goes</a>
+        </div>
+        <figure class="about-photo">
+            <img src="photos/waiting-room.jpg" alt="A quiet corner of the waiting room with a plant and a yellow chair" width="960" height="760" loading="lazy">
+        </figure>
+    </div>
+</section>
+
+<!-- Spine map -->
+<section class="spine-sec" id="spine" aria-labelledby="spine-title">
+    <div class="wrap">
+        <div class="panel-dark">
+            <div class="sec-head sec-head-center">
+                <h2 id="spine-title">Where does it <em>hurt?</em></h2>
+                <p class="sec-sub">Pick a spot to see what we&rsquo;d check, how we&rsquo;d treat it and how long it usually takes. Every plan starts with an exam, so these are typical numbers, not promises.</p>
+            </div>
+            <div class="spine-grid">
+                <div class="concerns" role="group" aria-label="Choose what hurts" data-concerns></div>
+                <div class="spine-figure" data-spine></div>
+                <article class="concern" aria-live="polite" data-concern></article>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- First visit -->
+<section class="visit-sec" id="first-visit" aria-labelledby="visit-title">
+    <div class="wrap">
+        <div class="sec-head sec-head-center">
+            <h2 id="visit-title">Your first <em>visit</em></h2>
+            <p class="sec-sub">Sixty minutes, and no surprises. Nothing happens on the table until you have heard what we found and agreed to the plan.</p>
+        </div>
+        <div class="timeline" data-timeline>
+            <div class="tl-bar" data-tl-bar></div>
+            <div class="tl-scale" aria-hidden="true"><span>0</span><span>15</span><span>30</span><span>45</span><span>60 min</span></div>
+            <ol class="tl-steps" data-tl-steps></ol>
+        </div>
+        <div class="bring">
+            <h3>Bring or wear</h3>
+            <ul data-bring></ul>
+            <a class="bring-forms" data-forms-link href="#book">Fill in your forms before you come <span aria-hidden="true">&rarr;</span></a>
+        </div>
+    </div>
+</section>
+
+<!-- Fees and coverage -->
+<section class="fees-sec" id="fees" aria-labelledby="fees-title">
+    <div class="wrap">
+        <div class="panel-light fees-grid">
+            <div>
+                <h2 id="fees-title">Clear <em>prices</em></h2>
+                <p class="sec-sub">Before you&rsquo;re on the table, not after. Self-pay prices below; HSA and FSA cards welcome.</p>
+                <ul class="fees" data-fees></ul>
+                <p class="fees-note">If cost ever gets in the way of care, tell us and we will work something out.</p>
+            </div>
+            <aside class="coverage" aria-labelledby="coverage-title">
+                <h3 id="coverage-title">Check your <em>coverage</em></h3>
+                <label class="field">
+                    <span class="field-label">How are you paying?</span>
+                    <select data-coverage-select></select>
+                </label>
+                <div class="coverage-result" aria-live="polite" data-coverage-result></div>
+            </aside>
+        </div>
+    </div>
+</section>
+
+<!-- Myths -->
+<section class="myths-sec" id="myths" aria-labelledby="myths-title">
+    <div class="wrap">
+        <svg class="sprig sprig-myths" aria-hidden="true" focusable="false"><use href="#sprig"/></svg>
+        <div class="sec-head sec-head-split">
+            <div>
+                <h2 id="myths-title">What you&rsquo;ve <em>heard</em></h2>
+                <p class="sec-sub">The questions we get at the front desk, and what actually happens.</p>
+            </div>
+            <button class="btn btn-white btn-sm" type="button" data-myths-all aria-pressed="false">Show every answer</button>
+        </div>
+        <div class="myths" data-myths></div>
+    </div>
+</section>
+
+<!-- Team -->
+<section class="team-sec" id="team" aria-labelledby="team-title">
+    <div class="wrap">
+        <div class="sec-head sec-head-center">
+            <h2 id="team-title">Meet the <em>team</em></h2>
+            <p class="sec-sub">You keep the same doctor from your first visit to your last.</p>
+        </div>
+        <div class="team" data-team></div>
+    </div>
+</section>
+
+<!-- Stories -->
+<section class="stories-sec" id="stories" aria-labelledby="stories-title">
+    <div class="wrap">
+        <div class="sec-head sec-head-split">
+            <div>
+                <h2 id="stories-title">What patients <em>say</em></h2>
+                <div class="rating" data-rating></div>
+            </div>
+            <div class="carousel-btns">
+                <button class="round-btn" type="button" data-stories-prev aria-label="Previous stories"><span aria-hidden="true">&larr;</span></button>
+                <button class="round-btn" type="button" data-stories-next aria-label="More stories"><span aria-hidden="true">&rarr;</span></button>
+            </div>
+        </div>
+        <div class="stories" data-stories tabindex="0" aria-label="Patient stories"></div>
+    </div>
+</section>
+
+<!-- Booking -->
+<section class="book-sec" id="book" aria-labelledby="book-title">
+    <div class="wrap book-grid">
+        <div class="book-aside">
+            <h2 id="book-title">Book a <em>visit</em></h2>
+            <p class="book-intro">Tell us a little and we&rsquo;ll call or text to confirm a time. Requests sent during office hours hear back within the hour, the rest first thing the next morning.</p>
+            <ul class="book-contact">
+                <li><span>Call or text</span><a data-practice-link="phone"></a></li>
+                <li><span>Email</span><a data-practice-link="email"></a></li>
+            </ul>
+            <svg class="sprig sprig-book" aria-hidden="true" focusable="false"><use href="#sprig"/></svg>
+        </div>
+        <div class="book-card">
+            <form class="book-form" data-book-form novalidate>
+                <div class="form-row">
+                    <label class="field">
+                        <span class="field-label">What&rsquo;s bothering you?</span>
+                        <select name="concern" data-book-concern></select>
+                    </label>
+                    <label class="field">
+                        <span class="field-label">Who would you like to see?</span>
+                        <select name="practitioner" data-book-practitioner></select>
+                    </label>
+                </div>
+                <fieldset class="field">
+                    <legend class="field-label">Have you been here before?</legend>
+                    <div class="chips">
+                        <label class="chip"><input type="radio" name="visitType" value="New patient" checked><span>First visit</span></label>
+                        <label class="chip"><input type="radio" name="visitType" value="Returning patient"><span>I&rsquo;ve been before</span></label>
+                    </div>
+                </fieldset>
+                <fieldset class="field">
+                    <legend class="field-label">Days that work <span class="field-hint">Pick any</span></legend>
+                    <div class="chips" data-book-days></div>
+                </fieldset>
+                <fieldset class="field">
+                    <legend class="field-label">Time of day</legend>
+                    <div class="chips" data-book-times></div>
+                </fieldset>
+                <label class="field">
+                    <span class="field-label">How are you paying?</span>
+                    <select name="payment" data-book-payment></select>
+                </label>
+                <div class="form-row">
+                    <label class="field">
+                        <span class="field-label">Your name</span>
+                        <input name="name" autocomplete="name" required>
+                    </label>
+                    <label class="field">
+                        <span class="field-label">Phone</span>
+                        <input name="phone" type="tel" autocomplete="tel" inputmode="tel" required>
+                    </label>
+                </div>
+                <label class="field">
+                    <span class="field-label">Email <span class="field-hint">Optional</span></span>
+                    <input name="email" type="email" autocomplete="email">
+                </label>
+                <label class="field">
+                    <span class="field-label">Anything we should know? <span class="field-hint">Optional</span></span>
+                    <textarea name="notes" rows="3" placeholder="When it started, what makes it worse, what you want to get back to"></textarea>
+                </label>
+                <p class="form-error" role="alert" data-form-error hidden></p>
+                <button class="btn btn-dark btn-lg btn-block" type="submit" data-book-submit>Send request</button>
+                <p class="form-fine">We only use your details to book your visit. In an emergency, call 911.</p>
+            </form>
+            <div class="book-done" data-book-done tabindex="-1" hidden></div>
+        </div>
+    </div>
+</section>
+
+<!-- Visit: a rounded photo band that runs into the footer -->
+<section class="visit-band" id="visit" aria-labelledby="visit-band-title">
+    <img class="visit-band-bg" src="photos/tea.jpg" alt="" width="1600" height="900" loading="lazy">
+    <div class="wrap visit-band-in">
+        <h2 id="visit-band-title">Visit <em>us</em></h2>
+        <p class="visit-status" data-status><span class="status-dot" aria-hidden="true"></span><span data-status-text>Hours below</span></p>
+        <div class="visit-grid">
+            <dl class="visit-list">
+                <div><dt>Address</dt><dd><span data-practice="street"></span><br><span data-practice="city"></span><br><a data-practice-link="maps" target="_blank" rel="noopener">Get directions <span aria-hidden="true">&rarr;</span></a></dd></div>
+                <div><dt>Parking</dt><dd data-practice="parking"></dd></div>
+                <div><dt>Phone</dt><dd><a data-practice-link="phone"></a></dd></div>
+            </dl>
+            <table class="hours" data-hours>
+                <caption class="sr-only">Office hours</caption>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+</main>
+
+<footer class="footer">
+    <div class="wrap footer-grid">
+        <div class="footer-brand">
+            <p class="footer-name" data-practice="name"></p>
+            <p data-practice="tagline"></p>
+            <p><span data-practice="street"></span>, <span data-practice="city"></span><br><a data-practice-link="phone"></a> &middot; <a data-practice-link="email"></a></p>
+        </div>
+        <nav class="footer-links" aria-label="Footer">
+            <a href="#spine">Where it hurts</a>
+            <a href="#first-visit">First visit</a>
+            <a href="#fees">Fees &amp; insurance</a>
+            <a href="#myths">Questions</a>
+            <a href="#team">Team</a>
+            <a href="#book">Book a visit</a>
+        </nav>
+        <div class="footer-fine">
+            <p>The information on this site is general and is not medical advice. If you have sudden, severe or worsening symptoms, call 911 or go to the nearest emergency room.</p>
+            <p class="sample-note" data-sample-note hidden>This is a template: the practice, team, reviews, ratings and insurance details are samples. Replace them before you publish.</p>
+            <p>&copy; <span data-year></span> <span data-practice="name"></span></p>
+        </div>
+    </div>
+</footer>
+
+<div class="action-bar" data-action-bar>
+    <a class="btn btn-ghost-light" data-practice-link="phone" data-label="Call"></a>
+    <a class="btn btn-clay" href="#book">Book a visit</a>
+</div>
+</body>
+</html>
