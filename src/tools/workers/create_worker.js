@@ -46,6 +46,11 @@ After deployment, full propagation may take 5-30 seconds across edge servers. Wo
         if (!new RegExp('^[A-Za-z0-9_-]{1,' + maxLen + '}$').test(name)) {
             throw new Error(`Invalid worker name "${name}": use only letters, numbers, hyphens and underscores (1-${maxLen} characters).`);
         }
+        // A call cut off at the output limit can arrive without its code, and
+        // deploying that would replace a live backend with an empty one.
+        if (typeof args.code !== 'string' || !args.code.trim()) {
+            throw new Error("code is missing. Send the worker's full source in code.");
+        }
         // The project directory, from the turn's captured state so a mid-turn
         // chat switch can't redirect the write (see window.projectRootDir).
         const root = window.projectRootDir(state);
@@ -54,6 +59,9 @@ After deployment, full propagation may take 5-30 seconds across edge servers. Wo
         // computed path so a name containing "/" or ".." can't escape the project
         // directory (returns the normalized in-project path). See assertPathInProject.
         const filePath = window.assertPathInProject(`${root}/workers/${name}.js`, state);
+        // Hand edits to this backend in the Code view must not be replaced from
+        // the model's memory: it reads the file again first (see write.js).
+        await window.CodeEditor?.assertModelMayOverwrite?.(filePath);
         // Deployed workers are ACCOUNT-level resources keyed only by name, and
         // puter.workers.create() with a name that is already deployed REDEPLOYS
         // that worker — it is the normal update path. So a name that belongs to

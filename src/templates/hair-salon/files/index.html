@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<title>Lustre Hair Studio | Cuts, curls and lived-in color</title>
+<meta name="description" content="A small hair studio for precision cuts, curl-by-curl shaping and lived-in color. See the menu priced by stylist level, meet the team and request a booking.">
+<meta name="theme-color" content="#6f2f3c">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Hanken+Grotesk:wght@200;300;400;500;600;700&display=swap">
+<link rel="stylesheet" href="styles.css">
+<script src="app.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<p class="notice" data-offer-banner></p>
+
+<header class="site-header" data-header>
+  <div class="wrap header-row">
+    <a class="brand" href="#top" data-brand-link>
+      <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="9" y="14" width="46" height="12" rx="6" fill="currentColor"/><path d="M13 22h5v24a2.5 2.5 0 0 1-5 0zM22 22h5v28a2.5 2.5 0 0 1-5 0zM31 22h5v28a2.5 2.5 0 0 1-5 0zM40 22h5v28a2.5 2.5 0 0 1-5 0zM49 22h3v20a1.5 1.5 0 0 1-3 0z" fill="currentColor"/></svg>
+      <span class="brand-name" data-salon-name></span>
+      <span class="brand-sub">hair studio</span>
+    </a>
+    <nav class="nav" id="site-nav" aria-label="Main" data-nav>
+      <a href="#menu">Menu</a>
+      <a href="#stylists">Stylists</a>
+      <a href="#first-visit">First visit</a>
+      <a href="#lookbook">Lookbook</a>
+      <a href="#visit">Visit</a>
+      <a class="btn btn-solid nav-book" href="#book">Book a chair</a>
+    </nav>
+    <div class="header-actions">
+      <a class="btn btn-solid btn-sm header-book" href="#book">Book a chair</a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" data-nav-toggle>
+        <span class="nav-toggle-bars" aria-hidden="true"></span><span class="nav-toggle-text">Menu</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- Hero: photo, then the name, then the cut-out subject on top, so the
+       name sits behind her. -->
+  <section class="hero" id="top" aria-labelledby="hero-title">
+    <div class="hero-frame">
+      <div class="hero-media">
+        <img class="hero-bg" src="photos/hero.jpg" alt="A guest with long, glossy brown hair, eyes closed, running a hand through it" width="1520" height="771" fetchpriority="high">
+        <p class="hero-word" aria-hidden="true" data-wordmark></p>
+        <img class="hero-cut" src="photos/hero-cutout.webp" alt="" aria-hidden="true" width="1520" height="771">
+      </div>
+
+      <div class="hero-chips">
+        <span class="pill pill-glass"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="10" r="2.6" fill="none" stroke="currentColor" stroke-width="1.6"/></svg><span data-hero-area></span></span>
+        <span class="pill pill-glass open-pill" data-open-status></span>
+      </div>
+
+      <div class="hero-copy">
+        <h1 id="hero-title">Hair that grows out <span class="swash">beautifully.<svg viewBox="0 0 320 28" preserveAspectRatio="none" aria-hidden="true"><path class="swash-a" pathLength="1" d="M3 17C62 7 168 3 317 12"/><path class="swash-b" pathLength="1" d="M44 24C122 16 206 15 286 19"/></svg></span></h1>
+        <p class="hero-lead">A small, light-filled studio for precision cuts, curl-by-curl shaping and color that still looks intentional at week ten. A proper consultation, every time.</p>
+        <div class="hero-ctas">
+          <a class="btn btn-solid" href="#book">Request a booking</a>
+          <a class="btn btn-glass" href="#menu">See the menu</a>
+        </div>
+      </div>
+
+      <dl class="hero-stats" data-stats></dl>
+
+      <aside class="glass hero-quick" aria-labelledby="quick-title">
+        <div class="quick-head">
+          <p class="kicker-pill-sm">Quick add</p>
+          <a class="pill pill-line" href="#menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>Full menu</a>
+        </div>
+        <h2 id="quick-title" class="quick-title">Popular right now</h2>
+        <ul class="quick-list" data-quick></ul>
+      </aside>
+
+      <div class="glass hero-rate">
+        <p class="rate-label"><span aria-hidden="true">✳</span> Guest rating</p>
+        <p class="rate-sub">Average from <span data-rating-count></span> reviews in our booking system</p>
+        <p class="rate-big" data-rating-average></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Menu -->
+  <section class="section menu" id="menu" aria-labelledby="menu-title">
+    <div class="wrap">
+      <div class="kicker"><span class="kicker-pill"><i>01</i> The menu</span><span class="kicker-meta">Prices by stylist level</span></div>
+      <div class="menu-top">
+        <h2 id="menu-title">One menu, priced by <em>who holds the scissors.</em></h2>
+        <div class="menu-controls">
+          <p class="control-label" id="level-label">Stylist level</p>
+          <div class="segmented" role="radiogroup" aria-labelledby="level-label" data-levels></div>
+          <p class="level-note" data-level-note aria-live="polite"></p>
+        </div>
+      </div>
+      <div class="tabs" role="tablist" aria-label="Service categories" data-tabs></div>
+      <div class="menu-panel" role="tabpanel" tabindex="0" data-menu-panel>
+        <ul class="svc-list" data-menu-list></ul>
+      </div>
+      <p class="fine">Prices are starting points for shoulder-length hair. Very long or dense hair can take longer, and your stylist will confirm the price at your consultation before anything starts. Tap <span class="plus-hint" aria-hidden="true">+</span> to add a service to your visit.</p>
+    </div>
+  </section>
+
+  <!-- Stylists -->
+  <section class="section stylists" id="stylists" aria-labelledby="stylists-title">
+    <div class="wrap">
+      <div class="kicker"><span class="kicker-pill"><i>02</i> The team</span><span class="kicker-meta" data-team-count></span></div>
+      <div class="split-head">
+        <h2 id="stylists-title">Find the stylist who <em>gets your hair.</em></h2>
+        <div class="chips" role="group" aria-label="Filter stylists by specialty" data-specialty-filter></div>
+      </div>
+      <ul class="stylist-grid" data-stylists></ul>
+      <p class="empty" data-stylists-empty hidden>No one on the team lists that specialty yet. Choose another, or book with the first available stylist and tell us what you have in mind.</p>
+    </div>
+  </section>
+
+  <!-- First visit -->
+  <section class="section first-visit" id="first-visit" aria-labelledby="first-visit-title">
+    <div class="wrap">
+      <div class="kicker"><span class="kicker-pill"><i>03</i> Your first visit</span><span class="kicker-meta">About what to expect</span></div>
+      <h2 id="first-visit-title">Two hours that feel <em>like twenty minutes.</em></h2>
+      <ol class="steps" data-steps></ol>
+      <div class="fv-bottom">
+        <div class="offer-card">
+          <p class="offer-kicker">New guest welcome</p>
+          <p class="offer-big" data-offer-percent></p>
+          <p class="offer-text" data-offer-text></p>
+          <a class="btn btn-cream" href="#book" data-offer-cta>Claim it when you book</a>
+        </div>
+        <div class="color-prep">
+          <h3>Before a color appointment</h3>
+          <ul class="checklist" data-color-prep></ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Lookbook -->
+  <section class="section lookbook" id="lookbook" aria-labelledby="lookbook-title">
+    <div class="wrap">
+      <div class="kicker"><span class="kicker-pill"><i>04</i> Lookbook</span><span class="kicker-meta" data-instagram></span></div>
+      <div class="split-head">
+        <h2 id="lookbook-title">Recent work, <em>straight from the chair.</em></h2>
+        <div class="chips" role="group" aria-label="Filter the lookbook" data-look-filter></div>
+      </div>
+      <ul class="look-grid" data-looks></ul>
+    </div>
+  </section>
+
+  <!-- Reviews -->
+  <section class="section reviews" id="reviews" aria-labelledby="reviews-title">
+    <div class="wrap">
+      <div class="kicker"><span class="kicker-pill"><i>05</i> Kind words</span><span class="kicker-meta">From our booking system</span></div>
+      <div class="reviews-grid">
+        <div class="rating-block">
+          <h2 id="reviews-title" class="sr-only">Reviews</h2>
+          <p class="rating-big" data-rating-average></p>
+          <p class="stars stars-lg" aria-hidden="true">★★★★★</p>
+          <p class="rating-sub">Average of <span data-rating-count></span> verified reviews</p>
+        </div>
+        <ul class="review-list" data-reviews></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Booking -->
+  <section class="section book" id="book" aria-labelledby="book-title">
+    <div class="wrap">
+      <div class="kicker"><span class="kicker-pill"><i>06</i> Book a chair</span><span class="kicker-meta">We confirm within one working day</span></div>
+      <h2 id="book-title">Tell us what you're after, <em>we'll hold the time.</em></h2>
+      <div class="book-grid">
+        <form class="book-form" id="book-form" novalidate data-book-form>
+          <fieldset class="field-group">
+            <legend><span class="step-dot">1</span> Services</legend>
+            <div class="svc-picker" data-svc-picker></div>
+            <p class="field-error" data-error="services" hidden>Choose at least one service.</p>
+          </fieldset>
+
+          <fieldset class="field-group">
+            <legend><span class="step-dot">2</span> Stylist</legend>
+            <div class="stylist-picker" role="radiogroup" aria-label="Stylist" data-stylist-picker></div>
+          </fieldset>
+
+          <fieldset class="field-group">
+            <legend><span class="step-dot">3</span> Day and time</legend>
+            <div class="day-strip" role="radiogroup" aria-label="Preferred day" data-days></div>
+            <p class="field-error" data-error="day" hidden>Pick a day.</p>
+            <div class="time-grid" role="radiogroup" aria-label="Preferred start time" data-times></div>
+            <p class="field-hint" data-time-hint></p>
+            <p class="field-error" data-error="time" hidden>Pick a start time.</p>
+          </fieldset>
+
+          <fieldset class="field-group">
+            <legend><span class="step-dot">4</span> Your details</legend>
+            <div class="field-row">
+              <label class="field">
+                <span>Name</span>
+                <input type="text" name="name" autocomplete="name" required>
+                <span class="field-error" data-error="name" hidden>Add your name.</span>
+              </label>
+              <label class="field">
+                <span>Mobile</span>
+                <input type="tel" name="phone" autocomplete="tel" inputmode="tel" required>
+                <span class="field-error" data-error="phone" hidden>Add a number we can text.</span>
+              </label>
+            </div>
+            <label class="field">
+              <span>Email <small>(optional)</small></span>
+              <input type="email" name="email" autocomplete="email">
+              <span class="field-error" data-error="email" hidden>That email doesn't look right.</span>
+            </label>
+            <label class="field">
+              <span>Anything we should know? <small>(optional)</small></span>
+              <textarea name="notes" rows="3" placeholder="Last colored three months ago, growing out a bob, bringing photos…"></textarea>
+            </label>
+            <label class="check">
+              <input type="checkbox" name="firstVisit" data-first-visit>
+              <span>This is my first visit</span>
+            </label>
+          </fieldset>
+
+        </form>
+
+        <aside class="summary" aria-labelledby="summary-title" data-summary>
+          <div class="summary-card">
+            <h3 id="summary-title">Your visit</h3>
+            <ul class="summary-lines" data-summary-lines></ul>
+            <dl class="summary-meta">
+              <div><dt>Stylist</dt><dd data-sum-stylist></dd></div>
+              <div><dt>When</dt><dd data-sum-when></dd></div>
+              <div><dt>Time in the chair</dt><dd data-sum-duration></dd></div>
+            </dl>
+            <div class="summary-total">
+              <span>Estimated total</span>
+              <strong data-sum-total aria-live="polite"></strong>
+            </div>
+            <p class="summary-discount" data-sum-discount hidden></p>
+            <button class="btn btn-cream btn-wide" type="submit" form="book-form" data-submit>Send booking request</button>
+            <p class="form-note" data-form-note aria-live="polite"></p>
+            <p class="summary-fine">An estimate, not a bill. Your stylist confirms the price at the consultation. Nothing is charged online.</p>
+          </div>
+          <div class="done-card" data-done hidden tabindex="-1">
+            <p class="done-kicker">Request ready</p>
+            <h3 data-done-title>Thank you!</h3>
+            <p data-done-text></p>
+            <button class="btn btn-ghost btn-sm" type="button" data-book-again>Start another request</button>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <!-- Visit -->
+  <section class="section visit" id="visit" aria-labelledby="visit-title">
+    <div class="wrap visit-grid">
+      <figure class="visit-photo">
+        <img src="photos/studio.jpg" alt="Inside the studio: a row of red styling chairs by the window" width="678" height="848" loading="lazy">
+        <figcaption class="glass visit-tag"><span class="pill pill-line" data-open-detail></span></figcaption>
+      </figure>
+      <div class="visit-copy">
+        <div class="kicker"><span class="kicker-pill"><i>07</i> Visit</span></div>
+        <h2 id="visit-title">Find us <em data-neighborhood></em></h2>
+        <address class="visit-address">
+          <a href="#" data-directions target="_blank" rel="noopener"><span data-address></span></a>
+        </address>
+        <p class="visit-contact"><a data-phone-link href="#"></a> · <a data-email-link href="#"></a></p>
+        <table class="hours" data-hours>
+          <caption class="sr-only">Opening hours</caption>
+          <tbody></tbody>
+        </table>
+        <ul class="visit-notes" data-visit-notes></ul>
+        <details class="policy">
+          <summary>Cancellation and late arrival policy</summary>
+          <div data-policy></div>
+        </details>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <p class="footer-word" aria-hidden="true" data-wordmark></p>
+    <div class="footer-row">
+      <p data-footer-address></p>
+      <p><a href="#book">Book a chair</a> · <a href="#menu">Menu</a> · <a data-instagram-link href="#" target="_blank" rel="noopener"></a></p>
+      <p class="footer-copy">© <span data-year></span> <span data-legal-name></span></p>
+    </div>
+  </div>
+</footer>
+
+<div class="tray" data-tray hidden>
+  <div class="tray-inner">
+    <p class="tray-text"><strong data-tray-count></strong> <span data-tray-detail></span></p>
+    <a class="btn btn-cream btn-sm" href="#book" data-tray-go>Review and book</a>
+  </div>
+</div>
+
+<dialog class="lightbox" data-lightbox aria-label="Lookbook photo">
+  <figure>
+    <img src="" alt="" data-lightbox-img>
+    <figcaption data-lightbox-caption></figcaption>
+  </figure>
+  <div class="lightbox-nav">
+    <button type="button" class="round-btn" data-lightbox-prev aria-label="Previous photo">←</button>
+    <button type="button" class="round-btn" data-lightbox-next aria-label="Next photo">→</button>
+    <button type="button" class="round-btn" data-lightbox-close aria-label="Close">✕</button>
+  </div>
+</dialog>
+</body>
+</html>

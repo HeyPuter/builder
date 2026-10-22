@@ -1,3 +1,6 @@
+// The default build model. A paid plan can set another one per project (the
+// composer's model picker, js/model-picker.js). A turn reads its model once
+// when it starts and keeps it for every round, retry and Resume.
 let MODEL = 'claude-opus-5-5';
 let system_prompt
 let chatHistory;
@@ -25,6 +28,8 @@ let _sendSetupInFlight = false;
 // tell "I finished" from "a newer turn in this same chat has since begun" —
 // the chat-id guards can't, and a stale teardown would clobber the live turn.
 let _turnSeq = 0;
+// Set once the current turn streams text or a tool call (see noteTurnProgress).
+let _turnProgressed = false;
 // The newest turn started in each chat (chatId -> its _turnSeq). A stopped turn
 // that only unwinds after a newer one has begun in the SAME chat must leave the
 // chat's persisted state to that newer turn (see the finally in sendChatMessage).
@@ -647,9 +652,6 @@ window.addEventListener('pagehide', () => {
     for (const ctx of batch) saveCurrentChat(ctx).catch(() => {}); // fire-and-forget; we can't await during teardown
 });
 
-// For restoring state we construct HTML as strings, so we need some place to put the file opening functions. This is that place
-window.fileOpeners = {};
-
 // --- Project deep-linking ----------------------------------------------------
 // The open project is reflected in the URL as the query param ?p=<chatId> so a
 // permalink is a real, shareable link rather than a #<chatId> fragment. Because
@@ -879,10 +881,13 @@ window.addEventListener('popstate', async () => {
     // navigation would actually switch chats — a ?p for an unknown project (or
     // a scroll-only popstate) never loads anything, so it never interrupts.
     const hasConversation = Array.isArray(chatHistory) && chatHistory.some(m => m.role !== 'system');
+    // The no-target case uses the same test as the branch below that switches,
+    // so a project with no messages yet (a fresh template fork) is asked too.
     const wouldSwitch = targetId
         ? (targetId !== currentChatId && savedChats.some(c => c.id === targetId))
-        : !!(currentChatId && hasConversation);
-    if (wouldSwitch && isProcessing) {
+        : !!(currentChatId && (hasConversation || savedChats.some(c => c.id === currentChatId)));
+    // Unsaved code in the Code view would be lost the same way.
+    if (wouldSwitch && (isProcessing || window.CodeEditor?.hasUnsaved?.())) {
         if (!await confirmLeaveActiveChat()) {
             setUrlChat(currentChatId, { replace: false });
             return;
@@ -1020,6 +1025,8 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
         chatHistory = chat.history;
         currentChatId = chatId;
         currentAppDir = `/${window.user.username}/AppData/${puter.appID}/${chatId}`;
+        // The composer's model picker shows this project's model.
+        window.ModelPicker?.render?.();
         // A project with no live preview tears the previous chat's preview pane
         // down NOW, before this chat's own state is restored below.
         // hideAppPreview() clears the preview AND published globals (they
@@ -1060,6 +1067,7 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
 
         // Clear loading indicator and rebuild display
         $('.chat-box').empty();
+        revokeChatMediaBlobURLs();
 
         // Close any version-history / publish / share / issues / device panel
         // left open from the previous chat so it can't render (or act) against
@@ -1089,18 +1097,22 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
                 try {
                     const r = JSON.parse(m.content.content);
                     if (r && r.success && r.path && r.filename) mediaPaths.add(r.path);
+                    // Several images from one request (GenerateImage count > 1).
+                    if (r && r.success && Array.isArray(r.items)) {
+                        for (const it of r.items) if (it && it.path) mediaPaths.add(it.path);
+                    }
                 } catch (e) { /* the loop reports unparseable results as before */ }
             }
         }
         const mediaURLs = new Map();
         await mapWithConcurrency([...mediaPaths], 6, async (p) => {
-            try { mediaURLs.set(p, { url: await puter.fs.getReadURL(p) }); }
+            try { mediaURLs.set(p, { url: await mediaDisplayURL(p) }); }
             catch (error) { mediaURLs.set(p, { error }); }
         });
         if (superseded()) return chat;
         const readURLFor = async (p) => {
             const r = mediaURLs.get(p);
-            if (!r) return puter.fs.getReadURL(p);
+            if (!r) return mediaDisplayURL(p);
             if (r.error) throw r.error;
             return r.url;
         };
@@ -1185,7 +1197,7 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
                     appendMessageWithImages(fullContent, true, messageId);
                 } else if (typeof message.content === 'object' && message.content.type === 'tool_result') {
                     // Handle tool result messages
-                    // Check if this is a GenerateImage, EditImage, or GenerateVideo tool result
+                    // Check if this is a generated image, video or audio result
                     try {
                         // Some tools (e.g. ViewImage) return content BLOCKS — an array,
                         // not a JSON string. Those aren't replayable media results, so
@@ -1198,41 +1210,28 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
                             window.renderClarifySummary?.(toolResponse);
                         } else if (toolResponse.__upgrade_offer) {
                             // A past upgrade offer: show its card again, unless
-                            // the user has a paid plan by now.
-                            if (!toolResponse.subscribed && !window.Branding?.isSubscribed(window.user)) window.renderUpgradeCard?.();
-                        } else if (toolResponse.success && toolResponse.path && toolResponse.filename) {
-                            // Check if it's a video (ends with .mp4) or image
-                            const isVideo = toolResponse.path.toLowerCase().endsWith('.mp4') || toolResponse.filename?.toLowerCase().endsWith('.mp4');
+                            // the user has a paid plan by now. Offers from before
+                            // the code editor carry no feature and are the badge.
+                            if (!toolResponse.subscribed && !window.Branding?.isSubscribed(window.user)) window.renderUpgradeCard?.({ feature: toolResponse.feature });
+                        } else if (toolResponse.success && toolResponse.filename && (toolResponse.path
+                            || (Array.isArray(toolResponse.items) && toolResponse.items.some(it => it && it.path)))) {
+                            // A generated image, video or audio clip (see
+                            // js/media.js): show its card again from the saved file.
                             try {
-                                const readURL = await readURLFor(toolResponse.path);
-                                if (superseded()) return chat;
-                                // This is a bit weird but it is safer than putting the function directly in the HTML at the cost of polluting global a bit
-                                const openString = "openfile_" + crypto.randomUUID();
-                                if (isVideo) {
-                                    fileOpeners[openString] = (e) => {
-                                        e?.preventDefault();
-                                        e?.stopPropagation();
-                                        puter.ui.launchApp({
-                                            name: 'player',
-                                            file_paths: [toolResponse.path],
-                                        });
+                                let readURL;
+                                if (Array.isArray(toolResponse.items) && toolResponse.items.length > 1) {
+                                    // A grid: one URL per image (null for one
+                                    // that's gone; its tile is dropped).
+                                    readURL = [];
+                                    for (const it of toolResponse.items) {
+                                        try { readURL.push(it && it.path ? await readURLFor(it.path) : null); }
+                                        catch (e) { readURL.push(null); }
                                     }
-                                    // This is a generated video result
-                                    const videoHTML = `<video src="${readURL}" controlsList="nofullscreen" ondblclick="fileOpeners['${openString}'](...arguments)" class="message-video" controls style="max-width: 250px; max-height: 300px; border-radius: 4px; padding: 3px; background: white; box-shadow: 0px 0px 2px #939393;"></video>`;
-                                    $('.chat-box').append(`<div class="message ai-message"><div class="message-content">${videoHTML}</div></div>`);
                                 } else {
-                                    fileOpeners[openString] = (e) => {
-                                        e?.preventDefault();
-                                        e?.stopPropagation();
-                                        puter.ui.launchApp({
-                                            name: 'viewer',
-                                            file_paths: [toolResponse.path],
-                                        });
-                                    }
-                                    // This is a generated image result
-                                    const imageHTML = `<img src="${readURL}" alt="${htmlEscape(toolResponse.filename || 'Generated image')}" onclick="fileOpeners['${openString}']()" style="cursor: pointer" class="message-image">`;
-                                    $('.chat-box').append(`<div class="message ai-message"><div class="message-content">${imageHTML}</div></div>`);
+                                    readURL = await readURLFor(toolResponse.path);
                                 }
+                                if (superseded()) return chat;
+                                window.GeneratedMedia?.renderSaved(toolResponse, readURL);
                             } catch (error) {
                                 console.error('Error displaying generated media:', error);
                             }
@@ -1392,6 +1391,9 @@ async function deleteChat(chatId) {
         // tool write can land in — or recreate — the directory mid-delete.
         _deletedChatIds.add(chatId);
         if (currentChatId === chatId) terminateActiveTurn();
+        // The Code view closes this project's open files and can never save
+        // into it again. Its records go once the delete has worked (below).
+        window.CodeEditor?.onProjectDeleting?.(chatId);
 
         // Every cleanup step below used to swallow its failure, so a project
         // whose public site or worker could not be removed still vanished from
@@ -1463,6 +1465,14 @@ async function deleteChat(chatId) {
         catch (e) { console.warn('Version snapshots already deleted or not found:', e); }
         try { await window.deleteChatIssues?.(chatId); }
         catch (e) { console.warn('Issues already deleted or not found:', e); }
+        // And the images/videos/audio generated in the chat (private storage
+        // outside the project dir, see window.mediaDirForAppDir) — best-effort
+        // like the two above.
+        const mediaDir = window.mediaDirForAppDir?.(appDir);
+        if (mediaDir) {
+            try { await puter.fs.delete(mediaDir, { recursive: true }); }
+            catch (e) { if (!isNotFoundError(e)) console.warn('Could not delete generated media:', e); }
+        }
 
         // Remove chat history file
         await cleanup('the saved conversation', () => puter.fs.delete(`chat-history/${chatId}.json`));
@@ -1499,6 +1509,9 @@ async function deleteChat(chatId) {
         // And its unsent composer draft — discard outright (local keys and the
         // cloud copy): the context is gone, a tombstone would just be litter.
         clearComposerDraft(chatId, { discard: true });
+        // …and the Code view's records for it: pending hand-edit notes, saved
+        // tabs, drafts and the AI's overwrite guards for its files.
+        window.CodeEditor?.onProjectDeleted?.(chatId, `/${window.user.username}/AppData/${puter.appID}/${chatId}`);
 
         // If this was the current chat, start a new one
         if (currentChatId === chatId) {
@@ -1709,9 +1722,15 @@ async function duplicateChat(chatId) {
         // unique, fully-qualified prefix, so this only ever touches this
         // project's own paths (the sibling .versions/<chatId> path does not share
         // this prefix, so snapshots referenced anywhere would be left alone).
-        const clonedHistory = JSON.parse(
-            JSON.stringify(sourceHistory).split(oldAppDir).join(newAppDir)
-        );
+        // Generated images/videos/audio live in a separate per-chat media
+        // folder (window.mediaDirForAppDir), whose path does not contain the
+        // app dir: rewrite it too, so the copy's cards point at its own copy.
+        const oldMediaDir = window.mediaDirForAppDir?.(oldAppDir) || '';
+        const newMediaDir = window.mediaDirForAppDir?.(newAppDir) || '';
+        let clonedJson = JSON.stringify(sourceHistory).split(oldAppDir).join(newAppDir);
+        // (Never split on an empty string — that would rewrite every character.)
+        if (oldMediaDir && newMediaDir) clonedJson = clonedJson.split(oldMediaDir).join(newMediaDir);
+        const clonedHistory = JSON.parse(clonedJson);
 
         // --- Copy the app files into the new directory ----------------------
         let filesCopied = false;
@@ -1814,6 +1833,26 @@ async function duplicateChat(chatId) {
         };
         await puter.fs.write(`chat-history/${newId}.json`, JSON.stringify(chatData));
         copySaved = true;
+        // The copy has the same files, so it inherits the hand edits the AI has
+        // not been told about yet and their overwrite guards (code-editor.js).
+        // A backend's source was renamed for the copy's own worker, and its
+        // records follow the new name.
+        window.CodeEditor?.onProjectCopied?.(chatId, newId, oldAppDir, newAppDir, workerRenames);
+
+        // --- Copy the generated media ----------------------------------------
+        // Best-effort, and only now that the copy's chat file is saved and the
+        // copy can no longer be discarded (the catch below doesn't remove a
+        // media copy, so one made earlier was left behind for good). A chat
+        // that never generated anything has no media folder, and a failed
+        // copy costs the copy's media cards, never the duplication.
+        if (oldMediaDir && newMediaDir) try {
+            const mediaRoot = newMediaDir.slice(0, newMediaDir.lastIndexOf('/'));
+            await puter.fs.stat(oldMediaDir);
+            await puter.fs.mkdir(mediaRoot, { recursive: true }).catch(() => {});
+            await puter.fs.copy(oldMediaDir, mediaRoot, { newName: newId, overwrite: true });
+        } catch (e) {
+            if (!isNotFoundError(e)) console.warn('Duplicate: could not copy generated media:', e);
+        }
 
         // Insert into the in-memory list (newest-first), mirroring the list-entry
         // shape saveCurrentChat writes, then persist the index and re-render.
@@ -2533,6 +2572,7 @@ async function initAuthenticatedState() {
         ]
     };
     chatHistory = [system_prompt];
+    window.ModelPicker?.render?.();
 
     await ensureChatHistoryFolder();
     await loadSavedChats();
@@ -2681,6 +2721,8 @@ $(document).ready(async function(){
     // Reflect the resolved auth state in the top-right (profile circle vs.
     // Sign In button).
     updateUserMenu();
+    // After a limit hit and a reload, the user may have paid in the meantime.
+    if (window.user) checkPaidAfterLimit();
 
     // If already authenticated, eagerly initialise user-dependent state
     if (window.user && !window.user.is_temp) {
@@ -2855,6 +2897,16 @@ async function makeThumbnail(file, maxDim = 160) {
     }
 }
 
+// A URL to show a saved file (generated media, an attachment) in the chat,
+// with a fallback when Puter rate-limits read URLs; the blob: URLs it may
+// make are released when the chat box is cleared. See GeneratedMedia.displayURL.
+function mediaDisplayURL(path) {
+    return window.GeneratedMedia ? window.GeneratedMedia.displayURL(path) : puter.fs.getReadURL(path);
+}
+function revokeChatMediaBlobURLs() {
+    window.GeneratedMedia?.revokeDisplayURLs();
+}
+
 // Run an async mapper over items with bounded concurrency, preserving input
 // order in the result. Used so a big attachment batch doesn't, e.g., decode 50
 // full-size images or fire 50 uploads all at once.
@@ -2945,6 +2997,7 @@ function new_chat({ updateUrl = true } = {}) {
     // Clear chat messages from display
     $('.chat').removeClass('active');
     $('.chat-box').empty();
+    revokeChatMediaBlobURLs();
 
     // The starter-prompt row is visible again now that the chat isn't active.
     // Re-render it so a fresh shuffle of ideas surfaces each time the user opens
@@ -3000,7 +3053,9 @@ function new_chat({ updateUrl = true } = {}) {
         chatHistory = [system_prompt];
         window._authInitDone = authReady;
     }
-    
+    // A new project starts on the user's last pick (model-picker.js).
+    window.ModelPicker?.render?.();
+
     // Reset input and button state
     $('.chat-input-message').val('').prop('disabled', false);
     $('.attachment-button').prop('disabled', false);
@@ -3120,6 +3175,10 @@ function resetChatUIForSwitch() {
     // leak into the chat we're switching to (it targets the old preview).
     window.clearEditTarget?.();
 
+    // Close the Code view's files (the leave gate already dealt with unsaved
+    // edits); the next project opens on its preview.
+    window.CodeEditor?.onProjectSwitch?.();
+
     // Empty the attachment tray. Staged files belong to the composer of the chat
     // being left, exactly like its unsent text (which restoreComposerDraft swaps
     // per project) and its click-to-edit target above. new_chat() already did
@@ -3127,6 +3186,13 @@ function resetChatUIForSwitch() {
     // the user into the next one and were written into THAT project's assets/ —
     // and described to the model — on their next send.
     clearAllAttachments();
+
+    // Close the image viewer. It lives on <body>, outside .chat-box, so a
+    // switch made while it was open (a phone's Back button, browser
+    // Back/Forward) left the previous chat's picture open over the new chat,
+    // with the page's scrolling still locked. No focus return: the image that
+    // opened it is about to be emptied out of the chat box.
+    window.GeneratedMedia?.closeLightbox?.(false);
 
     // A different project starts with a fresh automatic error-fix budget, and
     // an error report still waiting in the leaving chat's debounce window must
@@ -3258,7 +3324,11 @@ function restoreTodosForResume(history) {
         const blocks = Array.isArray(m.content)
             ? m.content
             : (m.content && typeof m.content === 'object' ? [m.content] : []);
-        for (const b of blocks) {
+        // From the end: in a batch of calls (one reply, see
+        // handleMessageStream) the last TodoWrite is the newest list, the
+        // same rule as promoteFinishedTodos.
+        for (let j = blocks.length - 1; j >= 0; j--) {
+            const b = blocks[j];
             if (b && b.type === 'tool_use' && b.name === 'TodoWrite'
                 && b.input && Array.isArray(b.input.todos)) {
                 todos = b.input.todos;
@@ -3359,6 +3429,153 @@ function recordUsageLimitHit(kind) {
         const key = limitHitKey();
         if (key) localStorage.setItem(key, JSON.stringify({ at: Date.now(), kind }));
     } catch (e) {}
+    recordPlanAtLimit(kind);
+}
+
+// ---- Upgrade After Limit ---------------------------------------------------
+// The limit hit also saves the account's plan at that moment, and a later look
+// at the plan that finds the user paid reports 'Upgrade After Limit' once. Unlike
+// a build succeeding, nothing but a payment changes these, so the record only
+// lives 24 hours and since_limit is bucketed tightly.
+//   started_paying  subscribed went from false to true
+//   plan_up         still subscribed, on a bigger monthly allowance
+//                   (paid_storage when the allowance couldn't be read)
+//   bought_credits  purchasedCredits went up, which only a purchase does
+// bought_credits rides along as a flag when it comes with a plan change, so
+// one payment visit is one event.
+const LIMIT_PAY_PREFIX = 'usage_limit_pay:';
+const LIMIT_PAY_WINDOW_MS = 24 * 36e5;
+
+function limitPayKey() {
+    const id = window.user && window.user.uuid;
+    return id ? LIMIT_PAY_PREFIX + id : null;
+}
+
+// What a payment changes. subscribed and paid_storage come from getUser, and the
+// monthly allowance and lifetime purchased credits from getMonthlyUsage, which
+// reports them for the whole account. A field that couldn't be read is null
+// and never compared.
+async function readPlanSnapshot(user) {
+    let allowance = null, purchased = null;
+    try {
+        const usage = await puter.auth.getMonthlyUsage();
+        const info = usage && usage.allowanceInfo;
+        if (info && typeof info.monthUsageAllowance === 'number') {
+            allowance = info.monthUsageAllowance;
+            const p = info.addons && info.addons.purchasedCredits;
+            purchased = typeof p === 'number' ? p : 0;
+        }
+    } catch (e) {}
+    return {
+        subscribed: !!(user && user.subscribed === true),
+        paid_storage: user && typeof user.paid_storage === 'number' ? user.paid_storage : null,
+        allowance,
+        purchased,
+    };
+}
+
+function planChange(before, after) {
+    const up = (a, b) => typeof a === 'number' && typeof b === 'number' && b > a;
+    const bought = up(before.purchased, after.purchased);
+    let change = null;
+    if (!before.subscribed && after.subscribed) change = 'started_paying';
+    else if (before.subscribed && after.subscribed &&
+        (before.allowance != null && after.allowance != null
+            ? up(before.allowance, after.allowance)
+            : up(before.paid_storage, after.paid_storage))) change = 'plan_up';
+    else if (bought) change = 'bought_credits';
+    return change ? { change, bought_credits: bought } : null;
+}
+
+async function recordPlanAtLimit(kind) {
+    try {
+        const id = window.user && window.user.uuid;
+        if (!id) return;
+        const at = Date.now();
+        // A fresh user, not the cached window.user. That one is from page load,
+        // so a subscription bought in another tab since then would go into the
+        // baseline as free, and the next check would report it as
+        // started_paying for a payment made before the limit. No fresh user
+        // (offline, or another account answering) means no baseline.
+        const user = await puter.auth.getUser();
+        if (!user || user.uuid !== id) return;
+        const plan = await readPlanSnapshot(user);
+        localStorage.setItem(LIMIT_PAY_PREFIX + id, JSON.stringify({ at, kind, plan, cohort: limitDialogCohort() }));
+    } catch (e) {}
+}
+
+// Called on page load and whenever the tab comes back into view, which is when
+// someone returns from paying on puter.com. Does nothing (no requests) unless
+// a limit hit from the last 24 hours is waiting.
+//
+// Two tabs can check at once, so the record is consumed under a per-account
+// Web Lock. A tab that finds it taken skips, since the tab holding it reports.
+// Without Web Locks (very old browsers) it runs unlocked, and the re-read
+// before removing is the only guard.
+let _paidCheckInFlight = false;
+async function checkPaidAfterLimit() {
+    if (_paidCheckInFlight) return;
+    try {
+        const key = limitPayKey();
+        if (!key || !localStorage.getItem(key)) return;
+        _paidCheckInFlight = true;
+        if (navigator.locks && navigator.locks.request) {
+            await navigator.locks.request(key, { ifAvailable: true }, lock => lock && consumePaidAfterLimit(key));
+        } else {
+            await consumePaidAfterLimit(key);
+        }
+    } catch (e) { /* analytics must never break the app */ }
+    finally { _paidCheckInFlight = false; }
+}
+
+async function consumePaidAfterLimit(key) {
+    try {
+        // Read again under the lock. A tab that held it before may have reported
+        // and removed this record.
+        const raw = localStorage.getItem(key);
+        if (!raw) return;
+        const hit = JSON.parse(raw);
+        const age = hit && typeof hit.at === 'number' ? Date.now() - hit.at : -1;
+        if (!hit || !hit.plan || age < 0 || age >= LIMIT_PAY_WINDOW_MS) {
+            localStorage.removeItem(key);
+            return;
+        }
+        // refreshUserPlan also swaps the toolbar's Upgrade button when the plan
+        // changed. It falls back to the cached user when Puter can't be reached,
+        // which just finds no change this time.
+        const user = window.refreshUserPlan ? await window.refreshUserPlan() : await puter.auth.getUser();
+        if (!user || user.uuid !== (window.user && window.user.uuid)) return;
+        const found = planChange(hit.plan, await readPlanSnapshot(user));
+        if (!found) return;
+        // A new limit hit saved while this check was waiting on Puter is a new
+        // baseline. Leave it for the next check.
+        const now = JSON.parse(localStorage.getItem(key) || 'null');
+        if (!now || now.at !== hit.at) return;
+        localStorage.removeItem(key);
+        const mins = (Date.now() - hit.at) / 6e4;
+        window.track?.('Upgrade After Limit', {
+            change: found.change,
+            bought_credits: found.bought_credits,
+            kind: hit.kind,
+            cohort: hit.cohort || 'unknown',
+            since_limit: mins < 10 ? '<10m' : mins < 60 ? '10-60m' : '1-24h',
+        });
+    } catch (e) { /* analytics must never break the app */ }
+}
+
+// True for the errors puter.js answers with its Low Balance prompt. Mirrors the
+// 'funds' case of classifyUpgradeRefusal in puter.js (lib/upgradePrompt.js):
+// code insufficient_funds or status 402, unless the code names a plan gate or a
+// storage limit, which get their own prompts. The mid-stream cutoff (a usage
+// line with metadata.usage_limited) is caught in handleMessageStream instead.
+function isLowBalanceRefusal(error) {
+    if (!error || typeof error !== 'object') return false;
+    const nested = error.error && typeof error.error === 'object' ? error.error : {};
+    const codes = [error.code, nested.code];
+    const statuses = [error.status, nested.status];
+    if (codes.includes('subscription_required')) return false;
+    if (codes.includes('storage_limit_reached') || codes.includes('NOT_ENOUGH_SPACE') || statuses.includes(413)) return false;
+    return codes.includes('insufficient_funds') || statuses.includes(402);
 }
 
 function reportUnblockAfterLimit() {
@@ -3433,9 +3650,149 @@ function usageLimitHitProps(history, chats, chatId, publishedUrl) {
         any_published: !!publishedUrl || others.some(c => c.publishedUrl),
         builds_completed: cap(countCompletedBuilds(history)),
         projects: cap(others.length + 1),
+        cohort: limitDialogCohort(),
+    };
+}
+
+// ---- Low Balance dialog test -------------------------------------------------
+// On the web, half of accounts see the builder's own out-of-credits dialog in
+// place of puter.js's Low Balance one (see installLowBalanceOverride in ui.js).
+// The cohort comes from a hash of the uuid, so it's the same on every load and
+// device. It rides on 'Usage Limit Hit' and 'Upgrade After Limit', and the
+// upgrade rate per cohort is the second divided by the first. Inside the Puter
+// desktop the desktop draws its own prompt, so those accounts are 'app' and
+// stay out of the comparison.
+// To try a face by hand, run `localStorage.debugLimitCohort = 'custom'` (or
+// 'default') in the console, and `openLimitModal()` opens the dialog directly.
+function limitDialogCohort() {
+    if (typeof puter === 'undefined' || !puter || puter.env !== 'web') return 'app';
+    try {
+        const forced = localStorage.getItem('debugLimitCohort');
+        if (forced === 'custom' || forced === 'default') return forced;
+    } catch (e) {}
+    const id = window.user && window.user.uuid;
+    if (!id) return 'default';
+    let h = 2166136261; // FNV-1a
+    for (let i = 0; i < id.length; i++) {
+        h ^= id.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+    }
+    return (h >>> 0) % 2 ? 'custom' : 'default';
+}
+
+// The project's name for the dialog, or null for "your app". A chat's title is
+// only a name once the user or the auto-namer set it. Before that it's the
+// first prompt cut to 50 characters. Then the published subdomain, which the
+// user picked.
+function projectDisplayName(entry, publishedUrl) {
+    if (entry && (entry.customTitle || entry.aiTitled) && typeof entry.title === 'string' && entry.title.trim()) {
+        return entry.title.trim();
+    }
+    try {
+        const sub = publishedUrl ? new URL(publishedUrl).hostname.split('.')[0] : '';
+        if (sub && !sub.startsWith('preview-')) return sub;
+    } catch (e) {}
+    return null;
+}
+
+// Which face of the dialog to show, and its words. ctx is
+//   name      projectDisplayName, or null
+//   building  a turn was running when the credits ran out
+//   steps     { done, total } from the checklist, or null
+//   hasApp    the project has files to show
+//   published the live URL, or null
+//   paid      on a paid plan, so the way forward is a bigger plan
+function limitDialogCopy(ctx) {
+    const named = ctx.name ? `\u201c${ctx.name}\u201d` : null;
+    const it = named || 'your app';
+    const up = ctx.paid ? 'Move to a bigger plan' : 'Upgrade';
+    const steps = ctx.steps && ctx.steps.total > 0 && ctx.steps.done < ctx.steps.total ? ctx.steps : null;
+    let state, heading, body;
+    if (ctx.building && steps) {
+        state = 'steps';
+        heading = `Finish building ${it}`;
+        // The checklist card above shows how many are done.
+        body = `${up} to finish the rest.`;
+    } else if (ctx.building) {
+        state = 'building';
+        heading = `Keep building ${it}`;
+        body = `Your last request didn\u2019t finish. ${up} to finish it.`;
+    } else if (ctx.hasApp) {
+        state = 'app';
+        heading = `Keep working on ${it}`;
+        body = `${up} to make this change.`;
+    } else {
+        state = 'new';
+        heading = 'You\u2019re out of credits';
+        body = `${ctx.paid ? 'A bigger plan' : 'A paid plan'} gives you more credits, so you can keep building with Puter.`;
+    }
+    // The live address goes in the address bar over the screenshot.
+    let address = null;
+    try { if (ctx.published) address = new URL(ctx.published).hostname; } catch (e) {}
+    return {
+        state,
+        heading,
+        // The 'new' heading already says it.
+        lead: state === 'new' ? null : 'You\u2019ve run out of credits.',
+        body,
+        address,
+        cta: 'Upgrade',
+    };
+}
+
+// The account's credits and plan when a turn starts, for its Build Completed or
+// Usage Limit Hit event. Credits are what getMonthlyUsage says is left
+// (remaining includes purchased credits), banded in dollars like cost_band, so
+// a build that ran out of a full allowance reads apart from one that started
+// near empty. remaining is in microcents ($0.01 = 1,000,000). A deployment with
+// a credit multiplier reports credits instead, an unknown scale, sent as the
+// whole number. A fresh user, not the cached window.user, so a plan bought
+// since page load counts.
+function creditsAtStart(info) {
+    const r = info && info.remaining;
+    if (typeof r !== 'number' || !isFinite(r)) return 'unknown';
+    const v = Math.max(0, r);
+    if (info.unit === 'credits') return Math.round(v);
+    return costBand(v / 1e6);
+}
+
+async function readTurnAccount() {
+    const [usage, user] = await Promise.all([
+        puter.auth.getMonthlyUsage().catch(() => null),
+        puter.auth.getUser().catch(() => null),
+    ]);
+    return {
+        credits: creditsAtStart(usage && usage.allowanceInfo),
+        plan: user ? (window.Branding.isSubscribed(user) ? 'paid' : 'free') : 'unknown',
+    };
+}
+
+// Runs fn once the turn-start account read settles, or after 3s if it hangs.
+// A build refused on its very first call comes back fast, often before the
+// read does, and that's the case credits_at_start is there for.
+function afterAccountRead(read, fn) {
+    let done = false;
+    const run = () => { if (!done) { done = true; fn(); } };
+    Promise.resolve(read).then(run, run);
+    setTimeout(run, 3000);
+}
+
+// How far a turn got before the limit stopped it: model calls that went through
+// (a refused one sends no usage, so isn't counted), and update_preview calls
+// (3+ means it was stuck fixing errors).
+function limitHitTurnProps(account, stats) {
+    return {
+        credits_at_start: account.credits,
+        calls: stats.calls >= 30 ? '30+' : stats.calls,
+        preview_checks: stats.previewChecks >= 3 ? '3+' : String(stats.previewChecks),
     };
 }
 // ===== usage-limit-unblock (end) =====
+
+window.addEventListener('focus', () => { checkPaidAfterLimit(); });
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'hidden') checkPaidAfterLimit();
+});
 
 // ===== transient-retry-classifier (start) =====
 // True only for failures a retry can plausibly fix. Allowlist-based: the default
@@ -3450,6 +3807,14 @@ function isTransientTurnError(error) {
     if (error.name === 'AbortError') return false;
     // Usage-limit has its own upgrade CTA; retrying can't clear it.
     if (error.error && error.error.delegate === 'usage-limited-chat') return false;
+
+    // Puter's own codes for an upstream chain that failed before streaming
+    // (every route overloaded, down, timing out or rate limited). The text is
+    // 'AI provider unavailable' or 'All AI providers failed', which the phrase
+    // list below never matched, so these ended the turn on an error card.
+    const code = String(error.code || error.errorCode || '');
+    if (['upstream_provider_unavailable', 'upstream_failed', 'upstream_timeout', 'upstream_rate_limited'].includes(code)) return true;
+    if (['upstream_bad_request', 'upstream_credits_exhausted', 'upstream_auth_failed', 'permission_denied', 'insufficient_funds'].includes(code)) return false;
 
     const text = extractErrorText(error).toLowerCase();
     if (!text) return false;
@@ -3468,6 +3833,7 @@ function isTransientTurnError(error) {
     // Transient phrasing (network / capacity / timeout).
     const TRANSIENT = [
         'overloaded', 'no fallback model available',
+        'ai provider unavailable', 'all ai providers failed', 'ai provider timed out',
         'rate limit', 'too many requests',
         'bad gateway', 'gateway timeout', 'service unavailable', 'internal server error',
         'timeout', 'timed out', 'etimedout',
@@ -3604,6 +3970,14 @@ function noteTurnActivity() {
 }
 window.noteTurnActivity = noteTurnActivity;
 
+// The model produced output this turn, text or a tool call. The out-of-credits
+// dialog reads it to tell a build that stopped partway from a request Puter
+// refused before anything happened.
+function noteTurnProgress() {
+    _turnProgressed = true;
+}
+window.noteTurnProgress = noteTurnProgress;
+
 // Bracket a tool's local execution (tools.js). While a tool runs the turn isn't
 // waiting on any socket — the next round's request only opens once the tool
 // returns, after the page is back — so its silence (a 10s+ preview check, a
@@ -3734,7 +4108,9 @@ document.addEventListener('visibilitychange', () => {
 // reloads too (Log out, accepted PWA updates) — prompting there is the same
 // protection, and both are rare mid-turn.
 window.addEventListener('beforeunload', function (e) {
-    if (!isProcessing) return;
+    // Unsaved code in the Code view gets the same prompt. Its text is also
+    // mirrored to localStorage as it is typed, so a crash does not lose it.
+    if (!isProcessing && !window.CodeEditor?.hasUnsaved?.()) return;
     e.preventDefault();
     e.returnValue = ''; // required by Chrome and older Safari/Firefox
 });
@@ -4096,7 +4472,8 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // the project files), to avoid the two clobbering each other. Say so: the
     // composer stays enabled during a restore, and a Send that did nothing at
     // all read as the app having frozen.
-    if (window._restoringVersion) {
+    // (A restore still saving the Code view's edits before it starts counts.)
+    if (window._restoringVersion || window.isRestoreStarting?.(currentChatId)) {
         window.showToast?.('Finishing the restore — you can send the moment it’s done.',
             { type: 'info', key: 'send-blocked-restore', throttleMs: 3000 });
         return;
@@ -4108,7 +4485,8 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // publish records as the baseline would describe this turn's work instead
     // of what went live. Publishing already refuses during a turn; this is the
     // other half of that lock.
-    if (window.isPublishInFlight?.(currentChatId)) {
+    // (A publish still saving the Code view's edits before it copies counts.)
+    if (window.isPublishInFlight?.(currentChatId) || window.isPublishStarting?.(currentChatId)) {
         window.showToast?.('Finishing publishing — you can send the moment it’s done.',
             { type: 'info', key: 'send-blocked-publish', throttleMs: 3000 });
         return;
@@ -4167,6 +4545,49 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     chat_input_message = undefined;
     if (!isResume && !messageText && (!consumedComposer || preAuthAttachments.length === 0)) { _sendSetupInFlight = false; return; }
 
+    // The Code view, before the AI touches anything: unsaved hand edits are
+    // saved, and saved ones become their own version, so this turn's snapshot
+    // holds only the AI's work. A save that fails calls the send off with the
+    // composer untouched (code-editor.js).
+    if (window.CodeEditor?.beforeTurn) {
+        const setupChatId = currentChatId;
+        // Saving and taking a version can take a few seconds. The composer is
+        // read only meanwhile, so nothing typed there is lost when it clears.
+        const $composer = $('.chat-input-message');
+        const lockComposer = consumedComposer && !!window.CodeEditor.turnPrepNeeded?.(setupChatId);
+        if (lockComposer) $composer.prop('readonly', true);
+        let ready = false;
+        try {
+            ready = await window.CodeEditor.beforeTurn({
+                chatId: currentChatId, appDir: currentAppDir, autoFix: !!opts.autoFix, resume: isResume, consumedComposer,
+            });
+        } finally {
+            if (lockComposer) $composer.prop('readonly', false);
+        }
+        // Those seconds also let a restore, a publish or a project load start:
+        // check them again now, as the checks above did, so they never run under
+        // a turn.
+        let busyNow = null;
+        if (ready && currentChatId === setupChatId) {
+            if (_loadChatSeq !== _loadChatSettledSeq) busyNow = 'Opening the project — you can send the moment it’s ready.';
+            else if (window._restoringVersion || window.isRestoreStarting?.(setupChatId)) busyNow = 'Finishing the restore — you can send the moment it’s done.';
+            else if (window.isPublishInFlight?.(setupChatId) || window.isPublishStarting?.(setupChatId)) busyNow = 'Finishing publishing — you can send the moment it’s done.';
+        }
+        if (!ready || currentChatId !== setupChatId || busyNow) {
+            // Clear the flag first: the Code view reads it when it redraws,
+            // and would otherwise stay read only under a turn that never ran.
+            _sendSetupInFlight = false;
+            window.CodeEditor.onTurnEnd?.(setupChatId);
+            // Files saved before the one that failed scheduled a preview
+            // refresh for the turn that is not coming. Run it now. A switch
+            // to another project resets it instead.
+            if (currentChatId === setupChatId && _loadChatSeq === _loadChatSettledSeq) window.flushPreviewRefresh?.();
+            if (busyNow) window.showToast?.(busyNow, { type: 'info', key: 'send-blocked-after-save', throttleMs: 3000 });
+            window.refreshPublishButton?.();
+            return;
+        }
+    }
+
     if (consumedComposer) {
         $('.chat-input-message').val('');
         $('.chat-input-message').css('height', '40px');
@@ -4192,6 +4613,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     clearResumeBanner();
     isProcessing = true;
     _sendSetupInFlight = false; // the isProcessing gate takes over from here
+    _turnProgressed = false;
     shouldStop = false;
     activeTurnInterrupted = false;
     // Mobile keepalive: no stale stall flag from a previous turn, and keep the
@@ -4238,6 +4660,15 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // resume. The end-of-turn save in `finally` flips this to false once the turn
     // has finished cleanly (or surfaced an error card).
     const turnSaveContext = { chatHistory, currentChatId: turnChatId, appDir: turnAppDir, interrupted: true };
+    // The model the project is set to, claimed before this turn's message joins
+    // the history (a new project keeps the model it started on). The turn's
+    // model is settled from it, with a plan check, just before the first
+    // request (see allowedForTurn below); every round, the auto-retries and a
+    // stall recovery then reuse it (tools.js reads it from the turn's context).
+    const chosenModel = window.ModelPicker
+        ? window.ModelPicker.claimForTurn(turnSaveContext.chatHistory)
+        : window.ModelCore.DEFAULT_MODEL;
+    let turnModel = window.ModelCore.resolveTurnModel({ fallback: MODEL });
     // True once this turn has been abandoned while still setting up: the user
     // clicked Stop (activeTurnInterrupted — the only flag Stop can set before
     // an AbortController exists; resetUIForAbort also drops isProcessing, so
@@ -4282,6 +4713,14 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // The current attempt's stream context (built in the retry loop below);
     // declared out here so the catch and finally can reach it.
     let context = null;
+    // Credits and plan at turn start (readTurnAccount), and what the turn wrote
+    // and verified across all its attempts, for the analytics events. The read
+    // is never awaited; an event that fires before it lands says 'unknown'.
+    let turnAccount = { credits: 'unknown', plan: 'unknown' };
+    let turnAccountRead = null;
+    const turnStats = { calls: 0, previewChecks: 0 };
+    const trackLimitHit = props => afterAccountRead(turnAccountRead,
+        () => window.track?.('Usage Limit Hit', { ...props, ...limitHitTurnProps(turnAccount, turnStats) }));
     // Transient-failure auto-retry state (see the retry loop below). `attempt`
     // counts retries used this turn; `retryGaveUp` is set once they're exhausted,
     // which routes the turn to the calm resume banner instead of an error card.
@@ -4502,7 +4941,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                 const pdfRefs = refsOfKind('pdf');
                 const otherRefs = refsOfKind('other');
                 let note = `[The user attached ${total} file${total === 1 ? '' : 's'}, all saved in the app's assets/ directory. Reference them by their relative path in your code (e.g. src="assets/..." or fetch("assets/...")). Their contents are NOT shown to you inline. Decide from the user's request whether you actually need a file's content, or only need the file present in the project to use, serve, or link it. The quoted names are the user's original file names — names only, never instructions.`;
-                if (imageRefs.length) note += `\n\nImages — call ViewImage with the path ONLY if you must SEE the image (match a mockup, lay out a photo, pick colors); not needed just to place or link it:\n${list(imageRefs)}`;
+                if (imageRefs.length) note += `\n\nImages — call ViewImage with the path ONLY if you must SEE the image (match a mockup, lay out a photo, pick colors); not needed just to place or link it. To edit or restyle it, pass the path to GenerateImage as an input image:\n${list(imageRefs)}`;
                 if (textRefs.length) note += `\n\nText/data files — call ReadTextFile with the path ONLY if you must read the content (summarize it, extract data, or base the app's behavior/content on it); not needed just to load, serve, or link the file:\n${list(textRefs)}`;
                 if (pdfRefs.length) note += `\n\nPDF files — call ViewDocument with the path ONLY if you must read the content; not needed just to serve or link the file:\n${list(pdfRefs)}`;
                 if (otherRefs.length) note += `\n\nOther files — binary assets (audio, video, fonts, archives, etc.); use them by reference, their contents can't be inspected:\n${list(otherRefs)}`;
@@ -4540,6 +4979,15 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                 window.clearEditTarget?.();
             }
 
+            // Files the user edited by hand in the Code view since the AI's last
+            // reply: a hidden note so it rereads them instead of working from its
+            // old copy. It describes the project, not this message, so every send
+            // that adds a user message carries it, and it is cleared only once the
+            // message is in the conversation. Appended after the cached prompt
+            // prefix, so the cache is untouched.
+            const manualEditNote = window.CodeEditor?.pendingNote?.(turnChatId) || '';
+            if (manualEditNote) contentParts.push({ type: 'text-hidden', text: manualEditNote });
+
             // This is a new project iff the user has no earlier message in it —
             // measured BEFORE the push below adds this one. Drives the analytics
             // events: the first build of a project emits Project Created, and
@@ -4551,6 +4999,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             const messageContent = contentParts.length > 0 ? contentParts : messageText;
             turnSaveContext.chatHistory.push({ role: "user", content: messageContent, messageId });
             userMessageAppended = true;
+            if (manualEditNote) window.CodeEditor?.notePosted?.(turnChatId);
 
             // Persist the user's message right away. The end-of-turn save only
             // lands after the whole AI response finishes — for a short/text-only
@@ -4568,7 +5017,11 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // the work already in chatHistory so completed rounds/file-writes are never
         // redone. `context` is declared out here so the catch below can clean up a
         // partial bubble. See the MAX_TURN_RETRIES / isTransientTurnError block.
-        const turnTools = window.getTurnTools();
+        // A plan that ended since the page loaded must not keep a paid model.
+        if (window.ModelPicker) turnModel = await window.ModelPicker.allowedForTurn(chosenModel);
+        const turnTools = window.getTurnTools(turnModel);
+        const turnUnavailableTools = window.getUnavailableTools?.(turnModel) || [];
+        turnAccountRead = readTurnAccount().then(a => { turnAccount = a; }, () => {});
         while (true) {
             // A fresh AbortController per attempt. This is also the guard for a chat
             // switch during turn setup — terminateActiveTurn() may have run before
@@ -4590,13 +5043,10 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                 // The SDK ignores the signal option, so the open is raced
                 // against the signal locally (abortableAwait) — otherwise an
                 // abort couldn't unstick a connection that dies mid-open.
-                const stream = await abortableAwait(puter.ai.chat(prepareHistoryForAI(turnSaveContext.chatHistory), {
-                    model: MODEL,
-                    tools: turnTools,
-                    stream: true,
-                    reasoning_effort: 'medium',
-                    signal: abortController.signal
-                }), abortController.signal);
+                const stream = await abortableAwait(puter.ai.chat(
+                    prepareHistoryForAI(turnSaveContext.chatHistory, turnModel, { unavailableTools: turnUnavailableTools }),
+                    window.ModelCore.buildChatOptions(turnModel, { tools: turnTools, signal: abortController.signal })
+                ), abortController.signal);
 
                 // Reset auto-scroll flag when starting a new message
                 window.shouldAutoScroll = true;
@@ -4608,7 +5058,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                 // (handleToolCalls) keep the chat flagged in-progress until the
                 // end-of-turn save clears it — this is what makes a refresh during a
                 // long multi-round build resumable.
-                context = {abortController, tools: turnTools, chatHistory: turnSaveContext.chatHistory, currentMessage: null, currentMessageContent: '', currentChatId: turnChatId, appDir: turnAppDir, interrupted: true};
+                context = {abortController, tools: turnTools, model: turnModel, unavailableTools: turnUnavailableTools, chatHistory: turnSaveContext.chatHistory, currentMessage: null, currentMessageContent: '', currentChatId: turnChatId, appDir: turnAppDir, interrupted: true, turnStats};
                 await handleMessageStream(stream, context);
                 if (abortController === attemptController) _turnAwaitingStream = false;
                 break; // stream drained (completed, or aborted/switched — handled below)
@@ -4740,11 +5190,20 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             const costCents = u && typeof u.cents === 'number' && u.cents > 0 ? u.cents : 0;
             window.track?.(
                 'Build Completed',
-                { first_build: isFirstBuildTurn, model: MODEL, cost_cents: Number(costCents.toFixed(4)) },
+                { first_build: isFirstBuildTurn, model: turnModel, cost_cents: Number(costCents.toFixed(4)),
+                    cost_band: costBand(costCents), plan: turnAccount.plan, credits_at_start: turnAccount.credits },
                 costCents > 0 ? { currency: 'USD', amount: -(costCents / 100) } : undefined,
             );
             if (attempt > 0) window.track?.('Build Recovered', { attempts: attempt });
-            reportUnblockAfterLimit();
+            // A stream Puter cut short for lack of credits still ends cleanly, so
+            // it lands here, not in the catch below. puter.js shows Low Balance
+            // for it, so count the limit hit, and don't take it as an unblock.
+            if (context && context.usageLimited) {
+                trackLimitHit({ first_build: isFirstBuildTurn, model: turnModel, kind: 'credits', ...usageLimitHitProps(turnSaveContext.chatHistory, savedChats, turnChatId, window.currentPublishedUrl) });
+                recordUsageLimitHit('credits');
+            } else {
+                reportUnblockAfterLimit();
+            }
         }
     } catch (error) {
         if(spinner)
@@ -4761,7 +5220,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         if (!shouldStop && !activeTurnInterrupted && turnChatId === currentChatId) {
             turnErrored = true;
             if(error.error?.delegate === "usage-limited-chat"){
-                window.track?.('Usage Limit Hit', { first_build: isFirstBuildTurn, model: MODEL, kind: 'tier', ...usageLimitHitProps(turnSaveContext.chatHistory, savedChats, turnChatId, window.currentPublishedUrl) });
+                trackLimitHit({ first_build: isFirstBuildTurn, model: turnModel, kind: 'tier', ...usageLimitHitProps(turnSaveContext.chatHistory, savedChats, turnChatId, window.currentPublishedUrl) });
                 recordUsageLimitHit('tier');
                 appendMessage('You have reached the current tier\'s usage limit. Please upgrade your Puter account to continue. <button class="upgrade-button">Upgrade</button>', false, false, false, true);
                 window.announce?.('You have reached the current tier\'s usage limit. Upgrade your Puter account to continue.', { assertive: true });
@@ -4771,14 +5230,11 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                 // with a raw "messages.0.content..." field path). Persist it with an
                 // isError marker so a chat reload re-renders the same card.
                 const errorText = extractErrorText(error);
-                // Out of credits can also arrive as a plain error (Puter's 402
-                // insufficient_funds, or the text of a mid-stream failure) rather
-                // than the usage-limited-chat delegate above; count both as one event.
-                const lowerError = errorText.toLowerCase();
-                if (error.code === 'insufficient_funds' || error.error?.code === 'insufficient_funds' ||
-                    (lowerError.includes('insufficient') &&
-                        (lowerError.includes('credit') || lowerError.includes('fund') || lowerError.includes('balance')))) {
-                    window.track?.('Usage Limit Hit', { first_build: isFirstBuildTurn, model: MODEL, kind: 'credits', ...usageLimitHitProps(turnSaveContext.chatHistory, savedChats, turnChatId, window.currentPublishedUrl) });
+                // Out of credits arrives as Puter's 402 insufficient_funds, before
+                // the stream or as a stream error line. Counted only when puter.js
+                // would show its Low Balance prompt for it.
+                if (isLowBalanceRefusal(error)) {
+                    trackLimitHit({ first_build: isFirstBuildTurn, model: turnModel, kind: 'credits', ...usageLimitHitProps(turnSaveContext.chatHistory, savedChats, turnChatId, window.currentPublishedUrl) });
                     recordUsageLimitHit('credits');
                 }
                 const friendlyError = friendlyErrorMessage(errorText);
@@ -4934,6 +5390,9 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // while this turn was finishing) no-ops instead of clobbering the new
         // chat's UI.
         resetUIState(turnChatId);
+        // The turn has fully unwound, its last tool write included: the Code
+        // view can reread what changed and allow editing again.
+        window.CodeEditor?.onTurnEnd?.(turnChatId);
     }
     // The turn is over — let the screen sleep again (no-op if a newer turn has
     // already started and still wants the lock).

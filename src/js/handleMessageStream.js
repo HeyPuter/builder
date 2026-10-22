@@ -56,6 +56,18 @@ function recordUsageChunk(context, completion) {
         cents: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0,
     });
     acc.cents += num(u.usd_cents);
+    // Token keys are each vendor's own. Claude's (and the Responses API's)
+    // input_tokens/output_tokens are read as before. Routes that name them
+    // otherwise (prompt_tokens, Gemini's counts) fall back to Puter's
+    // provider-neutral usageDetails, which carries at least the totals.
+    const d = completion.usageDetails;
+    if (!('input_tokens' in u) && !('output_tokens' in u) && d && typeof d === 'object') {
+        acc.input += num(d.inputTokens);
+        acc.output += num(d.outputTokens);
+        acc.cacheRead += num(d.cacheReadTokens);
+        acc.cacheWrite += num(d.cacheWrite5mTokens) + num(d.cacheWrite1hTokens);
+        return;
+    }
     acc.input += num(u.input_tokens);
     acc.output += num(u.output_tokens);
     acc.cacheRead += num(u.cache_read_input_tokens);
@@ -117,11 +129,15 @@ function flushTurnUsage(context) {
 // message out of whatever shape the chunk carries (including a wrapped
 // '400 {...}' envelope). The structured `.error` payload is preserved on the
 // thrown object so downstream checks (e.g. the usage-limit delegate branch)
-// keep working; friendlyErrorMessage() rewrites the text at display time.
+// keep working, and so are the chunk's own code and status, which
+// isLowBalanceRefusal reads. friendlyErrorMessage() rewrites the text at
+// display time.
 function normalizeStreamError(completion) {
     const err = new Error(extractErrorText(completion));
-    if (completion && typeof completion === 'object' && completion.error != null) {
-        err.error = completion.error;
+    if (completion && typeof completion === 'object') {
+        if (completion.error != null) err.error = completion.error;
+        if (completion.code != null) err.code = completion.code;
+        if (completion.status != null) err.status = completion.status;
     }
     return err;
 }
@@ -205,6 +221,31 @@ async function* abortableStream(stream, signal) {
 }
 // ===== abortable-stream (end) =====
 
+// A later call in this turn failed (refused for credits, errored, or the turn
+// was stopped) while this stream sat in its tool round. Puter sends a call's
+// usage chunk last, after its tool_use, so it's still unread here, and without
+// it the call's cost never reaches the chat's saved total. Read what's left of
+// the stream for usage before unwinding. It's normally already buffered; one
+// shared deadline per turn keeps a dead connection from stalling the unwind
+// once per tool round.
+const DRAIN_USAGE_MS = 1500;
+async function drainUsage(stream, context) {
+    try {
+        const it = stream && stream[Symbol.asyncIterator] && stream[Symbol.asyncIterator]();
+        if (!it || !it.next) return;
+        if (!context.drainDeadline) context.drainDeadline = Date.now() + DRAIN_USAGE_MS;
+        while (true) {
+            const left = context.drainDeadline - Date.now();
+            if (left <= 0) return;
+            let timer;
+            const timeout = new Promise(resolve => { timer = setTimeout(() => resolve(null), left); });
+            const r = await Promise.race([it.next(), timeout]).finally(() => clearTimeout(timer));
+            if (!r || r.done) return;
+            if (r.value && r.value.type === 'usage') recordUsageChunk(context, r.value);
+        }
+    } catch (_) { /* best-effort: the turn's own error is what surfaces */ }
+}
+
 /**
  *
  * @param {*} stream
@@ -224,11 +265,60 @@ async function handleMessageStream(stream, context) {
 
     // Local ownership matters: recursive tool rounds and stale turns must not
     // tear down another stream's preview. Always dispose before a tool handoff.
+    // This model call, counted once into the turn's stats (the Usage Limit Hit
+    // event's calls) at its first tool_use or its usage chunk. Not at usage
+    // alone: usage comes last, after the tool rounds this stream recursed into,
+    // so a later call refused for credits would leave every earlier one
+    // uncounted.
+    let callCounted = false;
+    const countCall = () => {
+        if (callCounted || !context.turnStats) return;
+        callCounted = true;
+        context.turnStats.calls++;
+    };
     let thinkingPreview = null;
     const clearThinking = () => {
         thinkingPreview?.remove();
         thinkingPreview = null;
     };
+    // This reply's tool calls, run together once the reply is complete: at its
+    // usage line, which Puter writes last, or at the end of the stream. Running
+    // each call the moment it arrived started the next model round before the
+    // rest of the reply was read, so a reply with several calls (GPT and
+    // Gemini make them, and so does Opus when Puter serves it through a
+    // reseller) ran calls 2..N after the turn had moved on: late, out of
+    // order, over newer files. A reply that ends in an error or an abort drops
+    // its calls unrun. They were never stored, so nothing is left dangling.
+    // No timer runs them early: a healthy reply can be silent for minutes while
+    // its next call is written (Puter sends each call only once complete), so
+    // silence never means the reply is done. A connection that dies mid-reply
+    // is ended by Stop or the stall watchdog, and Resume continues the build.
+    let pendingTools = [];
+    const runPendingTools = async (stopReason) => {
+        const batch = pendingTools;
+        pendingTools = [];
+        if (batch.length === 0) return null;
+        // Cut off at the output limit: the last call's arguments are
+        // incomplete (Puter hands them over as {}), so it is answered with an
+        // error instead of run (see CUT_OFF_TOOL_ERROR in tools.js).
+        if (stopReason === 'max_tokens' || stopReason === 'length') batch[batch.length - 1]._cutOff = true;
+        // Save before and after a tool call incase the user quits. All of the
+        // reply's narration, including text that came after a call, becomes one
+        // message ahead of the calls.
+        saveCurrentMessage(context);
+        let result;
+        try {
+            // One call stays a plain object, as before, so a Claude history is
+            // stored and sent byte for byte as it always was.
+            result = await handleToolCalls(batch.length === 1 ? batch[0] : batch, true, context);
+        } catch (err) {
+            await drainUsage(stream, context);
+            throw err;
+        }
+        saveCurrentMessage(context);
+        return result;
+    };
+    let toolRoundEnded = false;
     try {
         // Abort-aware iteration: puter.ai.chat ignores the signal option, so this
         // race is what actually makes an abort take effect while the stream is
@@ -267,6 +357,7 @@ async function handleMessageStream(stream, context) {
                 // Empty text chunks are sometimes keepalives, not an answer yet.
                 if (typeof completion.text !== 'string' || !completion.text) continue;
                 clearThinking();
+                window.noteTurnProgress?.();
                 if (!context.currentMessage) {
                     // While the progress checklist has unfinished items, suppress
                     // mid-turn narration from the UI. The text still goes into
@@ -308,19 +399,26 @@ async function handleMessageStream(stream, context) {
                 autoScrollTrigger(context);
             }
             if (completion.type === "usage") {
+                countCall();
                 recordUsageChunk(context, completion);
-            }
-            if (completion.type === "tool_use") {
-                clearThinking();
-                startSpinnerStub();
-
-                // Save before and after a tool call incase the user quits
-                saveCurrentMessage(context);
-                const result = await handleToolCalls(completion, true, context);
-                saveCurrentMessage(context);
-                if (result.error || shouldStop) {
+                // Puter capped this response at what the balance could pay for
+                // and puter.js showed Low Balance. Read by sendChatMessage.
+                if (completion.metadata && completion.metadata.usage_limited === true) {
+                    context.usageLimited = true;
+                }
+                // The reply is complete: run its tool calls (see pendingTools).
+                const result = await runPendingTools(completion.stopReason || completion.finish_reason);
+                if (result && (result.error || shouldStop)) {
+                    toolRoundEnded = true;
                     break;
                 }
+            }
+            if (completion.type === "tool_use") {
+                countCall();
+                clearThinking();
+                window.noteTurnProgress?.();
+                startSpinnerStub();
+                pendingTools.push(completion);
             }
         }
     } finally {
@@ -329,6 +427,12 @@ async function handleMessageStream(stream, context) {
         clearThinking();
     }
     if (isAborted(context.abortController) || isStaleTurn(context)) return;
+    // A stream that ended without its usage line still ran to its end (an
+    // error line would have thrown above), so its calls run now.
+    if (!toolRoundEnded && pendingTools.length > 0) {
+        await runPendingTools();
+        if (isAborted(context.abortController) || isStaleTurn(context)) return;
+    }
     if (recurser) {
         // The top-level stream has drained — the entire turn (every recursive
         // round via handleToolCalls) is done generating. Tear down the trailing

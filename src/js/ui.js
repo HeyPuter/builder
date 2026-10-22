@@ -138,6 +138,11 @@ function renderSkeleton() {
             h += `<div class="chat-input-message-actions">`;
                 h += `<button class="attachment-button" title="Attach files from your computer">${attachment_svg}</button>`;
                 h += `<input type="file" class="attachment-file-input" accept="${ATTACHMENT_ACCEPT}" multiple style="display:none">`;
+                // The AI model picker (js/model-picker.js), shown once the
+                // account is known; its label and state come from render().
+                if (window.FEATURE_FLAGS?.modelPicker) {
+                    h += `<button type="button" class="model-picker-btn" aria-haspopup="dialog" aria-expanded="false" hidden><span class="model-picker-label">Opus 5.5</span><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg></button>`;
+                }
                 // The label flips to "Stop" while a turn runs (updateSendButtonState).
                 h += `<button class="send" disabled title="Send message" aria-label="Send message">${send_svg}</button>`;
             h += `</div>`;
@@ -259,6 +264,9 @@ function updateUserMenu() {
     // Reconcile the theme when auth resolves or changes. Signed-out users
     // follow the system even if this browser has a saved account preference.
     applyTheme(getEffectiveTheme());
+    // The composer's model picker follows the account too (hidden, locked or
+    // open), including when a plan changes.
+    window.ModelPicker?.render?.();
     const $container = $('.user-menu-container');
     if (!$container.length) return;
     const loggedIn = !!(window.user && !window.user.is_temp);
@@ -404,6 +412,9 @@ window.DEVICE_LABELS = { desktop: 'Desktop', tablet: 'Tablet', mobile: 'Mobile' 
 // and the preview toolbar's overflow ("…") menu. Globals because the switcher is
 // rendered into two different toolbars built by separate functions.
 window.monitor_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`;
+// The preview toolbar's Preview | Code toggle (see js/code-editor.js).
+window.eye_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>`;
+window.code_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>`;
 window.bubble_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
 window.more_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>`;
 
@@ -1090,6 +1101,9 @@ async function runPreviewRefresh($frame, baseUrl, ownerChatId, seq) {
     window._notifyPreviewReloadCommit?.();
     window.resetPreviewErrorDedup?.();
     $frame.attr('src', url);
+    // The refresh restamps open pages on disk (cache-bust tokens, the install
+    // block). The Code view rereads them so its copies stay current.
+    window.CodeEditor?.onPreviewReloaded?.(ownerChatId);
 
     // The live site just changed, so its auto-captured screenshot is (or soon
     // will be) regenerated — refresh this project's sidebar thumbnail. Keyed to
@@ -1161,6 +1175,7 @@ window.showAppPreview = function(url, opts) {
                     </div>
                     <div class="preview-toolbar-center">
                         ${window.viewSegHtml('view-seg-preview')}
+                        ${window.FEATURE_FLAGS.codeEditor ? `<div class="pane-mode" role="group" aria-label="Show the app or its code"><button type="button" class="pane-mode-btn active" data-mode="preview" aria-pressed="true">${window.eye_svg}<span>Preview</span></button><button type="button" class="pane-mode-btn" data-mode="code" aria-pressed="false">${window.code_svg}<span>Code</span><span class="pane-mode-dot" aria-label="Unsaved changes" hidden></span></button></div>` : ''}
                         <button class="preview-reload" title="Reload">${window.reload_svg}</button>
                     </div>
                     <div class="preview-toolbar-right">
@@ -1264,6 +1279,8 @@ window.hideAppPreview = function() {
     window.closeSharePanel?.();
     window.closeIssuesPanel?.();
     window.closeDevicePanel?.();
+    // The Code view goes with the pane; the next project opens on its preview.
+    window.CodeEditor?.onPaneHidden?.();
     window.refreshPublishButton?.();
 };
 
@@ -1419,6 +1436,19 @@ function disarmSelectUI() {
     $('.preview-select-element').removeClass('active').attr('aria-pressed', 'false');
     $('body').removeClass('preview-selecting');
 }
+
+// Disarm the picker inside the app too. disarmSelectUI only resets the
+// toolbar, which left the bridge armed and the user's next click in the app
+// swallowed. The Code view calls this when it covers the preview. Any pending
+// chip is kept.
+window.disarmPreviewPicker = function () {
+    if ($('.preview-select-element').hasClass('active')) {
+        const frame = $('.preview-frame')[0];
+        try { frame && frame.contentWindow && frame.contentWindow.postMessage({ type: 'puter-select-mode', enabled: false }, '*'); }
+        catch (e) { /* best-effort */ }
+    }
+    disarmSelectUI();
+};
 
 // Human-readable chip label, e.g. <button> .cta "Sign up". All values are
 // untrusted iframe data, so every interpolation is HTML-escaped.
@@ -1819,6 +1849,7 @@ let _suggestedPublishName = null;
 window.refreshPublishButton = function () {
     const $btn = $('.preview-publish-btn');
     if (!$btn.length) return;
+    window.syncPreviewBadge?.();
     const st = window.computePublishState({
         publishedUrl: window.currentPublishedUrl,
         publishedVersionId: window.currentPublishedVersionId,
@@ -1826,6 +1857,12 @@ window.refreshPublishButton = function () {
         dirtySinceSnapshot: window._projectDirtySinceSnapshot,
     });
     $btn.attr('data-state', st.state);
+    // Read whether the live site has the badge now, not when the popover
+    // opens, so the badge box shows its real state from the first frame. One
+    // read per release (cached). Free users' box is always unticked.
+    if (window.currentPublishedPath && window.Branding?.isSubscribed(window.user)) {
+        readLiveBadge(window.currentPublishedPath);
+    }
     $btn.attr('title',
         st.state === 'clean' ? 'Your site is live — view or update it'
             : st.state === 'dirty' ? 'Publish your latest changes'
@@ -1882,6 +1919,8 @@ function setPublishBusy(busy, chatId) {
         $action.html(_publishActionHTML);
         _publishActionHTML = null;
     }
+    // The Code view's Save waits while a publish copies the files.
+    window.CodeEditor?.onPublishBusyChange?.();
 }
 
 // A build turn or a version restore in flight blocks publishing: we'd otherwise
@@ -1891,9 +1930,18 @@ function setPublishBusy(busy, chatId) {
 // at every turn/restore boundary). Returns a short reason token, or null.
 function publishBlockedReason() {
     if (typeof isProcessing !== 'undefined' && isProcessing) return 'task';
-    if (window._restoringVersion) return 'restore';
+    // A send being set up (it may be saving code and taking a version first)
+    // is about to start a turn.
+    if (typeof _sendSetupInFlight !== 'undefined' && _sendSetupInFlight) return 'task';
+    // A restore saving the Code view's edits before it starts counts as one.
+    if (window._restoringVersion || window.isRestoreStarting?.(currentChatId)) return 'restore';
     return null;
 }
+
+// Projects whose publish is saving the Code view's edits before it starts
+// (see doPublish). Sends and restores wait for these as for a publish.
+const _publishStarting = new Set();
+window.isPublishStarting = function (chatId) { return _publishStarting.has(chatId); };
 
 // The inline "you can publish once this finishes" row shown in place of the
 // primary action while a turn/restore runs. Spinner inherits currentColor.
@@ -1962,6 +2010,7 @@ function renderPublishPanel() {
                 `<input type="text" class="publish-name-input" value="${suggested}" placeholder="your-app" aria-label="Site address (before .puter.site)" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off">` +
                 '<span class="publish-address-fix">.puter.site</span>' +
             '</div>' +
+            publishBadgeToggleHtml() +
             (blocked
                 ? publishWaitingHtml(blocked)
                 : `<button class="publish-action" data-action="publish">${globe}<span>Publish</span></button>`);
@@ -1985,13 +2034,13 @@ function renderPublishPanel() {
                 `<button class="publish-address-save" title="Save address">${window.check_svg}</button>` +
                 `<button class="publish-address-cancel" title="Cancel">${window.x_svg}</button>` +
             '</div>' +
-            (st.dirty
+            publishBadgeToggleHtml() +
+            (st.dirty || badgeChangePending(currentChatId, window.currentPublishedPath)
                 ? (blocked
                     ? publishWaitingHtml(blocked)
                     : `<button class="publish-action" data-action="publish">${globe}<span>Publish changes</span></button>`)
                 : `<div class="publish-uptodate">${window.check_svg}<span>Up to date</span></div>`) +
-            (ago ? `<div class="publish-meta">Last published ${htmlEscape(ago)}</div>` : '') +
-            publishBrandingHtml({ live: true, dirty: st.dirty });
+            (ago ? `<div class="publish-meta">Last published ${htmlEscape(ago)}</div>` : '');
     }
 
     $panel.find('.publish-panel-header span').text(title);
@@ -2054,6 +2103,9 @@ function openPublishPanel() {
     const $nameInput = $panel.find('.publish-name-input');
     if ($nameInput.length) { $nameInput.trigger('focus'); $nameInput[0].select(); }
     else $panel.trigger('focus');
+    // The badge box is locked or not by plan. Ask Puter again: the user may
+    // have upgraded in another tab. A changed plan re-renders the popover.
+    refreshUserPlan();
 }
 
 function closePublishPanel() {
@@ -2204,21 +2256,76 @@ async function stripBrandingFromRelease(dir) {
     }
 }
 
-// Whether the LIVE release still loads the badge, by path → true/false. Read
-// only for subscribers, who may have published before they upgraded; the
-// popover then offers to publish again. A path is a release directory, and a
-// release never changes once served, so an answer never goes stale.
+// Whether the LIVE release loads the badge, by path → 'badge' | 'none'. A path
+// is a release directory, and a release never changes once served, so an
+// answer never goes stale. Missing while the read is in flight (or when it
+// failed); the popover re-renders when it lands.
 const _liveBadgeByPath = new Map();
-function liveReleaseHasBadge(path) {
-    if (!path) return false;
-    if (_liveBadgeByPath.has(path)) return _liveBadgeByPath.get(path);
-    _liveBadgeByPath.set(path, false); // one read per path, even across re-renders
-    puter.fs.read(path + '/index.html').then(d => d.text()).then((html) => {
-        if (!window.Branding.hasRuntimeTag(html)) return;
-        _liveBadgeByPath.set(path, true);
-        if (_publishPanelOpen && window.currentPublishedPath === path) renderPublishPanel();
-    }).catch(() => { /* no index.html or unreadable — say nothing */ });
-    return false;
+const _liveBadgeReads = new Map();
+function readLiveBadge(path) {
+    if (!path) return Promise.resolve(null);
+    if (!_liveBadgeReads.has(path)) {
+        _liveBadgeReads.set(path, Promise.resolve().then(() => puter.fs.read(path + '/index.html')).then(d => d.text()).then((html) => {
+            const state = window.Branding.hasRuntimeTag(html) ? 'badge' : 'none';
+            _liveBadgeByPath.set(path, state);
+            if (_publishPanelOpen && window.currentPublishedPath === path) renderPublishPanel();
+            return state;
+        }).catch(() => null)); // no index.html or unreadable — say nothing
+    }
+    return _liveBadgeReads.get(path);
+}
+
+// The preview shows the "Made with Puter" badge like the live site does, so a
+// free user sees what the upgrade removes (see runtime.js). Once the site is
+// published without it, the preview drops it too: runtime.js skips the badge
+// in a frame with this name. A frame keeps its name across reloads and links
+// inside the app, but Chrome reads the name only when the frame is created,
+// so a change re-inserts the iframe and then reloads it.
+const PREVIEW_NO_BADGE = 'puter-preview-no-badge';
+function syncPreviewBadge() {
+    // No preview showing (hideAppPreview cleared it): leave the frame alone,
+    // since a reload would bring back the app that was just torn down. The
+    // next preview to open runs this again.
+    const previewUrl = window.currentPreviewUrl;
+    if (!previewUrl) return;
+    const path = window.currentPublishedPath;
+    readLiveBadge(path).then(() => {
+        const frame = $('.preview-frame')[0];
+        if (!frame || window.currentPreviewUrl !== previewUrl || window.currentPublishedPath !== path) return;
+        const name = _liveBadgeByPath.get(path) === 'none' ? PREVIEW_NO_BADGE : '';
+        if (frame.name === name) return;
+        frame.name = name;
+        frame.src = 'about:blank';
+        frame.parentNode.insertBefore(frame, frame.nextSibling);
+        reloadPreviewFrame(null, { keepPendingUpdate: true });
+    });
+}
+window.syncPreviewBadge = syncPreviewBadge;
+
+// The "Remove the badge" box as the user left it, by chat id, until the next
+// publish of that chat. Without a pick the box follows the live site: checked
+// when it already has no badge, so publishing again never brings back a badge
+// the user removed.
+const _removeBadgeChoice = new Map();
+function removeBadgeWanted(chatId, path) {
+    if (_removeBadgeChoice.has(chatId)) return Promise.resolve(_removeBadgeChoice.get(chatId));
+    return readLiveBadge(path).then(state => state === 'none');
+}
+function removeBadgeChecked(chatId, path) {
+    if (_removeBadgeChoice.has(chatId)) return _removeBadgeChoice.get(chatId);
+    readLiveBadge(path);
+    return _liveBadgeByPath.get(path) === 'none';
+}
+
+// True when the box asks for something the live site doesn't have yet, so
+// the popover offers to publish even with no other changes. When the live
+// site couldn't be read, any pick the user made counts, so a failed read
+// never blocks publishing it.
+function badgeChangePending(chatId, path) {
+    if (!window.Branding.isSubscribed(window.user)) return false;
+    const live = _liveBadgeByPath.get(path);
+    if (!live) return _removeBadgeChoice.has(chatId);
+    return removeBadgeChecked(chatId, path) !== (live === 'none');
 }
 
 // 'Upgrade Prompt Shown' once per source per popover open: the popover
@@ -2231,27 +2338,30 @@ function trackUpgradePromptShown(source) {
     window.track?.('Upgrade Prompt Shown', { source });
 }
 
-// The branding note under the publish popover's views. Free users get the
-// upgrade offer; subscribers whose live site predates their upgrade are told
-// to publish again (with a button when there is nothing else to publish).
-function publishBrandingHtml({ live, dirty }) {
+// The "Remove the badge" box above the popover's Publish button. Subscribers
+// pick per publish; free users see it locked, with an Upgrade button beside it.
+function publishBadgeToggleHtml() {
     const user = window.user;
     if (!user || user.is_temp) return '';
-    if (!window.Branding.isSubscribed(user)) {
-        const source = live ? 'publish_panel' : 'publish_success';
-        trackUpgradePromptShown(source);
-        return '<div class="publish-branding">' +
-            '<span>Your site shows a “Made with Puter” badge. Want to remove it?</span>' +
-            `<button type="button" class="publish-branding-btn" data-action="upgrade" data-source="${source}">Yes, remove it</button>` +
-        '</div>';
-    }
-    if (!live || !liveReleaseHasBadge(window.currentPublishedPath)) return '';
-    if (dirty) {
-        return '<div class="publish-branding"><span>Publishing also removes the “Made with Puter” badge.</span></div>';
-    }
+    const paid = window.Branding.isSubscribed(user);
+    if (!paid) trackUpgradePromptShown('publish_panel');
+    const checked = paid && removeBadgeChecked(currentChatId, window.currentPublishedPath);
+    return `<div class="publish-badge-toggle${paid ? '' : ' is-locked'}">` +
+        `<label><input type="checkbox" class="publish-remove-badge"${checked ? ' checked' : ''}${paid ? '' : ' disabled'}>` +
+            '<span>Remove the “Made with Puter” badge</span>' +
+        '</label>' +
+        (paid ? '' : '<button type="button" class="publish-branding-btn" data-action="upgrade" data-source="publish_panel">Upgrade</button>') +
+    '</div>';
+}
+
+// The upgrade offer under the share view, for free users.
+function publishBrandingHtml() {
+    const user = window.user;
+    if (!user || user.is_temp || window.Branding.isSubscribed(user)) return '';
+    trackUpgradePromptShown('publish_success');
     return '<div class="publish-branding">' +
-        '<span>Your site still shows the “Made with Puter” badge.</span>' +
-        '<button type="button" class="publish-branding-btn" data-action="republish">Remove it</button>' +
+        '<span>Your site shows a “Made with Puter” badge. Want to remove it?</span>' +
+        '<button type="button" class="publish-branding-btn" data-action="upgrade" data-source="publish_success">Yes, remove it</button>' +
     '</div>';
 }
 
@@ -2264,7 +2374,7 @@ function publishBrandingHtml({ live, dirty }) {
 // calling the draft's workers. If any step fails, whatever landed is removed
 // and the error rethrown; once this resolves, the release is the caller's to
 // serve — or to delete if serving it fails.
-async function stagePublishRelease(chatId, appDir, srcPath) {
+async function stagePublishRelease(chatId, appDir, srcPath, { removeBadge = false } = {}) {
     // Let the writes already in flight against the working directory finish
     // first. The per-path locks every app-dir writer takes cannot be taken
     // by a whole-directory copy, and the post-turn preview refresh
@@ -2295,11 +2405,12 @@ async function stagePublishRelease(chatId, appDir, srcPath) {
         if (!Array.isArray(releaseItems) || releaseItems.length === 0) {
             throw new Error('The copy of your project came back empty, so nothing was published.');
         }
-        // Paid users publish without the "Made with Puter" badge. Asked of Puter
-        // now, not the copy loaded with the page: the plan may have started or
-        // ended since (another tab, a renewal that failed).
+        // The "Made with Puter" badge comes off only when the user ticked the
+        // box in the popover AND has a paid plan. The plan is asked of Puter
+        // now, not the copy loaded with the page: it may have started or ended
+        // since (another tab, a renewal that failed).
         const user = window.refreshUserPlan ? await window.refreshUserPlan() : window.user;
-        const branding = window.Branding?.isSubscribed(user) ? 'removed' : 'kept';
+        const branding = removeBadge && window.Branding?.isSubscribed(user) ? 'removed' : 'kept';
         if (branding === 'removed') await stripBrandingFromRelease(releaseDir);
 
         // Give the release its own backend and point it there, BEFORE the public
@@ -2344,9 +2455,7 @@ async function retirePublishedWorkers(chatId, keepNames) {
 
 // The core action: push the current working dir to the public subdomain
 // (creating it on first publish), then record + persist the new baseline.
-// `trigger` is for analytics only: 'remove_badge' when the branding note's
-// "Remove it" button started the publish.
-async function doPublish({ trigger } = {}) {
+async function doPublish() {
     // Normally unreachable — the action renders as a disabled "finishing…" row
     // while a turn/restore runs (see renderPublishPanel). This is the race guard
     // for the narrow window where work starts between render and click: no
@@ -2361,6 +2470,48 @@ async function doPublish({ trigger } = {}) {
                 : 'Finishing the current task — you can publish the moment it’s done.',
             { type: 'info', key: 'publish-blocked', throttleMs: 3000 });
         return;
+    }
+    // Publishing ships the files on disk, so unsaved code in the Code view is
+    // saved first. The save takes a moment, so the project is marked as
+    // starting a publish (a second click, a send or a restore waits) before
+    // it, and every guard runs again after it. A save that fails stops the
+    // publish with the edits intact. The preview is refreshed once the files
+    // are copied, so no restamp runs during the copy.
+    let savedCodeForPublish = false;
+    if (window.CodeEditor?.hasUnsaved?.(currentChatId)) {
+        const savingFor = currentChatId;
+        if (_publishStarting.has(savingFor) || publishBusyHere()) return;
+        _publishStarting.add(savingFor);
+        window.CodeEditor?.onStartingChange?.();
+        $('.preview-publish-panel .publish-action').prop('disabled', true);
+        let settled;
+        try {
+            settled = await window.CodeEditor.prepareForPublish(savingFor);
+        } finally {
+            _publishStarting.delete(savingFor);
+            window.CodeEditor?.onStartingChange?.();
+            $('.preview-publish-panel .publish-action').prop('disabled', false);
+        }
+        if (settled === 'failed') {
+            // Files saved before the one that failed scheduled a preview
+            // refresh. Run it now, or it waits for the next turn's end.
+            if (currentChatId === savingFor) flushPreviewRefresh();
+            window.showToast?.('Your code changes couldn’t be saved, so nothing was published.', { type: 'error', duration: 8000 });
+            return;
+        }
+        if (settled !== 'ok' || currentChatId !== savingFor) return;
+        // A turn or a restore started while the code was saving: say so, as the
+        // check at the top does, instead of silently not publishing.
+        const blockedNow = publishBlockedReason();
+        if (blockedNow || publishBusyHere()) {
+            renderPublishPanel();
+            window.showToast?.(blockedNow === 'restore'
+                ? 'Finishing the restore — you can publish the moment it’s done.'
+                : 'Finishing the current task — you can publish the moment it’s done.',
+            { type: 'info', key: 'publish-blocked', throttleMs: 3000 });
+            return;
+        }
+        savedCodeForPublish = true;
     }
     const chatId = currentChatId;
     const appDir = currentAppDir;
@@ -2391,6 +2542,9 @@ async function doPublish({ trigger } = {}) {
     // popover while the publish runs (the progress note invites them to), and
     // reading the field later would silently publish under a random name.
     const desiredName = ($('.preview-publish-panel .publish-name-input').val() || '').trim().toLowerCase();
+    // The badge box, for the same reason: the live release it falls back to
+    // is this project's only while it is still open.
+    const removeBadgePromise = removeBadgeWanted(chatId, window.currentPublishedPath);
     // Site metadata for the success card, read in parallel with the publish so
     // the card is ready the moment the site is. Never rejects.
     const siteMetaPromise = loadPublishedSiteMeta(path);
@@ -2430,7 +2584,8 @@ async function doPublish({ trigger } = {}) {
         //
         // Copy into a fresh release and give it its own backend (see
         // stagePublishRelease, which cleans up after its own failures).
-        const { pubRoot, releaseName, releaseDir, publishedWorkers, branding } = await stagePublishRelease(chatId, appDir, path);
+        const removeBadge = await removeBadgePromise;
+        const { pubRoot, releaseName, releaseDir, publishedWorkers, branding } = await stagePublishRelease(chatId, appDir, path, { removeBadge });
         stagedDir = releaseDir;
 
         let url = startUrl;
@@ -2449,6 +2604,10 @@ async function doPublish({ trigger } = {}) {
         // Live from here on — no longer ours to delete on failure.
         const pubDir = releaseDir;
         stagedDir = null;
+        // The new release is what the badge box follows from now on. Its
+        // state is read from the release itself, not taken from `branding`:
+        // stripping is best effort, so a page may still carry the badge.
+        _removeBadgeChoice.delete(chatId);
         // Now that the public address serves the new release, drop the one it
         // replaced (and, on a project published before releases existed, the
         // files that used to sit directly in the container), along with any
@@ -2555,10 +2714,9 @@ async function doPublish({ trigger } = {}) {
                 cost_cents: Math.round(costCents),
                 cost_band: costBand(costCents),
                 branding,
-                ...(trigger ? { trigger } : {}),
             });
         } catch (e) {
-            window.track?.('Project Published', { type: isFirst ? 'first' : 'republish', first_publish: isFirst, branding, ...(trigger ? { trigger } : {}) });
+            window.track?.('Project Published', { type: isFirst ? 'first' : 'republish', first_publish: isFirst, branding });
         }
     } catch (e) {
         // The release never went live, so remove whatever of it landed. The
@@ -2595,6 +2753,10 @@ async function doPublish({ trigger } = {}) {
         if ($nameInput.length) { $nameInput.trigger('focus'); $nameInput[0].select(); }
     } finally {
         setPublishBusy(false, chatId);
+        // Code saved just before this publish: its preview refresh waited for
+        // the copy to finish (see above). The save scheduled it, so flushing
+        // runs it now and leaves nothing pending for the next turn.
+        if (savedCodeForPublish && currentChatId === chatId) flushPreviewRefresh();
         // Whatever chat is open now gets its true state painted back: the
         // published one if it is still open, or the one the user moved to.
         window.refreshPublishButton?.();
@@ -2626,14 +2788,20 @@ $(document).on('click', '.preview-publish-panel .publish-action', function (e) {
     doPublish();
 });
 
-// The branding note's button: Upgrade opens the upgrade dialog, Remove it
-// republishes (stripping the badge — see stagePublishRelease). stopPropagation
-// for the same reason as .publish-action above.
+// The Upgrade buttons beside the locked badge box and under the share view.
+// stopPropagation for the same reason as .publish-action above.
 $(document).on('click', '.preview-publish-panel .publish-branding-btn', function (e) {
     e.preventDefault();
     e.stopPropagation();
-    if ($(this).attr('data-action') === 'republish') doPublish({ trigger: 'remove_badge' });
-    else openUpgradeModal($(this).attr('data-source') || 'publish_panel');
+    openUpgradeModal($(this).attr('data-source') || 'publish_panel');
+});
+
+// The badge box: remember the pick for this chat, and re-render so a live,
+// up-to-date site gets its Publish changes button (or loses it).
+$(document).on('change', '.preview-publish-panel .publish-remove-badge', function (e) {
+    e.stopPropagation();
+    _removeBadgeChoice.set(currentChatId, this.checked);
+    renderPublishPanel();
 });
 
 // First-publish address field: Enter publishes, Escape closes. stopPropagation
@@ -2840,7 +3008,7 @@ function publishSuccessHtml({ url, meta }) {
             `<button type="button" class="publish-result-copy">${copySvg}<span>Copy link</span></button>` +
             `<a class="publish-result-visit" href="${safeUrl}" target="_blank" rel="noopener noreferrer"><span>Visit site</span>${arrowSvg}</a>` +
         '</div>' +
-        publishBrandingHtml({ live: false }) +
+        publishBrandingHtml() +
     '</div>';
 }
 
@@ -3216,8 +3384,9 @@ $(document).on('click', '.preview-overflow', function(e) {
     const rect = this.getBoundingClientRect();
     const items = [];
     // On the narrowest phones the toolbar's Reload button is hidden to make
-    // room (see the ≤374px rule in styles.css); it lives here instead.
-    if (!$('.preview-reload').is(':visible')) {
+    // room (see the ≤374px rule in styles.css); it lives here instead. The
+    // Code view hides it too, with nothing to reload there.
+    if (!$('.preview-reload').is(':visible') && !$('.preview-pane').hasClass('code-mode')) {
         items.push({
             icon: svgDataUri(window.reload_svg),
             label: 'Reload',
@@ -3475,6 +3644,11 @@ window.resetPreviewErrorDedup = function () {
             if (stack) errorReport += `\n\n**Stack trace:**\n${fenceUntrusted(stack)}`;
             errorReport += `\n\nPlease read the relevant source file(s), find the bug, and fix it.`;
 
+            // After hand edits in the Code view the user owns this code: the
+            // error waits there with "Ask AI to fix" instead of starting a paid
+            // turn that rewrites what they just wrote (see code-editor.js).
+            if (window.CodeEditor?.holdAutoFix?.({ report: errorReport, message, source, lineno: lineNum, colno: colNum })) return;
+
             // autoFix: counted against the budget above, and never treated as
             // a composer send (the user's typed text/attachments stay put).
             sendChatMessage(errorReport, false, { autoFix: true });
@@ -3533,6 +3707,9 @@ window.resetPreviewErrorDedup = function () {
                 }
             }
             errorReport += `\n\nPlease read the relevant source file(s), find the bug, and fix it.`;
+
+            // Held in the Code view after hand edits, as above.
+            if (window.CodeEditor?.holdAutoFix?.({ report: errorReport, message: (status === 500 ? 'HTTP 500 from ' : 'Request failed: ') + String(url).slice(0, 200) })) return;
 
             sendChatMessage(errorReport, false, { autoFix: true });
         });
@@ -4107,8 +4284,10 @@ async function puterConfirm(text) {
 // first to guard against an accidental click. Returns true when it's safe to
 // proceed: nothing is processing, or the user accepted losing the running work.
 async function confirmLeaveActiveChat() {
-    if (!isProcessing) return true;
-    return await puterConfirm('A chat is still in progress. Leaving this project will stop it. Continue?');
+    if (isProcessing && !await puterConfirm('A chat is still in progress. Leaving this project will stop it. Continue?')) return false;
+    // Unsaved code in the Code view: save it, drop it, or stay (code-editor.js).
+    if (window.CodeEditor?.hasUnsaved?.()) return await window.CodeEditor.confirmLeave();
+    return true;
 }
 
 // Whether a key event is this dialog's to act on: aimed inside it, or at
@@ -4828,11 +5007,24 @@ function openUpgradeModal(source, { justUpgraded = false } = {}) {
     source = source || 'unknown';
     if (!justUpgraded) window.track?.('Upgrade Opened', { source, plan });
     const check = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
+    // Opened from the Code view (or the AI's code-editing card): lead with the
+    // editor, and sketch it instead of the badge.
+    const forCode = !!window.FEATURE_FLAGS?.codeEditor && (source === 'code_editor' || source === 'chat_code_editor');
+    const codePerk = 'Edit your app’s code in Builder';
+    const modelPerk = 'Choose the AI model that builds your app';
+    const perkList = [
+        'More credits for building apps',
+        ...(window.FEATURE_FLAGS?.codeEditor ? [codePerk] : []),
+        ...(window.FEATURE_FLAGS?.modelPicker ? [modelPerk] : []),
+        'Remove “Made with Puter” badge on your sites',
+        'Premium features we release in the future',
+    ];
+    // Lead with the perk the user came for.
+    const lead = forCode ? codePerk : (source === 'model_picker' && window.FEATURE_FLAGS?.modelPicker ? modelPerk : null);
+    if (lead) perkList.unshift(perkList.splice(perkList.indexOf(lead), 1)[0]);
     const perks =
         '<ul class="upgrade-perks">' +
-            `<li>${check}<span>More credits for building apps</span></li>` +
-            `<li>${check}<span>No “Made with Puter” badge on your published sites</span></li>` +
-            `<li>${check}<span>Premium features we release in the future</span></li>` +
+            perkList.map((p) => `<li>${check}<span>${p}</span></li>`).join('') +
         '</ul>';
     const billing = htmlEscape(window.Branding.UPGRADE_URL);
     // A sketch of a published site, with and without the badge in its corner.
@@ -4844,35 +5036,55 @@ function openUpgradeModal(source, { justUpgraded = false } = {}) {
             '</div>' +
         '</div>';
 
+    // A sketch of the Code view: read only on the free plan, editable on a paid one.
+    const code = (editable) =>
+        '<div class="upgrade-site upgrade-code' + (editable ? ' is-editable' : '') + '">' +
+            '<div class="upgrade-site-bar"><i></i><i></i><i></i></div>' +
+            '<div class="upgrade-code-body"><b></b><b class="i1"></b><b class="i2"></b><b class="short"></b>' +
+                (editable ? '<em class="upgrade-code-caret"></em><span class="upgrade-code-tag is-save">Save</span>'
+                    : '<span class="upgrade-code-tag">Read only</span>') +
+            '</div>' +
+        '</div>';
+
     let title, body, actions;
     if (!paid) {
         title = 'Upgrade your Puter plan';
         body =
             '<div class="upgrade-compare" aria-hidden="true">' +
-                `<figure>${site(true)}<figcaption>Free</figcaption></figure>` +
-                `<figure>${site(false)}<figcaption>Paid</figcaption></figure>` +
+                `<figure>${forCode ? code(false) : site(true)}<figcaption>Free</figcaption></figure>` +
+                `<figure>${forCode ? code(true) : site(false)}<figcaption>Paid</figcaption></figure>` +
             '</div>' +
             '<p class="upgrade-lead">A paid Puter subscription unlocks these in Builder:</p>' +
-            perks +
-            '<p class="upgrade-note">After you upgrade, publish your site again to remove the badge.</p>';
+            perks;
         actions =
             '<button type="button" class="confirm-modal-btn confirm-modal-cancel upgrade-cancel">Not now</button>' +
             `<a class="confirm-modal-btn upgrade-go" href="${billing}" target="_blank" rel="noopener noreferrer">Upgrade</a>`;
     } else {
-        // Just upgraded with a site that is live: its badge only goes on the
-        // next publish, so that is the one step to offer.
-        const republish = justUpgraded && !!window.currentPublishedUrl && !!$('.preview-publish-btn').length;
+        // Just upgraded with a site that is live: its badge only goes when the
+        // user ticks the box and publishes, so that is the one step to offer.
+        // Upgraded from the out-of-credits dialog, in the project that stopped.
+        // Picking the build back up beats everything else on offer.
+        const resume = justUpgraded && source === 'usage_limit' && canResumeAfterLimit();
+        // Upgraded to edit code: the one next step is the editor itself.
+        const startEditing = !resume && justUpgraded && forCode && !!window.CodeEditor && $('body').hasClass('preview-active');
+        const republish = !resume && !startEditing && justUpgraded && !!window.currentPublishedUrl && !!$('.preview-publish-btn').length;
         title = justUpgraded ? 'You’re subscribed' : 'Your Puter plan';
         body =
             (justUpgraded ? `<div class="upgrade-success-badge" aria-hidden="true">${check}</div>` : '') +
             `<p class="upgrade-lead">${justUpgraded ? 'Thanks for upgrading. You now have these in Builder:' : 'You’re on a paid Puter plan. You have these in Builder:'}</p>` +
             perks.replace('<ul class="upgrade-perks">', '<ul class="upgrade-perks is-active">') +
-            (republish ? '<p class="upgrade-note">Publish your site again to remove the badge from it.</p>' : '') +
+            (republish ? '<p class="upgrade-note">To take the badge off your site, tick the badge option in Publish and publish again.</p>' : '') +
             '<div class="upgrade-more">' +
                 '<span>Need more credits? Move to a higher plan on Puter.</span>' +
                 `<a class="upgrade-more-link upgrade-go" href="${billing}" target="_blank" rel="noopener noreferrer">See plans</a>` +
             '</div>';
-        actions = republish
+        actions = resume
+            ? '<button type="button" class="confirm-modal-btn confirm-modal-cancel upgrade-cancel">Later</button>' +
+              '<button type="button" class="confirm-modal-btn upgrade-primary upgrade-resume">Continue building</button>'
+            : startEditing
+            ? '<button type="button" class="confirm-modal-btn confirm-modal-cancel upgrade-cancel">Later</button>' +
+              '<button type="button" class="confirm-modal-btn upgrade-primary upgrade-start-editing">Start editing</button>'
+            : republish
             ? '<button type="button" class="confirm-modal-btn confirm-modal-cancel upgrade-cancel">Later</button>' +
               '<button type="button" class="confirm-modal-btn upgrade-primary upgrade-republish">Publish again</button>'
             : '<button type="button" class="confirm-modal-btn upgrade-primary upgrade-cancel">Done</button>';
@@ -4909,6 +5121,22 @@ function openUpgradeModal(source, { justUpgraded = false } = {}) {
         close();
         openPublishPanel();
     });
+    $overlay.find('.upgrade-start-editing').on('click', () => {
+        close();
+        // On a phone the offer is usually taken from the chat view: show the
+        // app pane first, or the editor would open out of sight.
+        if (window.isMobileViewport?.()) { $('body').removeClass('mobile-view-chat'); window.syncViewSeg?.(); }
+        window.CodeEditor?.open?.();
+    });
+    $overlay.find('.upgrade-resume').on('click', () => {
+        close();
+        // Back/Forward can switch projects while this dialog is open. Resume
+        // only in the project that stopped, never the one now on screen.
+        if (!canResumeAfterLimit()) return;
+        _limitResumeChatId = null;
+        window.track?.('Build Resumed After Upgrade');
+        resumeBuild();
+    });
     $overlay.on('mousedown', (e) => { if (e.target === $overlay[0]) close(); });
     $overlay.find('.upgrade-modal').on('mousedown click', (e) => e.stopPropagation());
     $(document).on('keydown.upgradeModal', (e) => {
@@ -4923,15 +5151,203 @@ function openUpgradeModal(source, { justUpgraded = false } = {}) {
 }
 window.openUpgradeModal = openUpgradeModal;
 
+// ---- Out-of-credits dialog ---------------------------------------------------
+// Shown in place of puter.js's Low Balance dialog for the 'custom' cohort (see
+// limitDialogCohort in app.js). It shows the project the user is about to lose
+// momentum on, with its screenshot, checklist progress and live address, and
+// the words come from limitDialogCopy. Upgrading goes through the same pending
+// check as the Upgrade dialog, so 'Upgrade Completed' and the success screen
+// follow, and that screen offers to continue the build that stopped.
+let _limitResumeChatId = null;
+function canResumeAfterLimit() {
+    return !!_limitResumeChatId && _limitResumeChatId === currentChatId && !isProcessing;
+}
+
+function limitDialogContextNow() {
+    const entry = currentChatId ? savedChats.find(c => c.id === currentChatId) : null;
+    const todos = Array.isArray(window.currentTodos) ? window.currentTodos : null;
+    const steps = todos && todos.length
+        ? { done: todos.filter(t => t && t.status === 'completed').length, total: todos.length }
+        : null;
+    return {
+        name: projectDisplayName(entry, window.currentPublishedUrl),
+        // Stopped partway only if this turn got somewhere, or an unfinished
+        // checklist shows where it got to. A send Puter refused up front changed
+        // nothing, and a finished checklist is an earlier turn's.
+        building: !!isProcessing && (_turnProgressed || !!(steps && steps.done < steps.total)),
+        steps,
+        hasApp: !!window.currentPreviewUrl,
+        published: window.currentPublishedUrl || null,
+        previewUrl: window.currentPreviewUrl || null,
+        paid: window.Branding.isSubscribed(window.user),
+    };
+}
+
+// The builder at work, for the slot when there is no screenshot. A message
+// goes in, the reply types, and the change lands in the preview, on a loop.
+// Pure CSS (see .limit-build), and it shows the finished exchange without
+// moving under reduced motion.
+const LIMIT_BUILD_ANIM = `
+    <div class="limit-build" aria-hidden="true">
+        <div class="lb-chat">
+            <span class="lb-msg lb-user"><i></i></span>
+            <span class="lb-answer">
+                <span class="lb-typing"><i></i><i></i><i></i></span>
+                <span class="lb-msg lb-reply"><i></i><i></i></span>
+            </span>
+        </div>
+        <div class="lb-preview">
+            <span class="lb-nav"></span>
+            <span class="lb-hero"></span>
+            <span class="lb-line"></span>
+            <span class="lb-cards"><i style="--i:0"></i><i style="--i:1"></i><i style="--i:2"></i></span>
+        </div>
+    </div>`;
+
+// The build's checklist for the 'steps' face, in place of the screenshot. The
+// last steps that finished, then the next ones waiting, and a count of the
+// steps left beyond those, so the card stays short on a long checklist.
+const LIMIT_STEP_DONE = '<svg viewBox="0 0 12 12" width="12" height="12" role="img" aria-label="Done"><rect x="1.25" y="1.25" width="9.5" height="9.5" rx="2" fill="none" stroke="currentColor"/><polyline points="3.75 6.5 5.25 8 8.25 4" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const LIMIT_STEP_TODO = '<svg viewBox="0 0 12 12" width="12" height="12" role="img" aria-label="Not done"><rect x="1.25" y="1.25" width="9.5" height="9.5" rx="2" fill="none" stroke="currentColor"/></svg>';
+function limitStepsCard(steps) {
+    const todos = (window.currentTodos || []).filter(t => t && typeof t.content === 'string');
+    const done = todos.filter(t => t.status === 'completed');
+    const left = todos.filter(t => t.status !== 'completed');
+    const shownDone = done.slice(-2);
+    const shownLeft = left.slice(0, 5 - shownDone.length);
+    // Steps still to do that didn't fit. Earlier finished ones are in the count
+    // at the top.
+    const more = left.length - shownLeft.length;
+    const row = (t, isDone) => `<li class="${isDone ? 'is-done' : ''}">${isDone ? LIMIT_STEP_DONE : LIMIT_STEP_TODO}<span>${htmlEscape(t.content)}</span></li>`;
+    return `
+        <div class="limit-steps">
+            <div class="limit-steps-head">${steps.done} of ${steps.total} steps done</div>
+            <ul>${shownDone.map(t => row(t, true)).join('')}${shownLeft.map(t => row(t, false)).join('')}</ul>
+            ${more > 0 ? `<div class="limit-steps-more">+${more} more to do</div>` : ''}
+        </div>`;
+}
+
+// Returns true when the dialog is up (just opened, or already open).
+function openLimitModal() {
+    if (document.querySelector('.limit-modal-overlay')) return true;
+    if (document.querySelector('.upgrade-modal-overlay')) return true;
+    window.closePublishPanel?.();
+    const ctx = limitDialogContextNow();
+    // The project this dialog is about. Back/Forward can switch projects while
+    // it stays open, so the click below uses this, not currentChatId.
+    const chatId = currentChatId;
+    const copy = limitDialogCopy(ctx);
+    const plan = ctx.paid ? 'paid' : 'free';
+    const cohort = limitDialogCohort();
+    window.track?.('Upgrade Opened', { source: 'usage_limit', plan, variant: copy.state, cohort });
+
+    const shot = ctx.hasApp ? chatThumbUrl(ctx.previewUrl) : null;
+    const billing = htmlEscape(window.Branding.UPGRADE_URL);
+    const $overlay = $(`
+        <div class="confirm-modal-overlay limit-modal-overlay">
+            <div class="properties-modal limit-modal" role="dialog" aria-modal="true" aria-labelledby="limit-modal-title" aria-describedby="limit-modal-body" tabindex="-1">
+                <div class="properties-modal-header">
+                    <div class="properties-modal-title" id="limit-modal-title">${htmlEscape(copy.heading)}</div>
+                    <button type="button" class="properties-modal-x" title="Close" aria-label="Close">✕</button>
+                </div>
+                ${copy.state === 'steps' ? limitStepsCard(ctx.steps) : `
+                <div class="limit-shot${shot ? '' : ' is-building'}">
+                    ${copy.address ? `<div class="limit-shot-bar"><span class="limit-shot-dots" aria-hidden="true"></span><span class="limit-shot-url">${htmlEscape(copy.address)}</span></div>` : ''}
+                    ${shot ? `<img src="${htmlEscape(shot + '?t=' + Date.now())}" alt="" loading="eager">` : ''}
+                    ${LIMIT_BUILD_ANIM}
+                </div>`}
+                <p class="limit-body" id="limit-modal-body">${copy.lead ? `<span class="limit-lead">${htmlEscape(copy.lead)}</span> ` : ''}${htmlEscape(copy.body)}</p>
+                <div class="properties-modal-actions upgrade-actions">
+                    <button type="button" class="confirm-modal-btn confirm-modal-cancel limit-cancel">Not now</button>
+                    <a class="confirm-modal-btn upgrade-go limit-go" href="${billing}" target="_blank" rel="noopener noreferrer">${htmlEscape(copy.cta)}</a>
+                </div>
+            </div>
+        </div>
+    `);
+    // No screenshot yet (a new site, or Puter hasn't taken one). Show the
+    // building animation in its place rather than a broken frame.
+    $overlay.find('.limit-shot img').on('error', function () {
+        $(this).closest('.limit-shot').addClass('is-building');
+        $(this).remove();
+    });
+
+    let releaseFocus = null;
+    const close = () => {
+        $(document).off('keydown.limitModal');
+        $overlay.removeClass('open');
+        setTimeout(() => $overlay.remove(), 150);
+        if (releaseFocus) releaseFocus();
+    };
+    $overlay.find('.properties-modal-x, .limit-cancel').on('click', close);
+    $overlay.find('.limit-go').on('click', () => {
+        window.track?.('Upgrade Clicked', { source: 'usage_limit', plan, variant: copy.state, cohort });
+        // Same as the Upgrade dialog. Only a free account's return can be told
+        // apart by its plan, so only that one waits for 'Upgrade Completed'.
+        if (!ctx.paid) _upgradePending = 'usage_limit';
+        _limitResumeChatId = ctx.building ? chatId : null;
+        close();
+    });
+    $overlay.on('mousedown', (e) => { if (e.target === $overlay[0]) close(); });
+    $overlay.find('.limit-modal').on('mousedown click', (e) => e.stopPropagation());
+    $(document).on('keydown.limitModal', (e) => {
+        if (e.key === 'Escape' && keyIsForDialog(e, $overlay[0])) { e.preventDefault(); close(); }
+    });
+    $('body').append($overlay);
+    releaseFocus = trapDialogFocus($overlay);
+    requestAnimationFrame(() => {
+        $overlay.addClass('open');
+        $overlay.find('.limit-modal').trigger('focus');
+    });
+    return true;
+}
+window.openLimitModal = openLimitModal;
+
+// puter.js shows Low Balance by appending a <usage-limit-dialog> and calling
+// its open(). For the 'custom' cohort, open() hands over to openLimitModal
+// instead. Everything is checked first and Puter's dialog is only removed once
+// ours is up, so when a puter.js update renames any of this, the patch finds
+// nothing and Puter's own dialog shows as before. Web only. Inside the Puter
+// desktop, the desktop draws the prompt.
+function installLowBalanceOverride() {
+    try {
+        if (!window.puter || puter.env !== 'web' || !window.customElements) return;
+        const Dialog = customElements.get('usage-limit-dialog');
+        if (!Dialog || typeof Dialog.prototype.open !== 'function' || Dialog.prototype._builderLimitOverride) return;
+        const open = Dialog.prototype.open;
+        Dialog.prototype.open = function () {
+            try {
+                if (this.heading === 'Low Balance' && window.user && !window.user.is_temp) {
+                    const cohort = limitDialogCohort();
+                    if (cohort === 'custom' && openLimitModal()) {
+                        this.remove();
+                        return;
+                    }
+                    // Puter's dialog, counted the same way as ours so both
+                    // cohorts have the same funnel.
+                    const plan = window.Branding.isSubscribed(window.user) ? 'paid' : 'free';
+                    window.track?.('Upgrade Opened', { source: 'usage_limit', plan, variant: 'puter', cohort });
+                    this.shadowRoot?.querySelector('#upgrade-btn')?.addEventListener('click', () => {
+                        window.track?.('Upgrade Clicked', { source: 'usage_limit', plan, variant: 'puter', cohort });
+                    });
+                }
+            } catch (e) { /* fall back to Puter's dialog */ }
+            return open.apply(this, arguments);
+        };
+        Dialog.prototype._builderLimitOverride = true;
+    } catch (e) {}
+}
+installLowBalanceOverride();
+
 $(document).on('click', '.upgrade-btn', function (e) {
     e.preventDefault();
     e.stopPropagation();
     openUpgradeModal('toolbar');
 });
 // The card the OfferUpgrade tool puts in the chat (tools/chat_ui/upgrade.js).
+// The code-editor card carries its own source; the badge card is 'chat'.
 $(document).on('click', '.upgrade-card-btn', function (e) {
     e.preventDefault();
-    openUpgradeModal('chat');
+    openUpgradeModal($(this).attr('data-source') || 'chat');
 });
 
 // Fetch the user again for a decision that depends on the plan (publishing,
@@ -4947,6 +5363,8 @@ async function refreshUserPlan() {
     if (window.Branding.isSubscribed(user) !== was) {
         updateUserMenu();
         if (_publishPanelOpen && !publishBusyHere()) renderPublishPanel();
+        // The Code view locks or unlocks editing to match.
+        window.CodeEditor?.onPlanChanged?.();
     }
     return user;
 }
@@ -4970,6 +5388,8 @@ async function refreshSubscriptionAfterUpgrade() {
     window.user = user;
     updateUserMenu();
     if (_publishPanelOpen) renderPublishPanel();
+    // This path skips refreshUserPlan, so tell the Code view here too.
+    window.CodeEditor?.onPlanChanged?.();
     openUpgradeModal(source, { justUpgraded: true });
 }
 window.addEventListener('focus', refreshSubscriptionAfterUpgrade);

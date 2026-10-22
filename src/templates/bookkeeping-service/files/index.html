@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<title>Crossfoot Bookkeeping · Books closed by the 10th, every month</title>
+<meta name="description" content="Flat-fee monthly bookkeeping for small businesses. Every account reconciled, a plain-English report by the 10th, and tax-ready books all year.">
+<meta name="theme-color" content="#1e4a36">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<div class="taxbar">
+    <div class="wrap taxbar-inner">
+        <span class="taxbar-dot" aria-hidden="true"></span>
+        <p id="tax-text">Estimated tax payments come around four times a year. We keep your numbers ready for each one.</p>
+        <a href="#pricing">Get your books ready <i data-lucide="arrow-right"></i></a>
+    </div>
+</div>
+
+<header class="site-header">
+    <div class="wrap header-inner">
+        <a class="brand" href="#top">
+            <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+                <rect width="32" height="32" rx="8" fill="#1e4a36"/>
+                <path d="M8.5 13.5l4.5 4.5 10-10" fill="none" stroke="#f3f4ec" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M8 22.5h16M8 26h16" stroke="#f3f4ec" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <span class="brand-name"><span data-biz="shortName">Crossfoot</span> <span class="brand-sub">Bookkeeping</span></span>
+        </a>
+        <nav class="nav" id="site-nav" aria-label="Main">
+            <a href="#services">Services</a>
+            <a href="#month">How it works</a>
+            <a href="#pricing">Pricing</a>
+            <a href="#reviews">Reviews</a>
+            <a href="#faq">FAQ</a>
+            <a class="nav-cta" href="#book">Book a free call</a>
+        </nav>
+        <div class="header-actions">
+            <a class="header-phone" data-biz-tel href="#"><i data-lucide="phone"></i> <span data-biz="phone"></span></a>
+            <a class="btn btn-primary btn-sm" href="#book">Book a free call</a>
+            <button class="menu-btn" type="button" aria-expanded="false" aria-controls="site-nav">
+                <span class="menu-lines" aria-hidden="true"></span>
+                <span class="menu-label">Menu</span>
+            </button>
+        </div>
+    </div>
+</header>
+
+<main id="main">
+
+    <!-- Hero ------------------------------------------------------------- -->
+    <section class="hero" id="top" aria-labelledby="hero-title">
+        <div class="wrap hero-grid">
+            <div class="hero-copy">
+                <p class="hero-kicker"><span class="kicker-tick" aria-hidden="true"></span><span>Small business bookkeeping · <span data-biz="cityShort"></span> and online</span></p>
+                <h1 id="hero-title"><span class="line">Books closed</span> <span class="line">by the <span data-biz="closeDayOrdinal">10th</span>.</span> <em class="line">Every month.</em></h1>
+                <p class="lead">A small team of bookkeepers who reconcile every account, send a report you can read in five minutes, and keep you ready for tax time. One flat monthly fee, never an hourly bill.</p>
+                <div class="hero-ctas">
+                    <a class="btn btn-primary" href="#pricing">Price your books <i data-lucide="arrow-right"></i></a>
+                    <a class="btn btn-ghost" href="#book">Book a free call</a>
+                </div>
+                <ul class="hero-proof">
+                    <li><span class="stars" aria-hidden="true">★★★★★</span><span><strong data-biz="rating"></strong> from <span data-biz="reviewCount"></span> reviews</span></li>
+                    <li><i data-lucide="badge-check"></i> QuickBooks and Xero certified</li>
+                </ul>
+            </div>
+
+            <figure class="hero-art" id="hero-art">
+                <div class="sheet-stack" aria-hidden="true"></div>
+                <div class="ledger">
+                    <div class="ledger-head">
+                        <div>
+                            <p class="ledger-kicker">Bank reconciliation · <span id="ledger-month"></span></p>
+                            <p class="ledger-title" id="ledger-client"></p>
+                        </div>
+                        <p class="ledger-count"><span id="tick-count">0</span> of <span id="tick-total">0</span> ticked</p>
+                    </div>
+                    <div class="ledger-cols" aria-hidden="true"><span>Date</span><span>Description</span><span class="r">Amount</span><span></span></div>
+                    <ol class="ledger-rows" id="ledger-rows"></ol>
+                    <dl class="ledger-foot">
+                        <div><dt>Statement</dt><dd id="ledger-statement"></dd></div>
+                        <div class="ledger-books"><dt>Books</dt><dd id="ledger-books"></dd></div>
+                        <div class="ledger-diff"><dt>Unreconciled</dt><dd id="ledger-diff"></dd></div>
+                    </dl>
+                    <div class="stamp" id="stamp" aria-hidden="true"><span>Balanced</span><small id="stamp-date"></small></div>
+                    <p class="hand-note" aria-hidden="true">all tied out</p>
+                </div>
+                <div class="report-chip">
+                    <div class="chip-text">
+                        <p class="chip-kicker"><i data-lucide="mail-check"></i><span>Report sent <span id="chip-sent"></span></span></p>
+                        <p class="chip-label">Net profit, <span id="chip-month"></span></p>
+                        <p class="chip-figure"><span id="chip-profit"></span><span class="chip-up"><i data-lucide="trending-up"></i><span id="chip-change"></span></span></p>
+                    </div>
+                    <div class="chip-bars" id="chip-bars" aria-hidden="true"></div>
+                </div>
+                <figcaption class="sr-only">A sample month-end close: every transaction is ticked against the bank statement, nothing is left unreconciled, and the month is stamped balanced.</figcaption>
+            </figure>
+        </div>
+
+        <div class="wrap industries">
+            <p class="industries-label">Books we keep for</p>
+            <ul class="industries-list" id="industries"></ul>
+        </div>
+    </section>
+
+    <!-- Services --------------------------------------------------------- -->
+    <section class="section" id="services" aria-labelledby="services-title">
+        <div class="wrap">
+            <div class="section-head">
+                <p class="code">1000 · Services</p>
+                <h2 id="services-title">Everything your books need. Nothing they don't.</h2>
+                <p class="section-lead">Start with monthly bookkeeping and add only what your business uses. Every plan comes with a named bookkeeper and year-end files your CPA will thank you for.</p>
+            </div>
+            <div class="services" id="services-list"></div>
+        </div>
+    </section>
+
+    <!-- The trade, as a T-account ---------------------------------------- -->
+    <section class="section section-dark" id="trade" aria-labelledby="trade-title">
+        <div class="wrap">
+            <div class="section-head">
+                <p class="code">2000 · The trade</p>
+                <h2 id="trade-title">What you hand over. What you get back.</h2>
+                <p class="section-lead">Every bookkeeper learns the T-account in week one. Here is ours, with you on both sides of it.</p>
+            </div>
+            <div class="taccount" id="taccount">
+                <div class="taccount-side">
+                    <h3>You hand over</h3>
+                    <ul id="t-give"></ul>
+                    <p class="taccount-total"><span>Your time</span><b id="t-give-total"></b></p>
+                </div>
+                <div class="taccount-side">
+                    <h3>You get back</h3>
+                    <ul id="t-get"></ul>
+                    <p class="taccount-total"><span>Time back</span><b id="t-get-total"></b></p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- A month with us -------------------------------------------------- -->
+    <section class="section" id="month" aria-labelledby="month-title">
+        <div class="wrap">
+            <div class="section-head">
+                <p class="code">3000 · Your month</p>
+                <h2 id="month-title">The same calm rhythm, every month.</h2>
+                <p class="section-lead">You always know where your numbers are, because they are always in the same place on the same day.</p>
+            </div>
+            <div class="month-card">
+                <div class="month-grid" id="month-grid" aria-hidden="true"></div>
+                <ol class="month-steps" id="month-steps"></ol>
+            </div>
+        </div>
+    </section>
+
+    <!-- The monthly report ----------------------------------------------- -->
+    <section class="section section-band" id="report" aria-labelledby="report-title">
+        <div class="wrap report-grid">
+            <div class="report-copy">
+                <p class="code">4000 · Reporting</p>
+                <h2 id="report-title">A report you will actually read.</h2>
+                <p class="section-lead">Three short statements and a note from your bookkeeper that says what changed, why, and what to watch next month. No jargon, no forty-page export.</p>
+                <ul class="checklist">
+                    <li><i data-lucide="check"></i> Profit and loss, with last month and last year beside it</li>
+                    <li><i data-lucide="check"></i> Cash on hand and how many months it covers</li>
+                    <li><i data-lucide="check"></i> Taxes you have collected or will owe, set aside early</li>
+                    <li><i data-lucide="check"></i> One plain-English note, written by a person</li>
+                </ul>
+            </div>
+            <div class="report-card">
+                <div class="report-top">
+                    <p class="report-name"><span id="report-client"></span><small>Month-end report · <span id="report-month"></span></small></p>
+                    <span class="report-tag"><i data-lucide="circle-check"></i> Closed</span>
+                </div>
+                <div class="tabs" role="tablist" aria-label="Report statements" id="report-tabs"></div>
+                <div class="report-panel" role="tabpanel" id="report-panel" tabindex="0"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing ---------------------------------------------------------- -->
+    <section class="section" id="pricing" aria-labelledby="pricing-title">
+        <div class="wrap">
+            <div class="section-head">
+                <p class="code">5000 · Pricing</p>
+                <h2 id="pricing-title">Price your books in a minute.</h2>
+                <p class="section-lead">Flat monthly fees set by how much your business spends, not by the hour. Pick what fits and the quote updates as you go.</p>
+            </div>
+            <div class="pricing-grid">
+                <form class="quote-form" id="quote-form" novalidate>
+                    <fieldset class="field-block">
+                        <legend>Monthly business expenses</legend>
+                        <p class="field-help">Roughly what leaves your accounts in a typical month, payroll included.</p>
+                        <div class="segmented" id="tier-options"></div>
+                    </fieldset>
+
+                    <div class="field-block field-row">
+                        <div>
+                            <p class="field-title" id="accounts-label">Bank and card accounts</p>
+                            <p class="field-help" id="accounts-help"></p>
+                        </div>
+                        <div class="stepper" role="group" aria-labelledby="accounts-label">
+                            <button type="button" data-step="accounts" data-dir="-1" aria-label="One fewer account"><i data-lucide="minus"></i></button>
+                            <output id="accounts-value" aria-live="polite">3</output>
+                            <button type="button" data-step="accounts" data-dir="1" aria-label="One more account"><i data-lucide="plus"></i></button>
+                        </div>
+                    </div>
+
+                    <fieldset class="field-block">
+                        <legend>Add to your plan</legend>
+                        <div class="addons" id="addon-options"></div>
+                    </fieldset>
+
+                    <div class="field-block">
+                        <label class="field-title" for="behind">How far behind are your books?</label>
+                        <p class="field-help">Catch-up work is a one-time fee per month we rebuild.</p>
+                        <div class="range-row">
+                            <input type="range" id="behind" min="0" max="24" step="1" value="0">
+                            <output id="behind-value" for="behind">Up to date</output>
+                        </div>
+                    </div>
+
+                    <fieldset class="field-block field-row">
+                        <legend class="field-title">Billing</legend>
+                        <div class="billing" id="billing-options">
+                            <label><input type="radio" name="billing" value="monthly" checked> <span>Monthly</span></label>
+                            <label><input type="radio" name="billing" value="annual"> <span>Yearly <em id="annual-save"></em></span></label>
+                        </div>
+                    </fieldset>
+                </form>
+
+                <aside class="receipt" id="receipt" aria-labelledby="receipt-title">
+                    <div class="receipt-head">
+                        <p class="receipt-brand" data-biz="name"></p>
+                        <p class="receipt-meta"><span id="receipt-title">Quote</span> <span id="quote-number"></span><span id="quote-date"></span></p>
+                    </div>
+                    <p class="receipt-plan" id="receipt-plan"></p>
+                    <ul class="receipt-lines" id="receipt-lines"></ul>
+                    <div class="receipt-total" aria-live="polite">
+                        <span>Per month</span>
+                        <b id="receipt-monthly"></b>
+                    </div>
+                    <div class="receipt-once" id="receipt-once"></div>
+                    <p class="receipt-current"><i data-lucide="calendar-check"></i> <span id="receipt-current"></span></p>
+                    <button type="button" class="btn btn-primary btn-block" id="quote-book">Book a call with this quote <i data-lucide="arrow-right"></i></button>
+                    <p class="receipt-small">An estimate, confirmed on your call after we see a month of statements. No setup fee.</p>
+                </aside>
+            </div>
+        </div>
+    </section>
+
+    <!-- Reviews ---------------------------------------------------------- -->
+    <section class="section section-band" id="reviews" aria-labelledby="reviews-title">
+        <div class="wrap">
+            <div class="section-head section-head-split">
+                <div>
+                    <p class="code">6000 · Clients</p>
+                    <h2 id="reviews-title">Owners who stopped dreading the 15th.</h2>
+                </div>
+                <p class="score"><b data-biz="rating"></b><span><span class="stars" aria-hidden="true">★★★★★</span><span>Average of <span data-biz="reviewCount"></span> reviews</span></span></p>
+            </div>
+            <div class="reviews" id="reviews-list"></div>
+        </div>
+    </section>
+
+    <!-- Team ------------------------------------------------------------- -->
+    <section class="section" id="team" aria-labelledby="team-title">
+        <div class="wrap">
+            <div class="section-head">
+                <p class="code">7000 · People</p>
+                <h2 id="team-title">The people who close your books.</h2>
+                <p class="section-lead">You get one named bookkeeper who learns how your business works, with the rest of the team checking their work. Replies within one business day.</p>
+            </div>
+            <div class="team" id="team-list"></div>
+        </div>
+    </section>
+
+    <!-- FAQ -------------------------------------------------------------- -->
+    <section class="section section-band" id="faq" aria-labelledby="faq-title">
+        <div class="wrap faq-grid">
+            <div>
+                <p class="code">8000 · Questions</p>
+                <h2 id="faq-title">Good questions, straight answers.</h2>
+                <p class="section-lead">Still wondering about something? Call <a data-biz-tel href="#"><span data-biz="phone"></span></a> and ask for whoever is free.</p>
+            </div>
+            <div class="faq" id="faq-list"></div>
+        </div>
+    </section>
+
+    <!-- Booking ---------------------------------------------------------- -->
+    <section class="section" id="book" aria-labelledby="book-title">
+        <div class="wrap book-grid">
+            <div class="book-copy">
+                <p class="code">9000 · Get started</p>
+                <h2 id="book-title">Book a free 20-minute call.</h2>
+                <p class="section-lead">Tell us a little about your business. We will look at where your books are today and give you a fixed price on the call.</p>
+                <ol class="next-steps">
+                    <li><b>We call you</b><span>Within one business day, at the time you pick.</span></li>
+                    <li><b>We look at a month</b><span>Read-only access to one statement is enough to quote.</span></li>
+                    <li><b>We close your first month</b><span>Your first report lands in about two weeks.</span></li>
+                </ol>
+                <dl class="contact-list">
+                    <div><dt><i data-lucide="phone"></i> Phone</dt><dd><a data-biz-tel href="#"><span data-biz="phone"></span></a></dd></div>
+                    <div><dt><i data-lucide="mail"></i> Email</dt><dd><a data-biz-mail href="#"><span data-biz="email"></span></a></dd></div>
+                    <div><dt><i data-lucide="clock"></i> Hours</dt><dd data-biz="hours"></dd></div>
+                </dl>
+            </div>
+
+            <form class="book-form" id="book-form" novalidate>
+                <div class="form-grid">
+                    <div class="field">
+                        <label for="b-name">Your name</label>
+                        <input id="b-name" name="name" autocomplete="name" required>
+                    </div>
+                    <div class="field">
+                        <label for="b-business">Business name</label>
+                        <input id="b-business" name="business" autocomplete="organization" required>
+                    </div>
+                    <div class="field">
+                        <label for="b-email">Email</label>
+                        <input id="b-email" name="email" type="email" autocomplete="email" required>
+                    </div>
+                    <div class="field">
+                        <label for="b-phone">Phone <span class="optional">optional</span></label>
+                        <input id="b-phone" name="phone" type="tel" autocomplete="tel">
+                    </div>
+                    <div class="field">
+                        <label for="b-industry">Type of business</label>
+                        <select id="b-industry" name="industry"></select>
+                    </div>
+                    <div class="field">
+                        <label for="b-time">Best time to call</label>
+                        <select id="b-time" name="time">
+                            <option>Morning</option>
+                            <option>Midday</option>
+                            <option>Afternoon</option>
+                        </select>
+                    </div>
+                    <fieldset class="field field-wide">
+                        <legend>Where are your books today?</legend>
+                        <div class="chips" id="b-status"></div>
+                    </fieldset>
+                    <div class="field field-wide">
+                        <label for="b-message">Anything we should know? <span class="optional">optional</span></label>
+                        <textarea id="b-message" name="message" rows="3" placeholder="Software you use, deadlines coming up, what is keeping you up at night"></textarea>
+                    </div>
+                    <label class="quote-attach field-wide" id="quote-attach" hidden>
+                        <input type="checkbox" id="b-quote" checked>
+                        <span><b>Include my quote</b> <span id="quote-attach-text"></span></span>
+                    </label>
+                </div>
+                <p class="form-error" id="form-error" role="alert"></p>
+                <button type="submit" class="btn btn-primary btn-block">Request my call <i data-lucide="arrow-right"></i></button>
+                <p class="form-small">We use your details only to get back to you. No newsletter, no sharing.</p>
+            </form>
+
+            <div class="book-done" id="book-done" hidden tabindex="-1">
+                <div class="stamp stamp-static" aria-hidden="true"><span id="done-stamp">Received</span><small id="done-date"></small></div>
+                <h3 id="done-title"></h3>
+                <p id="done-text"></p>
+                <button type="button" class="btn btn-ghost" id="book-again">Send another request</button>
+            </div>
+        </div>
+    </section>
+</main>
+
+<footer class="site-footer">
+    <div class="wrap footer-grid">
+        <div class="footer-brand">
+            <p class="footer-name" data-biz="name"></p>
+            <p class="definition"><b>crossfoot</b> <i>(verb)</i> to add up a ledger across and down and check that both totals agree. We do it to every set of books we close.</p>
+        </div>
+        <div>
+            <p class="footer-title">Services</p>
+            <ul class="footer-links" id="footer-services"></ul>
+        </div>
+        <div>
+            <p class="footer-title">Visit or call</p>
+            <ul class="footer-links">
+                <li data-biz="address"></li>
+                <li data-biz="area"></li>
+                <li><a data-biz-tel href="#"><span data-biz="phone"></span></a></li>
+                <li><a data-biz-mail href="#"><span data-biz="email"></span></a></li>
+            </ul>
+        </div>
+    </div>
+    <div class="wrap footer-bottom">
+        <p>© <span id="year"></span> <span data-biz="name"></span></p>
+        <a href="#top">Back to top <i data-lucide="arrow-up"></i></a>
+    </div>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
