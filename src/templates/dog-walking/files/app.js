@@ -321,8 +321,10 @@ const norm = (s) => String(s).toUpperCase().replace(/[^A-Z0-9 ]/g, '').replace(/
 function findArea(q) {
   const n = norm(q);
   if (!n) return null;
+  // The outward code: "PW5 2AB" -> PW5, "PW52AB" -> PW5, "PW5" -> PW5.
   const compact = n.replace(/ /g, '');
-  return AREAS.find((a) => a.codes.some((c) => compact.startsWith(c) && !/^\d/.test(compact.slice(c.length)))) ||
+  const outward = n.includes(' ') ? n.split(' ')[0] : (compact.length >= 5 ? compact.slice(0, -3) : compact);
+  return AREAS.find((a) => a.codes.includes(outward)) ||
     AREAS.find((a) => norm(a.name) === n || norm(a.name).startsWith(n) && n.length >= 3) || null;
 }
 (function renderMap() {
@@ -332,7 +334,9 @@ function findArea(q) {
       <polygon class="zone" points="${a.shape}" tabindex="0" role="button" aria-label="${esc(a.name)}, walked ${esc(a.days)}"/>
       <text class="zone-label" x="${a.at[0]}" y="${a.at[1]}">${esc(a.name)}</text>
       <text class="zone-days" x="${a.at[0]}" y="${a.at[1] + 20}">${esc(a.codes.join(' / '))} · ${esc(a.days.toUpperCase())}</text>
-    </g>`).join('');
+    </g>`).join('') +
+    `<path class="map-route" d="M120 190 C 200 160, 260 240, 330 190 S 470 150, 500 210 S 430 330, 360 350 S 200 300, 150 360 S 140 500, 230 520 S 420 470, 480 520"/>
+    <g class="hq" transform="translate(300 218)"><circle r="16"/><text y="5">HQ</text></g>`;
   $$('.zone-g', svg).forEach((g) => {
     const pick = () => { const a = AREAS[g.dataset.i]; $('#areaInput').value = a.name; showArea(a, a.name); };
     g.addEventListener('click', pick);
@@ -393,7 +397,7 @@ function showQuote(i) {
   const r = REVIEWS[qi];
   const el = $('#quote');
   el.classList.remove('swap'); void el.offsetWidth; el.classList.add('swap');
-  el.innerHTML = `${esc(r.text)}<cite>${esc(r.who)} · <b>${esc(r.dog)}</b></cite>`;
+  el.innerHTML = `<span class="qt">${esc(r.text)}</span><cite>${esc(r.who)} · <b>${esc(r.dog)}</b></cite>`;
   $('#qCount').textContent = `${String(qi + 1).padStart(2, '0')} / ${String(REVIEWS.length).padStart(2, '0')}`;
 }
 function autoQuote() { clearInterval(qTimer); if (!reduceMotion) qTimer = setInterval(() => showQuote(qi + 1), 6500); }
@@ -474,7 +478,7 @@ $('#slotChips').addEventListener('click', (e) => {
   const b = e.target.closest('.chip'); if (!b || b.disabled) return;
   state.slot = b.dataset.slot;
   renderSlots(); updateStub();
-  b.closest('.field').classList.remove('invalid');
+  $('#slotChips').closest('.field').classList.remove('invalid');
 });
 fDate.addEventListener('change', () => { renderSlots(); updateStub(); fDate.closest('.field').classList.remove('invalid'); });
 $$('.stepper button').forEach((b) => b.addEventListener('click', () => {
@@ -582,11 +586,14 @@ renderMine();
 // ---- mobile dock & reveal ---------------------------------------------------
 (function dock() {
   const d = $('#dock');
+  const seen = new Set();
   const io = new IntersectionObserver((entries) => {
-    const anyVisible = entries.some((en) => en.isIntersecting);
-    d.classList.toggle('hide', anyVisible);
+    entries.forEach((en) => (en.isIntersecting ? seen.add(en.target) : seen.delete(en.target)));
+    d.classList.toggle('hide', seen.size > 0);
   }, { threshold: 0.05 });
+  io.observe($('.hero-actions'));
   io.observe($('#book'));
+  io.observe($('.foot-legal'));
 })();
 
 (function reveal() {

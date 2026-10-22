@@ -1,0 +1,15 @@
+Photo credits. Every photo here is CC0 or public domain, from
+Wikimedia Commons, so no attribution is required. Listed for reference.
+
+hero.jpg          https://commons.wikimedia.org/wiki/File:Walking_Dogs_(Unsplash).jpg  (cropped)
+park.jpg          https://commons.wikimedia.org/wiki/File:Ottawa_dog_(Unsplash).jpg
+sofa.jpg          https://commons.wikimedia.org/wiki/File:Stroking_a_yawning_dog_(Unsplash).jpg
+walker-rosa.jpg   https://commons.wikimedia.org/wiki/File:Walkhaven_Dog_Park,_Johannesburg,_South_Africa_(Unsplash).jpg
+walker-dev.jpg    https://commons.wikimedia.org/wiki/File:Papillon_running.JPG  (public domain)
+walker-juno.jpg   https://commons.wikimedia.org/wiki/File:Earnest_dog_in_the_grass_(Unsplash).jpg
+walker-sam.jpg    https://commons.wikimedia.org/wiki/File:Bel_Air,_Maryland_dog_(Unsplash).jpg
+pup-1.jpg         https://commons.wikimedia.org/wiki/File:Barlow_Ganj_dog_(Unsplash).jpg
+pup-2.jpg         https://commons.wikimedia.org/wiki/File:Blonde_dog_in_grass_(Unsplash).jpg
+pup-3.jpg         https://commons.wikimedia.org/wiki/File:Top_Dog_(Unsplash).jpg
+pup-4.jpg         https://commons.wikimedia.org/wiki/File:Dog_stares_out_window_(Unsplash).jpg
+pup-5.jpg         https://commons.wikimedia.org/wiki/File:White_dog_walk_in_richmond_(Unsplash).jpg

@@ -30,7 +30,7 @@ export default {
     instructions: 'This is a dog walking and pet sitting site. All business content (name, contact details, hours, services and prices, service areas, walkers, walk reports, reviews, FAQ, booking slots) lives as plain data at the top of app.js; change content there rather than hard-coding it into index.html. Keep the hi-vis orange single-accent palette, the condensed display type and the dotted GPS-route motif unless the user asks for a different look. Booking requests are saved in the visitor\'s browser (localStorage) until a backend is added.',
     page: {
         title: 'Dog walking & pet sitting website template',
-        description: 'A bold, ready-to-edit website for a dog walker or pet sitter: a timetable of services and prices, a service-area checker, sample walk reports, your team of walkers, reviews and a working booking request form.',
+        description: 'A bold website for a dog walker or pet sitter, with a price timetable, service-area checker, sample walk reports, your walkers and a working booking form.',
         ogTagline: 'A street-poster website for dog walkers and pet sitters.',
         features: [
             { title: 'Services timetable', body: 'Walks, drop-ins, puppy visits and overnight sitting, shown like a departures board, with a switch between single visits and a discounted 10-visit pack.' },
