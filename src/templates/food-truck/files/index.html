@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<title>Comal Comet — Taco Truck</title>
+<meta name="description" content="Comal Comet is a taco truck that moves every day. See where we're parked right now, the week's route, order ahead from the board, or book the truck for your party.">
+<meta name="theme-color" content="#e23a1f">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=DM+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="topbar" id="top">
+  <a class="brand" href="#top" aria-label="Comal Comet, back to top">
+    <img src="icon.svg" alt="" width="34" height="34">
+    <span class="brand-name" data-biz="name">Comal Comet</span>
+  </a>
+  <nav class="nav" aria-label="Sections">
+    <a href="#route">The route</a>
+    <a href="#board">The board</a>
+    <a href="#catering">Book the truck</a>
+    <a href="#alerts">Text alerts</a>
+  </nav>
+  <a class="btn btn-red topbar-order" href="#board">Order ahead</a>
+  <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="sheet">
+    <span class="sr-only">Open menu</span><span class="bars" aria-hidden="true"></span>
+  </button>
+</header>
+
+<div class="sheet" id="sheet" hidden>
+  <nav aria-label="Menu">
+    <a href="#route">The route</a>
+    <a href="#board">The board</a>
+    <a href="#catering">Book the truck</a>
+    <a href="#alerts">Text alerts</a>
+  </nav>
+  <p class="sheet-foot mono"><a data-biz="phoneLink" href="#">Call the truck</a></p>
+</div>
+
+<main id="main">
+
+  <!-- HERO: the name, huge, and where the truck is right now -->
+  <section class="hero" aria-labelledby="hero-title">
+    <h1 id="hero-title" class="hero-title">
+      <span class="riso line-1" data-text="Comal">Comal</span>
+      <span class="riso line-2" data-text="Comet">Comet</span>
+    </h1>
+    <p class="hero-note mono" data-biz="intro">Hand-pressed tortillas, birria that drips down your wrist, and a truck that parks somewhere new every day.</p>
+    <figure class="sticker" aria-hidden="true">
+      <img src="photos/tacos-plate.jpg" alt="" width="560" height="560">
+      <svg class="sticker-ring" viewBox="0 0 200 200">
+        <defs><path id="ring" d="M100,100 m-84,0 a84,84 0 1,1 168,0 a84,84 0 1,1 -168,0"/></defs>
+        <text><textPath href="#ring" textLength="520" data-biz="ring">HAND-PRESSED ✦ TORTILLAS ✦ EVERY DAY ✦ SINCE 2019 ✦</textPath></text>
+      </svg>
+    </figure>
+
+    <div class="board-strip" role="region" aria-label="Where the truck is" aria-live="polite">
+      <div class="bs-cell bs-state">
+        <span class="lamp" id="lamp" aria-hidden="true"></span>
+        <span class="mono tiny" id="bs-label">Now parked</span>
+      </div>
+      <div class="bs-cell bs-where">
+        <strong id="bs-place">—</strong>
+        <span class="mono tiny" id="bs-address"></span>
+      </div>
+      <div class="bs-cell bs-hours">
+        <span class="mono tiny">Window</span>
+        <span class="mono" id="bs-hours">—</span>
+      </div>
+      <div class="bs-cell bs-clock">
+        <span class="mono tiny" id="bs-clock-label">Closes in</span>
+        <span class="flaps" id="bs-clock" aria-label="">--:--</span>
+      </div>
+      <div class="bs-cell bs-actions">
+        <a class="btn btn-gold" href="#board">Order ahead</a>
+        <a class="btn btn-ghost" id="bs-directions" href="#" target="_blank" rel="noopener">Directions</a>
+      </div>
+    </div>
+  </section>
+
+  <div class="ticker" aria-hidden="true"><div class="ticker-track" id="ticker"></div></div>
+
+  <!-- ROUTE: the week as a winding road -->
+  <section class="route" id="route" aria-labelledby="route-title">
+    <div class="route-head">
+      <h2 id="route-title" class="route-title">The<br>route</h2>
+      <p class="mono route-note">Same stops every week. We post changes here first, then on <a data-biz="instagramLink" href="#">Instagram</a>. Tap a stop to add it to your calendar.</p>
+    </div>
+    <div class="road" id="road">
+      <svg class="road-line" id="road-line" aria-hidden="true" preserveAspectRatio="none"></svg>
+      <ol class="stops" id="stops"></ol>
+    </div>
+  </section>
+
+  <!-- BOARD: the menu is the truck's serving window; the ticket is the order -->
+  <section class="menu" id="board" aria-labelledby="board-title">
+    <div class="menu-head">
+      <h2 id="board-title" class="menu-title riso" data-text="What's on the board">What's on the board</h2>
+      <p class="mono menu-note">Tap <b>+</b> to put it on your ticket, pick a stop and a time, and skip the line. Pay at the window.<br><span class="legend"><i class="tag">V</i> vegetarian <i class="tag">GF</i> gluten-free <i class="tag hot">🌶</i> hot</span></p>
+    </div>
+
+    <div class="menu-grid">
+      <div class="truck">
+        <svg class="awning" viewBox="0 0 600 46" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <pattern id="stripes" width="60" height="46" patternUnits="userSpaceOnUse">
+              <rect width="30" height="46" fill="#e23a1f"/><rect x="30" width="30" height="46" fill="#f4ead5"/>
+            </pattern>
+          </defs>
+          <path d="M0 0H600V30q-15 16-30 0q-15 16-30 0q-15 16-30 0q-15 16-30 0q-15 16-30 0q-15 16-30 0q-15 16-30 0q-15 16-30 0q-15 16-30 0q-15 16-30 0q-15 16-30 0q-15 16-30 0q-15 16-30 0q-15 16-30 0q-15 16-30 0q-15 16-30 0q-15 16-30 0q-15 16-30 0q-15 16-30 0q-15 16-30 0Z" fill="url(#stripes)"/>
+        </svg>
+        <div class="window">
+          <figure class="polaroid" aria-hidden="true">
+            <img id="polaroid-img" src="photos/tacos-limes.jpg" alt="" width="400" height="300">
+            <figcaption class="mono" id="polaroid-cap">Today's board</figcaption>
+          </figure>
+          <div class="board" id="menu-board"></div>
+        </div>
+      </div>
+
+      <aside class="ticket-wrap" aria-labelledby="ticket-title">
+        <form class="ticket" id="ticket" novalidate>
+          <div class="ticket-head">
+            <h3 id="ticket-title">Order ahead</h3>
+            <span class="mono tiny" id="ticket-no">Ticket</span>
+          </div>
+          <ul class="ticket-lines" id="ticket-lines"></ul>
+          <p class="ticket-empty mono" id="ticket-empty">Your ticket is empty. Tap <b>+</b> on anything on the board.</p>
+          <dl class="ticket-totals mono" id="ticket-totals" hidden>
+            <div><dt>Subtotal</dt><dd id="t-sub"></dd></div>
+            <div><dt id="t-tax-label">Tax</dt><dd id="t-tax"></dd></div>
+            <div class="grand"><dt>Total</dt><dd id="t-total"></dd></div>
+          </dl>
+          <fieldset class="ticket-pickup" id="ticket-pickup" hidden>
+            <legend class="mono tiny">Pick up at</legend>
+            <label class="field"><span class="mono tiny">Stop</span>
+              <select id="pickup-stop" required></select></label>
+            <label class="field"><span class="mono tiny">Time</span>
+              <select id="pickup-time" required></select></label>
+            <label class="field"><span class="mono tiny">Name on the ticket</span>
+              <input id="pickup-name" autocomplete="given-name" required maxlength="40"></label>
+            <label class="field"><span class="mono tiny">Phone (we text when it's up)</span>
+              <input id="pickup-phone" type="tel" autocomplete="tel" required maxlength="20"></label>
+            <label class="field"><span class="mono tiny">Notes for the cook</span>
+              <input id="pickup-notes" maxlength="120" placeholder="No onion, extra salsa…"></label>
+            <p class="form-error mono" id="ticket-error" role="alert"></p>
+            <button class="btn btn-red btn-block" type="submit">Send order</button>
+          </fieldset>
+          <div class="ticket-done" id="ticket-done" hidden tabindex="-1">
+            <p class="mono tiny">Order in</p>
+            <p class="done-no" id="done-no"></p>
+            <p class="mono" id="done-text"></p>
+            <button class="btn btn-ghost-ink btn-block" type="button" id="ticket-new">Start a new ticket</button>
+          </div>
+        </form>
+      </aside>
+    </div>
+  </section>
+
+  <!-- BAND: one photo, full bleed, one line -->
+  <section class="band" aria-label="The daily deal">
+    <img src="photos/tacos-box.jpg" alt="Three tacos with salsa and lime in a takeout box" width="1200" height="900" loading="lazy">
+    <p class="band-line" data-biz="dealLine">Three tacos.<br>Twelve bucks.</p>
+    <p class="band-small mono" data-biz="dealSmall">Before noon, every stop, no code needed.</p>
+  </section>
+
+  <!-- CATERING: park the truck at your party, with a live quote -->
+  <section class="catering" id="catering" aria-labelledby="cater-title">
+    <h2 id="cater-title" class="cater-title">Park it<br>at your<br>party.</h2>
+    <form class="cater-form" id="cater-form" novalidate>
+      <div class="cal" id="cal">
+        <div class="cal-head">
+          <button type="button" class="cal-nav" id="cal-prev" aria-label="Previous month">←</button>
+          <p class="mono" id="cal-month" aria-live="polite"></p>
+          <button type="button" class="cal-nav" id="cal-next" aria-label="Next month">→</button>
+        </div>
+        <div class="cal-grid mono" id="cal-grid" role="grid" aria-label="Pick an event date"></div>
+        <p class="mono tiny cal-key"><span class="k k-open"></span>open <span class="k k-booked"></span>booked <span class="k k-pick"></span>your date</p>
+      </div>
+
+      <div class="cater-fields">
+        <div class="guests">
+          <label for="guests" class="mono tiny">Guests</label>
+          <output id="guests-out" for="guests">80</output>
+          <input type="range" id="guests" min="25" max="300" step="5" value="80">
+        </div>
+
+        <fieldset class="packages" id="packages">
+          <legend class="mono tiny">Spread</legend>
+        </fieldset>
+
+        <div class="row-2">
+          <label class="field"><span class="mono tiny">Hours of service</span>
+            <select id="cater-hours"></select></label>
+          <label class="field"><span class="mono tiny">Miles from downtown</span>
+            <input id="cater-miles" type="number" min="0" max="80" value="5" inputmode="numeric"></label>
+        </div>
+
+        <div class="quote" aria-live="polite">
+          <p class="mono tiny">Estimate</p>
+          <p class="quote-total" id="quote-total">$0</p>
+          <ul class="quote-lines mono" id="quote-lines"></ul>
+        </div>
+
+        <div class="row-2">
+          <label class="field"><span class="mono tiny">Your name</span>
+            <input id="cater-name" autocomplete="name" required maxlength="60"></label>
+          <label class="field"><span class="mono tiny">Email</span>
+            <input id="cater-email" type="email" autocomplete="email" required maxlength="80"></label>
+        </div>
+        <label class="field"><span class="mono tiny">What's the occasion?</span>
+          <input id="cater-occasion" maxlength="120" placeholder="Wedding after-party, office lunch, block party…"></label>
+        <p class="form-error mono" id="cater-error" role="alert"></p>
+        <button class="btn btn-gold btn-block" type="submit">Hold my date</button>
+        <div class="cater-done" id="cater-done" hidden tabindex="-1">
+          <p class="cd-title">Date penciled in.</p>
+          <p class="mono" id="cater-done-text"></p>
+          <a class="btn btn-ink" id="cater-mail" href="#">Send it to us by email</a>
+        </div>
+      </div>
+    </form>
+  </section>
+
+  <!-- ALERTS + HOUSE RULES -->
+  <section class="alerts" id="alerts" aria-labelledby="alerts-title">
+    <div class="alerts-form-wrap">
+      <h2 id="alerts-title" class="alerts-title">Get a text<br>when we park<br><span>near you.</span></h2>
+      <form class="alerts-form" id="alerts-form" novalidate>
+        <fieldset class="hoods" id="hoods">
+          <legend class="mono tiny">Neighborhoods</legend>
+        </fieldset>
+        <div class="alerts-row">
+          <label class="field"><span class="mono tiny">Mobile number</span>
+            <input id="alert-phone" type="tel" autocomplete="tel" required maxlength="20" placeholder="(555) 000-0000"></label>
+          <button class="btn btn-ink" type="submit">Text me</button>
+        </div>
+        <p class="form-error mono" id="alert-error" role="alert"></p>
+        <p class="alerts-done mono" id="alerts-done" hidden></p>
+      </form>
+    </div>
+    <div class="rules">
+      <h2 class="mono tiny rules-title">Rules of the window</h2>
+      <ol class="rules-list" id="rules"></ol>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <p class="footer-giant" aria-hidden="true">Comal Comet</p>
+  <div class="footer-cols mono">
+    <div>
+      <p class="tiny">Call or text the truck</p>
+      <p><a data-biz="phoneLink" href="#"></a></p>
+      <p><a data-biz="emailLink" href="#"></a></p>
+    </div>
+    <div>
+      <p class="tiny">Commissary kitchen</p>
+      <p data-biz="commissary"></p>
+    </div>
+    <div>
+      <p class="tiny">Follow the truck</p>
+      <p><a data-biz="instagramLink" href="#"></a></p>
+    </div>
+    <div class="credits">
+      <p class="tiny">Photos</p>
+      <p>CC0, from the <a href="https://wordpress.org/photos/" target="_blank" rel="noopener">WordPress Photo Directory</a>: Alina Kakshapati, mdburnette, Michelle Frechette, Mohammed Kateregga, Nilo Velez.</p>
+    </div>
+  </div>
+  <p class="footer-legal mono tiny">© <span id="year"></span> <span data-biz="name"></span>. Permits on the window.</p>
+</footer>
+
+<a class="ticket-bar" id="ticket-bar" href="#ticket" hidden>
+  <span>Your ticket</span><span class="mono" id="ticket-bar-sum"></span>
+</a>
+
+<script src="app.js"></script>
+</body>
+</html>
