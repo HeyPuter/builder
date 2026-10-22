@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#121212">
+<title>Arc &amp; Axis Physical Therapy — Get your range back</title>
+<meta name="description" content="One-on-one physical therapy for pain, injury and surgery recovery. Full hour with your therapist, no referral needed. Book an evaluation online.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script src="https://builder.puter.com/runtime.js" defer></script>
+</head>
+<body>
+
+<header class="bar" id="top">
+  <a class="brand" href="#top" aria-label="Arc & Axis home">
+    <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M6 32a14 14 0 0 1 28 0" fill="none" stroke="currentColor" stroke-width="3"/><path d="M20 32 31 12" stroke="#ff5a36" stroke-width="3" stroke-linecap="round"/><circle cx="20" cy="32" r="3" fill="currentColor"/></svg>
+    <span data-bind="name">Arc &amp; Axis</span>
+  </a>
+  <nav class="bar-nav" aria-label="Main">
+    <a href="#hurts">Where it hurts</a>
+    <a href="#approach">Approach</a>
+    <a href="#plan">Your plan</a>
+    <a href="#team">Team</a>
+    <a href="#book">Pricing</a>
+    <a href="#visit">Visit</a>
+  </nav>
+  <a class="bar-phone mono" data-bind="phoneLink"></a>
+  <a class="pill" href="#book">Book an evaluation</a>
+  <button class="burger" type="button" aria-expanded="false" aria-controls="drawer" aria-label="Open menu"><span></span><span></span></button>
+</header>
+<div class="drawer" id="drawer" hidden>
+  <a href="#hurts">Where it hurts</a>
+  <a href="#approach">Approach</a>
+  <a href="#plan">Your plan</a>
+  <a href="#team">Team</a>
+  <a href="#book">Book &amp; pricing</a>
+  <a href="#visit">Visit</a>
+  <a class="mono" data-bind="phoneLink"></a>
+</div>
+
+<main>
+  <!-- HERO -->
+  <section class="hero">
+    <img class="hero-img" src="photos/hero.jpg" alt="A physical therapist guiding a patient through a leg exercise">
+    <div class="hero-shade"></div>
+    <div class="gonio" aria-hidden="true">
+      <svg viewBox="-110 -110 220 120">
+        <g class="gonio-ticks"></g>
+        <path d="M-96 0A96 96 0 0 1 96 0" fill="none" stroke="currentColor" stroke-width=".8"/>
+        <g class="gonio-arm"><line x1="0" y1="0" x2="-104" y2="0" stroke="#ff5a36" stroke-width="2.2" stroke-linecap="round"/></g>
+        <line x1="0" y1="0" x2="-104" y2="0" stroke="currentColor" stroke-width=".8" stroke-dasharray="2 3"/>
+        <circle r="4" fill="#ff5a36"/>
+      </svg>
+      <p class="gonio-read mono"><span data-bind="heroMeasureLabel"></span> <b><span class="gonio-num">0</span>°</b></p>
+    </div>
+    <div class="hero-copy">
+      <p class="mono hero-kicker"><span data-bind="kicker"></span></p>
+      <h1 class="display hero-h">Get your<br><span class="tape">range</span><br>back.</h1>
+      <div class="hero-foot">
+        <p class="hero-lead" data-bind="lead"></p>
+        <div class="hero-ctas">
+          <a class="btn btn-tape" href="#book">Book an evaluation</a>
+          <a class="btn btn-ghost" href="#hurts">Where does it hurt?</a>
+        </div>
+      </div>
+    </div>
+    <ul class="hero-facts mono" data-list="heroFacts"></ul>
+  </section>
+
+  <!-- 0° WHERE IT HURTS -->
+  <section class="hurts" id="hurts">
+    <div class="deg mono"><i style="--a:0deg"></i>000° — Where it hurts</div>
+    <h2 class="display hurts-h">Point to<br>it.</h2>
+    <p class="hurts-note">Tap the spot. We will tell you what we usually find there, how long recovery tends to take, and who on the team treats it most.</p>
+    <div class="map">
+      <svg class="figure" viewBox="0 0 200 400" role="group" aria-label="Body map">
+        <g class="figure-body" stroke-linecap="round" stroke-linejoin="round">
+          <g class="limbs" fill="none" stroke-width="22">
+            <path d="M64 88 54 150 48 206M136 88l10 62 6 56M82 206l-2 90v78M118 206l2 90v78"/>
+            <path d="M64 86h72l-12 116H76z" fill="currentColor" stroke-width="16"/>
+            <path d="M100 56v26" stroke-width="16"/>
+          </g>
+          <circle class="head" cx="100" cy="32" r="20"/>
+          <g class="bones" fill="none" stroke-width="2">
+            <path d="M100 52v144M64 88h72M82 204h36M64 88 54 150 48 206M136 88l10 62 6 56M82 204l-2 92v78l-14 8M118 204l2 92v78l14 8"/>
+          </g>
+          <g class="joints"><circle cx="64" cy="88" r="3"/><circle cx="136" cy="88" r="3"/><circle cx="54" cy="150" r="3"/><circle cx="146" cy="150" r="3"/><circle cx="48" cy="206" r="3"/><circle cx="152" cy="206" r="3"/><circle cx="82" cy="204" r="3"/><circle cx="118" cy="204" r="3"/><circle cx="80" cy="296" r="3"/><circle cx="120" cy="296" r="3"/><circle cx="80" cy="374" r="3"/><circle cx="120" cy="374" r="3"/><circle cx="100" cy="64" r="3"/></g>
+        </g>
+        <g class="spots"></g>
+      </svg>
+      <div class="map-list" role="tablist" aria-label="Body areas"></div>
+      <article class="map-card" aria-live="polite"></article>
+    </div>
+  </section>
+
+  <!-- 45° APPROACH -->
+  <section class="approach" id="approach">
+    <figure class="approach-photo">
+      <img src="photos/run.jpg" alt="A runner on a treadmill during a gait analysis" loading="lazy">
+    </figure>
+    <div class="approach-copy">
+      <div class="deg mono"><i style="--a:45deg"></i>045° — Approach</div>
+      <p class="approach-big display"><span data-bind="sessionMinutes"></span><small>min</small></p>
+      <h2 class="approach-h">One therapist. The whole hour. Every visit.</h2>
+      <p class="approach-p" data-bind="approach"></p>
+      <ol class="approach-list" data-list="principles"></ol>
+    </div>
+  </section>
+
+  <!-- 90° PLAN -->
+  <section class="plan" id="plan">
+    <div class="plan-head">
+      <div class="deg mono"><i style="--a:90deg"></i>090° — Your plan</div>
+      <h2 class="display plan-h">Twelve weeks,<br><span class="out">give or take.</span></h2>
+    </div>
+    <div class="track" tabindex="0" aria-label="A typical recovery, week by week">
+      <ol class="track-list" data-list="track"></ol>
+    </div>
+  </section>
+
+  <!-- 135° TEAM -->
+  <section class="team" id="team">
+    <div class="deg mono"><i style="--a:135deg"></i>135° — Team</div>
+    <h2 class="display team-h">Doctors of<br>physical therapy.</h2>
+    <ul class="team-list" data-list="team"></ul>
+  </section>
+
+  <!-- 180° BOOK -->
+  <section class="book" id="book">
+    <div class="book-head">
+      <div class="deg mono"><i style="--a:180deg"></i>180° — Book</div>
+      <h2 class="display book-h">Back to it.</h2>
+      <p class="book-direct" data-bind="directAccess"></p>
+    </div>
+
+    <form class="desk" novalidate>
+      <fieldset class="step">
+        <legend class="mono"><b>01</b> Visit</legend>
+        <div class="visits" data-list="visits"></div>
+      </fieldset>
+      <fieldset class="step">
+        <legend class="mono"><b>02</b> Area</legend>
+        <div class="chips" data-list="areaChips"></div>
+      </fieldset>
+      <fieldset class="step">
+        <legend class="mono"><b>03</b> Day &amp; time</legend>
+        <div class="days" role="radiogroup" aria-label="Day"></div>
+        <div class="slots" role="radiogroup" aria-label="Time"></div>
+      </fieldset>
+      <fieldset class="step">
+        <legend class="mono"><b>04</b> You</legend>
+        <div class="fields">
+          <label>Full name<input name="name" autocomplete="name" required></label>
+          <label>Phone<input name="phone" type="tel" autocomplete="tel" required></label>
+          <label>Email<input name="email" type="email" autocomplete="email" required></label>
+          <label>Insurance <span class="opt">(optional)</span><input name="insurance" list="insurers" placeholder="Start typing your plan"></label>
+          <label class="wide">Anything we should know? <span class="opt">(optional)</span><textarea name="notes" rows="3" placeholder="Surgery date, what makes it worse, goals…"></textarea></label>
+        </div>
+        <p class="ins-result mono" aria-live="polite"></p>
+      </fieldset>
+      <div class="desk-foot">
+        <p class="summary mono" aria-live="polite"></p>
+        <p class="form-error" role="alert"></p>
+        <button class="btn btn-tape" type="submit">Request appointment</button>
+      </div>
+    </form>
+    <datalist id="insurers"></datalist>
+
+    <div class="confirm" hidden tabindex="-1">
+      <p class="mono confirm-ref"></p>
+      <h3 class="display confirm-h">You're on<br>the table.</h3>
+      <p class="confirm-body"></p>
+      <ul class="bring" data-list="bring"></ul>
+      <div class="confirm-ctas">
+        <button class="btn btn-tape" type="button" data-action="ics">Add to calendar</button>
+        <button class="btn btn-line" type="button" data-action="again">Book another</button>
+      </div>
+    </div>
+
+    <aside class="receipt" aria-labelledby="prices-h">
+      <p class="mono receipt-top">Self-pay · no surprises</p>
+      <h3 id="prices-h" class="receipt-h">Prices</h3>
+      <ul class="receipt-list" data-list="prices"></ul>
+      <p class="mono receipt-fine" data-bind="priceNote"></p>
+    </aside>
+  </section>
+
+  <!-- VISIT -->
+  <section class="visit" id="visit">
+    <img class="visit-img" src="photos/gym.jpg" alt="An open treatment floor with exercise equipment" loading="lazy">
+    <div class="visit-panel">
+      <p class="status mono"><i></i><span></span></p>
+      <h2 class="display visit-h" data-bind="street"></h2>
+      <p class="visit-addr" data-bind="cityLine"></p>
+      <p class="visit-park" data-bind="parking"></p>
+      <table class="hours mono"><tbody data-list="hours"></tbody></table>
+      <div class="visit-ctas">
+        <a class="btn btn-tape" data-bind="mapLink" target="_blank" rel="noopener">Directions</a>
+        <a class="btn btn-line" data-bind="phoneLink"></a>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="faq" id="faq">
+    <h2 class="display faq-h">Asked<br>a lot.</h2>
+    <div class="faq-list" data-list="faq"></div>
+  </section>
+</main>
+
+<footer class="foot">
+  <p class="display foot-big" aria-hidden="true">Move<span class="tape">well.</span></p>
+  <div class="foot-row mono">
+    <span data-bind="legal"></span>
+    <a data-bind="emailLink"></a>
+    <a data-bind="phoneLink"></a>
+    <a href="#top">Back to top ↑</a>
+  </div>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
