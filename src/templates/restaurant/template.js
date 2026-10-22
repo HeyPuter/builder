@@ -58,7 +58,7 @@ export default {
             },
             {
                 title: 'Tonight\'s specials',
-                body: 'A dated specials ticket beside the menus, with the headline dish featured in the hero, so regulars see what is new before they book.',
+                body: 'A dated card of tonight\'s specials beside the menus, next to the chef\'s tasting menu, so regulars see what is new before they book.',
             },
             {
                 title: 'Gift cards and a newsletter',

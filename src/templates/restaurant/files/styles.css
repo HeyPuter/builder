@@ -234,7 +234,7 @@ i[data-lucide], svg.lucide { width: 18px; height: 18px; flex: none; stroke-width
   border: 1px solid var(--line-2); font-size: 9.5px; font-weight: 600; letter-spacing: .04em; color: var(--ink-2);
 }
 .menu-empty { color: var(--muted); font-style: italic; column-span: all; }
-.legend { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 8px 0 0; color: var(--muted); font-size: 13px; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 36px 0 0; color: var(--muted); font-size: 13px; }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
 
 /* ---------- Spaces ---------- */
@@ -271,14 +271,14 @@ i[data-lucide], svg.lucide { width: 18px; height: 18px; flex: none; stroke-width
 .press strong { display: block; color: var(--ink); font-weight: 600; margin-bottom: 2px; }
 
 /* ---------- Gallery ---------- */
-.gallery { position: relative; height: 780px; background: var(--bg-2); overflow: hidden; }
+.gallery { position: relative; height: 740px; background: var(--bg-2); overflow: hidden; }
 .g { position: absolute; height: auto; object-fit: cover; }
-.g1 { left: -2%; top: 70px; width: 17%; aspect-ratio: 3 / 2; }
-.g2 { left: 23%; top: 330px; width: 15%; aspect-ratio: 1; }
-.g3 { left: 44%; top: 60px; width: 13%; aspect-ratio: 3 / 4; }
-.g4 { left: 63%; top: 420px; width: 21%; aspect-ratio: 3 / 2; }
-.g5 { left: 87%; top: 120px; width: 11%; aspect-ratio: 1; }
-.g6 { left: 6%; top: 500px; width: 13%; aspect-ratio: 4 / 3; }
+.g1 { left: -2%; top: 70px; width: 20%; aspect-ratio: 3 / 2; }
+.g2 { left: 24%; top: 330px; width: 15%; aspect-ratio: 1; }
+.g3 { left: 44%; top: 60px; width: 15%; aspect-ratio: 3 / 4; }
+.g4 { left: 63%; top: 400px; width: 24%; aspect-ratio: 3 / 2; }
+.g5 { left: 86%; top: 110px; width: 13%; aspect-ratio: 1; }
+.g6 { left: 6%; top: 520px; width: 15%; aspect-ratio: 4 / 3; }
 
 /* ---------- Reservations ---------- */
 .reserve-intro { grid-column: 1 / span 4; display: flex; flex-direction: column; gap: 16px; position: sticky; top: calc(var(--bar-h) + 24px); align-self: start; }
@@ -499,7 +499,7 @@ i[data-lucide], svg.lucide { width: 18px; height: 18px; flex: none; stroke-width
   .grid > * { grid-column: 1 / -1 !important; }
   .section { padding: 88px 0; }
 
-  .bar-nav, .bar .btn-sm + .menu-btn { display: none; }
+  .bar-nav { display: none; }
   .bar-inner { gap: 12px; justify-content: space-between; }
   .bar .wordmark { margin-right: auto; font-size: 20px; }
   .menu-btn { display: inline-grid; }
