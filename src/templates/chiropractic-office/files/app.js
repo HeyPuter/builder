@@ -28,7 +28,7 @@ const PRACTICE = {
     formsUrl: '',
     // Optional. Where the "Read all reviews" link goes.
     reviewsUrl: '',
-    rating: { average: 4.9, count: 286, source: 'Google', stars: [92, 6, 1, 0, 1] },
+    rating: { average: 4.9, count: 286, source: 'Google' },
     firstVisitPrice: 79,
 };
 
@@ -237,6 +237,10 @@ const STORIES = [
         cameIn: 'Low back pain after my second baby', backTo: 'Hiking with a toddler on my back', visits: 8, weeks: 6,
         quote: 'Ada was gentle and honest, and she never pushed extra visits. The exercises fit into nap time, and they worked.',
         name: 'Lena M.' },
+    { photo: 'photos/story-yoga.jpg', alt: 'A woman stretching her arms up in a meadow at sunset',
+        cameIn: 'A stiff mid back from desk work', backTo: 'Sunrise yoga, no wincing', visits: 5, weeks: 4,
+        quote: 'Five visits and a desk reset. I didn’t realise how much I’d stopped turning my body until I could again.',
+        name: 'Priya S.' },
 ];
 
 const BOOKING_TIMES = ['Early morning', 'Late morning', 'Afternoon', 'After 5 pm'];
@@ -674,21 +678,39 @@ function setupTeam() {
 
 function setupStories() {
     const r = PRACTICE.rating;
-    const total = r.stars.reduce((a, b) => a + b, 0) || 1;
     $('[data-rating]').innerHTML = `
-        <div class="rating-score"><p class="rating-num">${esc(r.average.toFixed(1))}</p><p class="rating-stars" aria-hidden="true">★★★★★</p><p class="rating-count">${esc(r.count)} ${esc(r.source)} reviews${sampleTag()}</p></div>
-        <ul class="rating-bars" aria-label="How the reviews are spread">${r.stars.map((n, i) => `<li><span>${5 - i}★</span><span class="bar"><i style="width:${(n / total * 100).toFixed(1)}%"></i></span><span class="pct">${Math.round(n / total * 100)}%</span></li>`).join('')}</ul>
-        ${PRACTICE.reviewsUrl ? `<a class="rating-link" href="${esc(PRACTICE.reviewsUrl)}" target="_blank" rel="noopener">Read all reviews <span aria-hidden="true">&rarr;</span></a>` : ''}`;
-    $('[data-stories]').innerHTML = STORIES.map((s) => `
+        <span class="rating-num">${esc(r.average.toFixed(1))}</span><span class="rating-stars" aria-hidden="true">★★★★★</span>
+        <span class="rating-count">from ${esc(r.count)} ${esc(r.source)} reviews</span>${sampleTag()}
+        ${PRACTICE.reviewsUrl ? `<a class="rating-link" href="${esc(PRACTICE.reviewsUrl)}" target="_blank" rel="noopener">Read them all <span aria-hidden="true">&rarr;</span></a>` : ''}`;
+    const track = $('[data-stories]');
+    track.innerHTML = STORIES.map((s) => `
         <figure class="story">
-            <div class="story-photo"><img src="${esc(s.photo)}" alt="${esc(s.alt)}" width="720" height="540" loading="lazy"></div>
-            <div class="story-swap">
-                <p><span class="swap-label">Came in with</span><span class="swap-text">${esc(s.cameIn)}</span></p>
-                <p><span class="swap-label swap-label-to">Back to</span><span class="swap-text">${esc(s.backTo)}</span></p>
-            </div>
-            <blockquote>“${esc(s.quote)}”</blockquote>
-            <figcaption><span class="story-name">${esc(s.name)}</span><span class="story-visits">${esc(s.visits)} visits · ${esc(s.weeks)} weeks</span>${sampleTag()}</figcaption>
+            <img src="${esc(s.photo)}" alt="${esc(s.alt)}" width="600" height="800" loading="lazy">
+            <p class="story-top"><span class="story-name">${esc(s.name)}</span><span class="story-visits">${esc(s.visits)} visits · ${esc(s.weeks)} weeks</span>${sampleTag()}</p>
+            <figcaption class="story-body">
+                <p class="story-swap"><span class="swap-label">Came in with</span>${esc(s.cameIn)}</p>
+                <p class="story-swap story-back"><span class="swap-label">Back to</span>${esc(s.backTo)}</p>
+                <blockquote>“${esc(s.quote)}”</blockquote>
+            </figcaption>
         </figure>`).join('');
+
+    // Arrow buttons page through the cards; each is disabled at its end.
+    const prev = $('[data-stories-prev]');
+    const next = $('[data-stories-next]');
+    const step = () => {
+        const card = $('.story', track);
+        return card ? card.getBoundingClientRect().width + parseFloat(getComputedStyle(track).columnGap || 0) : track.clientWidth;
+    };
+    const sync = () => {
+        prev.disabled = track.scrollLeft <= 2;
+        next.disabled = track.scrollLeft + track.clientWidth >= track.scrollWidth - 2;
+        $('.carousel-btns').hidden = prev.disabled && next.disabled;
+    };
+    prev.addEventListener('click', () => track.scrollBy({ left: -step(), behavior: reducedMotion ? 'auto' : 'smooth' }));
+    next.addEventListener('click', () => track.scrollBy({ left: step(), behavior: reducedMotion ? 'auto' : 'smooth' }));
+    track.addEventListener('scroll', sync, { passive: true });
+    window.addEventListener('resize', sync);
+    sync();
 }
 
 // --- Booking ----------------------------------------------------------------------
@@ -873,7 +895,7 @@ function setupChrome() {
     }
 
     // Sections ease in as they scroll into view.
-    const items = $$('.sec-head, .spine-grid, .timeline, .bring, .fees, .coverage, .myth, .person, .story, .book-card, .visit-info');
+    const items = $$('.sec-head, .about-copy, .about-photo, .spine-grid, .timeline, .bring, .fees, .coverage, .myth, .person, .stories, .book-aside, .book-card, .visit-grid');
     if (reducedMotion || !('IntersectionObserver' in window)) return;
     const seen = new IntersectionObserver((entries) => {
         entries.forEach((entry) => {

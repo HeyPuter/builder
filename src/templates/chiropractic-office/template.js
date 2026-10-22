@@ -3,7 +3,7 @@ export default {
     name: 'Chiropractic Office',
     category: 'Website',
     description: 'A chiropractic clinic site with a clickable spine map, a minute-by-minute first visit, clear fees and a booking request form.',
-    updated: '2026-10-15',
+    updated: '2026-10-22',
     workers: [],
     suggestions: [
         { label: 'Use my practice details', prompt: 'Replace the sample practice with mine. Name, address, phone, email and hours: ' },
@@ -15,6 +15,7 @@ export default {
     instructions: [
         'This is a one-page website for a chiropractic office.',
         '- All practice content is plain data at the top of app.js: PRACTICE (contact details, time zone, form endpoint), HOURS, HERO_QUOTE, CONCERNS (the spine map), VISIT_STEPS, BRING, FEES, COVERAGE, MYTHS, TEAM and STORIES. Change content there, keeping each entry\'s shape, rather than editing the rendered HTML.',
+        '- The hero and "Care with an end date" copy and the section headings are in index.html. Headings pair upright words with one italic word in <em> (for example "Where does it <em>hurt?</em>"); keep that pattern for new sections.',
         '- Spine map ranges use the vertebra ids C1-C7, T1-T12, L1-L5, S (sacrum) and Co (tailbone).',
         '- Keep a "see a doctor first" note on every concern and the medical disclaimer in the footer. Do not claim chiropractic treats or cures conditions outside the muscles, joints and nerves (such as asthma, ear infections, allergies or immunity), and do not promise outcomes.',
         '- Booking requests are sent as JSON to PRACTICE.formEndpoint when it is set; otherwise they open an email to PRACTICE.email.',
@@ -43,7 +44,7 @@ export default {
             },
             {
                 title: 'Team and patient stories',
-                body: 'Practitioner cards with focus areas and a "Book with" link, and "came in with, back to" stories beside a rating summary.',
+                body: 'Practitioner cards with focus areas and a "Book with" link, and a carousel of photo stories that say what each patient came in with and got back to.',
             },
             {
                 title: 'Booking requests and live hours',
