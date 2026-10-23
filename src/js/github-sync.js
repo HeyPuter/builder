@@ -56,6 +56,11 @@
     const PRE_TURN_CAP_MS = 20000;
     const READ_CONCURRENCY = 6;
     const NOTE_TEXT_LIMIT = 200000;
+    // A text file up to this size goes inside the tree request instead of as
+    // a blob request of its own, and one tree request carries up to the batch
+    // size of such text (see send).
+    const INLINE_FILE_MAX = 512 * 1024;
+    const INLINE_BATCH_MAX = 1024 * 1024;
 
     function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
     function username() { return (window.user && window.user.username) || ''; }
@@ -72,15 +77,20 @@
         _cache: undefined, // undefined: not read yet. null: signed out.
         async read() {
             if (this._cache !== undefined) return this._cache;
+            return this.refresh();
+        },
+        // Read the sign-in from the store again. Every check and every panel
+        // opening does, since another tab or device may have signed in or out
+        // (Disconnect GitHub) and this tab's copy would otherwise keep going.
+        // A store that can't be read (an account out of credits can't use KV)
+        // leaves the last answer standing, so a blip doesn't read as signed
+        // out.
+        async refresh() {
             try {
                 const v = await puter.kv.get(AUTH_KEY);
                 this._cache = v && typeof v === 'object' && v.token ? v : null;
-            } catch (e) {
-                // KV unreachable (an account out of credits can't use it):
-                // unknown is not signed in, but don't remember it as such.
-                return null;
-            }
-            return this._cache;
+            } catch (e) { /* the last answer stands */ }
+            return this._cache === undefined ? null : this._cache;
         },
         async token() {
             const a = await this.read();
@@ -629,7 +639,7 @@
             if (link.lastPause !== reason) await updateLink(chatId, (l) => (l ? Object.assign(l, { lastPause: reason }) : undefined));
         };
         if (!window.Branding || !window.Branding.isSubscribed(user)) { await pauseFor('lapsed'); return setState(chatId, { kind: 'lapsed' }); }
-        if (!(await Auth.token())) { await pauseFor('signed-out'); return setState(chatId, { kind: 'signed-out' }); }
+        if (!(await Auth.refresh())) { await pauseFor('signed-out'); return setState(chatId, { kind: 'signed-out' }); }
         if (link.pause && link.pause.reason === 'history' && trigger !== 'choice') {
             return setState(chatId, { kind: 'history', head: link.pause.head });
         }
@@ -939,28 +949,52 @@
             const snap = window.versionSnapshotDir(chatId, index.current);
             const deps = normalizeDeps();
             const onGitHub = new Set(Object.values(B.map));
-            const blobs = [];
+            // The new tree's entries. A text file goes inside the tree request
+            // as its content, so a save takes a few requests however many
+            // files it has (GitHub asks for a second between content requests
+            // once there are many). A binary or big file goes up as a blob of
+            // its own first, and one GitHub already has goes by its hash.
+            const entries = [];
             // A key written in a file never holds the save. The AI hears
             // about it with the user's next message and asks the user in the
             // chat (see tellAboutKeys).
             const keyed = [];
             const clean = [];
             for (const p of push) {
-                if (!p.sha) { clean.push(p.path); continue; }
+                const mode = (B.modes && B.modes[p.path]) || '100644';
+                if (!p.sha) { clean.push(p.path); entries.push({ path: p.path, mode, type: 'blob', sha: null }); continue; }
                 const raw = await readBytes(snap + '/' + p.path);
                 const bytes = Core.normalizeForGit(p.path, raw, deps);
                 if (await Core.gitBlobSha(bytes, deps.digest) !== p.sha) throw Object.assign(new Error('a version file changed while sending'), { kind: 'unknown' });
-                (Core.isKeyFileName(p.path) || (Core.isText(bytes) && Core.scanSecrets(new TextDecoder().decode(bytes)).length) ? keyed : clean).push(p.path);
-                blobs.push({ path: p.path, sha: p.sha, bytes });
+                // ignoreBOM keeps a byte order mark in the text, so the text
+                // is the file byte for byte.
+                const text = Core.isText(bytes) ? new TextDecoder('utf-8', { ignoreBOM: true }).decode(bytes) : null;
+                (Core.isKeyFileName(p.path) || (text != null && Core.scanSecrets(text).length) ? keyed : clean).push(p.path);
+                if (onGitHub.has(p.sha)) {
+                    entries.push({ path: p.path, mode, type: 'blob', sha: p.sha });
+                } else if (text != null && bytes.length <= INLINE_FILE_MAX) {
+                    entries.push({ path: p.path, mode, type: 'blob', content: text, size: bytes.length });
+                } else {
+                    const got = await Api.createBlob(link.repo, bytes);
+                    if (got !== p.sha) throw Object.assign(new Error('GitHub stored different bytes than Builder sent'), { kind: 'unknown' });
+                    onGitHub.add(p.sha);
+                    entries.push({ path: p.path, mode, type: 'blob', sha: p.sha });
+                }
             }
-            for (const b of blobs) {
-                if (onGitHub.has(b.sha)) continue;
-                const got = await Api.createBlob(link.repo, b.bytes);
-                if (got !== b.sha) throw Object.assign(new Error('GitHub stored different bytes than Builder sent'), { kind: 'unknown' });
-                onGitHub.add(b.sha);
+            let treeSha = head.tree;
+            for (const batch of Core.treeBatches(entries, INLINE_BATCH_MAX)) {
+                treeSha = await Api.createTree(link.repo, treeSha, batch.map((e) => (typeof e.content === 'string'
+                    ? { path: e.path, mode: e.mode, type: e.type, content: e.content }
+                    : { path: e.path, mode: e.mode, type: e.type, sha: e.sha })));
             }
-            const tree = push.map((p) => ({ path: p.path, mode: (B.modes && B.modes[p.path]) || '100644', type: 'blob', sha: p.sha }));
-            const treeSha = await Api.createTree(link.repo, head.tree, tree);
+            // GitHub wrote the text files' blobs itself. The tree is read back
+            // and every path checked against this version before the branch
+            // moves, so a byte that changed on the way never lands. The next
+            // check reads the same tree from the cache.
+            const made = new Map((await treeOf(link, treeSha)).filter((e) => e.type === 'blob').map((e) => [e.path, e.sha]));
+            if (push.some((p) => (p.sha ? made.get(p.path) !== p.sha : made.has(p.path)))) {
+                throw Object.assign(new Error('GitHub stored different bytes than Builder sent'), { kind: 'unknown' });
+            }
             const message = commitMessageFor(link, index, entry, push, conflictPaths);
             const commit = await Api.createCommit(link.repo, message, treeSha, [head.commit]);
             try {
@@ -1111,7 +1145,7 @@
         stateFor(chatId) { return _state.get(chatId) || null; },
         linkFor(chatId) { return _linkCache.get(chatId) || null; },
         readLink: readLinkSafe,
-        async signedInAs() { const a = await Auth.read(); return a ? a.login : null; },
+        async signedInAs() { const a = await Auth.refresh(); return a ? a.login : null; },
         connect,
         checkNow(chatId) { return runPass(chatId || openChat(), 'user'); },
         // Stop syncing. The record stays, marked disconnected, so every tab and

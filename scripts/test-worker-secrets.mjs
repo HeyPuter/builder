@@ -302,7 +302,12 @@ function liveToolSetup(o = {}) {
     check('prompt: keys are read on every request, never cached', /Read it on every request and never keep it in a variable outside the handler or cache it/.test(prompt) &&
         !/if \(!\(name in keys\)\)/.test(prompt));
     check('prompt: Stripe and Whop keys have fixed names', /set_secret as STRIPE_SECRET_KEY/.test(prompt) && /set_secret as WHOP_API_KEY/.test(prompt));
-    check('prompt: keys already in code get moved out', /still has a key written in its code/.test(prompt));
+    // A key already in an older project's code is the user's call. The AI
+    // offers to move it and moves it only once they agree.
+    check('prompt: a key already in code is offered a move, never moved unasked',
+        /still has a key written in its code \(an older project\), don't move it on your own/.test(prompt) &&
+        /offer to move it into the worker's private store\. Only once they agree, save it with set_secret/.test(prompt) &&
+        !/move it: save it with set_secret/.test(prompt));
     check('prompt: a live key is saved for the live site only', /Save a live key \(sk_live_ or rk_live_\) with live set to true/.test(prompt) &&
         /Save it with set_secret as WHOP_API_KEY with live set to true/.test(prompt));
     check('prompt: the AI knows what Builder\'s line after a publish means', /After each publish, Builder adds a line in italics/.test(prompt) &&

@@ -147,7 +147,7 @@ async function setup(o = {}) {
     const context = vm.createContext({
         window, puter, $, document: { visibilityState: 'visible', addEventListener() {} },
         navigator: { onLine: true }, fetch: gh.fetch, crypto: globalThis.crypto, TextEncoder, TextDecoder, btoa, atob,
-        setTimeout, clearTimeout, CustomEvent: class { constructor(n, x) { this.type = n; this.detail = x && x.detail; } },
+        setTimeout: o.setTimeout || setTimeout, clearTimeout, CustomEvent: class { constructor(n, x) { this.type = n; this.detail = x && x.detail; } },
         console: { log() {}, warn() {}, error() {} },
         currentChatId: CHAT, currentAppDir: APPDIR, isProcessing: false, _sendSetupInFlight: false, _loadChatSeq: 0, _loadChatSettledSeq: 0,
         chatHistory: [], appendMessage() {}, saveCurrentChat: async () => {}, generateMessageId: () => 'm' + Math.random(),
@@ -237,7 +237,7 @@ const PAGE = '<!doctype html>\n<html lang="en">\n  <head>\n    <meta charset="UT
     let before = t.mutations();
     await t.sync();
     check('send: one new commit whose parent is the previous head', t.head().parents[0] === prev && t.head().message === 'Make text red');
-    check('send: only the changed file is uploaded (blob, tree, commit, branch move)', t.mutations() - before === 4, String(t.mutations() - before));
+    check('send: only the changed file goes, inside the tree request (tree, commit, branch move)', t.mutations() - before === 3, String(t.mutations() - before));
     check('send: GitHub has the change', t.files()['style.css'] === 'body{color:red}');
 
     // --- nothing new: a check costs no writes ---
@@ -508,6 +508,87 @@ const PAGE = '<!doctype html>\n<html lang="en">\n  <head>\n    <meta charset="UT
         JSON.stringify({ rules: t.link().rules, state: t.state() }));
 }
 
+// ===== A save is a few requests however many files, and checked =====
+// Text files go inside the tree request instead of one blob request each
+// (GitHub asks for a second between content requests once there are many),
+// and the tree is read back before the branch moves.
+{
+    // A failed save retries 30 s later. That timer is dropped here.
+    const t = await setup({ setTimeout: (fn, ms) => (ms >= 20000 ? 0 : setTimeout(fn, ms)) });
+    const { S, gh } = t;
+    for (let i = 0; i < 30; i++) await t.write(`pages/p${i}.html`, `<p>${i}</p>`);
+    await t.write('img/logo.png', new Uint8Array([137, 80, 78, 71, 1, 2, 3]));
+    await t.version('Many files');
+    await S.auth.signInWithToken(gh.token);
+    const posts = (re) => gh.log.filter((r) => r.method === 'POST' && re.test(r.path)).length;
+    await S.connect(CHAT, { mode: 'new', name: 'My Site', isPrivate: true });
+    await settle();
+    let files = t.files();
+    check('few requests: 30 text files go in one tree request, and only the image is a blob of its own',
+        posts(/\/git\/trees$/) === 1 && posts(/\/git\/blobs$/) === 1 && files['pages/p29.html'] === '<p>29</p>' && 'img/logo.png' in files,
+        JSON.stringify({ trees: posts(/\/git\/trees$/), blobs: posts(/\/git\/blobs$/) }));
+    // More text than one request carries goes in a few, each on the last.
+    const big = 'x'.repeat(300 * 1024);
+    for (let i = 0; i < 5; i++) await t.write(`data/d${i}.txt`, big + i);
+    await t.version('Big text');
+    const treesBefore = posts(/\/git\/trees$/);
+    t.clock(61000);
+    await t.sync();
+    files = t.files();
+    check('few requests: 1.5 MB of text goes in two tree requests', posts(/\/git\/trees$/) - treesBefore === 2 && files['data/d4.txt'] === big + '4' && files['data/d0.txt'] === big + '0',
+        String(posts(/\/git\/trees$/) - treesBefore));
+    // GitHub writes inline text itself. A tree that doesn't match the
+    // version never moves the branch.
+    gh.hooks.corruptInline = true;
+    await t.write('pages/p0.html', '<p>changed</p>');
+    await t.version('Change');
+    const headBefore = t.head().sha;
+    t.clock(61000);
+    await t.sync();
+    check('checked: a tree that differs from the version never moves the branch', t.head().sha === headBefore && t.state().kind === 'waiting', JSON.stringify(t.state()));
+    t.clock(61000);
+    await t.sync();
+    check('checked: the next try saves it', t.files()['pages/p0.html'] === '<p>changed</p>' && t.head().sha !== headBefore);
+}
+
+// ===== Signing in and out reaches every tab =====
+// Each tab kept its own copy of the sign-in, so after Disconnect GitHub in
+// one tab another kept saving with its copy, and a sign-in elsewhere wasn't
+// seen. Every check and every panel opening reads the store again.
+{
+    const t = await setup();
+    const { S, gh } = t;
+    await t.write('index.html', '<p>a</p>');
+    await t.version('A');
+    await S.auth.signInWithToken(gh.token);
+    await S.connect(CHAT, { mode: 'new', name: 'My Site', isPrivate: true });
+    await settle();
+    const saved = t.kv.get('github:auth');
+    // Another tab disconnects GitHub.
+    t.kv.delete('github:auth');
+    await t.write('index.html', '<p>b</p>');
+    await t.version('B');
+    const writesBefore = t.mutations();
+    t.clock(61000);
+    await t.sync();
+    check('another tab: after Disconnect GitHub there, this tab stops saving', t.state().kind === 'signed-out' && t.mutations() === writesBefore, JSON.stringify(t.state()));
+    // It signs in again there.
+    t.kv.set('github:auth', saved);
+    check('another tab: a sign-in there shows here', (await S.signedInAs()) === gh.login);
+    t.clock(61000);
+    await t.sync();
+    check('another tab: saving picks up again', t.state().kind === 'up-to-date' && t.files()['index.html'] === '<p>b</p>', JSON.stringify(t.state()));
+    // A store that can't be read keeps the last answer.
+    const realGet = t.context.puter.kv.get;
+    t.context.puter.kv.get = async () => { throw new Error('kv down'); };
+    await t.write('index.html', '<p>c</p>');
+    await t.version('C');
+    t.clock(61000);
+    await t.sync();
+    t.context.puter.kv.get = realGet;
+    check('a store blip: the last sign-in stands, and the save goes', t.state().kind === 'up-to-date' && t.files()['index.html'] === '<p>c</p>', JSON.stringify(t.state()));
+}
+
 // ===== Backend code with a key written in it goes to GitHub too =====
 // Older projects wrote keys into their backend's code. That file used to be
 // left out without a word. Now it goes up like any code, and the AI asks the
@@ -543,7 +624,12 @@ const PAGE = '<!doctype html>\n<html lang="en">\n  <head>\n    <meta charset="UT
     const actBody = ui.slice(ui.indexOf('async function act(fn)'), ui.indexOf('async function loadRepos()'));
     check('panel: an action disables controls in place and never redraws before it runs', !/render\(\);\s*try \{/.test(actBody) && /prop\('disabled', true\)/.test(actBody));
     check('panel: clicks inside the panel stop there', /const on = \(selector, handler\) => \$\(document\)\.on\('click', '\.preview-github-panel ' \+ selector, function \(e\) \{\s*e\.preventDefault\(\);\s*e\.stopPropagation\(\);/.test(ui));
-    check('panel: a click on a removed element is not "outside"', /document\.documentElement\.contains\(e\.target\)/.test(ui));
+    // ...but a click in the preview reaches this page only as a click ui.js
+    // replays on the document itself, and the document is not inside its
+    // own root element, so that check ignored it and the panel stayed open.
+    check('panel: a click on a removed element is not "outside", a click in the preview is',
+        /if \(!document\.contains\(e\.target\)\) return;/.test(ui) && !/documentElement\.contains/.test(ui) &&
+        /document\.dispatchEvent\(new MouseEvent\('click'/.test(read('../src/js/ui.js')));
     check('panel: the token is read before the action starts', /const token = String\(\$\('\.preview-github-panel \.gh-token-input'\)\.val\(\)[^;]*;\s*act\(/.test(ui));
     check('panel: typed values survive a redraw', /value="\$\{esc\(_form\.token\)\}"/.test(ui) && /value="\$\{esc\(_form\.name\)\}"/.test(ui) && /_form\.isPrivate \? ' checked' : ''/.test(ui));
     // There was no way to disconnect GitHub while the project wasn't saving

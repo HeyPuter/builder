@@ -356,8 +356,10 @@
         const $t = $(e.target);
         if (window.isInPuterDialog?.(e.target)) return;
         // A click on something a redraw has since taken out of the page
-        // started inside the panel.
-        if (!document.documentElement.contains(e.target)) return;
+        // started inside the panel. document.contains, not documentElement:
+        // a click in the preview reaches this page only as the click ui.js
+        // replays on the document itself, which must still close the panel.
+        if (!document.contains(e.target)) return;
         if ($t.closest('.preview-github-panel').length || $t.closest('.preview-github-btn').length) return;
         closePanel();
     });

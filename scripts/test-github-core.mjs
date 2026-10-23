@@ -171,6 +171,13 @@ const tree = G.treeToMap([
 check('treeToMap keeps files and their modes', Object.keys(tree.map).join(',') === '.github/workflows/ci.yml,bin/run.sh,index.html' && tree.modes['bin/run.sh'] === '100755');
 check('treeToMap leaves out links, submodules and LFS',
     tree.excluded.map((e) => e.path + ':' + e.reason).join(',') === 'big.psd:lfs,link:link,vendor/lib:link');
+// A save sends text inside its tree requests, at most `budget` bytes of it
+// per request, each request built on the one before.
+const batchPaths = (entries, budget) => JSON.stringify(G.treeBatches(entries, budget).map((b) => b.map((e) => e.path)));
+check('treeBatches: text up to the budget per request, entries by hash and deletes ride along',
+    batchPaths([{ path: 'a', sha: 'x' }, { path: 'b', content: 'b', size: 600 }, { path: 'c', content: 'c', size: 600 }, { path: 'd', sha: null }], 1000) === '[["a","b"],["c","d"]]');
+check('treeBatches: a file over the budget gets a request of its own, and nothing is no request',
+    batchPaths([{ path: 'a', content: 'a', size: 5000 }, { path: 'b', content: 'b', size: 10 }], 1000) === '[["a"],["b"]]' && G.treeBatches([], 1000).length === 0);
 check('sameFiles compares content', G.sameFiles({ a: '1', b: '2' }, { b: '2', a: '1' }) && !G.sameFiles({ a: '1' }, { a: '2' }) && !G.sameFiles({ a: '1' }, { a: '1', b: '2' }));
 
 // --- the plan: every row of the table ---

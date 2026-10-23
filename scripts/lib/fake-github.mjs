@@ -17,7 +17,7 @@ export function makeGitHub(opts = {}) {
     const repos = new Map();
     const log = [];
     let seq = 1;
-    const hooks = { beforeCommit: null };
+    const hooks = { beforeCommit: null, corruptInline: false };
 
     const sha1 = (buf) => crypto.createHash('sha1').update(buf).digest('hex');
     function putBlob(bytes) {
@@ -164,6 +164,12 @@ export function makeGitHub(opts = {}) {
                 if (e.sha === null) {
                     if (!flat.has(e.path)) return err(422, 'tree.path not found');
                     flat.delete(e.path);
+                } else if (typeof e.content === 'string') {
+                    // GitHub writes the blob for inline content itself.
+                    // hooks.corruptInline: it stores something else, once.
+                    let content = e.content;
+                    if (hooks.corruptInline) { hooks.corruptInline = false; content += '\n'; }
+                    flat.set(e.path, { mode: e.mode, sha: putBlob(Buffer.from(content, 'utf8')) });
                 } else {
                     if (!blobs.has(e.sha)) return err(422, 'tree.sha ' + e.sha + ' is not a valid blob');
                     flat.set(e.path, { mode: e.mode, sha: e.sha });

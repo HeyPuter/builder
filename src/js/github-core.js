@@ -435,6 +435,24 @@ window.GitHubCore = (function () {
         return { pull, push, same, collisions };
     }
 
+    // Tree entries split into requests that each carry at most `budget` bytes
+    // of file content written inline (entry.content, its byte size in
+    // entry.size). Each request is built on the tree the one before made, so
+    // the result is the same as one request. An entry by hash, or a delete,
+    // carries no content. A file bigger than the budget gets a request of its
+    // own.
+    function treeBatches(entries, budget) {
+        const out = [[]];
+        let used = 0;
+        for (const e of entries || []) {
+            const size = e && typeof e.content === 'string' ? (typeof e.size === 'number' ? e.size : e.content.length) : 0;
+            if (size && used + size > budget && out[out.length - 1].length) { out.push([]); used = 0; }
+            out[out.length - 1].push(e);
+            used += size;
+        }
+        return out[0].length ? out : [];
+    }
+
     // The entries a send puts on top of GitHub's head: [{path, sha}], null =
     // delete. The project's copy of a collided path goes too only when
     // includeCollisions is set (normal syncing). After a long pause it isn't,
@@ -818,6 +836,7 @@ window.GitHubCore = (function () {
         normalizePath,
         servedRelOf,
         isKeyFileName,
+        treeBatches,
         isExcluded,
         lfsMatcher,
         isLfsPointer,
