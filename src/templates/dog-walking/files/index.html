@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<title>Pawment Walking Club — Dog walking & pet sitting</title>
+<meta name="description" content="Small-group dog walks, drop-in visits and overnight pet sitting, with a GPS report after every walk.">
+<meta name="theme-color" content="#ff5b14">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="status" aria-live="polite">
+  <div class="status-track" id="statusTrack"></div>
+</div>
+
+<header class="nav" id="nav">
+  <a class="brand" href="#top" aria-label="Home">
+    <svg viewBox="0 0 64 64" aria-hidden="true"><use href="#mark"/></svg>
+    <span class="brand-name" data-bind="name"></span>
+  </a>
+  <nav class="nav-links" aria-label="Main">
+    <a href="#timetable">Timetable</a>
+    <a href="#pupdate">Pupdates</a>
+    <a href="#area">Area</a>
+    <a href="#pack">The pack</a>
+    <a href="#faq">FAQ</a>
+  </nav>
+  <a class="nav-cta" href="#book">Book a walk <span aria-hidden="true">→</span></a>
+</header>
+
+<main id="top">
+
+  <!-- HERO -->
+  <section class="hero" aria-label="Introduction">
+    <img class="hero-img" src="images/hero.jpg" alt="" fetchpriority="high">
+    <svg class="route route-hero" viewBox="0 0 1440 900" preserveAspectRatio="none" aria-hidden="true">
+      <path id="heroRoute" d="M-20 610 C 180 560, 260 700, 430 640 S 640 420, 820 500 S 1080 700, 1210 560 S 1380 380, 1470 420"/>
+      <circle class="route-dot" r="9"/>
+    </svg>
+    <div class="hero-copy">
+      <p class="hero-kicker mono"><span data-bind="area"></span> · Est. <span data-bind="est"></span></p>
+      <h1 class="hero-title">
+        <span class="line">We walk</span>
+        <span class="line hero-dog"><span id="heroDog">Biscuit</span></span>
+      </h1>
+      <div class="hero-foot">
+        <p class="hero-lede" data-bind="tagline"></p>
+        <div class="hero-actions">
+          <a class="btn btn-orange" href="#book">Book a walk</a>
+          <a class="btn btn-ghost" href="#area">Do you walk my street?</a>
+        </div>
+      </div>
+    </div>
+    <a class="sticker" href="#book" data-service="meet">
+      <svg viewBox="0 0 200 200" aria-hidden="true">
+        <defs><path id="circ" d="M100,100 m-74,0 a74,74 0 1,1 148,0 a74,74 0 1,1 -148,0"/></defs>
+        <text><textPath href="#circ" textLength="462" lengthAdjust="spacing">FREE MEET &amp; GREET · FREE MEET &amp; GREET ·</textPath></text>
+      </svg>
+      <span>First<br>sniff's<br>on us</span>
+    </a>
+  </section>
+
+  <div class="zebra" aria-hidden="true"></div>
+
+  <!-- TIMETABLE -->
+  <section class="timetable" id="timetable" aria-labelledby="ttTitle">
+    <div class="tt-side">
+      <h2 class="mega" id="ttTitle">Time<br>table</h2>
+      <p class="tt-note">Every walk is small-group or solo, door to door, with a photo report when we drop your dog home. Prices per dog.</p>
+      <div class="toggle" role="group" aria-label="Price type">
+        <button type="button" class="toggle-btn is-on" data-pack="single" aria-pressed="true">Single visit</button>
+        <button type="button" class="toggle-btn" data-pack="pack" aria-pressed="false">10-pack <b id="packOff"></b></button>
+      </div>
+    </div>
+    <div class="board" role="table" aria-label="Services and prices">
+      <div class="board-head mono" role="row">
+        <span role="columnheader">Service</span>
+        <span role="columnheader">Length</span>
+        <span role="columnheader">Group</span>
+        <span role="columnheader" class="r">Price</span>
+        <span role="columnheader" class="sr">Book</span>
+      </div>
+      <div id="board"></div>
+    </div>
+  </section>
+
+  <!-- PUPDATE -->
+  <section class="pupdate" id="pupdate" aria-labelledby="puTitle">
+    <div class="pu-head">
+      <h2 class="mega mega-dark" id="puTitle">Pupdate</h2>
+      <p class="pu-sub">What lands on your phone after every walk. Tap a day.</p>
+      <div class="pu-days" role="tablist" aria-label="Sample walk reports" id="puDays"></div>
+    </div>
+    <div class="pu-body">
+      <div class="pu-stats" id="puStats"></div>
+      <article class="receipt" id="puReceipt" aria-live="polite"></article>
+    </div>
+  </section>
+
+  <!-- AREA -->
+  <section class="area" id="area" aria-labelledby="areaTitle">
+    <div class="area-map">
+      <svg viewBox="0 0 600 600" id="areaMap" role="img" aria-label="Map of the neighbourhoods we cover"></svg>
+    </div>
+    <div class="area-copy">
+      <p class="mono label">Service area</p>
+      <h2 class="area-title" id="areaTitle">Do you walk<br>my street?</h2>
+      <form class="area-form" id="areaForm" autocomplete="off">
+        <label for="areaInput" class="sr">Postcode or neighbourhood</label>
+        <input id="areaInput" name="q" placeholder="Postcode or neighbourhood" required>
+        <button type="submit" class="btn btn-orange">Check</button>
+      </form>
+      <p class="area-result" id="areaResult" aria-live="polite"></p>
+      <ul class="area-list mono" id="areaList"></ul>
+    </div>
+  </section>
+
+  <!-- PACK -->
+  <section class="pack" id="pack" aria-labelledby="packTitle">
+    <div class="pack-top">
+      <h2 class="mega" id="packTitle">The<br>pack</h2>
+      <p class="pack-note">Background-checked, insured, pet first-aid trained. Each walker keeps the same dogs, the same days, so your dog walks with a friend.</p>
+    </div>
+    <ol class="walkers" id="walkers"></ol>
+  </section>
+
+  <!-- REVIEWS -->
+  <section class="reviews" aria-label="Reviews">
+    <img class="reviews-img" src="images/park.jpg" alt="" loading="lazy">
+    <div class="reviews-inner">
+      <div class="stars mono" id="reviewScore"></div>
+      <blockquote class="quote" id="quote" aria-live="polite"></blockquote>
+      <div class="quote-nav">
+        <button type="button" class="round" id="qPrev" aria-label="Previous review">←</button>
+        <span class="mono" id="qCount"></span>
+        <button type="button" class="round" id="qNext" aria-label="Next review">→</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- RULES -->
+  <section class="rules" aria-labelledby="rulesTitle">
+    <h2 class="rules-title" id="rulesTitle">Rules of<br>the road</h2>
+    <ol class="rules-list" id="rules"></ol>
+  </section>
+
+  <!-- SITTING -->
+  <section class="sitting" aria-labelledby="sitTitle">
+    <div class="sit-img"><img src="images/sofa.jpg" alt="A dog stretched out asleep at home" loading="lazy"></div>
+    <div class="sit-copy">
+      <p class="mono label">Away for a while?</p>
+      <h2 class="sit-title" id="sitTitle">We sit.<br>They stay.</h2>
+      <p>Overnight sitting in your home, so your dog keeps their own bed, their own sofa and their own routine. Cats, rabbits and the odd tortoise too. Plants watered, post in, bins out.</p>
+      <a class="btn btn-dark" href="#book" data-service="overnight">Book a sitter</a>
+    </div>
+  </section>
+
+  <!-- BOOK -->
+  <section class="book" id="book" aria-labelledby="bookTitle">
+    <svg class="route route-book" viewBox="0 0 1440 300" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M-20 240 C 200 120, 360 300, 620 180 S 1000 40, 1180 150 S 1380 220, 1470 90"/>
+    </svg>
+    <h2 class="mega" id="bookTitle">Book<br>a walk</h2>
+    <form class="ticket" id="bookForm" novalidate>
+      <div class="ticket-main">
+        <fieldset class="field field-wide">
+          <legend class="mono">01 — Service</legend>
+          <div class="chips" id="svcChips"></div>
+        </fieldset>
+        <div class="field">
+          <label class="mono" for="fDog">02 — Dog's name</label>
+          <input id="fDog" name="dog" required maxlength="40" placeholder="e.g. Pickles">
+        </div>
+        <div class="field">
+          <label class="mono" for="fSize">03 — Size</label>
+          <select id="fSize" name="size"></select>
+        </div>
+        <div class="field">
+          <label class="mono" for="fDogs">04 — How many dogs</label>
+          <div class="stepper">
+            <button type="button" data-step="-1" aria-label="Fewer dogs">−</button>
+            <input id="fDogs" name="dogs" type="number" min="1" max="3" value="1" inputmode="numeric">
+            <button type="button" data-step="1" aria-label="More dogs">+</button>
+          </div>
+        </div>
+        <div class="field">
+          <label class="mono" for="fDate">05 — Day</label>
+          <input id="fDate" name="date" type="date" required>
+        </div>
+        <fieldset class="field field-wide">
+          <legend class="mono">06 — Slot</legend>
+          <div class="chips" id="slotChips"><p class="hint">Pick a day first.</p></div>
+        </fieldset>
+        <div class="field">
+          <label class="mono" for="fName">07 — Your name</label>
+          <input id="fName" name="owner" required maxlength="60" autocomplete="name">
+        </div>
+        <div class="field">
+          <label class="mono" for="fPhone">08 — Phone</label>
+          <input id="fPhone" name="phone" type="tel" required autocomplete="tel">
+        </div>
+        <div class="field field-wide">
+          <label class="mono" for="fPost">09 — Postcode</label>
+          <input id="fPost" name="postcode" required autocomplete="postal-code" placeholder="We'll check we cover it">
+          <p class="hint" id="postHint"></p>
+        </div>
+        <div class="field field-wide">
+          <label class="mono" for="fNotes">10 — Anything we should know?</label>
+          <textarea id="fNotes" name="notes" rows="3" maxlength="500" placeholder="Pulls on the lead, scared of bikes, loves tennis balls…"></textarea>
+        </div>
+        <p class="form-error" id="formError" role="alert"></p>
+      </div>
+      <aside class="ticket-stub" aria-label="Your booking">
+        <p class="mono stub-label">Admit one good dog</p>
+        <p class="stub-dog" id="stubDog">Your dog</p>
+        <dl class="stub-rows mono">
+          <div><dt>Service</dt><dd id="stubSvc">—</dd></div>
+          <div><dt>When</dt><dd id="stubWhen">—</dd></div>
+          <div><dt>Dogs</dt><dd id="stubDogs">1</dd></div>
+        </dl>
+        <svg class="stub-route" viewBox="0 0 300 120" aria-hidden="true"><path d="M10 100 C 60 20, 120 120, 170 60 S 260 10, 290 30"/><circle cx="10" cy="100" r="6"/><circle cx="290" cy="30" r="6"/></svg>
+        <p class="stub-total"><span class="mono">Total</span><b id="stubTotal">—</b></p>
+        <button type="submit" class="btn btn-orange btn-block">Send request</button>
+        <p class="stub-fine">No payment now. We'll call to confirm within two hours.</p>
+      </aside>
+    </form>
+
+    <div class="mine" id="mine" hidden>
+      <h3 class="mono">Your requests</h3>
+      <ul id="mineList"></ul>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="faq" id="faq" aria-labelledby="faqTitle">
+    <h2 class="faq-title" id="faqTitle">Sniff<br>around</h2>
+    <div class="faq-list" id="faqList"></div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <div class="foot-grid">
+    <div>
+      <p class="mono label">Call or text</p>
+      <a class="foot-big" data-bind-href="tel" data-bind="phone"></a>
+      <p class="mono label">Email</p>
+      <a class="foot-mid" data-bind-href="mailto" data-bind="email"></a>
+    </div>
+    <div>
+      <p class="mono label">Office hours</p>
+      <ul class="hours mono" id="hours"></ul>
+    </div>
+    <div>
+      <p class="mono label">Out on a walk?</p>
+      <p class="foot-mid" data-bind="emergency"></p>
+      <p class="foot-small" data-bind="address"></p>
+    </div>
+  </div>
+  <p class="foot-word" aria-hidden="true" data-bind="short"></p>
+  <p class="foot-legal mono"><span>© <span id="year"></span> <span data-bind="name"></span></span><span>Insured · DBS checked · Pet first aid</span></p>
+</footer>
+
+<a class="dock" href="#book" id="dock">Book a walk <span aria-hidden="true">→</span></a>
+
+<dialog class="pass" id="pass" aria-labelledby="passTitle">
+  <div class="pass-inner" id="passInner"></div>
+</dialog>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="mark" viewBox="0 0 64 64">
+    <circle cx="32" cy="32" r="32" fill="#ff5b14"/>
+    <ellipse cx="32" cy="40" rx="11" ry="9" fill="#151413"/>
+    <ellipse cx="18" cy="27" rx="5" ry="6.5" fill="#151413"/>
+    <ellipse cx="46" cy="27" rx="5" ry="6.5" fill="#151413"/>
+    <ellipse cx="25" cy="17" rx="4.5" ry="6" fill="#151413"/>
+    <ellipse cx="39" cy="17" rx="4.5" ry="6" fill="#151413"/>
+  </symbol>
+</svg>
+
+<script src="app.js"></script>
+</body>
+</html>
