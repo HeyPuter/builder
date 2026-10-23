@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<title>Soapdish — dog &amp; cat grooming</title>
+<meta name="description" content="Hand-dried, cage-free dog and cat grooming. See prices for your dog's size and coat, book a time online, and check when they're ready for pickup.">
+<meta name="theme-color" content="#0f3b34">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="top" id="top">
+  <a class="mark" href="#top" aria-label="Soapdish, back to top"><span data-shop="name">soapdish</span><i>dog &amp; cat grooming</i></a>
+  <nav class="nav" aria-label="Main">
+    <a href="#menu">Prices</a>
+    <a href="#tracker">Is my dog ready?</a>
+    <a href="#first-visit">First visit</a>
+    <a href="#visit">Visit</a>
+  </nav>
+  <span class="status-pill" data-open-pill>…</span>
+  <a class="btn btn-pink" href="#book">Book a groom</a>
+</header>
+
+<main>
+
+<!-- HERO: the dog's name is the headline -->
+<section class="hero" aria-labelledby="hero-title">
+  <div class="bubbles" aria-hidden="true"></div>
+  <p class="hero-hint mono">↓ Not Biscuit? Tap the name and type your dog's.</p>
+  <h1 class="hero-title" id="hero-title">
+    <span class="hero-line hero-line-1"><label class="sr-only" for="dog-name">Your dog's name</label><input id="dog-name" class="name-input" type="text" maxlength="14" autocomplete="off" spellcheck="false" value="Biscuit" data-dog-name><span class="apos">’s</span></span>
+    <span class="hero-line hero-line-2">bath day.</span>
+  </h1>
+  <figure class="hero-arch">
+    <img src="photos/hero-samoyed.jpg" alt="A freshly washed white fluffy dog grinning with its tongue out" width="1000" height="1333">
+  </figure>
+  <svg class="sticker" viewBox="0 0 200 200" aria-hidden="true">
+    <defs><path id="sticker-circle" d="M100,100 m-74,0 a74,74 0 1,1 148,0 a74,74 0 1,1 -148,0"/></defs>
+    <circle cx="100" cy="100" r="96" />
+    <text><textPath href="#sticker-circle" data-sticker>NO CAGES · HAND-DRIED · ONE DOG AT A TIME · </textPath></text>
+    <text class="sticker-mid" x="100" y="112" text-anchor="middle">✳</text>
+  </svg>
+  <div class="hero-foot mono">
+    <span data-shop="address"></span>
+    <span data-hours-short></span>
+    <a href="#book" class="hero-foot-cta">Book <b data-name-echo>Biscuit</b> in →</a>
+  </div>
+</section>
+
+<!-- Wavy marquee -->
+<div class="wave" aria-hidden="true">
+  <svg viewBox="0 0 1440 140" preserveAspectRatio="none">
+    <path id="wave-path" d="M-40,80 C160,10 320,130 520,70 S880,10 1080,70 S1360,130 1520,60" fill="none"/>
+    <text><textPath href="#wave-path" startOffset="0" data-wave></textPath></text>
+  </svg>
+</div>
+
+<!-- MENU BOARD priced by size and coat -->
+<section class="menu" id="menu" aria-labelledby="menu-title">
+  <div class="menu-head">
+    <h2 id="menu-title" class="giant">The<br>menu</h2>
+    <div class="menu-controls">
+      <p class="mono label">1 · How big is <b data-name-echo>Biscuit</b>?</p>
+      <div class="sizes" role="radiogroup" aria-label="Dog size" data-sizes></div>
+      <p class="mono label">2 · What's the coat like?</p>
+      <div class="coats" role="radiogroup" aria-label="Coat type" data-coats></div>
+    </div>
+  </div>
+  <ol class="price-list" data-price-list></ol>
+  <div class="menu-foot">
+    <div class="addons">
+      <h3 class="mono label">Add-ons, any service</h3>
+      <ul data-addon-list></ul>
+    </div>
+    <figure class="menu-photo">
+      <img src="photos/poodle-curly.jpg" alt="A cream toy poodle with a fresh teddy-bear trim, head tilted" width="800" height="600" loading="lazy">
+      <figcaption class="mono">Curly coats take longer, so they cost a little more. No surprises at pickup.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- CATS -->
+<section class="cats" aria-labelledby="cats-title">
+  <img class="cats-photo" src="photos/cat-persian.jpg" alt="A cream Persian cat sitting calmly at a table" width="900" height="675" loading="lazy">
+  <div class="cats-copy">
+    <p class="mono label">Tuesdays &amp; Thursdays, 8–11am</p>
+    <h2 id="cats-title">Cats get the<br><em>quiet hours.</em></h2>
+    <p>No barking in the building. One cat, one groomer, the door shut. Baths, lion cuts, de-matting and nail trims for cats who would rather be anywhere else.</p>
+    <a class="link-arrow" href="#book" data-book-service="cat">Book a cat groom →</a>
+  </div>
+</section>
+
+<!-- FULL BLEED BAND -->
+<section class="band" aria-label="Our promise">
+  <img src="photos/band-retriever.jpg" alt="A red-coated retriever looking up into soft evening light" width="1800" height="1200" loading="lazy">
+  <p class="band-quote">No cages.<br>No rush.<br><em>One dog at a time.</em></p>
+</section>
+
+<!-- TRACKER + HOW A VISIT GOES -->
+<section class="tracker" id="tracker" aria-labelledby="tracker-title">
+  <div class="tracker-head">
+    <h2 id="tracker-title" class="giant">Is <span data-name-echo>Biscuit</span><br>ready yet?</h2>
+    <form class="tracker-form" data-tracker-form>
+      <label class="mono label" for="claim">Claim number from your ticket</label>
+      <div class="tracker-row">
+        <input id="claim" name="claim" type="text" placeholder="SD-0000" autocomplete="off" required>
+        <button class="btn btn-ink" type="submit">Check</button>
+      </div>
+      <p class="mono tiny">No ticket yet? Try <button type="button" class="linkish" data-demo-claim>SD-0000</button> to see a groom in progress.</p>
+    </form>
+  </div>
+  <p class="tracker-status" data-tracker-status aria-live="polite">Every visit goes through the same five stations. Pop in your claim number and we'll show you where things are.</p>
+  <ol class="stages" data-stages></ol>
+</section>
+
+<!-- THE REGULARS -->
+<section class="regulars" aria-labelledby="regulars-title">
+  <div class="regulars-head">
+    <h2 id="regulars-title">The regulars</h2>
+    <p class="mono">Some of the faces on our books, and the cut they always ask for.</p>
+  </div>
+  <div class="tile-wall" data-regulars></div>
+</section>
+
+<!-- BOOKING as a sentence -->
+<section class="book" id="book" aria-labelledby="book-title">
+  <h2 id="book-title" class="sr-only">Book a groom</h2>
+  <p class="mono label book-kicker">Book a groom · takes about a minute</p>
+  <form class="madlib" data-book-form novalidate>
+    <p class="madlib-text">
+      I'd like a
+      <span class="slot"><label class="sr-only" for="b-service">Service</label><select id="b-service" name="service" data-b="service"></select></span>
+      for
+      <span class="slot"><label class="sr-only" for="b-pet">Pet's name</label><input id="b-pet" name="pet" type="text" maxlength="20" required data-b="pet" data-dog-name size="7"></span>,
+      a
+      <span class="slot"><label class="sr-only" for="b-size">Size</label><select id="b-size" name="size" data-b="size"></select></span>
+      pup with a
+      <span class="slot"><label class="sr-only" for="b-coat">Coat</label><select id="b-coat" name="coat" data-b="coat"></select></span>
+      coat, with
+      <span class="slot"><label class="sr-only" for="b-groomer">Groomer</label><select id="b-groomer" name="groomer" data-b="groomer"></select></span>
+      on
+      <span class="slot"><label class="sr-only" for="b-date">Date</label><select id="b-date" name="date" data-b="date"></select></span>.
+    </p>
+    <fieldset class="times">
+      <legend class="mono label">Drop-off time</legend>
+      <div class="time-grid" data-times></div>
+    </fieldset>
+    <fieldset class="extras">
+      <legend class="mono label">Add-ons</legend>
+      <div class="chip-row" data-b-addons></div>
+    </fieldset>
+    <div class="owner">
+      <label><span class="mono label">Your name</span><input name="owner" type="text" autocomplete="name" required></label>
+      <label><span class="mono label">Mobile (we text when they're ready)</span><input name="phone" type="tel" autocomplete="tel" required></label>
+      <label class="wide"><span class="mono label">Anything we should know? Nervous, mats, sore spots</span><textarea name="notes" rows="2"></textarea></label>
+      <label class="check wide"><input type="checkbox" name="vaccines" required><span>Rabies, distemper (DHPP or FVRCP for cats) and bordetella are up to date, and I'll bring proof on the first visit.</span></label>
+    </div>
+    <p class="form-error" data-book-error role="alert"></p>
+    <div class="book-total">
+      <p><span class="mono label">Estimate</span><b data-total>$0</b><span class="mono" data-duration></span></p>
+      <button class="btn btn-ink btn-big" type="submit">Print my ticket</button>
+    </div>
+  </form>
+  <div class="ticket-zone" data-ticket-zone></div>
+  <div class="my-tickets" data-my-tickets></div>
+</section>
+
+<!-- FIRST VISIT -->
+<section class="first" id="first-visit" aria-labelledby="first-title">
+  <h2 id="first-title" class="giant">First<br>visit?</h2>
+  <ol class="first-list" data-first-visit></ol>
+  <div class="policies">
+    <h3 class="mono label">The small print, in plain words</h3>
+    <dl data-policies></dl>
+  </div>
+</section>
+
+<!-- REVIEWS -->
+<section class="reviews" aria-label="Reviews">
+  <figure class="review" data-review aria-live="polite"></figure>
+  <div class="review-nav">
+    <button class="round" type="button" data-review-prev aria-label="Previous review">←</button>
+    <span class="mono" data-review-count></span>
+    <button class="round" type="button" data-review-next aria-label="Next review">→</button>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="faq" aria-labelledby="faq-title">
+  <h2 id="faq-title">Questions people ask at the desk</h2>
+  <div class="faq-list" data-faq></div>
+</section>
+
+</main>
+
+<!-- VISIT / FOOTER -->
+<footer class="visit" id="visit">
+  <p class="open-word" data-open-word aria-live="polite">OPEN</p>
+  <p class="open-sub mono" data-open-sub></p>
+  <div class="visit-grid">
+    <div>
+      <h2 class="mono label">Find us</h2>
+      <p class="visit-big" data-shop="address"></p>
+      <p><a data-map-link href="#" target="_blank" rel="noopener">Open in maps →</a></p>
+      <p class="mono tiny" data-shop="parking"></p>
+    </div>
+    <div>
+      <h2 class="mono label">Hours</h2>
+      <table class="hours" data-hours></table>
+    </div>
+    <div>
+      <h2 class="mono label">Talk to us</h2>
+      <p class="visit-big"><a data-phone-link href="#"></a></p>
+      <p><a data-email-link href="#"></a></p>
+      <p class="mono tiny" data-shop="social"></p>
+    </div>
+  </div>
+  <p class="fineprint mono"><span data-shop="name"></span> · <span data-year></span> · All prices before tax.</p>
+</footer>
+
+<div class="toast" data-toast role="status" aria-live="polite"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
