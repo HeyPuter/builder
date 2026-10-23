@@ -411,12 +411,21 @@
             // instead of pushing this version onto an empty index and persisting
             // that over the chat's real history.
             const index = await readIndex(chatId);
-            index.versions.push({
+            const entry = {
                 id: versionId,
                 label: labelFromText(opts.label),
                 createdAt: new Date().toISOString(),
                 previewUrl: window.currentPreviewUrl || null,
-            });
+            };
+            // For GitHub sync (github-sync.js): a label that is still the
+            // user's own message is a prompt, which never goes into a public
+            // repository's history, and a turn that was stopped or failed
+            // waits before it is sent (a repository that deploys on every push
+            // must not ship half a build).
+            if (opts.labelSource) entry.labelSource = opts.labelSource;
+            if (opts.partial) entry.partial = true;
+            if (typeof opts.pullSeq === 'number') entry.pullSeq = opts.pullSeq;
+            index.versions.push(entry);
             index.current = versionId;
 
             // Enforce the cap: prune the oldest snapshots, but never the current
@@ -433,6 +442,10 @@
             // edits stay marked un-snapshotted until their own checkpoint lands.
             if ((_mutationGen.get(chatId) || 0) === genAtCopy) clearDirty(chatId);
             renderVersionsPanelIfOpen();
+            // A linked project sends its new version to GitHub. The hook only
+            // schedules that work, so it never holds up this chain link, which
+            // every chat's snapshots share.
+            try { window.GitHubSync?.onVersionsChanged?.(chatId, versionId); } catch (e) { /* never */ }
 
             // Remove the pruned snapshots' files only AFTER the index that drops
             // them is on disk. Deleting first meant a failed index write left the
@@ -483,10 +496,15 @@
                 const clean = labelFromText(label);
                 if (!clean || clean === v.label) return;
                 v.label = clean;
+                if (v.labelSource) v.labelSource = 'ai';
                 await writeIndex(chatId, index);
                 if (chatId === currentChatId) renderVersionsPanelIfOpen();
             } catch (e) {
                 console.warn('relabelVersion failed:', e);
+            } finally {
+                // GitHub sync holds a new version's commit until its short
+                // label is in, so the commit isn't titled with the prompt.
+                window.GitHubSync?.onVersionLabeled?.(chatId, versionId);
             }
         });
         return snapshotChain;
@@ -994,6 +1012,9 @@
             clearDirty(chatId);
             // …and its backend should run that version's code too.
             redeployProjectWorkers(appDir).catch(() => {});
+            // A linked project sends the restored files to GitHub as a new
+            // commit on top of its history (nothing there is rewritten).
+            try { window.GitHubSync?.onVersionsChanged?.(chatId, versionId); } catch (e) { /* never */ }
 
             // Only touch UI/conversation state if we're still on the chat we
             // restored — a mid-restore chat switch must not redirect the preview
@@ -1108,6 +1129,131 @@
         // non-throwing wrapper — this is unawaited, so a read failure would
         // otherwise surface as an unhandled rejection.
         if (currentChatId && !indexCache.has(currentChatId)) readIndexForDisplay(currentChatId);
+    };
+
+    // ----- changes from outside: GitHub sync ---------------------------------
+
+    // The index as it is on disk, for a reader that must not trust this tab's
+    // cache (another tab may have moved on). Throws when it can't be read.
+    window.readVersionIndexFresh = function (chatId) { return readIndex(chatId); };
+    window.versionSnapshotDir = function (chatId, versionId) {
+        return versionsRootForChat(chatId) + '/' + versionId;
+    };
+
+    // Write files that came from outside Builder (a pull from GitHub) into a
+    // project's working dir, the way a restore does: the same locks and fences,
+    // the same dirty bookkeeping, a partial write reported as matching no
+    // version, and a new version at the end so the previous state is one
+    // Restore away. Unlike a restore it touches only the paths given, and it
+    // never copies or moves over a file (a copy with overwrite deletes the old
+    // entry first, which Puter reads as a worker source being removed). It
+    // refuses whenever the project is not provably idle. github-sync.js plans
+    // what to write and calls this only for the open project.
+    // opts: { chatId, appDir, writes: [{path (absolute), bytes}], deletes:
+    // [absolute path], label, expectCurrent (the version the plan was made
+    // against), partial, note (visible chat line), allowDuringSendSetup }.
+    // Resolves { ok: true, versionId } or { ok: false, reason }.
+    window.applyExternalUpdate = async function (opts) {
+        opts = opts || {};
+        const chatId = opts.chatId;
+        const appDir = opts.appDir;
+        if (!chatId || !appDir || !window.user) return { ok: false, reason: 'no-project' };
+        if (chatId !== openChatId()) return { ok: false, reason: 'not-open' };
+        if (typeof isProcessing !== 'undefined' && isProcessing) return { ok: false, reason: 'turn' };
+        if (!opts.allowDuringSendSetup && typeof _sendSetupInFlight !== 'undefined' && _sendSetupInFlight) return { ok: false, reason: 'turn' };
+        if (window._restoringVersion || _restoresStarting.has(chatId)) return { ok: false, reason: 'restore' };
+        if (window.isPublishInFlight?.(chatId) || window.isPublishStarting?.(chatId)) return { ok: false, reason: 'publish' };
+        if (typeof _loadChatSeq !== 'undefined' && _loadChatSeq !== _loadChatSettledSeq) return { ok: false, reason: 'loading' };
+        if (window.CodeEditor?.hasUnsavedEdits?.(chatId)) return { ok: false, reason: 'unsaved-code' };
+
+        // From here every other writer waits, exactly as for a restore: sends,
+        // automatic fixes, publishing, the Code view, undo/redo, delete.
+        window._restoringVersion = true;
+        window._rewriteKind = 'github';
+        window.refreshPublishButton?.();
+        window.refreshIssuesSendState?.();
+        window.CodeEditor?.onRestoreStart?.(chatId);
+        const deletes = opts.deletes || [];
+        const writes = opts.writes || [];
+        let fenced = false;
+        let filesTouched = false;
+        try {
+            try { await snapshotChain; } catch (e) { /* ignore */ }
+            const index = await readIndex(chatId);
+            // The plan was made against another version: a turn, a restore or
+            // another tab moved on meanwhile. Nothing is written. Plan again.
+            if ((index.current || null) !== (opts.expectCurrent || null)) return { ok: false, reason: 'moved' };
+            _restoresStarted.set(chatId, (_restoresStarted.get(chatId) || 0) + 1);
+            _restoringFilesOf.add(chatId);
+            fenced = true;
+            try { await snapshotChain; } catch (e) { /* ignore */ }
+            if (typeof window.drainFileLocks === 'function') await window.drainFileLocks(appDir);
+            // Checked only after every writer is fenced off: a save that slipped
+            // in before the Code view went read only would otherwise be written
+            // over. The caller saves it as a version and plans again.
+            if (isChatDirty(chatId)) return { ok: false, reason: 'dirty' };
+
+            // Before the first byte lands, the AI is barred from writing these
+            // files whole from its memory of them.
+            window.CodeEditor?.markUnread?.(writes.map((w) => w.path));
+            markDirty(chatId);
+            filesTouched = true;
+            for (const path of deletes) {
+                try {
+                    await lockedFs(path, () => puter.fs.delete(path, { recursive: true }));
+                } catch (e) {
+                    if (!(typeof isNotFoundError === 'function' && isNotFoundError(e))) throw e;
+                }
+                window.recordPreviewChange?.(path);
+            }
+            await forEachLimited(writes, RESTORE_CONCURRENCY, async (w) => {
+                await lockedFs(w.path, () => puter.fs.write(w.path, w.bytes, { createMissingParents: true, overwrite: true }));
+                window.recordPreviewChange?.(w.path);
+            });
+            window.invalidateAppManifestCache?.(appDir);
+            const versionId = await window.createProjectVersion({ chatId, appDir, label: opts.label, fromRestore: true, partial: !!opts.partial, labelSource: opts.labelSource });
+            if (typeof versionId !== 'string') throw new Error('the new version could not be saved');
+
+            // A visible line in the conversation, in Builder's own words only
+            // (versionNote: not a build reply, see countCompletedBuilds).
+            if (opts.note && chatId === openChatId() && typeof chatHistory !== 'undefined' && Array.isArray(chatHistory)) {
+                const messageId = (typeof generateMessageId === 'function') ? generateMessageId() : null;
+                chatHistory.push({ role: 'assistant', content: opts.note, messageId, versionNote: true });
+                if (typeof appendMessage === 'function') appendMessage(opts.note, false);
+                try {
+                    if (typeof saveCurrentChat === 'function') {
+                        Promise.resolve(saveCurrentChat({ currentChatId: chatId, chatHistory: chatHistory })).catch(() => {});
+                    }
+                } catch (e) { /* non-fatal */ }
+            }
+            return { ok: true, versionId };
+        } catch (e) {
+            console.warn('applyExternalUpdate failed:', e);
+            if (filesTouched) {
+                // Some files landed: the folder now matches no version we can
+                // name. Drop the current pointer (the state every reader already
+                // handles) and keep it dirty, as a partial restore does.
+                try {
+                    await (snapshotChain = snapshotChain.catch(function () {}).then(async function () {
+                        const idx = await readIndexForDisplay(chatId);
+                        if (idx) { idx.current = null; await writeIndex(chatId, idx); }
+                    }));
+                } catch (e2) { /* best effort */ }
+                markDirty(chatId);
+            }
+            return { ok: false, reason: filesTouched ? 'write-failed' : 'failed', error: e };
+        } finally {
+            window._restoringVersion = false;
+            window._rewriteKind = null;
+            if (fenced) _restoringFilesOf.delete(chatId);
+            // Open files reload from disk. Pending notes are left as they are.
+            window.CodeEditor?.onRestoreEnd?.(chatId, false, false);
+            window.refreshPublishButton?.();
+            window.refreshIssuesSendState?.();
+            updateVersionNavButtons();
+            renderVersionsPanelIfOpen();
+            if (filesTouched && chatId === openChatId()) window.refreshPreviewWhenReady?.();
+        }
     };
 
     // ----- panel UI ----------------------------------------------------------
@@ -1260,6 +1406,7 @@
         // when it opens).
         window.closePublishPanel?.();
         window.closeSharePanel?.();
+        window.closeGitHubPanel?.();
         window.closeIssuesPanel?.();
         window.closeDevicePanel?.();
         const wantFocus = !!(opts && opts.focus);

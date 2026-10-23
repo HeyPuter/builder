@@ -200,7 +200,7 @@ window.deriveManifestMeta = function (html, fallbackName) {
     // third pass adds it again — a flip-flop that rewrites the user's HTML on
     // every single preview refresh. Same reason the block never counts as a
     // hand-written manifest link (see hasForeignManifestLink).
-    const src = replacePwaBlocks(String(html || ''), '\n');
+    const src = stripPwaBlocks(String(html || ''));
     // The document's title, not the first <title> in the file: inline SVG
     // icons carry their own <title> (their accessible name), and a page whose
     // <head> has none used to be installed as "Close icon". Look in <head>
@@ -300,17 +300,23 @@ window.isGeneratedManifest = function (text) {
 // user wrote, outside our block)? If so we stay out of the way completely — the
 // app has its own PWA setup and ours would fight it.
 function hasForeignManifestLink(html) {
-    const withoutOurs = replacePwaBlocks(String(html), '');
+    const withoutOurs = stripPwaBlocks(String(html));
     return /<link\b[^>]*\brel\s*=\s*["'][^"']*\bmanifest\b[^"']*["']/i.test(withoutOurs);
 }
 window.hasForeignManifestLink = hasForeignManifestLink;
 
-// Matches one generated block TOGETHER with the whitespace hugging it on both
-// sides; callers replace it with a single "\n". That, plus the two canonical
-// insertion points below (which absorb the whitespace at the seam), is what
-// makes stamping a fixed point: strip-then-stamp reproduces the previous bytes
-// exactly. It has to — this runs on every preview refresh, so any leftover
-// newline would grow the user's HTML by a line per turn, forever.
+// Taking our block out must give back the page exactly as it was before we
+// stamped it, byte for byte. Stamping runs on every preview refresh, so a
+// strip-then-stamp that drifted would grow or reshape the user's HTML on every
+// turn. And GitHub sync compares pages with the block taken out: a strip that
+// lost the indentation of "  </head>" or the CR of a CRLF line made Builder's
+// own restamp look like an edit, and sent it back over a developer's change.
+// Exactness comes from the two placements stampManifestTags uses. A block on
+// lines of its own owns those whole lines, line breaks included. A block
+// placed inline owns exactly its marker-to-marker text. See blockSpan.
+// Pages stamped before this rule had their seam whitespace normalized into
+// that same line shape, so they read back unchanged and are never rewritten.
+//
 // The body may not run through a SECOND start marker. Without that, a page
 // left with an orphaned start marker (the model rewrote the head and dropped
 // the end of the block) had the next stamp match from the orphan to the FIRST
@@ -323,9 +329,8 @@ window.hasForeignManifestLink = hasForeignManifestLink;
 // document, body included. A <pre> holding a padded fixed-width table (200
 // lines × 300 spaces, ordinary model output) cost over a second PER PASS, with
 // ~5 passes per preview refresh including the mid-turn ones. The markers are
-// now located with linear regexes and the seam walked by hand; the output is
-// byte-identical to what the regex produced (test-manifest.mjs pins the
-// fixed-point cases).
+// located with linear regexes and all whitespace is walked by hand. Keep it
+// that way.
 const PWA_START_RE = /<!-- puter-pwa: generated, do not edit -->/gi;
 const PWA_START_PREFIX_RE = /<!-- puter-pwa: generated/gi;
 const PWA_END_RE = /<!-- \/puter-pwa -->/gi;
@@ -333,7 +338,9 @@ const PWA_END_RE = /<!-- \/puter-pwa -->/gi;
 // The whitespace seam the old regex swallowed on each side of the block:
 // `[ \t]*\r?\n?[ \t]*` — spaces/tabs, at most ONE line break, spaces/tabs.
 // seamStart walks it backwards from `i` (leftmost possible start, as the
-// regex's leftmost match did); seamEnd walks it forwards (greedy).
+// regex's leftmost match did); seamEnd walks it forwards (greedy). Only an
+// orphaned block (below) is still removed with its seam: our stamp never makes
+// one, so there are no original bytes to give back.
 function seamStart(s, i) {
     let j = i;
     while (j > 0 && (s[j - 1] === ' ' || s[j - 1] === '\t')) j--;
@@ -362,8 +369,7 @@ function seamEnd(s, i) {
 // brought its own PWA setup. The page's theme-color is deliberately NOT in
 // this list: ours was derived from the page in the first place, so a leftover
 // one is simply read as the page's own on the next pass.
-const OUR_BLOCK_LINE_RE = new RegExp(
-    '^[ \\t]*(?:' +
+const OUR_TAG_ALTERNATIVES = '(?:' +
     '<link\\s+rel="manifest"\\s+href="(?:\\.\\./)*manifest\\.json">' +
     '|<link\\s+rel="icon"\\s+type="image/png"\\s+sizes="192x192"\\s+href="(?:\\.\\./)*' + ICON_FILES.any192.replace(/[.\/]/g, '\\$&') + '">' +
     '|<link\\s+rel="apple-touch-icon"\\s+href="(?:\\.\\./)*' + ICON_FILES.apple180.replace(/[.\/]/g, '\\$&') + '">' +
@@ -371,15 +377,25 @@ const OUR_BLOCK_LINE_RE = new RegExp(
     '|<meta\\s+name="apple-mobile-web-app-capable"\\s+content="yes">' +
     '|<meta\\s+name="apple-mobile-web-app-status-bar-style"\\s+content="default">' +
     '|<meta\\s+name="apple-mobile-web-app-title"\\s+content="[^"<>]*">' +
-    ')[ \\t]*\\r?$', 'i');
+    ')';
+const OUR_BLOCK_LINE_RE = new RegExp('^[ \\t]*' + OUR_TAG_ALTERNATIVES + '[ \\t]*\\r?$', 'i');
+// The same tags written inline, one after another on the marker's own line,
+// which is how a block placed inline is left when its end marker goes missing.
+const OUR_TAG_INLINE_RE = new RegExp('[ \\t]*' + OUR_TAG_ALTERNATIVES, 'iy');
 
-// Where an orphaned block ends: the run of our own lines that directly follow
-// its start marker (blank lines allowed between them), stopping at the first
-// line that is not ours and never reaching `limit`. With no such line the
-// orphan is just its marker.
+// Where an orphaned block ends: our own tags written inline right after its
+// start marker, then the run of our own lines that directly follow (blank
+// lines allowed between them), stopping at the first line that is not ours
+// and never reaching `limit`. With neither, the orphan is just its marker.
 function orphanBlockEnd(s, bodyAt, limit) {
     let end = bodyAt;
-    let i = bodyAt;
+    for (;;) {
+        OUR_TAG_INLINE_RE.lastIndex = end;
+        const m = OUR_TAG_INLINE_RE.exec(s);
+        if (!m || end + m[0].length > limit) break;
+        end += m[0].length;
+    }
+    let i = end;
     while (i < limit) {
         let nl = s.indexOf('\n', i);
         if (nl < 0 || nl > limit) nl = limit;
@@ -393,14 +409,34 @@ function orphanBlockEnd(s, bodyAt, limit) {
     return end;
 }
 
-// Replace every generated block — start marker through the FIRST end marker
-// after it, plus the seam on both sides — with `replacement`. A start marker
-// with no end marker after it, or with another start marker before the end
-// marker, is an orphan: it is replaced together with the run of our own tags
-// that follow it (see OUR_BLOCK_LINE_RE), and nothing else — the user's own
-// tags after it are never touched (see above). Returns the input itself when
-// there is no block.
-function replacePwaBlocks(html, replacement) {
+// The text a complete block owns, as [from, to). When the start marker opens
+// its line (only spaces/tabs before it) and the end marker closes its line
+// (only spaces/tabs after it, then a line break or the end of the text), the
+// block owns those whole lines, from the start of the first one through the
+// last one's line break. That is how stampManifestTags places a block on lines
+// of its own. Any other block owns exactly its marker-to-marker text, which is
+// how it places one inline.
+function blockSpan(s, startAt, afterEnd) {
+    let lineStart = startAt;
+    while (lineStart > 0 && (s[lineStart - 1] === ' ' || s[lineStart - 1] === '\t')) lineStart--;
+    const opensLine = lineStart === 0 || s[lineStart - 1] === '\n';
+    let j = afterEnd;
+    while (j < s.length && (s[j] === ' ' || s[j] === '\t')) j++;
+    let lineEnd = -1;
+    if (j === s.length) lineEnd = j;
+    else if (s[j] === '\n') lineEnd = j + 1;
+    else if (s[j] === '\r' && s[j + 1] === '\n') lineEnd = j + 2;
+    return opensLine && lineEnd !== -1 ? [lineStart, lineEnd] : [startAt, afterEnd];
+}
+
+// Remove every generated block: start marker through the FIRST end marker
+// after it, as blockSpan measures it, so the page reads exactly as it did
+// before the stamp. A start marker with no end marker after it, or with
+// another start marker before the end marker, is an orphan: it is replaced
+// with "\n" together with its seam and the run of our own tags that follow it
+// (see OUR_BLOCK_LINE_RE), and nothing else — the user's own tags after it are
+// never touched (see above). Returns the input itself when there is no block.
+function stripPwaBlocks(html) {
     const s = String(html == null ? '' : html);
     let out = '';
     let last = 0;
@@ -415,14 +451,17 @@ function replacePwaBlocks(html, replacement) {
         const end = PWA_END_RE.exec(s);
         PWA_START_PREFIX_RE.lastIndex = bodyAt;
         const next = PWA_START_PREFIX_RE.exec(s);
-        let blockEnd;
+        let a, b, replacement;
         if (end && !(next && next.index < end.index)) {
-            blockEnd = end.index + end[0].length;
+            [a, b] = blockSpan(s, start.index, end.index + end[0].length);
+            replacement = '';
         } else {
-            blockEnd = orphanBlockEnd(s, bodyAt, next ? next.index : s.length); // orphan
+            const orphanEnd = orphanBlockEnd(s, bodyAt, next ? next.index : s.length);
+            a = seamStart(s, start.index);
+            b = seamEnd(s, orphanEnd);
+            replacement = '\n';
         }
-        const a = Math.max(last, seamStart(s, start.index));
-        const b = seamEnd(s, blockEnd);
+        a = Math.max(last, a);
         out += s.slice(last, a) + replacement;
         last = b;
         from = b;
@@ -430,7 +469,7 @@ function replacePwaBlocks(html, replacement) {
     }
     return found ? out + s.slice(last) : s;
 }
-window.__replacePwaBlocks = replacePwaBlocks;
+window.stripPwaBlocks = stripPwaBlocks;
 
 // Inject (or refresh) the generated <head> block. Returns the new HTML, or null
 // when this file must be left alone — no <head> to inject into, or the page
@@ -451,7 +490,7 @@ window.stampManifestTags = function (html, meta, relPrefix) {
     if (hasForeignManifestLink(src)) return null;
     const p = relPrefix || '';
 
-    const stripped = replacePwaBlocks(src, '\n');
+    const stripped = stripPwaBlocks(src);
     const lines = [
         PWA_BLOCK_START,
         `<link rel="manifest" href="${p}manifest.json">`,
@@ -476,23 +515,50 @@ window.stampManifestTags = function (html, meta, relPrefix) {
         lines.push(`<meta name="theme-color" content="${escapeAttr(meta.themeColor)}">`);
     }
     lines.push(PWA_BLOCK_END);
-    const block = lines.map((l) => '    ' + l).join('\n');
+    // On lines of its own: each tag indented on its own line, ending with the
+    // page's own line break, so a CRLF page stays CRLF.
+    const ownLines = (eol) => lines.map((l) => '    ' + l + eol).join('');
 
     // Prefer just before </head>; fall back to just after <head> for pages that
-    // leave the closing tag off (browsers accept it, so we must too). Both
-    // patterns swallow the whitespace at the seam and re-emit it canonically, so
-    // the result is identical whether or not a block was just stripped.
-    // (Seam walked procedurally for the same backtracking reason as
-    // replacePwaBlocks; the result matches the old regex byte for byte.)
+    // leave the closing tag off (browsers accept it, so we must too). Nothing
+    // of the page is moved or re-indented, which is what lets stripPwaBlocks
+    // give it back byte for byte (see the note above PWA_START_RE).
+    //   - </head> alone on its line (after its indentation): the block goes in
+    //     as whole lines right above that line.
+    //   - <head ...> ending its line: whole lines right below it.
+    //   - Otherwise (a minified page, or </head> right after other tags on the
+    //     same line): inline, with no whitespace added.
+    // Whitespace is walked by hand, never matched by regex (see PWA_START_RE).
     const close = /<\/head\s*>/i.exec(stripped);
     if (close) {
-        const a = seamStart(stripped, close.index);
-        return stripped.slice(0, a) + '\n' + block + '\n' + close[0] +
-            stripped.slice(close.index + close[0].length);
+        let lineStart = close.index;
+        while (lineStart > 0 && (stripped[lineStart - 1] === ' ' || stripped[lineStart - 1] === '\t')) lineStart--;
+        if (lineStart === 0 || stripped[lineStart - 1] === '\n') {
+            return stripped.slice(0, lineStart) + ownLines(lineBreakBefore(stripped, lineStart)) +
+                stripped.slice(lineStart);
+        }
+        return stripped.slice(0, close.index) + lines.join('') + stripped.slice(close.index);
     }
-    return stripped.replace(/<head\b[^>]*>[ \t]*\r?\n?[ \t]*/i, (m) =>
-        m.trim() + '\n' + block + '\n');
+    const open = /<head\b[^>]*>/i.exec(stripped);
+    const afterOpen = open.index + open[0].length;
+    let j = afterOpen;
+    while (j < stripped.length && (stripped[j] === ' ' || stripped[j] === '\t')) j++;
+    const eol = stripped[j] === '\n' ? '\n' : (stripped[j] === '\r' && stripped[j + 1] === '\n' ? '\r\n' : '');
+    if (eol) {
+        const at = j + eol.length;
+        return stripped.slice(0, at) + ownLines(eol) + stripped.slice(at);
+    }
+    return stripped.slice(0, afterOpen) + lines.join('') + stripped.slice(afterOpen);
 };
+
+// The line break for a block placed on its own lines starting at `lineStart`:
+// the one that ends the line above, or at the very top of the file the
+// document's first line break.
+function lineBreakBefore(s, lineStart) {
+    if (lineStart > 0) return s[lineStart - 2] === '\r' ? '\r\n' : '\n';
+    const nl = s.indexOf('\n');
+    return nl > 0 && s[nl - 1] === '\r' ? '\r\n' : '\n';
+}
 
 // An <img> will not rasterize an SVG that has no intrinsic size in every engine
 // (Firefox draws nothing), and the model is told to ship a viewBox without fixed
@@ -742,10 +808,10 @@ async function listAppPages(appDir, entryPath) {
 }
 
 // Strip our generated block from a page's HTML, or null when nothing changes.
-// replacePwaBlocks + a "\n" replacement is the exact inverse of stamping, so a
-// de-stamped page is byte-identical to its never-stamped self.
+// stripPwaBlocks is the exact inverse of stamping, so a de-stamped page is
+// byte-identical to its never-stamped self.
 function destampedHtml(clean) {
-    const stripped = replacePwaBlocks(clean, '\n');
+    const stripped = stripPwaBlocks(clean);
     return stripped === clean ? null : stripped;
 }
 

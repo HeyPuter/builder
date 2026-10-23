@@ -83,8 +83,13 @@ window.EditorCore = (function () {
     const WORKER_SOURCE_RE = /^workers\/[A-Za-z0-9_-]{1,50}\.js$/;
     // The icons manifest.js renders into <servedRoot>/icons/.
     const GENERATED_ICON_RE = /^icons\/(?:icon-192|icon-512|maskable-512|apple-touch-icon-180)\.png$/;
-    // Old deploy markers that the tools and the zip download hide too.
-    const DEPLOY_MARKER_RE = /(?:^|\/)__deploy_[^/]*\.png$/;
+    // What the Code view never shows, files and folders: old deploy markers
+    // (the tools and the zip download hide them too), Git's folder, Puter
+    // hosting's folder (it rewrites a screenshot there after every site
+    // update) and system junk. GitHub never gets them either
+    // (GitHubCore.isExcluded), so the two show the same files.
+    const HIDDEN_RE = /(?:^|\/)(?:__deploy_[^/]*\.png|\.git|\.puter|\.DS_Store|Thumbs\.db)(?:\/|$)/;
+    function isHidden(rel) { return HIDDEN_RE.test(String(rel || '').replace(/^\/+/, '')); }
 
     function extOf(path) {
         const name = String(path || '').split('/').pop();
@@ -109,7 +114,7 @@ window.EditorCore = (function () {
             backend: WORKER_SOURCE_RE.test(rel),
             generatedIcon: servedRel !== null && GENERATED_ICON_RE.test(servedRel),
             maybeGeneratedManifest: servedRel === 'manifest.json',
-            hidden: DEPLOY_MARKER_RE.test(rel),
+            hidden: isHidden(rel),
             tooLargeToView: size !== null && size > MAX_VIEW_BYTES,
             tooLargeToEdit: size !== null && size > MAX_EDIT_BYTES,
         };
@@ -511,6 +516,7 @@ window.EditorCore = (function () {
         access,
         saveBlock,
         classify,
+        isHidden,
         isGeneratedManifest,
         sortEntries,
         toLF,
