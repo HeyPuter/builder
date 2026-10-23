@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+    <title>Rackline Strength — Private strength coaching</title>
+    <meta name="description" content="Rackline Strength is a private personal-training studio: 1:1 coaching, semi-private small groups and online programming. Book a free consult.">
+    <meta name="theme-color" content="#ff5b1f">
+    <link rel="icon" href="icon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <a class="skip" href="#main">Skip to content</a>
+
+    <header class="nav" id="nav">
+        <a class="nav-mark" href="#top" aria-label="Rackline Strength, back to top">
+            <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="6" y="28" width="52" height="8" fill="currentColor"/><rect x="10" y="14" width="10" height="36" fill="currentColor"/><rect x="44" y="14" width="10" height="36" fill="currentColor"/></svg>
+            <span data-bind="name">Rackline</span>
+        </a>
+        <nav class="nav-links" id="nav-links" aria-label="Main">
+            <a href="#method">Method</a>
+            <a href="#train">Training</a>
+            <a href="#coaches">Coaches</a>
+            <a href="#logbook">Results</a>
+            <a href="#plates">Plate math</a>
+            <a href="#visit">Visit</a>
+        </nav>
+        <a class="btn btn-tape nav-cta" href="#book">Free consult</a>
+        <button class="nav-toggle" id="nav-toggle" aria-expanded="false" aria-controls="nav-links" aria-label="Open menu"><span></span><span></span></button>
+    </header>
+
+    <main id="main">
+        <!-- HERO ------------------------------------------------------------ -->
+        <section class="hero" id="top">
+            <img class="hero-img" src="images/hero.jpg" alt="An athlete pulling a heavy deadlift in a dim gym" fetchpriority="high">
+            <div class="hero-shade"></div>
+            <div class="hero-log mono">
+                <span>Private strength coaching</span>
+                <span data-bind="area">Foundry Lane · Est. 2016</span>
+                <span id="hero-open" class="hero-open"></span>
+            </div>
+            <p class="hero-pitch">
+                Coached lifting for people who&nbsp;want to stay strong for the next forty years. Not the next forty days.
+                <a class="btn btn-tape" href="#book">Book a free consult <span aria-hidden="true">→</span></a>
+            </p>
+            <aside class="board" id="board" aria-label="Today on the board">
+                <span class="tape tape-tl" aria-hidden="true"></span>
+                <span class="tape tape-tr" aria-hidden="true"></span>
+                <p class="board-day" id="board-day"></p>
+                <h2 class="board-title" id="board-title"></h2>
+                <ol class="board-list" id="board-list"></ol>
+                <p class="board-note" id="board-note"></p>
+            </aside>
+            <h1 class="hero-word" aria-label="Rackline Strength — get stronger"><span>STRONGER</span></h1>
+        </section>
+
+        <div class="tape-band" aria-hidden="true">
+            <div class="tape-track" id="tape-track"></div>
+        </div>
+
+        <!-- 01 METHOD ------------------------------------------------------- -->
+        <section class="method ruled" id="method">
+            <div class="sec-num" aria-hidden="true">01</div>
+            <h2 class="method-say">We don't sell workouts. We write you a <em>program</em>, coach every rep of it, and prove it worked.</h2>
+            <p class="mono method-aside">How your first twelve weeks run. Every client, every time — whether you have trained for ten years or ten minutes.</p>
+            <ol class="log" id="phases"></ol>
+        </section>
+
+        <!-- 02 TRAINING ----------------------------------------------------- -->
+        <section class="train" id="train">
+            <div class="sec-num sec-num--light" aria-hidden="true">02</div>
+            <p class="mono train-kicker">Ways to train — pick one, set your week, see your price.</p>
+            <div class="train-grid">
+                <div class="train-names" role="tablist" aria-label="Training options" id="train-tabs"></div>
+                <div class="train-panel" id="train-panel" role="tabpanel" aria-live="polite"></div>
+            </div>
+        </section>
+
+        <!-- QUOTE BAND ------------------------------------------------------ -->
+        <figure class="band">
+            <img src="images/band.jpg" alt="Hands gripping a loaded barbell" loading="lazy">
+            <blockquote>
+                <p>“Strong is a skill.<br>Skills get <span>coached.</span>”</p>
+            </blockquote>
+        </figure>
+
+        <!-- 03 COACHES ------------------------------------------------------ -->
+        <section class="coaches" id="coaches">
+            <div class="sec-num" aria-hidden="true">03</div>
+            <div class="coaches-head">
+                <h2 class="h-xl">The coaches</h2>
+                <p class="mono">Four coaches, no juniors, no hand-offs. Hover a name — or tap it — to meet them.</p>
+            </div>
+            <div class="roster" id="roster">
+                <ul class="roster-list" id="roster-list"></ul>
+                <div class="roster-peek" id="roster-peek" aria-hidden="true"><img alt="" id="roster-img"></div>
+            </div>
+        </section>
+
+        <!-- 04 LOGBOOK ------------------------------------------------------ -->
+        <section class="logbook ruled" id="logbook">
+            <div class="sec-num" aria-hidden="true">04</div>
+            <div class="logbook-head">
+                <h2 class="h-xl">The logbook</h2>
+                <p class="mono">Real numbers from the client log, shared with permission. Filter by lift.</p>
+                <div class="chips" id="log-filter" role="group" aria-label="Filter results by lift"></div>
+            </div>
+            <div class="ledger" id="ledger" role="table" aria-label="Client results"></div>
+            <p class="ledger-total mono" id="ledger-total"></p>
+        </section>
+
+        <!-- 05 PLATE MATH --------------------------------------------------- -->
+        <section class="plates" id="plates">
+            <div class="sec-num sec-num--light" aria-hidden="true">05</div>
+            <div class="plates-intro">
+                <h2 class="h-xl">Plate<br>math</h2>
+                <p class="mono">Know your working weights before you walk in. Enter a recent set — we estimate your one-rep max and load the bar for you.</p>
+            </div>
+            <form class="calc" id="calc" novalidate>
+                <label class="field">
+                    <span class="mono">Weight lifted</span>
+                    <span class="calc-input"><input type="number" id="calc-weight" inputmode="decimal" min="1" max="500" step="0.5" value="100" required><button type="button" id="calc-unit" class="unit" aria-label="Switch units">kg</button></span>
+                </label>
+                <label class="field">
+                    <span class="mono">Reps</span>
+                    <span class="stepper">
+                        <button type="button" data-step="-1" aria-label="One fewer rep">−</button>
+                        <input type="number" id="calc-reps" min="1" max="12" value="5" inputmode="numeric" required>
+                        <button type="button" data-step="1" aria-label="One more rep">+</button>
+                    </span>
+                </label>
+                <div class="calc-out">
+                    <p class="mono">Estimated 1RM</p>
+                    <p class="calc-max"><span id="calc-max">117</span><small id="calc-max-unit">kg</small></p>
+                </div>
+                <div class="pct" id="pct" role="group" aria-label="Choose a percentage to load"></div>
+                <div class="bar-wrap">
+                    <p class="mono bar-label" id="bar-label"></p>
+                    <svg class="bar" id="bar" viewBox="0 0 640 200" role="img" aria-label="Loaded barbell"></svg>
+                    <p class="mono bar-per-side" id="bar-per-side"></p>
+                </div>
+            </form>
+        </section>
+
+        <!-- 06 BOOK --------------------------------------------------------- -->
+        <section class="book ruled" id="book">
+            <div class="sec-num" aria-hidden="true">06</div>
+            <div class="book-head">
+                <h2 class="h-xl">Book a free<br>consult</h2>
+                <p class="mono">Forty-five minutes on the floor with a coach: a movement screen, a conversation about your goals, and an honest recommendation. No charge, no sales pitch.</p>
+            </div>
+            <div class="book-flow">
+                <ol class="book-steps mono" aria-hidden="true"><li class="on" data-s="1">Day</li><li data-s="2">Time</li><li data-s="3">You</li></ol>
+                <div class="days" id="days" role="group" aria-label="Pick a day"></div>
+                <div class="slots" id="slots" role="group" aria-label="Pick a time"></div>
+                <form class="book-form" id="book-form" novalidate>
+                    <p class="book-picked mono" id="book-picked">Pick a day and a time above.</p>
+                    <div class="form-row">
+                        <label class="field"><span class="mono">Name</span><input id="f-name" autocomplete="name" required></label>
+                        <label class="field"><span class="mono">Email</span><input id="f-email" type="email" autocomplete="email" required></label>
+                    </div>
+                    <div class="form-row">
+                        <label class="field"><span class="mono">Phone <i>(optional)</i></span><input id="f-phone" type="tel" autocomplete="tel"></label>
+                        <label class="field"><span class="mono">Interested in</span><select id="f-program"></select></label>
+                    </div>
+                    <fieldset class="field goals">
+                        <legend class="mono">Main goal</legend>
+                        <div class="chips" id="f-goals"></div>
+                    </fieldset>
+                    <label class="field"><span class="mono">Injuries or anything we should know <i>(optional)</i></span><textarea id="f-notes" rows="3"></textarea></label>
+                    <p class="form-error mono" id="form-error" role="alert"></p>
+                    <button class="btn btn-ink btn-lg" type="submit">Confirm consult <span aria-hidden="true">→</span></button>
+                </form>
+            </div>
+            <div class="mine" id="mine" hidden>
+                <p class="mono mine-label">Your booked consults</p>
+                <ul id="mine-list"></ul>
+            </div>
+        </section>
+
+        <!-- VISIT + FAQ ----------------------------------------------------- -->
+        <section class="visit" id="visit">
+            <div class="visit-where">
+                <h2 class="h-xl">Visit</h2>
+                <p class="visit-addr" id="visit-addr"></p>
+                <p class="mono" id="visit-note"></p>
+                <table class="hours mono" id="hours" aria-label="Opening hours"></table>
+                <p class="mono visit-contact" id="visit-contact"></p>
+            </div>
+            <div class="faq" id="faq">
+                <h2 class="h-md">Asked on the gym floor</h2>
+                <div id="faq-list"></div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="foot">
+        <p class="foot-word" aria-hidden="true">RACKLINE</p>
+        <div class="foot-row mono">
+            <span id="foot-copy"></span>
+            <a href="#top">Back to top ↑</a>
+        </div>
+    </footer>
+
+    <div class="toast mono" id="toast" role="status" aria-live="polite"></div>
+    <script src="app.js"></script>
+</body>
+</html>
