@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Porthole Laundry — Self-service laundromat &amp; wash and fold</title>
+<meta name="description" content="Porthole Laundry: 24 washers and dryers, open 6am to midnight, with live machine availability, wash & fold pickup and delivery, free Wi-Fi and an attendant on site.">
+<meta name="theme-color" content="#2340f0">
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="script.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="bar" id="top">
+  <a class="bar-logo" href="#top" aria-label="Porthole Laundry, back to top">
+    <span class="bar-ring" aria-hidden="true"></span>
+    <span class="bar-name" data-biz="name">Porthole</span>
+  </a>
+  <nav class="bar-nav" id="nav" aria-label="Main">
+    <a href="#machines">Machines</a>
+    <a href="#prices">Prices</a>
+    <a href="#pickup">Wash &amp; fold</a>
+    <a href="#hours">Hours</a>
+    <a href="#faq">FAQ</a>
+  </nav>
+  <span class="bar-status mono" data-open-status>…</span>
+  <a class="btn btn-lemon bar-cta" href="#pickup">Book pickup</a>
+  <button class="bar-menu" type="button" aria-expanded="false" aria-controls="nav">
+    <span></span><span></span><span class="sr">Menu</span>
+  </button>
+</header>
+
+<main id="main">
+
+<!-- ============ HERO ============ -->
+<section class="hero" aria-labelledby="hero-title">
+  <div class="hero-meta mono">
+    <span data-biz="street">418 Tumble Street</span>
+    <span>Self-service · Wash &amp; fold · Pickup</span>
+    <span data-biz="since">Est. 2009</span>
+  </div>
+  <h1 class="hero-word" id="hero-title"><span data-biz="name">Porthole</span><span class="sr"> Laundry</span></h1>
+  <div class="porthole hero-port" aria-hidden="true">
+    <div class="porthole-glass"><img src="img/aisle.jpg" alt="" class="spin"></div>
+    <span class="porthole-hinge"></span>
+    <div class="sticker"><span class="mono">Wash from</span><b data-price="cheapest">$3.75</b></div>
+  </div>
+  <div class="hero-foot">
+    <p class="hero-line">Clean clothes.<br>No waiting around.</p>
+    <div class="hero-live">
+      <p class="mono hero-live-row"><i class="led" data-open-led></i><span data-open-status-long>Checking hours…</span></p>
+      <p class="mono hero-count"><b><span data-free-count>–</span><small>/<span data-total-count>–</span></small></b><span>machines<br>free now</span></p>
+      <div class="hero-ctas">
+        <a class="btn btn-lemon" href="#machines">See free machines</a>
+        <a class="btn btn-ghost" href="#pickup">Book a pickup</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="ticker" aria-hidden="true"><div class="ticker-track mono" data-ticker></div></div>
+
+<!-- ============ MACHINE BOARD ============ -->
+<section class="board" id="machines" aria-labelledby="board-title">
+  <div class="board-side">
+    <p class="mono label">Live board · updated every second</p>
+    <h2 class="board-title" id="board-title"><span class="board-big" data-free-count>–</span><span class="board-cap">free<br>now</span></h2>
+    <p class="board-sub">Check before you carry the basket over. Tap a running machine and we'll ping you when it's done.</p>
+    <div class="board-filter mono" role="group" aria-label="Filter machines">
+      <button type="button" data-filter="all" aria-pressed="true">All</button>
+      <button type="button" data-filter="washer" aria-pressed="false">Washers</button>
+      <button type="button" data-filter="dryer" aria-pressed="false">Dryers</button>
+      <button type="button" data-filter="free" aria-pressed="false">Free only</button>
+    </div>
+    <dl class="board-key mono">
+      <div><dt><i class="led led-green"></i></dt><dd>Free</dd></div>
+      <div><dt><i class="led led-amber"></i></dt><dd>Running</dd></div>
+      <div><dt><i class="led led-red"></i></dt><dd>Out of order</dd></div>
+    </dl>
+  </div>
+  <div class="board-grid" data-board role="list" aria-label="Machines"></div>
+  <div class="board-panel mono" data-board-panel hidden aria-live="polite"></div>
+</section>
+
+<!-- ============ PRICES ============ -->
+<section class="prices" id="prices" aria-labelledby="prices-title">
+  <div class="prices-head">
+    <p class="mono label">Prices · card or coin</p>
+    <h2 class="prices-big" id="prices-title"><span data-price="cheapest">$3.75</span></h2>
+    <p class="prices-cap">A regular wash. No membership, no app, no surprises.</p>
+  </div>
+  <div class="prices-list" data-price-list></div>
+
+  <form class="receipt mono" data-calc aria-labelledby="calc-title" onsubmit="return false">
+    <p class="receipt-top" id="calc-title">Load calculator</p>
+    <p class="receipt-sub">Plan it before you leave home</p>
+    <div class="receipt-rows" data-calc-washers></div>
+    <div class="receipt-row receipt-dry">
+      <label for="dry-min">Dryer time</label>
+      <output data-calc-dry-label for="dry-min">32 min</output>
+      <input type="range" id="dry-min" min="0" max="64" step="8" value="32" data-calc-dry>
+    </div>
+    <fieldset class="receipt-extras" data-calc-extras><legend>Extras</legend></fieldset>
+    <div class="receipt-total">
+      <span>Total</span><b data-calc-total>$0.00</b>
+    </div>
+    <p class="receipt-time" data-calc-time>Ready in about 1 hr</p>
+    <p class="receipt-foot">Thank you — see you soon</p>
+  </form>
+</section>
+
+<!-- ============ WASH & FOLD ============ -->
+<section class="fold" id="pickup" aria-labelledby="fold-title">
+  <div class="fold-photo">
+    <img src="img/jump.jpg" alt="Someone climbing into a big front-loading washer in a bright laundromat" loading="lazy">
+    <h2 class="fold-title" id="fold-title">We'll do<br>it for<br>you.</h2>
+  </div>
+  <div class="fold-body">
+    <ol class="fold-steps">
+      <li><b class="mono">01</b><span>Bag it up.</span><small>Any bag. We weigh it here.</small></li>
+      <li><b class="mono">02</b><span>We pick it up.</span><small>Pick a slot. A driver texts on the way.</small></li>
+      <li><b class="mono">03</b><span>Back folded.</span><small>Washed, dried, folded in 24 hours.</small></li>
+    </ol>
+    <form class="ticket" data-pickup novalidate aria-labelledby="ticket-title">
+      <div class="ticket-head">
+        <p class="mono label" id="ticket-title">Wash &amp; fold pickup</p>
+        <p class="ticket-rate mono"><b data-price="fold">$1.95</b>/lb · <span data-price="fold-min">$25</span> minimum</p>
+      </div>
+      <div class="ticket-grid">
+        <label class="field"><span class="mono">Name</span><input name="name" autocomplete="name" required></label>
+        <label class="field"><span class="mono">Phone</span><input name="phone" type="tel" autocomplete="tel" required></label>
+        <label class="field field-wide"><span class="mono">Pickup address</span><input name="address" autocomplete="street-address" required></label>
+      </div>
+      <fieldset class="chips" data-days><legend class="mono">Day</legend></fieldset>
+      <fieldset class="chips" data-slots><legend class="mono">Time</legend></fieldset>
+      <fieldset class="bags">
+        <legend class="mono">How many bags?</legend>
+        <div class="bags-row">
+          <button type="button" class="bags-btn" data-bags="-1" aria-label="One bag fewer">−</button>
+          <output class="bags-n" data-bags-n>2</output>
+          <button type="button" class="bags-btn" data-bags="1" aria-label="One bag more">+</button>
+          <span class="bags-est mono" data-bags-est>about 30 lb · est. $58.50</span>
+        </div>
+      </fieldset>
+      <label class="field field-wide"><span class="mono">Notes (optional)</span><input name="notes" placeholder="Fragrance-free, hang the shirts, gate code…"></label>
+      <p class="ticket-err mono" data-pickup-err role="alert"></p>
+      <button class="btn btn-ink ticket-go" type="submit">Book pickup</button>
+      <div class="ticket-stub" aria-hidden="true"></div>
+    </form>
+    <div class="claims" data-claims aria-live="polite"></div>
+  </div>
+</section>
+
+<!-- ============ THE ROOM ============ -->
+<section class="room" aria-labelledby="room-title">
+  <h2 class="room-title" id="room-title">Not a<br>waiting room.</h2>
+  <div class="room-ports" aria-hidden="true">
+    <div class="porthole port-a"><div class="porthole-glass"><img src="img/waiting.jpg" alt=""></div></div>
+    <div class="porthole port-b"><div class="porthole-glass"><img src="img/seat.jpg" alt=""></div></div>
+  </div>
+  <ul class="room-list" data-amenities></ul>
+</section>
+
+<!-- ============ HOURS ============ -->
+<section class="hours" id="hours" aria-labelledby="hours-title">
+  <div class="hours-head">
+    <p class="mono label">Hours &amp; where</p>
+    <h2 class="hours-big" id="hours-title" data-hours-big>6AM–12AM</h2>
+    <p class="hours-status mono"><i class="led" data-open-led></i><span data-open-status-long>…</span></p>
+  </div>
+  <table class="hours-table mono" data-hours-table>
+    <caption class="sr">Opening hours</caption>
+  </table>
+  <div class="hours-where">
+    <div class="porthole port-map">
+      <div class="porthole-glass"><iframe data-map title="Map showing the laundromat" loading="lazy"></iframe></div>
+    </div>
+    <address class="hours-addr">
+      <span data-biz="street">418 Tumble Street</span><br><span data-biz="city">Eastside, OR 97214</span>
+    </address>
+    <p class="mono hours-note" data-last-wash></p>
+    <div class="hours-ctas">
+      <a class="btn btn-ink" data-directions target="_blank" rel="noopener">Get directions</a>
+      <a class="btn btn-ghost-ink" data-call>Call</a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section class="faq" id="faq" aria-labelledby="faq-title">
+  <h2 class="faq-title" id="faq-title">Asked at the<br>folding table.</h2>
+  <div class="faq-list" data-faq></div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="foot-cols mono">
+    <p><span data-biz="street">418 Tumble Street</span><br><span data-biz="city">Eastside</span></p>
+    <p><a data-call></a><br><a data-email></a></p>
+    <p><a href="#machines">Machines</a> · <a href="#prices">Prices</a> · <a href="#pickup">Pickup</a> · <a href="#hours">Hours</a></p>
+    <p>© <span data-year></span> <span data-biz="name">Porthole</span> Laundry</p>
+  </div>
+  <p class="foot-word" aria-hidden="true" data-biz="name">Porthole</p>
+</footer>
+
+<div class="toast mono" data-toast role="status" aria-live="polite" hidden></div>
+</body>
+</html>
