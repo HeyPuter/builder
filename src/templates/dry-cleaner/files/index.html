@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fennick Cleaners &amp; Tailors — Clean by five</title>
+<meta name="description" content="Neighborhood dry cleaning, laundry and alterations since 1958. In by 9, ready by 5. Free pickup and delivery, ticket tracking and a price list that adds itself up.">
+<meta name="theme-color" content="#121418">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<div class="strip" role="status" aria-live="polite">
+  <div class="strip-in">
+    <span class="strip-status"><i class="dot" data-open-dot></i><span data-open-line>Checking hours…</span></span>
+    <span class="strip-mid" data-cutoff-line></span>
+    <a class="strip-phone" data-phone-link href="#"></a>
+  </div>
+</div>
+
+<header class="nav" data-nav>
+  <a class="brand" href="#top" aria-label="Fennick Cleaners and Tailors, home">
+    <span class="brand-word" data-shop-short>Fennick</span>
+    <span class="brand-sub"><span data-shop-trade>Cleaners &amp; Tailors</span><br>est. <span data-shop-est></span></span>
+  </a>
+  <nav class="nav-links" aria-label="Main">
+    <a href="#prices">Prices</a>
+    <a href="#track">Track</a>
+    <a href="#stains">Stains</a>
+    <a href="#visit">Visit</a>
+  </nav>
+  <a class="tkt-btn" href="#pickup">Book a pickup</a>
+  <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu" data-menu-toggle>
+    <span class="sr">Menu</span><i></i><i></i>
+  </button>
+</header>
+<div class="mobile-menu" id="mobile-menu" hidden data-menu>
+  <a href="#prices">Prices</a>
+  <a href="#track">Track a ticket</a>
+  <a href="#pickup">Book a pickup</a>
+  <a href="#stains">Stain first aid</a>
+  <a href="#visit">Hours &amp; address</a>
+</div>
+
+<main id="main">
+
+<!-- ===================== HERO ===================== -->
+<section class="hero" id="top">
+  <h1 class="hero-h" data-fit><span>In by nine,</span> <span>clean by five<b>.</b></span></h1>
+  <div class="hero-cap">
+    <span>Dry cleaning — Laundry — Alterations — Gowns</span>
+    <span><span data-address-short></span> · Since <span data-shop-est></span></span>
+  </div>
+  <div class="hero-photo">
+    <img src="images/pressroom.jpg" alt="A long, skylit pressing room with rows of shirt presses and pressers at work" width="1280" height="1260" fetchpriority="high">
+    <p class="hero-note">In at the counter by <strong data-hero-cutoff>9:00</strong>, pressed, bagged and back on the rack by <strong data-hero-ready>5:00</strong>. Same counter, same steam, since <span data-shop-est></span>.</p>
+  </div>
+
+  <article class="ticket hero-ticket" aria-label="Today's claim ticket">
+    <div class="ticket-hole" aria-hidden="true"></div>
+    <header class="ticket-head">
+      <span>Claim ticket</span>
+      <span data-ticket-no>Nº 0000</span>
+    </header>
+    <p class="ticket-date" data-today-label>Today</p>
+    <dl class="ticket-rows">
+      <div><dt data-drop-label>Drop by</dt><dd data-drop-time>—</dd></div>
+      <div><dt>Ready</dt><dd data-ready-time>—</dd></div>
+    </dl>
+    <p class="ticket-fine" data-ticket-fine></p>
+    <div class="stamp" data-hero-stamp aria-hidden="true">Open</div>
+    <a class="ticket-stub" href="#pickup"><span>Or we pick it up</span><span aria-hidden="true">→</span></a>
+  </article>
+</section>
+
+<!-- ===================== SERVICES LEDGER ===================== -->
+<section class="sec ledger" id="services" aria-labelledby="services-h">
+  <div class="sec-tab"><span>Nº 01</span></div>
+  <div class="ledger-side">
+    <h2 id="services-h" class="side-h">What comes through the door</h2>
+    <p class="side-p">Every garment gets a numbered tag, a once-over under the lamp, and a person who knows what silk does under steam.</p>
+    <figure class="ledger-fig">
+      <img src="images/presser.jpg" alt="A presser smiling as she irons a shirt collar with a hanging steam iron" width="800" height="771" loading="lazy">
+      <figcaption>Collars are pressed by hand. Always have been.</figcaption>
+    </figure>
+  </div>
+  <ol class="ledger-list" data-services></ol>
+</section>
+
+<!-- ===================== PRICES + RECEIPT ===================== -->
+<section class="sec prices" id="prices" aria-labelledby="prices-h">
+  <div class="sec-tab"><span>Nº 02</span></div>
+  <div class="prices-head">
+    <h2 id="prices-h" class="big-h">Prices,<br>added up.</h2>
+    <p class="prices-lead">Tap what you're bringing in. The receipt does the arithmetic, and tells you when it'll be ready.</p>
+  </div>
+  <div class="prices-body">
+    <div class="price-col">
+      <div class="tabs" role="tablist" aria-label="Price categories" data-price-tabs></div>
+      <ul class="price-list" data-price-list role="tabpanel"></ul>
+      <p class="price-fine" data-price-fine></p>
+    </div>
+    <aside class="receipt-wrap" aria-label="Your receipt">
+      <div class="receipt" data-receipt>
+        <p class="r-shop"><span data-shop-short>Fennick</span><small data-address-short></small></p>
+        <p class="r-meta"><span data-receipt-date></span><span>Est. ticket</span></p>
+        <ul class="r-lines" data-receipt-lines aria-live="polite"></ul>
+        <p class="r-empty" data-receipt-empty>Nothing on the ticket yet.<br>Tap a garment to start.</p>
+        <div class="r-totals">
+          <label class="r-rush"><input type="checkbox" data-rush> <span>Rush service <em data-rush-label></em></span></label>
+          <div class="r-row"><span>Subtotal</span><span data-subtotal>$0.00</span></div>
+          <div class="r-row" data-rush-row hidden><span>Rush</span><span data-rush-amt>$0.00</span></div>
+          <div class="r-row r-total"><span>Total</span><span data-total>$0.00</span></div>
+          <div class="r-ready"><span>Ready</span><strong data-receipt-ready>—</strong></div>
+        </div>
+        <div class="r-actions">
+          <button type="button" class="btn-ink" data-receipt-book disabled>Book a pickup for this</button>
+          <button type="button" class="btn-link" data-receipt-clear disabled>Clear</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<!-- ===================== TRACKER ===================== -->
+<section class="track" id="track" aria-labelledby="track-h">
+  <div class="track-in">
+    <div class="sec-tab sec-tab-light"><span>Nº 03</span></div>
+    <div class="track-top">
+      <h2 id="track-h" class="big-h">Where's my<br>ticket<b>?</b></h2>
+      <form class="track-form" data-track-form novalidate>
+        <label for="ticket-input" class="track-label">Ticket number, from your pink stub</label>
+        <div class="track-field">
+          <span aria-hidden="true">Nº</span>
+          <input id="ticket-input" name="ticket" inputmode="numeric" autocomplete="off" placeholder="58-2140" maxlength="8" data-track-input>
+          <button type="submit">Look up</button>
+        </div>
+        <p class="track-hint" data-track-hint>Try <button type="button" class="link-btn" data-try="58-2140">58-2140</button> or <button type="button" class="link-btn" data-try="58-0417">58-0417</button>.</p>
+      </form>
+    </div>
+    <div class="rail" data-rail>
+      <div class="rail-bar" aria-hidden="true"></div>
+      <ol class="stations" data-stations></ol>
+      <div class="rail-tag" data-rail-tag aria-hidden="true">
+        <svg viewBox="0 0 80 96" class="hanger"><path d="M40 4a7 7 0 1 1 7 7c-3 0-7 2-7 5v6" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M40 22 6 46h68Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><path d="M12 46h56l-6 46H18Z" fill="#f4b6c2" stroke="currentColor" stroke-width="2"/></svg>
+        <span data-rail-tag-no>58-2140</span>
+      </div>
+    </div>
+    <div class="track-result" data-track-result aria-live="polite">
+      <p class="tr-empty">Enter the number on your stub and we'll show where it is on the line.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== PICKUP ===================== -->
+<section class="pickup" id="pickup" aria-labelledby="pickup-h">
+  <div class="pickup-perf" aria-hidden="true"></div>
+  <div class="pickup-in">
+    <div class="sec-tab"><span>Nº 04</span></div>
+    <div class="pickup-side">
+      <h2 id="pickup-h" class="big-h">We'll come<br>to you.</h2>
+      <p class="side-p" data-delivery-blurb></p>
+      <div class="zip-check">
+        <label for="zip-quick">Check your ZIP</label>
+        <div class="zip-row">
+          <input id="zip-quick" inputmode="numeric" maxlength="5" placeholder="10013" data-zip-quick autocomplete="postal-code">
+          <span class="zip-out" data-zip-quick-out aria-live="polite"></span>
+        </div>
+      </div>
+      <div class="upcoming" data-upcoming hidden></div>
+    </div>
+
+    <form class="pickup-form" data-pickup-form novalidate>
+      <fieldset>
+        <legend>1 — Which day?</legend>
+        <div class="days" data-days role="radiogroup" aria-label="Pickup day"></div>
+      </fieldset>
+      <fieldset>
+        <legend>2 — Which window?</legend>
+        <div class="windows" data-windows role="radiogroup" aria-label="Pickup window"></div>
+      </fieldset>
+      <fieldset class="fields">
+        <legend>3 — Where &amp; who?</legend>
+        <label class="f"><span>Name</span><input name="name" autocomplete="name" required></label>
+        <label class="f"><span>Phone</span><input name="phone" type="tel" autocomplete="tel" required></label>
+        <label class="f f-wide"><span>Street address</span><input name="address" autocomplete="street-address" required></label>
+        <label class="f"><span>ZIP</span><input name="zip" inputmode="numeric" maxlength="5" autocomplete="postal-code" required data-zip-form></label>
+        <label class="f"><span>Bags</span>
+          <select name="bags"><option>1</option><option>2</option><option>3</option><option>4+</option></select>
+        </label>
+        <label class="f f-wide"><span>Notes for the driver or the tailor</span><input name="notes" placeholder="Buzz 4B · red wine on the cuff · hem to 31&quot;"></label>
+      </fieldset>
+      <div class="attached" data-attached hidden></div>
+      <p class="form-err" data-form-err role="alert"></p>
+      <button type="submit" class="btn-ink btn-big">Print my pickup ticket</button>
+    </form>
+
+    <div class="booked" data-booked hidden tabindex="-1"></div>
+  </div>
+</section>
+
+<!-- ===================== STAINS ===================== -->
+<section class="sec stains" id="stains" aria-labelledby="stains-h">
+  <div class="sec-tab"><span>Nº 05</span></div>
+  <div class="stains-head">
+    <h2 id="stains-h" class="side-h">Stain first aid</h2>
+    <p class="side-p">What to do in the first ten minutes, before it comes to us. Pick the culprit.</p>
+  </div>
+  <div class="stain-words" role="tablist" aria-label="Stains" data-stain-words></div>
+  <div class="stain-card" data-stain-card role="tabpanel" aria-live="polite"></div>
+</section>
+
+<!-- ===================== VISIT ===================== -->
+<section class="visit" id="visit" aria-labelledby="visit-h">
+  <div class="sec-tab"><span>Nº 06</span></div>
+  <h2 id="visit-h" class="visit-addr" data-address-big></h2>
+  <div class="visit-grid">
+    <figure class="visit-fig">
+      <img src="images/floor.jpg" alt="Pressers at work between steam presses and racks of finished shirts" width="1000" height="966" loading="lazy">
+    </figure>
+    <div class="visit-hours">
+      <h3 class="mini-h">Counter hours</h3>
+      <table class="hours" data-hours></table>
+      <p class="hours-fine" data-hours-fine></p>
+    </div>
+    <div class="visit-contact">
+      <h3 class="mini-h">Find us</h3>
+      <p data-address-lines></p>
+      <p><a data-phone-link href="#"></a><br><a data-email-link href="#"></a></p>
+      <p class="visit-note" data-parking></p>
+      <a class="tkt-btn tkt-btn-ink" data-directions target="_blank" rel="noopener">Directions</a>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== FAQ ===================== -->
+<section class="sec faq" id="faq" aria-labelledby="faq-h">
+  <div class="sec-tab"><span>Nº 07</span></div>
+  <h2 id="faq-h" class="side-h">Counter questions</h2>
+  <div class="faq-list" data-faq></div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <p class="foot-word" data-fit-foot aria-hidden="true">Fennick</p>
+  <div class="foot-row">
+    <p><span data-shop-name></span> · <span data-address-short></span> · <a data-phone-link href="#"></a></p>
+    <p class="foot-credit">Photos: Nationaal Archief / Anefo, public domain (CC0), via Wikimedia Commons.</p>
+  </div>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
