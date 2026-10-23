@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Moth &amp; Marigold — Flowers cut daily</title>
+<meta name="description" content="A flower room on Larch Street. Seasonal, unruly bunches cut each morning and delivered across the city the same day.">
+<meta name="theme-color" content="#15100e">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500&family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..800,50;1,9..144,300..800,50&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="top" id="top">
+  <a class="top-mark" href="#top" aria-label="Moth and Marigold, home">M<em>&amp;</em>M</a>
+  <nav class="top-nav" id="topNav" aria-label="Main">
+    <a href="#bunches">Bunches</a>
+    <a href="#almanac">In season</a>
+    <a href="#standing">Subscriptions</a>
+    <a href="#weddings">Weddings</a>
+    <a href="#workshops">Workshops</a>
+    <a href="#visit">Visit</a>
+  </nav>
+  <button class="slip-btn" id="openSlip" type="button" aria-haspopup="dialog">
+    Order slip <span class="slip-count" id="slipCount">0</span>
+  </button>
+  <button class="menu-btn" id="menuBtn" type="button" aria-expanded="false" aria-controls="topNav">Menu</button>
+</header>
+
+<main>
+  <!-- HERO -->
+  <section class="hero" aria-label="Moth and Marigold">
+    <img class="hero-img" src="images/hero.jpg" alt="A dark, overflowing arrangement of garden flowers">
+    <div class="hero-shade"></div>
+
+    <p class="hero-lede"><span class="mono">Est. 2011 — <span data-shop="street"></span></span>
+      Seasonal, unruly flowers, cut each morning and carried across the city by bicycle and van before dark.</p>
+
+    <aside class="ticket" aria-live="polite">
+      <div class="ticket-row mono"><span>No. <span id="ticketNo">0000</span></span><span id="ticketDay">—</span></div>
+      <p class="ticket-label mono" id="ticketLabel">Same-day delivery closes in</p>
+      <p class="ticket-clock" id="ticketClock">00:00:00</p>
+      <p class="ticket-note" id="ticketNote"></p>
+      <a class="ticket-cta" href="#bunches">Choose a bunch <span aria-hidden="true">→</span></a>
+    </aside>
+
+    <h1 class="wordmark"><span>Moth</span> <em>&amp;</em> <span>Marigold</span></h1>
+  </section>
+
+  <!-- STEM TICKER -->
+  <div class="ticker" aria-label="Stems in the shop this week">
+    <div class="ticker-track" id="tickerTrack"></div>
+  </div>
+
+  <!-- BUNCHES -->
+  <section class="bunches" id="bunches">
+    <div class="bunches-head">
+      <p class="mono">Week <span id="weekNo"></span> · cut list</p>
+      <h2>This week’s <em>bunches</em></h2>
+      <p class="bunches-note">Every bunch changes with the market. We buy what’s best on the morning, so yours will be a cousin of the photo, never a copy.</p>
+      <p class="mono bunches-key">Posy · Generous · Abundant</p>
+    </div>
+    <ol class="ledger" id="ledger"></ol>
+  </section>
+
+  <!-- ALMANAC -->
+  <section class="almanac" id="almanac">
+    <p class="mono almanac-kicker">The almanac — what’s in season</p>
+    <h2 class="almanac-month" id="almanacMonth" aria-live="polite">October</h2>
+    <div class="almanac-months" role="tablist" aria-label="Choose a month" id="almanacTabs"></div>
+    <div class="almanac-body">
+      <figure class="almanac-fig">
+        <img src="images/season.jpg" alt="Seasonal stems laid out on a workbench" loading="lazy">
+      </figure>
+      <div>
+        <p class="almanac-intro" id="almanacIntro"></p>
+        <ul class="almanac-list" id="almanacList"></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- STANDING ORDER -->
+  <section class="standing" id="standing">
+    <p class="mono">Standing orders · pause or cancel any time</p>
+    <form class="sentence" id="standingForm">
+      <span>Send a</span>
+      <label class="inline-select"><span class="sr">Size</span><select id="subSize"></select></label>
+      <span>bunch</span>
+      <label class="inline-select"><span class="sr">How often</span><select id="subFreq"></select></label>
+      <span class="sentence-break">— <strong id="subPrice">$0</strong> a delivery.</span>
+    </form>
+    <div class="standing-foot">
+      <p id="subNote"></p>
+      <button class="btn btn-ink" type="button" id="subAdd">Start the standing order</button>
+    </div>
+  </section>
+
+  <!-- WEDDINGS -->
+  <section class="weddings" id="weddings">
+    <img class="weddings-img" src="images/weddings.jpg" alt="Candles and a crystal vase of white flowers on a dressed table" loading="lazy">
+    <div class="weddings-shade"></div>
+    <h2 class="weddings-title">Weddings, wakes <em>&amp;</em> everything between</h2>
+    <form class="enquiry" id="enquiryForm" novalidate>
+      <p class="mono">Events enquiry · we reply within two working days</p>
+      <div class="enquiry-grid">
+        <label>Your name<input name="name" required autocomplete="name"></label>
+        <label>Email<input name="email" type="email" required autocomplete="email"></label>
+        <label>Event date<input name="date" type="date" required></label>
+        <label>Kind of event
+          <select name="kind"><option>Wedding</option><option>Funeral</option><option>Dinner or party</option><option>Shop or office</option><option>Something else</option></select>
+        </label>
+        <label>Guests<input name="guests" type="number" min="1" max="2000" value="80"></label>
+        <label>Flower budget <output id="budgetOut">$3,000</output>
+          <input name="budget" id="budget" type="range" min="500" max="20000" step="250" value="3000">
+        </label>
+        <label class="wide">Tell us about it<textarea name="vision" rows="3" placeholder="Venue, colours, the feeling you're after…"></textarea></label>
+      </div>
+      <p class="form-msg" id="enquiryMsg" role="status"></p>
+      <button class="btn btn-marigold" type="submit">Send the enquiry</button>
+    </form>
+  </section>
+
+  <!-- WORKSHOPS -->
+  <section class="workshops" id="workshops">
+    <div class="workshops-head">
+      <h2>Workshops<em>.</em></h2>
+      <p>Small tables, eight people at most. Tea and seasonal stems included, and you take home everything you make.</p>
+    </div>
+    <ol class="sessions" id="sessions"></ol>
+  </section>
+
+  <!-- CARE -->
+  <section class="care" id="care">
+    <h2 class="care-title">Keep them <em>going</em></h2>
+    <ol class="care-steps" id="careSteps"></ol>
+  </section>
+
+  <!-- VISIT -->
+  <section class="visit" id="visit">
+    <div class="visit-where">
+      <p class="mono">The flower room</p>
+      <address class="visit-address" id="visitAddress"></address>
+      <p class="visit-status" id="openStatus"></p>
+      <p class="visit-contact" id="visitContact"></p>
+    </div>
+    <table class="hours" aria-label="Opening hours"><tbody id="hoursBody"></tbody></table>
+  </section>
+</main>
+
+<footer class="foot">
+  <p class="foot-mark" aria-hidden="true">Moth <em>&amp;</em> Marigold</p>
+  <div class="foot-row mono">
+    <span>© <span id="year"></span> Moth &amp; Marigold Flower Room</span>
+    <span>Delivered by bicycle where we can, van where we must</span>
+  </div>
+</footer>
+
+<!-- ORDER SLIP -->
+<div class="slip-scrim" id="slipScrim" hidden></div>
+<aside class="slip" id="slip" role="dialog" aria-modal="true" aria-labelledby="slipTitle" hidden>
+  <div class="slip-hole" aria-hidden="true"></div>
+  <header class="slip-head">
+    <h2 id="slipTitle">Order slip</h2>
+    <button type="button" class="slip-close" id="closeSlip" aria-label="Close order slip">×</button>
+  </header>
+
+  <div class="slip-body" id="slipBody">
+    <ul class="slip-items" id="slipItems"></ul>
+
+    <form id="orderForm" novalidate>
+      <fieldset class="slip-mode">
+        <legend class="mono">How it gets there</legend>
+        <label><input type="radio" name="mode" value="delivery" checked> Delivery</label>
+        <label><input type="radio" name="mode" value="pickup"> Collect from the shop</label>
+      </fieldset>
+
+      <div class="zip-row" id="zipRow">
+        <label>Delivery ZIP code<input name="zip" id="zip" inputmode="numeric" maxlength="5" placeholder="e.g. 97214" autocomplete="postal-code"></label>
+        <p class="zip-msg mono" id="zipMsg" aria-live="polite">Enter a ZIP to check we reach you.</p>
+      </div>
+
+      <label>Date<input type="date" name="date" id="orderDate" required></label>
+      <p class="mono date-msg" id="dateMsg"></p>
+
+      <div class="slip-two">
+        <label>Recipient<input name="recipient" id="recipient" required autocomplete="off"></label>
+        <label>Your email<input name="email" type="email" required autocomplete="email"></label>
+      </div>
+      <label id="addressRow">Delivery address<input name="address" autocomplete="street-address"></label>
+
+      <label>Card message <span class="mono" id="msgCount">0/160</span>
+        <textarea name="message" id="cardMsg" rows="3" maxlength="160" placeholder="Leave blank for no card"></textarea>
+      </label>
+      <div class="card-preview" aria-hidden="true">
+        <span class="card-to" id="cardTo">For someone lovely</span>
+        <span class="card-text" id="cardText">Your words, in our hand.</span>
+        <span class="card-from">— M&amp;M</span>
+      </div>
+
+      <dl class="slip-totals">
+        <div><dt>Flowers</dt><dd id="subTotal">$0</dd></div>
+        <div><dt id="feeLabel">Delivery</dt><dd id="feeTotal">—</dd></div>
+        <div class="grand"><dt>Total</dt><dd id="grandTotal">$0</dd></div>
+      </dl>
+      <p class="form-msg" id="orderMsg" role="alert"></p>
+      <button class="btn btn-marigold btn-block" type="submit">Place the order</button>
+    </form>
+  </div>
+
+  <div class="slip-done" id="slipDone" hidden>
+    <p class="mono">Order <span id="doneNo"></span></p>
+    <p class="slip-done-big">Thank you<em>.</em></p>
+    <p id="doneText"></p>
+    <button class="btn btn-ink" type="button" id="doneClose">Back to the flowers</button>
+  </div>
+</aside>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
