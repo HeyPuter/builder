@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lathermile Tunnel Wash — 140 feet of foam, four minutes flat</title>
+<meta name="description" content="Lathermile is a tunnel car wash: buy a wash online, go unlimited, book hand detailing, and check the wait before you drive over.">
+<meta name="theme-color" content="#0c0f17">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@500;700;800;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<a class="skip" href="#menu">Skip to the wash menu</a>
+
+<header class="nav" id="top">
+  <div class="nav-inner">
+    <a class="nav-mark" href="#top" aria-label="Lathermile, back to top">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" fill="#0c0f17"/><rect x="4" y="6" width="6" height="20" fill="#ff3d8b"/><rect x="13" y="6" width="6" height="20" fill="#22b5ff"/><rect x="22" y="6" width="6" height="20" fill="#ffd21f"/></svg>
+      <span data-text="name">Lathermile</span>
+    </a>
+    <nav class="nav-links" id="nav-links" aria-label="Sections">
+      <a href="#menu">Wash menu</a>
+      <a href="#mile">The Mile</a>
+      <a href="#unlimited">Unlimited</a>
+      <a href="#detail">Detailing</a>
+      <a href="#visit">Hours &amp; map</a>
+    </nav>
+    <a class="nav-buy" href="#menu">Buy a wash</a>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links">Menu</button>
+  </div>
+  <div class="foam-stripe" aria-hidden="true"><i></i><i></i><i></i></div>
+</header>
+
+<main>
+
+  <!-- 1. Hero: the windshield view -->
+  <section class="hero" aria-labelledby="hero-title">
+    <img class="hero-img" src="images/tunnel-suds.jpg" alt="Soap and water streaming down a windshield inside the wash tunnel, lit blue">
+    <div class="hero-shade" aria-hidden="true"></div>
+
+    <p class="hero-meta mono"><span data-text="tunnel"></span><br><span data-text="address"></span></p>
+
+    <aside class="board" aria-live="polite" aria-label="Lane status">
+      <div class="board-row"><span class="mono">Lane</span><b id="board-state">—</b></div>
+      <div class="board-row"><span class="mono">Wait</span><b id="board-wait">—</b></div>
+      <div class="board-row"><span class="mono" id="board-next-label">Closes</span><b id="board-next">—</b></div>
+    </aside>
+
+    <div class="hero-copy">
+      <h1 id="hero-title" class="hero-line">Drive in dirty.<br><em>Roll out</em> in four minutes.</h1>
+      <div class="hero-actions">
+        <a class="btn btn-foam" href="#menu">Buy a wash online</a>
+        <a class="btn btn-ghost" href="#unlimited">Wash unlimited from <span data-text="cheapestPlan"></span>/mo</a>
+      </div>
+    </div>
+
+    <p class="hero-word" aria-hidden="true"><span>Lathermile</span></p>
+  </section>
+
+  <!-- Reviews ticker -->
+  <div class="ticker" aria-label="What drivers say">
+    <div class="ticker-track" id="ticker"></div>
+  </div>
+
+  <!-- 2. Menu board: buy a wash -->
+  <section class="menu" id="menu" aria-labelledby="menu-title">
+    <div class="menu-head">
+      <p class="label mono">01 / Pay station</p>
+      <h2 id="menu-title" class="menu-title">The menu<br>board</h2>
+      <p class="menu-note">Pick a wash, add extras, and get a code. Type it into the keypad at the pay station and the gate goes up. No line at the window.</p>
+      <fieldset class="size">
+        <legend class="mono">Vehicle</legend>
+        <div class="size-opts" id="size-opts"></div>
+      </fieldset>
+    </div>
+
+    <div class="menu-rows" id="wash-rows" role="radiogroup" aria-label="Wash package"></div>
+
+    <div class="extras">
+      <p class="label mono">Add at the gate</p>
+      <div class="extras-list" id="extras"></div>
+    </div>
+
+    <aside class="ticket" id="ticket" aria-live="polite">
+      <div class="ticket-paper">
+        <p class="ticket-brand"><span data-text="name"></span> <span class="mono">wash ticket</span></p>
+        <ul class="ticket-lines mono" id="ticket-lines"></ul>
+        <p class="ticket-total"><span class="mono">Total</span><b id="ticket-total">$0</b></p>
+        <div class="ticket-code" id="ticket-code" hidden>
+          <svg class="barcode" id="barcode" viewBox="0 0 200 40" preserveAspectRatio="none" aria-hidden="true"></svg>
+          <p class="code"><b id="code-value"></b></p>
+          <p class="mono small" id="code-note"></p>
+          <button class="btn btn-ink btn-small" type="button" id="copy-code">Copy code</button>
+        </div>
+        <button class="btn btn-ink" type="button" id="buy">Get my wash code</button>
+        <p class="mono small ticket-fine">Demo checkout: no card is charged. Connect a payment provider before going live.</p>
+      </div>
+    </aside>
+  </section>
+
+  <!-- 3. The Mile: six stages, scroll-driven -->
+  <section class="mile" id="mile" aria-labelledby="mile-title">
+    <div class="mile-pin">
+      <img class="mile-bg" src="images/tunnel-light.jpg" alt="" aria-hidden="true">
+      <div class="mile-top">
+        <p class="label mono">02 / Inside the tunnel</p>
+        <h2 id="mile-title" class="mile-title"><span data-text="tunnelFeet"></span> feet.<br>Six stages.<br><em>Four minutes.</em></h2>
+      </div>
+      <div class="track" aria-hidden="true">
+        <div class="track-line"><div class="track-fill" id="track-fill"></div></div>
+        <svg class="car" id="car" viewBox="0 0 120 44"><path d="M8 32 L8 24 Q10 18 22 16 L38 8 Q44 5 56 5 L78 5 Q88 5 96 14 L108 18 Q114 20 114 26 L114 32 Z" fill="#f3f0e8"/><path d="M42 10 L54 9 L54 16 L32 17 Z M60 9 L76 9 Q83 10 88 16 L60 16 Z" fill="#0c0f17"/><circle cx="30" cy="33" r="8" fill="#0c0f17" stroke="#f3f0e8" stroke-width="3"/><circle cx="92" cy="33" r="8" fill="#0c0f17" stroke="#f3f0e8" stroke-width="3"/></svg>
+      </div>
+      <ol class="stages" id="stages"></ol>
+    </div>
+  </section>
+
+  <!-- 4. Unlimited -->
+  <section class="club" id="unlimited" aria-labelledby="club-title">
+    <div class="club-calc">
+      <p class="label mono">03 / Unlimited</p>
+      <h2 id="club-title" class="club-title">Wash as often as it rains.</h2>
+      <div class="calc">
+        <p class="mono calc-q">I wash about</p>
+        <div class="stepper">
+          <button type="button" id="less" aria-label="Fewer washes">−</button>
+          <output id="washes" aria-live="polite">4</output>
+          <button type="button" id="more" aria-label="More washes">+</button>
+        </div>
+        <p class="mono calc-q">times a month.</p>
+      </div>
+      <p class="saved"><span class="saved-num" id="saved-num">$0</span><span class="saved-label mono" id="saved-label"></span></p>
+    </div>
+
+    <div class="plans">
+      <div class="plans-list" id="plans" role="radiogroup" aria-label="Unlimited plan"></div>
+      <p class="mono small plans-fine" id="plans-fine"></p>
+      <button class="btn btn-ink btn-wide" type="button" id="join-open">Join <span id="join-plan-name"></span></button>
+    </div>
+  </section>
+
+  <!-- 5. Detailing -->
+  <section class="detail" id="detail" aria-labelledby="detail-title">
+    <div class="detail-photo">
+      <img src="images/rinse-sheet.jpg" alt="Sheets of rinse water running down glass in the tunnel" loading="lazy">
+      <h2 id="detail-title" class="detail-title">Hand<br>work.</h2>
+    </div>
+    <div class="detail-body">
+      <div class="detail-intro">
+        <p class="label mono">04 / Detail bay, by appointment</p>
+        <p class="detail-lead">The tunnel does the daily wash. The bay is for the deep stuff: one car at a time, one person on it, start to finish.</p>
+      </div>
+
+      <form class="book" id="book" novalidate>
+        <fieldset>
+          <legend class="step mono"><b>1</b> Service</legend>
+          <div class="svc-list" id="services"></div>
+        </fieldset>
+        <fieldset>
+          <legend class="step mono"><b>2</b> Day</legend>
+          <div class="days" id="days"></div>
+        </fieldset>
+        <fieldset>
+          <legend class="step mono"><b>3</b> Drop-off time</legend>
+          <div class="slots" id="slots"></div>
+          <p class="mono small" id="slots-note"></p>
+        </fieldset>
+        <fieldset class="who">
+          <legend class="step mono"><b>4</b> You</legend>
+          <label><span class="mono">Name</span><input name="name" autocomplete="name" required></label>
+          <label><span class="mono">Phone</span><input name="phone" type="tel" autocomplete="tel" required></label>
+          <label><span class="mono">Car (make, model, colour)</span><input name="car" required></label>
+        </fieldset>
+        <p class="form-error mono" id="book-error" role="alert"></p>
+        <button class="btn btn-foam" type="submit">Book the bay</button>
+      </form>
+
+      <div class="booked" id="booked" hidden tabindex="-1">
+        <p class="label mono">Booked</p>
+        <p class="booked-big" id="booked-when"></p>
+        <p id="booked-what"></p>
+        <p class="mono small" id="booked-note"></p>
+        <button class="btn btn-ghost-ink btn-small" type="button" id="book-another">Book another</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. Visit -->
+  <section class="visit" id="visit" aria-labelledby="visit-title">
+    <p class="label mono">05 / Find the tunnel</p>
+    <h2 id="visit-title" class="visit-addr"><span data-text="street"></span><br><small data-text="city"></small></h2>
+
+    <div class="visit-grid">
+      <div class="hours">
+        <p class="mono label-ink">Hours <span id="open-pill" class="pill"></span></p>
+        <table id="hours-table"><caption class="sr">Opening hours</caption></table>
+        <p class="mono small" data-text="hoursNote"></p>
+      </div>
+      <div class="busy">
+        <p class="mono label-ink">How busy, <span id="busy-day">today</span></p>
+        <div class="bars" id="bars" role="img"></div>
+        <div class="bars-axis mono" id="bars-axis"></div>
+        <p class="mono small">Fastest lanes: weekday mornings and after 7&nbsp;pm.</p>
+      </div>
+      <div class="go">
+        <a class="btn btn-ink btn-wide" id="directions" target="_blank" rel="noopener">Directions</a>
+        <a class="btn btn-ghost-ink btn-wide" id="call">Call</a>
+        <p class="mono small" data-text="parking"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. FAQ -->
+  <section class="faq" aria-labelledby="faq-title">
+    <h2 id="faq-title" class="faq-title">Before<br>you pull in</h2>
+    <div class="faq-list" id="faq"></div>
+  </section>
+
+  <!-- 8. Exit -->
+  <section class="exit" aria-labelledby="exit-title">
+    <img src="images/exit-door.jpg" alt="The tunnel exit door, wet glass panes glowing with daylight" loading="lazy">
+    <div class="exit-copy">
+      <h2 id="exit-title" class="exit-title">The door's<br>open till <span id="exit-time">8</span>.</h2>
+      <a class="btn btn-foam" href="#menu">Get a wash code</a>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="foam-stripe" aria-hidden="true"><i></i><i></i><i></i></div>
+  <div class="foot-inner mono">
+    <p><b data-text="name"></b> · <span data-text="street"></span>, <span data-text="city"></span></p>
+    <p><a id="foot-phone"></a> · <a id="foot-email"></a></p>
+    <p>© <span id="year"></span> <span data-text="name"></span>. Photos: Wikimedia Commons, CC0.</p>
+  </div>
+</footer>
+
+<!-- Join dialog -->
+<dialog class="join" id="join" aria-labelledby="join-title">
+  <form method="dialog" class="join-form" id="join-form" novalidate>
+    <button class="join-x" type="button" id="join-close" aria-label="Close">×</button>
+    <p class="label mono">Unlimited sign-up</p>
+    <h3 id="join-title" class="join-title"></h3>
+    <label><span class="mono">Name</span><input name="name" autocomplete="name" required></label>
+    <label><span class="mono">Email</span><input name="email" type="email" autocomplete="email" required></label>
+    <label><span class="mono">Licence plate</span><input name="plate" autocapitalize="characters" required></label>
+    <p class="form-error mono" id="join-error" role="alert"></p>
+    <button class="btn btn-foam btn-wide" type="submit" id="join-submit">Start membership</button>
+    <p class="mono small">Demo sign-up: no card is charged. Cancel any time before your next billing date.</p>
+  </form>
+  <div class="join-done" id="join-done" hidden>
+    <p class="label mono">You're in</p>
+    <h3 class="join-title" id="join-done-title"></h3>
+    <p id="join-done-text"></p>
+    <button class="btn btn-ink btn-wide" type="button" id="join-finish">Done</button>
+  </div>
+</dialog>
+
+<script src="app.js"></script>
+</body>
+</html>
