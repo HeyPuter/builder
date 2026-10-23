@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Halfmoon Mart — Open 24 hours on Garnet &amp; 9th</title>
+<meta name="description" content="Halfmoon Mart is the corner store that never turns its lights off: snacks, cold drinks, groceries, a hot case, an ATM and parcel lockers, 24 hours a day.">
+<meta name="theme-color" content="#111214">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="fascia" id="top">
+  <div class="stripes" aria-hidden="true"><i></i><i></i><i></i></div>
+  <div class="fascia-row">
+    <a class="brand" href="#top" aria-label="Halfmoon Mart, back to top">
+      <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="18" fill="#ffd60a"/><circle cx="27" cy="15" r="15" fill="#111214"/></svg>
+      <span class="brand-name" data-store="name">Halfmoon Mart</span>
+    </a>
+    <nav class="nav" aria-label="Sections">
+      <a href="#hot">Hot case</a>
+      <a href="#shelves">Shelves</a>
+      <a href="#find">Find it</a>
+      <a href="#deals">Deals</a>
+      <a href="#visit">Visit</a>
+    </nav>
+    <button class="basket-btn" type="button" id="basketOpen" aria-haspopup="dialog" aria-controls="basket">
+      Pickup bag <span class="basket-count" id="basketCount">0</span>
+    </button>
+  </div>
+</header>
+
+<main>
+  <section class="hero" aria-labelledby="heroTitle">
+    <img class="hero-img" src="images/neon-open.jpg" alt="A red neon OPEN sign glowing in a shop window at night" width="1023" height="768">
+    <div class="hero-shade" aria-hidden="true"></div>
+    <div class="hero-top">
+      <h1 id="heroTitle" class="hero-title">The lights<br>never go<br><em>off.</em></h1>
+      <p class="hero-side"><span data-store="street">Garnet St &amp; 9th Ave</span><br>Snacks · cold drinks · groceries · hot food · ATM · parcels</p>
+    </div>
+    <div class="hero-clock-row">
+      <div class="hero-clock" id="heroClock" aria-hidden="true">00:00</div>
+      <div class="hero-status">
+        <p class="status-pill"><span class="dot"></span> <span id="heroStatus">Open now</span></p>
+        <p class="hero-meta" id="heroMeta">Store time</p>
+        <div class="hero-ctas">
+          <a class="btn btn-yellow" href="#shelves">Order ahead</a>
+          <a class="btn btn-line" href="#find">Where's the…?</a>
+        </div>
+      </div>
+    </div>
+    <p class="sr-only" id="heroClockSr" aria-live="off"></p>
+  </section>
+
+  <div class="ticker" aria-label="Services at the counter">
+    <div class="ticker-track" id="ticker"></div>
+  </div>
+
+  <section class="hot" id="hot" aria-labelledby="hotTitle">
+    <figure class="hot-photo">
+      <img src="images/hot-case.jpg" alt="Seasoned soft eggs in clear packs on a chilled shelf" width="1100" height="825" loading="lazy">
+      <figcaption>Fresh tray, every few hours.</figcaption>
+    </figure>
+    <div class="hot-body">
+      <p class="label">Aisle 0 · by the register</p>
+      <h2 id="hotTitle" class="mega">Hot<br>case</h2>
+      <div class="next-batch">
+        <p class="label" id="batchLabel">Next batch out of the oven</p>
+        <p class="countdown" id="batchCountdown">--:--:--</p>
+        <p class="batch-what" id="batchWhat"></p>
+      </div>
+      <div class="dayline" aria-hidden="true">
+        <div class="dayline-track" id="dayline"></div>
+        <div class="dayline-hours"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div>
+      </div>
+      <ul class="hot-menu" id="hotMenu"></ul>
+    </div>
+  </section>
+
+  <section class="shelves" id="shelves" aria-labelledby="shelvesTitle">
+    <div class="shelves-head">
+      <h2 id="shelvesTitle" class="mega">The<br>shelves</h2>
+      <p class="shelves-note">Tap a tag to put it in your pickup bag. We pick it, you grab it at the counter, pay there. Ready in about 10 minutes.</p>
+    </div>
+    <div class="aisle-signs" role="tablist" aria-label="Aisles" id="aisleTabs"></div>
+    <div class="rail" id="rail" role="tabpanel" aria-labelledby="shelvesTitle"></div>
+  </section>
+
+  <section class="finder" id="find" aria-labelledby="findTitle">
+    <form class="finder-form" id="finderForm" role="search">
+      <h2 id="findTitle" class="finder-q">
+        <label for="finderInput">Where's the</label>
+        <span class="finder-field"><input id="finderInput" name="q" type="text" autocomplete="off" placeholder="oat milk" spellcheck="false"><span class="qmark">?</span></span>
+      </h2>
+      <button class="btn btn-ink" type="submit">Ask the clerk</button>
+    </form>
+    <div class="finder-answer" id="finderAnswer" aria-live="polite"></div>
+    <p class="finder-try">Try: <span id="finderChips"></span></p>
+  </section>
+
+  <section class="deals" id="deals" aria-labelledby="dealsTitle">
+    <div class="deals-side">
+      <h2 id="dealsTitle" class="mega deals-mega">This<br>week</h2>
+      <p class="deals-dates" id="dealsDates"></p>
+      <p class="deals-note">Prices on the receipt are already off. No card, no app, no coupon clipping. Just come in.</p>
+    </div>
+    <div class="receipt-wrap">
+      <article class="receipt" aria-label="This week's deals">
+        <header class="receipt-head">
+          <p class="receipt-store" data-store="name">Halfmoon Mart</p>
+          <p data-store="street">Garnet St &amp; 9th Ave</p>
+          <p>Weekly deals · Reg 01 · Clerk: Rosa</p>
+        </header>
+        <ol class="receipt-lines" id="dealLines"></ol>
+        <div class="receipt-total"><span>You save</span><span id="dealSave">$0.00</span></div>
+        <svg class="receipt-barcode" id="dealBarcode" viewBox="0 0 200 40" aria-hidden="true"></svg>
+        <p class="receipt-foot">Thank you. We'll be here.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="services" id="services" aria-labelledby="servicesTitle">
+    <h2 id="servicesTitle" class="services-title">At the<br>counter</h2>
+    <ol class="service-list" id="serviceList"></ol>
+  </section>
+
+  <section class="visit" id="visit" aria-labelledby="visitTitle">
+    <div class="visit-big">
+      <p class="label">Come by</p>
+      <h2 id="visitTitle" class="visit-address" data-store="addressBig">1180 Garnet St</h2>
+      <p class="visit-cross" data-store="cross">at the corner of 9th Ave, Eastgate</p>
+      <div class="visit-actions">
+        <a class="btn btn-yellow" id="directions" href="#" target="_blank" rel="noopener">Get directions</a>
+        <a class="btn btn-line" id="callStore" href="#">Call the counter</a>
+      </div>
+    </div>
+    <div class="visit-facts">
+      <dl class="facts">
+        <div><dt>Store</dt><dd>24 hours, 365 days</dd></div>
+        <div><dt>Phone</dt><dd data-store="phone">(555) 014-2424</dd></div>
+        <div><dt>Parking</dt><dd data-store="parking">4 spots out front, 10 min</dd></div>
+        <div><dt>Since</dt><dd data-store="since">1998</dd></div>
+      </dl>
+      <p class="label">Counter hours, live</p>
+      <ul class="hours" id="hoursList"></ul>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="foot-top">
+    <p class="foot-big" aria-hidden="true">Open</p>
+    <div class="foot-side">
+      <p>24 hours</p>
+      <p>365 days</p>
+      <p>No holidays off</p>
+      <a href="#top">Back to the top</a>
+    </div>
+  </div>
+  <div class="foot-row">
+    <p>&copy; <span id="year"></span> <span data-store="name">Halfmoon Mart</span>. A made-up corner store.</p>
+    <p class="credits">Photos: "open sign neon" by Deb Beatty Mel (public domain, Flickr) · Onsen eggs on a chilled shelf (CC0, Wikimedia Commons).</p>
+  </div>
+</footer>
+
+<div class="scrim" id="scrim" hidden></div>
+<aside class="basket" id="basket" role="dialog" aria-modal="true" aria-labelledby="basketTitle" hidden>
+  <div class="basket-head">
+    <h2 id="basketTitle">Pickup bag</h2>
+    <button type="button" class="close" id="basketClose" aria-label="Close pickup bag">&times;</button>
+  </div>
+  <div class="basket-body" id="basketBody"></div>
+</aside>
+
+<script src="app.js"></script>
+</body>
+</html>
