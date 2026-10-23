@@ -745,5 +745,89 @@ check("a single-quoted content value containing a double quote is read whole",
     globalThis.document = savedDoc;
 }
 
+// --- The block comes back out exactly ----------------------------------------
+// GitHub sync compares pages with our block stripped, and so does every
+// strip-then-stamp on a preview refresh. The stamp used to swallow the
+// whitespace in front of </head> and write it back its own way, so a
+// Prettier/Vite page lost the indentation of "  </head>", a CRLF page lost the
+// CR, and a minified page gained line breaks. Builder's own restamp then read
+// as an edit to the page, and sync sent it over a developer's change on
+// GitHub. Now stripPwaBlocks(stampManifestTags(page)) is the page itself, byte
+// for byte, while pages stamped the old way are left exactly as they are.
+{
+    const metaOf = (page) => W.deriveManifestMeta(page, 'My App');
+    const stamp = (page, prefix) => W.stampManifestTags(page, metaOf(page), prefix || '');
+    const BLOCK = (title, eol) => [
+        '<!-- puter-pwa: generated, do not edit -->',
+        '<link rel="manifest" href="manifest.json">',
+        '<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">',
+        '<link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png">',
+        '<meta name="mobile-web-app-capable" content="yes">',
+        '<meta name="apple-mobile-web-app-capable" content="yes">',
+        '<meta name="apple-mobile-web-app-status-bar-style" content="default">',
+        `<meta name="apple-mobile-web-app-title" content="${title}">`,
+        '<meta name="theme-color" content="#ffffff">',
+        '<!-- /puter-pwa -->',
+    ].map((l) => '    ' + l + eol).join('');
+
+    // What the previous stamp wrote. These pages exist in users' projects, so a
+    // new stamp must read them back unchanged and never rewrite them.
+    const simpleLF = '<!DOCTYPE html>\n<html><head>\n<title>TaskFlow</title>\n<meta name="description" content="x">\n</head><body><h1>hi</h1></body></html>';
+    const LEGACY = {
+        simpleLF: simpleLF.replace('</head>', BLOCK('TaskFlow', '\n') + '</head>'),
+        indented: '<!doctype html>\n<html lang="en">\n  <head>\n    <meta charset="UTF-8" />\n    <title>Vite App</title>\n' + BLOCK('Vite App', '\n') + '</head>\n  <body>\n    <div id="app"></div>\n  </body>\n</html>\n',
+        crlf: '<!DOCTYPE html>\r\n<html>\r\n<head>\r\n<title>C</title>\n' + BLOCK('C', '\n') + '</head>\r\n<body></body>\r\n</html>\r\n',
+        minified: '<!DOCTYPE html><html><head><meta charset="utf-8"><title>M</title>\n' + BLOCK('M', '\n') + '</head><body><p>x</p></body></html>',
+        noClose: '<html><head>\n' + BLOCK('X', '\n') + '<title>X</title><body>y</body></html>',
+    };
+    for (const [name, page] of Object.entries(LEGACY)) {
+        check(`reversible: a page stamped the old way (${name}) is not rewritten`, stamp(page) === page);
+    }
+    check('reversible: a plain LF page gets the same bytes as before', stamp(simpleLF) === LEGACY.simpleLF);
+
+    // Pages as people and their tools write them. Each must come back exactly.
+    const PAGES = {
+        'Prettier/Vite indented': '<!doctype html>\n<html lang="en">\n  <head>\n    <meta charset="UTF-8" />\n    <title>Vite App</title>\n  </head>\n  <body>\n    <div id="app"></div>\n  </body>\n</html>\n',
+        'CRLF': '<!DOCTYPE html>\r\n<html>\r\n<head>\r\n<title>C</title>\r\n</head>\r\n<body></body>\r\n</html>\r\n',
+        'tab indented': '<html>\n\t<head>\n\t\t<title>Tab</title>\n\t</head>\n\t<body></body>\n</html>\n',
+        'minified': '<!DOCTYPE html><html><head><meta charset="utf-8"><title>M</title></head><body><p>x</p></body></html>',
+        '</head> after text on its line': '<html><head><title>A</title>   </head><body></body></html>',
+        'BOM': '﻿<!doctype html>\n<html>\n  <head>\n    <title>B</title>\n  </head>\n</html>\n',
+        'uppercase tags': '<HTML><HEAD>\r\n\t<TITLE>U</TITLE>\r\n</HEAD >\r\n<BODY></BODY></HTML>',
+        'mixed line endings': '<html>\r\n<head>\n<title>M</title>\r\n  </head>\n<body></body>',
+        'no </head>, inline': '<html><head><title>X</title><body>y</body></html>',
+        'no </head>, own line': '<html><head>\n  <title>X</title>\n<body>y</body></html>',
+        'no </head>, CRLF': '<html><head>\r\n<title>X</title>\r\n<body>y</body>',
+        'spaces after <head>': '<html><head>   \n<title>T</title>\n<body></body></html>',
+    };
+    for (const [name, page] of Object.entries(PAGES)) {
+        for (const prefix of ['', '../']) {
+            const once = stamp(page, prefix);
+            const where = `${name}${prefix ? ', deep page' : ''}`;
+            check(`reversible: ${where} is stamped`, typeof once === 'string' && once.includes('puter-pwa: generated'));
+            check(`reversible: ${where} comes back byte for byte`, W.stripPwaBlocks(once) === page);
+            check(`reversible: ${where} restamps to the same bytes`, stamp(once, prefix) === once);
+            const renamed = W.stampManifestTags(once, Object.assign({}, metaOf(once), { name: 'Renamed', shortName: 'Renamed' }), prefix);
+            check(`reversible: ${where} keeps its place after a rename`, W.stripPwaBlocks(renamed) === page && renamed.includes('content="Renamed"'));
+        }
+    }
+    check('reversible: an indented </head> keeps its indentation',
+        stamp(PAGES['Prettier/Vite indented']).includes('    <!-- /puter-pwa -->\n  </head>'));
+    check('reversible: a CRLF page gets CRLF block lines',
+        stamp(PAGES.CRLF).includes('<!-- /puter-pwa -->\r\n</head>\r\n'));
+    check('reversible: a minified page stays on one line',
+        !stamp(PAGES.minified).includes('\n'));
+
+    // The model rewrites the head and drops the end marker of an inline block.
+    // Our own manifest link must not then read as the page's own (which opts
+    // the whole project out of the manifest for good), and the next stamps
+    // must settle.
+    const inline = stamp(PAGES['</head> after text on its line']);
+    const orphaned = inline.replace('<!-- /puter-pwa -->', '');
+    check('reversible: an inline orphan is not taken for a hand-written manifest link', W.hasForeignManifestLink(orphaned) === false);
+    const healed = stamp(orphaned);
+    check('reversible: stamping over an inline orphan settles', stamp(healed) === healed && (healed.match(/rel="manifest"/g) || []).length === 1);
+}
+
 console.log(failures ? `\n${failures} check(s) failed` : '\nall manifest checks passed');
 process.exit(failures ? 1 : 0);

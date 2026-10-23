@@ -3010,7 +3010,8 @@ body.preview-active .preview-pane {
    share-draft popover shares this chrome verbatim (deliberately identical, so
    the two read as siblings); only their inner content differs. */
 .preview-publish-panel,
-.preview-share-panel {
+.preview-share-panel,
+.preview-github-panel {
     position: absolute;
     top: 50px;
     right: 12px;
@@ -3075,6 +3076,7 @@ body.preview-active .preview-pane {
 
 .publish-panel-header,
 .share-panel-header,
+.github-panel-header,
 .device-panel-header {
     display: flex;
     align-items: center;
@@ -3088,6 +3090,7 @@ body.preview-active .preview-pane {
 }
 .publish-panel-header .publish-panel-close,
 .share-panel-header .share-panel-close,
+.github-panel-header .github-panel-close,
 .device-panel-header .device-panel-close {
     border: none;
     background: transparent;
@@ -3103,15 +3106,19 @@ body.preview-active .preview-pane {
 }
 .publish-panel-header .publish-panel-close:hover,
 .share-panel-header .share-panel-close:hover,
+.github-panel-header .github-panel-close:hover,
 .device-panel-header .device-panel-close:hover { background: #ececec; }
 .publish-panel-body,
-.share-panel-body { padding: 12px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+.share-panel-body,
+.github-panel-body { padding: 12px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
 /* The dialog container takes focus on open (for Escape + tab order); it's not a
    control, so it should never paint a focus ring. */
 .preview-publish-panel:focus,
 .preview-publish-panel:focus-visible,
 .preview-share-panel:focus,
-.preview-share-panel:focus-visible { outline: none; }
+.preview-share-panel:focus-visible,
+.preview-github-panel:focus,
+.preview-github-panel:focus-visible { outline: none; }
 
 /* ---- Toolbar popover caret ----
    The ▲ notch tying each toolbar popover (versions / issues / publish / share)
@@ -3126,6 +3133,7 @@ body.preview-active .preview-pane {
 .preview-issues-panel,
 .preview-publish-panel,
 .preview-share-panel,
+.preview-github-panel,
 .preview-device-panel {
     --panel-caret-border: #ddd;
     --panel-caret-fill: #fff;
@@ -3134,6 +3142,7 @@ body.preview-active .preview-pane {
 .preview-issues-panel::before, .preview-issues-panel::after,
 .preview-publish-panel::before, .preview-publish-panel::after,
 .preview-share-panel::before, .preview-share-panel::after,
+.preview-github-panel::before, .preview-github-panel::after,
 .preview-device-panel::before, .preview-device-panel::after {
     content: '';
     position: absolute;
@@ -3149,12 +3158,145 @@ body.preview-active .preview-pane {
 .preview-issues-panel::after,
 .preview-publish-panel::after,
 .preview-share-panel::after,
+.preview-github-panel::after,
 .preview-device-panel::after {
     top: -7px;
     border-bottom-color: var(--panel-caret-fill);
 }
 .preview-pane .caret-hidden::before,
 .preview-pane .caret-hidden::after { display: none; }
+
+/* ---- GitHub popover (js/github-ui.js) ----
+   The chrome is shared with publish/share above. These are its own pieces:
+   headings, form controls, the collision card and the footer. */
+.preview-github-btn { position: relative; }
+.preview-github-dot {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #e8a33d;
+}
+.preview-github-dot[hidden] { display: none; }
+.gh-heading { font-size: 13px; font-weight: 600; color: #333; }
+.gh-input {
+    width: 100%;
+    box-sizing: border-box;
+    height: 32px;
+    padding: 0 9px;
+    border: 1px solid #ddd;
+    border-radius: 7px;
+    background: #fff;
+    color: #323232;
+    font-size: 12.5px;
+    font-family: inherit;
+}
+.gh-input:focus { outline: none; border-color: #0a6ae0; }
+.gh-row { display: flex; gap: 8px; }
+.gh-check, .gh-label { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: #666; }
+.gh-label { flex-direction: column; align-items: stretch; gap: 5px; }
+.gh-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 32px;
+    padding: 0 12px;
+    border: 1px solid #ddd;
+    border-radius: 7px;
+    background: #fff;
+    color: #333;
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+}
+.gh-btn:hover { background: #f4f4f4; }
+.gh-btn:disabled { opacity: 0.6; cursor: default; }
+.gh-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.gh-card { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid #f0d9b5; border-radius: 8px; background: #fffaf1; }
+.gh-link { font-size: 12.5px; color: #0a6ae0; text-decoration: none; }
+.gh-link:hover { text-decoration: underline; }
+/* A linked project's top: where things stand with the Sync button at its
+   right, and the repository (the link to GitHub) under it. The button keeps
+   one width for "Sync", "Syncing…" and "Synced", so nothing moves. */
+.gh-summary { display: flex; flex-direction: column; gap: 4px; }
+.gh-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.gh-top .gh-heading { flex: 1 1 auto; min-width: 0; }
+.gh-repo { overflow-wrap: anywhere; }
+.gh-sync {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    min-width: 92px;
+    height: 28px;
+    padding: 0 10px;
+    border: 1px solid #ddd;
+    border-radius: 7px;
+    background: #fff;
+    color: #333;
+    font-size: 12px;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+}
+.gh-sync svg { width: 13px; height: 13px; flex: 0 0 auto; }
+.gh-sync:hover:not(:disabled) { background: #f4f4f4; }
+.gh-sync:disabled { cursor: default; color: #777; }
+.gh-sync.is-syncing svg { animation: spin 1s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .gh-sync.is-syncing svg { animation: none; } }
+.github-panel-title { display: inline-flex; align-items: center; }
+/* A small "Beta" pill, beside the GitHub panel's title and its perk in the
+   upgrade dialog. */
+.beta-badge {
+    display: inline-flex;
+    align-items: center;
+    height: 16px;
+    margin-left: 6px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: #e8f1ff;
+    color: #0a6ae0;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    text-transform: uppercase;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+.gh-linkbtn { border: none; background: none; padding: 0; color: #0a6ae0; font-size: 12px; cursor: pointer; }
+.gh-linkbtn:hover { text-decoration: underline; }
+.gh-footer { display: flex; flex-direction: column; gap: 8px; padding-top: 10px; border-top: 1px solid #eee; font-size: 12px; color: #666; }
+/* Wraps the state's part of the body only so its buttons can wait for a check
+   (github-ui.js render). It lays out as if it weren't there. */
+.gh-state { display: contents; }
+.gh-details summary { cursor: pointer; font-size: 12px; color: #555; }
+.gh-list { margin: 6px 0 0; padding-left: 16px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #666; }
+.gh-list code { font-size: 11.5px; }
+.gh-error { font-size: 12.5px; color: #c0392b; }
+html[data-theme="dark"] .gh-heading { color: var(--text); }
+html[data-theme="dark"] .gh-check,
+html[data-theme="dark"] .gh-label,
+html[data-theme="dark"] .gh-footer,
+html[data-theme="dark"] .gh-list,
+html[data-theme="dark"] .gh-details summary { color: var(--text-secondary); }
+html[data-theme="dark"] .gh-input { background: var(--surface); border-color: var(--border); color: var(--text); }
+html[data-theme="dark"] .gh-input:focus { border-color: var(--accent); }
+html[data-theme="dark"] .gh-btn { background: var(--surface); border-color: var(--border); color: var(--text); }
+html[data-theme="dark"] .gh-btn:hover { background: var(--surface-hover); }
+html[data-theme="dark"] .gh-card { background: rgba(232, 163, 61, 0.08); border-color: rgba(232, 163, 61, 0.35); }
+html[data-theme="dark"] .gh-link,
+html[data-theme="dark"] .gh-linkbtn { color: var(--accent); }
+html[data-theme="dark"] .gh-sync { background: var(--surface); border-color: var(--border); color: var(--text); }
+html[data-theme="dark"] .gh-sync:hover:not(:disabled) { background: var(--surface-hover); }
+html[data-theme="dark"] .gh-sync:disabled { color: var(--text-secondary); }
+html[data-theme="dark"] .beta-badge { background: rgba(10, 106, 224, 0.2); color: var(--accent); }
+html[data-theme="dark"] .gh-footer { border-top-color: var(--border); }
+html[data-theme="dark"] .gh-error { color: #ff8a80; }
 
 .publish-blurb {
     margin: 0;
@@ -4795,7 +4937,8 @@ body.preview-active.chat-hidden .chat {
         padding: 0 12px !important;
     }
     .preview-publish-panel,
-    .preview-share-panel {
+    .preview-share-panel,
+    .preview-github-panel {
         width: min(400px, calc(100vw - 24px));
         top: 54px;
         right: 12px;
@@ -6071,6 +6214,7 @@ html[data-theme="dark"] .preview-publish-btn[data-state="clean"]:focus-visible {
 html[data-theme="dark"] .preview-publish-dot { background: #0b1118; }
 html[data-theme="dark"] .preview-publish-panel,
 html[data-theme="dark"] .preview-share-panel,
+html[data-theme="dark"] .preview-github-panel,
 html[data-theme="dark"] .preview-device-panel {
     background: var(--surface);
     border-color: var(--border);
@@ -6080,12 +6224,15 @@ html[data-theme="dark"] .preview-device-panel {
 }
 html[data-theme="dark"] .publish-panel-header,
 html[data-theme="dark"] .share-panel-header,
+html[data-theme="dark"] .github-panel-header,
 html[data-theme="dark"] .device-panel-header { color: var(--text); border-bottom-color: var(--border); }
 html[data-theme="dark"] .publish-panel-header .publish-panel-close,
 html[data-theme="dark"] .share-panel-header .share-panel-close,
+html[data-theme="dark"] .github-panel-header .github-panel-close,
 html[data-theme="dark"] .device-panel-header .device-panel-close { color: var(--text-secondary); }
 html[data-theme="dark"] .publish-panel-header .publish-panel-close:hover,
 html[data-theme="dark"] .share-panel-header .share-panel-close:hover,
+html[data-theme="dark"] .github-panel-header .github-panel-close:hover,
 html[data-theme="dark"] .device-panel-header .device-panel-close:hover { background: var(--surface-hover); }
 html[data-theme="dark"] .device-panel-option { color: var(--text-secondary); }
 html[data-theme="dark"] .device-panel-option:hover { background: var(--surface-hover); }

@@ -143,19 +143,47 @@
     // instead of starting an automatic fix (holdAutoFix).
     const NOTE_TEXT_LIMIT = 200000;
     function pendingKey(chatId) { return 'codeEditor.pending:' + user() + ':' + chatId; }
+    // `external` holds what GitHub sync brought in (github-sync.js), told to
+    // the AI the same way: { ids, files: { abs: { kind, before, after } },
+    // commits, collisions, keys, publicRepo }. keys are files that went to
+    // GitHub with what looks like a key in them, which the AI asks the user
+    // about. ids are the notes already merged, so a note seen twice (another
+    // device's pull, read again) is told once.
+    function emptyExternal() { return { ids: [], files: {}, commits: [], collisions: [], keys: [], publicRepo: false }; }
     function loadPending(chatId) {
         const p = load(pendingKey(chatId)) || {};
-        return { files: p.files && typeof p.files === 'object' ? p.files : {}, version: Array.isArray(p.version) ? p.version : [] };
+        const x = p.external && typeof p.external === 'object' ? p.external : {};
+        return {
+            files: p.files && typeof p.files === 'object' ? p.files : {},
+            version: Array.isArray(p.version) ? p.version : [],
+            external: {
+                ids: Array.isArray(x.ids) ? x.ids : [],
+                files: x.files && typeof x.files === 'object' ? x.files : {},
+                commits: Array.isArray(x.commits) ? x.commits : [],
+                collisions: Array.isArray(x.collisions) ? x.collisions : [],
+                keys: Array.isArray(x.keys) ? x.keys : [],
+                publicRepo: !!x.publicRepo,
+            },
+        };
     }
+    // Changed files the AI must read again. Keys aren't among them: a note
+    // about a key never holds the automatic fix of an error (holdAutoFix).
+    function externalPending(p) {
+        return Object.keys(p.external.files).length > 0 || p.external.collisions.length > 0;
+    }
+    function keysPending(p) { return p.external.keys.length > 0; }
     function savePending(chatId, p) {
-        const empty = !Object.keys(p.files).length && !p.version.length;
+        const empty = !Object.keys(p.files).length && !p.version.length && !externalPending(p) && !keysPending(p) && !p.external.ids.length;
         if (store(pendingKey(chatId), empty ? null : p)) return;
-        // Over quota: keep the file list, drop the texts behind the diffs.
+        // Over quota: keep the file lists, drop the texts behind the diffs.
         for (const k of Object.keys(p.files)) p.files[k] = { before: null, after: null };
+        for (const k of Object.keys(p.external.files)) p.external.files[k] = { kind: p.external.files[k].kind, before: null, after: null };
         store(pendingKey(chatId), p);
     }
     function hasPendingNote(chatId) {
-        return !!(chatId && user()) && Object.keys(loadPending(chatId).files).length > 0;
+        if (!(chatId && user())) return false;
+        const p = loadPending(chatId);
+        return Object.keys(p.files).length > 0 || externalPending(p);
     }
 
     // Files the user changed since the AI last read them. The write and
@@ -174,6 +202,22 @@
             if (next === p) continue;
             unread.delete(p);
             if (next) unread.add(next);
+            changed = true;
+        }
+        if (changed) saveUnread(unread);
+    }
+    // Files changed outside the AI (a GitHub pull): it must read each again
+    // before writing it whole. Re-added at the end, so the 300 newest marks
+    // are the ones kept.
+    function markUnread(paths) {
+        if (!user()) return;
+        const unread = loadUnread();
+        let changed = false;
+        for (const p of paths || []) {
+            if (!p) continue;
+            const path = norm(p);
+            unread.delete(path);
+            unread.add(path);
             changed = true;
         }
         if (changed) saveUnread(unread);
@@ -393,7 +437,7 @@
             if (!it || !it.name) continue;
             const abs = absDir.replace(/\/+$/, '') + '/' + it.name;
             const isDir = !!(it.is_dir ?? it.isDir);
-            if (!isDir && C.classify(relPath(abs)).hidden) continue;
+            if (C.isHidden(relPath(abs))) continue;
             entries.push({ name: it.name, abs, isDir, size: typeof it.size === 'number' ? it.size : null });
         }
         S.dirs.set(absDir, C.sortEntries(entries));
@@ -1689,15 +1733,73 @@
         pendingNote(chatId) {
             if (!chatId || !user()) return '';
             const p = loadPending(chatId);
+            const parts = [];
             const paths = Object.keys(p.files);
-            if (!paths.length) return '';
-            return C.buildManualEditNote({ files: paths.map((path) => ({ path, before: p.files[path].before, after: p.files[path].after })) });
+            if (paths.length) {
+                parts.push(C.buildManualEditNote({ files: paths.map((path) => ({ path, before: p.files[path].before, after: p.files[path].after })) }));
+            }
+            if ((externalPending(p) || keysPending(p)) && window.GitHubCore) {
+                const x = p.external;
+                parts.push(window.GitHubCore.buildExternalChangeNote({
+                    files: Object.keys(x.files).map((path) => ({ path, kind: x.files[path].kind, before: x.files[path].before, after: x.files[path].after })),
+                    commits: x.commits,
+                    collisions: x.collisions,
+                    keys: x.keys,
+                    publicRepo: x.publicRepo,
+                    diff: C.unifiedDiff,
+                }));
+            }
+            return parts.filter(Boolean).join('\n\n');
         },
         notePosted(chatId) {
             const p = loadPending(chatId);
+            const told = p.external.ids.slice();
             p.files = {};
+            // The ids stay (so the same note is never merged twice). What was
+            // told goes.
+            p.external = Object.assign(emptyExternal(), { ids: p.external.ids.slice(-50) });
             savePending(chatId, p);
+            if (told.length) window.GitHubSync?.notePosted?.(chatId, told);
         },
+        // GitHub sync brought files in: the next message tells the AI which,
+        // and from now on it may not write one of them whole from memory.
+        // note: { id, files: [{path (absolute), kind, before?, after?}],
+        // commits: [{sha, subject}], collisions: [absolute path], keys:
+        // [absolute path], publicRepo }. Returns false when this note was
+        // already merged.
+        importExternalChanges(chatId, note) {
+            if (!chatId || !user() || !note || !note.id) return false;
+            const p = loadPending(chatId);
+            if (p.external.ids.includes(note.id)) return false;
+            p.external.ids.push(note.id);
+            const keep = (t) => (typeof t === 'string' && t.length <= NOTE_TEXT_LIMIT ? t : null);
+            for (const f of note.files || []) {
+                if (!f || !f.path) continue;
+                const path = norm(f.path);
+                const prev = p.external.files[path];
+                // Two pulls of one file read as one change, from the first
+                // "before" the AI knew to the latest "after".
+                p.external.files[path] = {
+                    kind: prev && prev.kind === 'added' && f.kind !== 'removed' ? 'added' : (f.kind || 'changed'),
+                    before: prev ? prev.before : keep(f.before),
+                    after: keep(f.after),
+                };
+            }
+            for (const c of note.commits || []) if (c && c.sha && !p.external.commits.some((x) => x.sha === c.sha)) p.external.commits.push({ sha: String(c.sha), subject: String(c.subject || '') });
+            p.external.commits = p.external.commits.slice(-20);
+            for (const c of note.collisions || []) if (c && !p.external.collisions.includes(norm(c))) p.external.collisions.push(norm(c));
+            for (const k of note.keys || []) if (k && !p.external.keys.includes(norm(k))) p.external.keys.push(norm(k));
+            if (note.publicRepo && (note.keys || []).length) p.external.publicRepo = true;
+            savePending(chatId, p);
+            markUnread((note.files || []).filter((f) => f && f.path && f.kind !== 'removed').map((f) => f.path));
+            if (chatId === S.chatId) renderChrome();
+            return true;
+        },
+        markUnread(paths) { markUnread(paths); },
+        hasUnsavedEdits(chatId) { return hasUnsaved(chatId); },
+        // Saved hand edits not yet in a version become one now (GitHub sync,
+        // before it writes into the project).
+        checkpointNow(chatId, appDir) { return checkpoint(chatId, appDir, { wait: true }); },
 
         // The write and create_worker tools: refuse to replace a file the user
         // edited until the model has read it again. A file that no longer
@@ -1712,7 +1814,7 @@
             }
             // A read the model sees only the start of keeps the guard, so the
             // advice covers that case too.
-            throw new Error(`The user edited ${absPath} by hand in the Code view since you last read it, so writing the whole file from memory would undo their changes. Read it again with ReadTextFile first, then apply your change, preferably with edit or multi_edit. If the read comes back truncated, use edit or multi_edit, since writing the whole file stays refused.`);
+            throw new Error(`${absPath} changed since you last read it (the user edited it by hand in the Code view, or Builder brought in a change from GitHub), so writing the whole file from memory would undo that change. Read it again with ReadTextFile first, then apply your change, preferably with edit or multi_edit. If the read comes back truncated, use edit or multi_edit, since writing the whole file stays refused.`);
         },
         noteModelRead(absPath) {
             const unread = loadUnread();
@@ -1799,8 +1901,14 @@
         onRestoreEnd(chatId, filesTouched, noted) {
             if (filesTouched && chatId && user()) {
                 const p = loadPending(chatId);
-                if (noted) p.files = {};
-                else for (const k of Object.keys(p.files)) p.files[k] = { before: null, after: null };
+                if (noted) {
+                    p.files = {};
+                    // Keys already on GitHub are still worth asking about.
+                    p.external = Object.assign(emptyExternal(), { ids: p.external.ids, keys: p.external.keys, publicRepo: p.external.publicRepo });
+                } else {
+                    for (const k of Object.keys(p.files)) p.files[k] = { before: null, after: null };
+                    for (const k of Object.keys(p.external.files)) p.external.files[k] = { kind: p.external.files[k].kind, before: null, after: null };
+                }
                 p.version = [];
                 savePending(chatId, p);
                 S.heldErrors.delete(chatId);

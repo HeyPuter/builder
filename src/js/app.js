@@ -1075,6 +1075,7 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
         window.closeVersionsPanel?.();
         window.closePublishPanel?.();
         window.closeSharePanel?.();
+        window.closeGitHubPanel?.();
         window.closeIssuesPanel?.();
         window.closeDevicePanel?.();
 
@@ -1330,6 +1331,9 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
 
         _loadChatSettledSeq = Math.max(_loadChatSettledSeq, seq);
         window.hideProjectLoading?.();
+        // A linked project checks GitHub for changes made there (in the
+        // background, never blocking the open).
+        try { window.GitHubSync?.onProjectOpen?.(chatId); } catch (e) { /* never */ }
         return chat;
     } catch (error) {
         console.error('Error loading chat:', error);
@@ -1376,7 +1380,8 @@ async function deleteChat(chatId) {
     const busy = window.isPublishInFlight?.(chatId) ? 'publishing'
         : _duplicatingChats.has(chatId) ? 'being copied'
             : (window._restoringVersion && currentChatId === chatId) ? 'being restored'
-                : null;
+                : window.GitHubSync?.isBusy?.(chatId) ? 'syncing with GitHub'
+                    : null;
     if (busy) {
         window.showToast?.(`This project is still ${busy} — you can delete it as soon as that finishes.`,
             { type: 'info', key: 'delete-busy', throttleMs: 3000 });
@@ -1448,6 +1453,11 @@ async function deleteChat(chatId) {
                 .concat(window.WorkerOwnership.ownedWorkers(all, publishedDir));
         });
         for (const worker of ownedWorkers) {
+            // Its keys first (see worker-secrets.js). Puter reuses a sandbox
+            // app by worker name, so a later worker with the same name, in any
+            // project, would find them. Best effort: a key left behind costs no
+            // live endpoint, so it never holds up the delete.
+            try { await window.WorkerSecrets?.clear(worker.name); } catch (e) { /* best effort */ }
             await cleanup(`the worker ${worker.name}`, () => puter.workers.delete(worker.name));
         }
 
@@ -1465,6 +1475,9 @@ async function deleteChat(chatId) {
         catch (e) { console.warn('Version snapshots already deleted or not found:', e); }
         try { await window.deleteChatIssues?.(chatId); }
         catch (e) { console.warn('Issues already deleted or not found:', e); }
+        // Its GitHub link record. The repository itself is never touched.
+        try { await window.GitHubSync?.forgetProject?.(chatId); }
+        catch (e) { console.warn('GitHub link already removed or not found:', e); }
         // And the images/videos/audio generated in the chat (private storage
         // outside the project dir, see window.mediaDirForAppDir) — best-effort
         // like the two above.
@@ -1605,6 +1618,17 @@ async function redeployWorkersForCopy(oldAppDir, newAppDir) {
                 throw new Error('deployment did not return a URL');
             }
             renames.push({ ...plan, newUrl: created.url });
+            // The copy's backend is a new worker app with an empty store: give
+            // it the original's keys (see worker-secrets.js). A copy that can't
+            // get them still works except for the calls that need a key, and
+            // its AI can save them again, so this never fails the duplicate.
+            try {
+                const keys = await window.WorkerSecrets?.copy(plan.oldName, plan.newName);
+                if (keys && !keys.ok) {
+                    window.showToast?.('The copy’s backend didn’t get the original’s keys. Ask the AI in the copy to set them up again.',
+                        { type: 'warning', key: 'duplicate-keys', throttleMs: 5000 });
+                }
+            } catch (e) { /* the warning above covers it */ }
         } catch (e) {
             console.warn('Duplicate: could not redeploy worker for the copy:', plan.oldName, e);
             failed.push(plan.oldName);
@@ -4474,7 +4498,11 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // all read as the app having frozen.
     // (A restore still saving the Code view's edits before it starts counts.)
     if (window._restoringVersion || window.isRestoreStarting?.(currentChatId)) {
-        window.showToast?.('Finishing the restore — you can send the moment it’s done.',
+        // GitHub sync writes pulled files under the same lock (see
+        // applyExternalUpdate in versions.js).
+        window.showToast?.(window._rewriteKind === 'github'
+            ? 'Bringing in changes from GitHub — you can send the moment it’s done.'
+            : 'Finishing the restore — you can send the moment it’s done.',
             { type: 'info', key: 'send-blocked-restore', throttleMs: 3000 });
         return;
     }
@@ -4588,6 +4616,39 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         }
     }
 
+    // GitHub sync, before the AI touches anything: changes made on GitHub come
+    // in first, so the turn starts from the newest files instead of colliding
+    // with them. Its network time is capped and it never calls the send off.
+    // The composer is read only meanwhile, so nothing typed there is lost
+    // when it clears below.
+    if (window.GitHubSync?.beforeTurn) {
+        const setupChatId = currentChatId;
+        const $composer = $('.chat-input-message');
+        if (consumedComposer) $composer.prop('readonly', true);
+        try {
+            await window.GitHubSync.beforeTurn({ chatId: setupChatId, appDir: currentAppDir, autoFix: !!opts.autoFix, resume: isResume });
+        } catch (e) {
+            console.warn('GitHub sync before the turn failed:', e);
+        } finally {
+            if (consumedComposer) $composer.prop('readonly', false);
+        }
+        // The same re-checks as after the Code view's step: those seconds let
+        // a restore, a publish or a project load start.
+        let busyNow = null;
+        if (currentChatId === setupChatId) {
+            if (_loadChatSeq !== _loadChatSettledSeq) busyNow = 'Opening the project — you can send the moment it’s ready.';
+            else if (window._restoringVersion || window.isRestoreStarting?.(setupChatId)) busyNow = 'Finishing the restore — you can send the moment it’s done.';
+            else if (window.isPublishInFlight?.(setupChatId) || window.isPublishStarting?.(setupChatId)) busyNow = 'Finishing publishing — you can send the moment it’s done.';
+        }
+        if (currentChatId !== setupChatId || busyNow) {
+            _sendSetupInFlight = false;
+            window.CodeEditor?.onTurnEnd?.(setupChatId);
+            if (busyNow) window.showToast?.(busyNow, { type: 'info', key: 'send-blocked-after-sync', throttleMs: 3000 });
+            window.refreshPublishButton?.();
+            return;
+        }
+    }
+
     if (consumedComposer) {
         $('.chat-input-message').val('');
         $('.chat-input-message').css('height', '40px');
@@ -4646,6 +4707,11 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // Version restores already started on this project — see the end-of-turn
     // snapshot in the finally.
     const turnRestoreGen = window.restoresStartedFor?.(turnChatId) || 0;
+    // GitHub sync never writes pulled files under a running turn (see
+    // onTurnEnd below for when it may again).
+    try { window.GitHubSync?.onTurnStart?.(turnChatId, turnSeq); } catch (e) { /* never */ }
+    let turnPullSeq;
+    try { turnPullSeq = window.GitHubSync?.pullSeqFor?.(turnChatId); } catch (e) { /* never */ }
     // Stable per-turn save context. `chatHistory` is captured by reference — every
     // message pushed during the turn (user, assistant text, tool_use, tool_result,
     // and the error marker on the catch path) mutates THIS same array — so saving
@@ -5336,6 +5402,12 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                 chatId: turnChatId,
                 appDir: turnAppDir,
                 aiContext,
+                // For GitHub sync: the label is the user's own message until
+                // the AI's short label replaces it, and a stopped or failed
+                // turn's files may be half built.
+                labelSource: isResume ? undefined : 'user',
+                partial: !turnSucceeded,
+                pullSeq: turnPullSeq,
             });
         }
 
@@ -5397,6 +5469,10 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // The turn is over — let the screen sleep again (no-op if a newer turn has
     // already started and still wants the lock).
     releaseWakeLock();
+    // This turn has fully unwound, its last tool write included, so GitHub
+    // sync may write pulled files again. Called for every turn, superseded or
+    // not: each turn is tracked by its own sequence number.
+    try { window.GitHubSync?.onTurnEnd?.(turnChatId, turnSeq); } catch (e) { /* never */ }
 
     // Close the loop for a turn started from the Issues panel: a clean
     // completion auto-resolves the batch it was fixing; a stop/error/switch

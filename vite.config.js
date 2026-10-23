@@ -46,6 +46,9 @@ const SCRIPTS = [
   'js/branding.js',
   'js/issues-core.js',
   'js/worker-ownership.js',
+  // A project's API keys, kept in each backend worker's own store (the
+  // set_secret tool, publish, duplicate and delete use it).
+  'js/worker-secrets.js',
   // Pure half of the official templates (validation, placeholders, the note a
   // fork's system prompt carries); js/templates.js below is the I/O half.
   'js/template-core.js',
@@ -54,6 +57,9 @@ const SCRIPTS = [
   'js/editor-core.js',
   // Pure: the build-model registry and the per-model request shaping.
   'js/model-core.js',
+  // Pure half of GitHub sync (what stays out, page normalization, git hashes,
+  // the file-by-file plan, commit text, the key scanner).
+  'js/github-core.js',
   'js/tools.js',
   // Before ui.js, which paints the avatar from window.profilePicture.
   'js/profile-picture.js',
@@ -93,6 +99,7 @@ const SCRIPTS = [
   'tools/workers/delete_worker.js',
   'tools/workers/list_workers.js',
   'tools/workers/get_worker.js',
+  'tools/workers/set_secret.js',
   'tools/external_info/external_fetch.js',
   'js/prompt.js',
   'js/dragdrop.js',
@@ -103,6 +110,11 @@ const SCRIPTS = [
   // currentChatId, currentAppDir) and calls their helpers.
   'js/code-editor.js',
   'js/issues.js',
+  // After versions.js and code-editor.js: GitHub sync writes pulled files
+  // through applyExternalUpdate and tells the AI through the Code view's note.
+  'js/github-sync.js',
+  // The GitHub toolbar button and popover, on top of github-sync.js.
+  'js/github-ui.js',
   // PWA runtime (SW registration + update/install UX). Last so window.showToast
   // and the rest of the app are already defined; runs its work after `load`.
   'js/pwa.js',

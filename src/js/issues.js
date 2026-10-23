@@ -861,6 +861,7 @@
         window.closeVersionsPanel?.();
         window.closePublishPanel?.();
         window.closeSharePanel?.();
+        window.closeGitHubPanel?.();
         window.closeDevicePanel?.();
         panelOpen = true;
         $('.preview-issues').attr('aria-expanded', 'true');

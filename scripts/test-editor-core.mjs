@@ -70,6 +70,13 @@ check('an icon outside the served root is not', C.classify('icons/icon-192.png',
 check('manifest.json at the served root may be generated',
     C.classify('manifest.json', { servedRel: 'manifest.json' }).maybeGeneratedManifest === true);
 check('deploy markers are hidden', C.classify('__deploy_1.png').hidden === true);
+// The Code view hides exactly what GitHub never gets (GitHubCore.isExcluded),
+// so the two show the same files.
+check('Git\'s and Puter\'s folders and system junk are hidden, files and folders',
+    ['.puter', '.puter/screenshots/index.png', '.git', '.git/config', 'site/.puter/x.png', '.DS_Store', 'img/Thumbs.db'].every((p) => C.isHidden(p) && C.classify(p).hidden));
+check('everything else shows, dotfiles and Builder\'s install files included',
+    ['.gitignore', '.puter_site_config', '.github/workflows/ci.yml', '.env', '__workers/x.js', 'manifest.json', 'icons/icon-192.png'].every((p) => !C.isHidden(p) && !C.classify(p).hidden));
+check('the file tree hides folders by the same rule', /if \(C\.isHidden\(relPath\(abs\)\)\) continue;/.test(read('../src/js/code-editor.js')));
 check('size limits', C.classify('big.js', { size: C.MAX_EDIT_BYTES + 1 }).tooLargeToEdit
     && !C.classify('big.js', { size: C.MAX_EDIT_BYTES + 1 }).tooLargeToView
     && C.classify('huge.js', { size: C.MAX_VIEW_BYTES + 1 }).tooLargeToView);
@@ -107,6 +114,14 @@ check('legacy badge.js tag is protected', C.protectedRanges('<script defer src=\
 check('a lookalike URL is not protected', C.protectedRanges('<script src="https://builder.puter.com/runtime.js-custom"></script>').length === 0);
 check('a plain page has nothing protected', C.protectedRanges('<p>hi</p>').length === 0);
 check('an unclosed pwa block is left alone', C.protectedRanges('<!-- puter-pwa: generated, do not edit -->\n<link>').length === 0);
+// manifest.js writes the block inline on a minified page (no line breaks of its
+// own), and it must be just as protected there.
+{
+    const INLINE_PWA = '<!-- puter-pwa: generated, do not edit --><link rel="manifest" href="manifest.json"><!-- /puter-pwa -->';
+    const min = `<html><head><title>m</title>${INLINE_PWA}</head><body></body></html>`;
+    const r = C.protectedRanges(min);
+    check('an inline pwa block is protected marker to marker', r.length === 1 && r[0].kind === 'pwa' && min.slice(r[0].from, r[0].to) === INLINE_PWA);
+}
 check('generated blocks drop out of comparisons',
     C.withoutGeneratedBlocks(`a\n${PWA}\nb`) === C.withoutGeneratedBlocks(`a\n${PWA.replace('manifest.json', 'other.json')}\nb`));
 
