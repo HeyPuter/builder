@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0e0d0b">
+<title>Moth &amp; Mercy Tattoo — Custom &amp; Flash Tattooing</title>
+<meta name="description" content="Custom and flash tattooing by five resident artists. Books open, walk-ins Friday and Saturday, aftercare and booking online.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&family=Pirata+One&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip" href="#book">Skip to booking</a>
+
+<header class="bar" id="top">
+  <a class="bar-brand" href="#top" aria-label="Moth &amp; Mercy, back to top">
+    <svg class="bar-moth" viewBox="0 0 64 64" aria-hidden="true"><use href="#moth-mark"/></svg>
+    <span data-studio="name"></span>
+  </a>
+  <nav class="bar-nav" id="nav" aria-label="Sections">
+    <a href="#artists">Artists</a>
+    <a href="#work">Work</a>
+    <a href="#flash">Flash</a>
+    <a href="#book">Book</a>
+    <a href="#aftercare">Aftercare</a>
+    <a href="#visit">Visit</a>
+  </nav>
+  <a class="bar-status" href="#visit" id="status"><i></i><span>Checking hours…</span></a>
+  <button class="bar-menu" id="menuBtn" aria-expanded="false" aria-controls="nav">Menu</button>
+</header>
+
+<main>
+  <!-- 01 · Hero -->
+  <section class="hero" aria-labelledby="heroTitle">
+    <img class="hero-img" src="images/hero.jpg" alt="A tattoo artist working on a client's arm under a lamp" fetchpriority="high">
+    <svg class="hero-stencil" viewBox="0 0 64 64" aria-hidden="true"><use href="#moth-line"/></svg>
+    <div class="hero-meta">
+      <p class="tag">No. 01 — <span data-studio="city"></span></p>
+      <p class="hero-lede" data-studio="lede"></p>
+      <ul class="hero-facts" id="heroFacts"></ul>
+      <a class="btn btn-violet" href="#book">Book a session <span aria-hidden="true">→</span></a>
+    </div>
+    <h1 class="hero-title" id="heroTitle"><span>Moth</span><em>&amp;</em><span>Mercy</span></h1>
+  </section>
+
+  <div class="ticker" aria-hidden="true"><div class="ticker-track" id="ticker"></div></div>
+
+  <!-- 02 · Artists ledger -->
+  <section class="artists" id="artists" aria-labelledby="artistsTitle">
+    <div class="artists-side">
+      <p class="tag">No. 02 — The hands</p>
+      <h2 class="mega" id="artistsTitle">Hands</h2>
+      <p class="small">Five residents, one guest chair. Pick an artist to see their work and book them directly.</p>
+    </div>
+    <div class="ledger" role="list" id="ledger"></div>
+    <img class="ledger-peek" id="peek" alt="" aria-hidden="true">
+  </section>
+
+  <!-- 03 · Work -->
+  <section class="work" id="work" aria-labelledby="workTitle">
+    <div class="work-head">
+      <h2 class="work-title" id="workTitle">Healed &amp; fresh</h2>
+      <div class="chips" id="styleChips" role="group" aria-label="Filter work by style"></div>
+      <p class="tag work-count" id="workCount" aria-live="polite"></p>
+    </div>
+    <div class="work-grid" id="workGrid"></div>
+  </section>
+
+  <!-- 04 · Flash wall -->
+  <section class="flash" id="flash" aria-labelledby="flashTitle">
+    <div class="flash-head">
+      <h2 class="flash-title" id="flashTitle">Flash<br><span>wall</span></h2>
+      <div class="flash-note">
+        <p class="tag">No. 04 — One-offs, drawn in house</p>
+        <p>Every design here gets tattooed <b>once</b>. Claim it, and it comes off the wall for good. Price includes the session.</p>
+        <label class="toggle"><input type="checkbox" id="availOnly"> <span>Show available only</span></label>
+      </div>
+    </div>
+    <div class="flash-sheet" id="flashSheet"></div>
+  </section>
+
+  <!-- 05 · Booking -->
+  <section class="book" id="book" aria-labelledby="bookTitle">
+    <div class="book-intro">
+      <p class="tag">No. 05 — Intake</p>
+      <h2 class="book-title" id="bookTitle">Tell us<br>the idea.</h2>
+      <ul class="book-rules" id="pricing"></ul>
+    </div>
+    <form class="slip" id="bookForm" novalidate>
+      <div class="slip-perf" aria-hidden="true"></div>
+      <div class="slip-row">
+        <fieldset class="field">
+          <legend>What kind of piece?</legend>
+          <div class="seg" id="kindSeg">
+            <label><input type="radio" name="kind" value="custom" checked><span>Custom</span></label>
+            <label><input type="radio" name="kind" value="flash"><span>Flash</span></label>
+            <label><input type="radio" name="kind" value="coverup"><span>Cover-up</span></label>
+          </div>
+        </fieldset>
+        <div class="field">
+          <label for="artistSel">Artist</label>
+          <select id="artistSel" name="artist"></select>
+        </div>
+      </div>
+      <div class="field" id="flashPick" hidden>
+        <label for="flashSel">Flash design</label>
+        <select id="flashSel" name="flash"></select>
+      </div>
+      <fieldset class="field">
+        <legend>Placement</legend>
+        <div class="chips chips-tight" id="placeChips"></div>
+      </fieldset>
+      <div class="slip-row">
+        <div class="field">
+          <label for="size">Size <output id="sizeOut" for="size"></output></label>
+          <input type="range" id="size" name="size" min="1" max="14" step="1" value="4">
+        </div>
+        <fieldset class="field">
+          <legend>Ink</legend>
+          <div class="seg">
+            <label><input type="radio" name="ink" value="black" checked><span>Black &amp; grey</span></label>
+            <label><input type="radio" name="ink" value="color"><span>Colour</span></label>
+          </div>
+        </fieldset>
+      </div>
+      <div class="field">
+        <label for="idea">Describe it</label>
+        <textarea id="idea" name="idea" rows="3" placeholder="A moth over a crescent moon, fine line, on the inner forearm…"></textarea>
+      </div>
+      <div class="slip-row">
+        <div class="field"><label for="fname">Name</label><input id="fname" name="name" autocomplete="name" required></div>
+        <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" autocomplete="email" required></div>
+      </div>
+      <div class="slip-row">
+        <div class="field"><label for="phone">Phone <i>(optional)</i></label><input id="phone" name="phone" type="tel" autocomplete="tel"></div>
+        <div class="field"><label for="when">Earliest date</label><input id="when" name="when" type="date"></div>
+      </div>
+      <label class="check"><input type="checkbox" id="adult" name="adult" required> <span>I'm 18 or older and will bring photo ID.</span></label>
+      <div class="estimate" aria-live="polite">
+        <div><span class="tag">Time</span><b id="estHours">—</b></div>
+        <div><span class="tag">Estimate</span><b id="estPrice">—</b></div>
+        <div><span class="tag">Deposit</span><b id="estDeposit">—</b></div>
+      </div>
+      <p class="form-error" id="formError" role="alert"></p>
+      <button class="btn btn-ink" type="submit">Send request <span aria-hidden="true">→</span></button>
+    </form>
+    <div class="receipts" id="receipts" hidden>
+      <p class="tag">Your requests (saved on this device)</p>
+      <ol id="receiptList"></ol>
+    </div>
+  </section>
+
+  <!-- 06 · Aftercare -->
+  <section class="care" id="aftercare" aria-labelledby="careTitle">
+    <p class="tag care-tag">No. 06 — Aftercare</p>
+    <h2 class="sr-only" id="careTitle">Aftercare, day by day</h2>
+    <div class="care-day" aria-hidden="true"><span>Day</span><b id="careNum">1</b></div>
+    <div class="care-body">
+      <h3 id="careHead"></h3>
+      <ul id="careList"></ul>
+      <label class="care-scrub">
+        <span class="tag">Drag through the healing — day <output id="careOut">1</output> of 30</span>
+        <input type="range" id="careRange" min="1" max="30" value="1">
+      </label>
+    </div>
+  </section>
+
+  <!-- 07 · Questions -->
+  <section class="faq" aria-labelledby="faqTitle">
+    <h2 class="faq-title" id="faqTitle">Before you<br>sit down</h2>
+    <div class="faq-list" id="faqList"></div>
+  </section>
+
+  <!-- 08 · Visit -->
+  <section class="visit" id="visit" aria-labelledby="visitTitle">
+    <p class="tag">No. 08 — Find the door</p>
+    <h2 class="visit-addr" id="visitTitle" data-studio="street"></h2>
+    <div class="visit-grid">
+      <table class="hours" id="hours"><caption class="tag">Hours</caption><tbody></tbody></table>
+      <div class="visit-contact">
+        <p class="tag">Call / write</p>
+        <a id="phoneLink"></a>
+        <a id="mailLink"></a>
+        <a id="instaLink" target="_blank" rel="noopener"></a>
+      </div>
+      <div class="visit-contact">
+        <p class="tag">Getting here</p>
+        <p data-studio="directions"></p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <p class="foot-word" aria-hidden="true">Mercy</p>
+  <p class="tag">© <span id="year"></span> <span data-studio="name"></span> — Licensed studio. Single-use needles, always.</p>
+</footer>
+
+<dialog class="lightbox" id="lightbox">
+  <button class="lb-close" id="lbClose" aria-label="Close">×</button>
+  <img id="lbImg" alt="">
+  <p class="tag" id="lbCap"></p>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <g id="moth-line" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <path pathLength="1" d="M32 18c-1.6 0-2.6 1.6-2.6 3.6V44c0 2.2 1.2 4 2.6 4s2.6-1.8 2.6-4V21.6c0-2-1-3.6-2.6-3.6z"/>
+      <path pathLength="1" d="M30 17c-2-4-5-6-8-7M34 17c2-4 5-6 8-7"/>
+      <path pathLength="1" d="M29.4 24C22 14 8 10 4 16c-3 5 3 13 12 15-7 2-11 8-8 13 4 6 15 2 21.4-8"/>
+      <path pathLength="1" d="M34.6 24C42 14 56 10 60 16c3 5-3 13-12 15 7 2 11 8 8 13-4 6-15 2-21.4-8"/>
+      <circle pathLength="1" cx="17" cy="20" r="3.4"/><circle pathLength="1" cx="47" cy="20" r="3.4"/>
+      <path pathLength="1" d="M10 18c3-2 7-1 9 1M54 18c-3-2-7-1-9 1M12 39c3 1 7 0 10-3M52 39c-3 1-7 0-10-3"/>
+      <path pathLength="1" d="M32 26v4M32 33v4M32 40v3"/>
+    </g>
+    <g id="moth-mark">
+      <path fill="currentColor" d="M32 18c-1.6 0-2.6 1.6-2.6 3.6V44c0 2.2 1.2 4 2.6 4s2.6-1.8 2.6-4V21.6c0-2-1-3.6-2.6-3.6zM29.4 24C22 14 8 10 4 16c-3 5 3 13 12 15-7 2-11 8-8 13 4 6 15 2 21.4-8zM34.6 24C42 14 56 10 60 16c3 5-3 13-12 15 7 2 11 8 8 13-4 6-15 2-21.4-8z"/>
+      <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M30 17c-2-4-5-6-8-7M34 17c2-4 5-6 8-7"/>
+    </g>
+  </defs>
+</svg>
+
+<script src="flash-art.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
