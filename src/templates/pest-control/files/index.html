@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script>
+window.onerror=function(msg,src,line,col,err){window.parent.postMessage({type:'app-error',message:msg,source:src,lineno:line,colno:col,stack:err&&err.stack||''},'*');};
+window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-error',message:'Unhandled promise rejection: '+(e.reason&&e.reason.message||e.reason||'unknown'),stack:e.reason&&e.reason.stack||''},'*');};
+window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
+(function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
+</script>
+<script src="https://builder.puter.com/runtime.js" defer></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#12120f">
+<title>Kestrel Pest Co. — Pest control that finds the source</title>
+<meta name="description" content="Kestrel Pest Co. finds where pests get in, treats them where they live and comes back free if they return. Same-day inspections, instant quotes.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top" id="top">
+  <a class="brand" href="#top" aria-label="Kestrel Pest Co., back to top">
+    <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" fill="currentColor"/><circle cx="16" cy="16" r="8.5" fill="none" stroke="#ff4b1f" stroke-width="2.6"/><path d="M16 3v8M16 21v8M3 16h8M21 16h8" stroke="#ff4b1f" stroke-width="2.6"/></svg>
+    <span class="brand-name" data-biz="name">Kestrel Pest Co.</span>
+  </a>
+  <nav class="nav" aria-label="Main">
+    <a href="#guide">Field guide</a>
+    <a href="#method">Method</a>
+    <a href="#quote">Prices</a>
+    <a href="#cases">Reviews</a>
+    <a href="#faq">FAQ</a>
+  </nav>
+  <a class="top-phone" data-biz-href="tel" href="tel:+15550142290"><span class="mono">24h</span> <span data-biz="phone">(555) 014-2290</span></a>
+  <a class="btn btn-hot top-book" href="#book">Book inspection</a>
+</header>
+
+<div class="ticker" aria-label="Today at Kestrel">
+  <div class="ticker-track" id="ticker"></div>
+</div>
+
+<main id="main">
+
+<section class="hero" aria-labelledby="hero-title">
+  <img class="hero-img" src="img/hero.jpg" alt="Close-up of a termite worker's head on a black background" fetchpriority="high">
+  <div class="hero-shade" aria-hidden="true"></div>
+  <figure class="tag hero-tag" aria-hidden="true">
+    <span class="tag-no">Specimen Nº 003 · worker</span>
+    <span class="tag-latin">Reticulitermes flavipes</span>
+    <span class="tag-row">Eastern subterranean termite</span>
+    <span class="tag-row">Colony size: up to 1,000,000</span>
+  </figure>
+  <div class="hero-copy">
+    <p class="kicker mono">Est. 1987 · Licensed exterminators · <span data-biz="area">Greater Ashford County</span></p>
+    <h1 id="hero-title" class="hero-title">Seen one?<br><span class="hot">There's</span><br>fifty more.</h1>
+    <form class="zip" id="zip-form" novalidate>
+      <label class="zip-label mono" for="zip-input">Do we cover your street?</label>
+      <div class="zip-row">
+        <input id="zip-input" name="zip" inputmode="numeric" autocomplete="postal-code" maxlength="5" placeholder="ZIP code" aria-describedby="zip-result">
+        <button class="btn btn-hot" type="submit">Check</button>
+      </div>
+      <p class="zip-result mono" id="zip-result" role="status" aria-live="polite"></p>
+    </form>
+  </div>
+  <dl class="hero-facts">
+    <div><dt class="mono">Homes cleared</dt><dd>12,480</dd></div>
+    <div><dt class="mono">Average arrival</dt><dd>Same day</dd></div>
+    <div><dt class="mono">If they return</dt><dd>Free re-treat</dd></div>
+  </dl>
+</section>
+
+<section class="guide" id="guide" aria-labelledby="guide-title">
+  <div class="guide-head">
+    <p class="mono label">Plate I — Field guide</p>
+    <h2 id="guide-title" class="display-xl">The specimen<br>drawer.</h2>
+    <p class="guide-lede">Not sure what you are dealing with? Pick the one you saw. We will tell you what to look for, how bad it is and what it takes to get rid of it.</p>
+  </div>
+  <div class="drawer" id="drawer" role="list"></div>
+  <article class="entry" id="entry" aria-live="polite" hidden></article>
+</section>
+
+<section class="method" id="method" aria-labelledby="method-title">
+  <div class="method-head">
+    <h2 id="method-title" class="method-title"><span class="mono label">The Kestrel method</span>We don't spray and pray.</h2>
+    <p class="method-aside">Every visit ends with a written report: what we found, what we used, and <em>exactly where we put it.</em></p>
+  </div>
+  <ol class="steps" id="steps"></ol>
+</section>
+
+<section class="quote" id="quote" aria-labelledby="quote-title">
+  <div class="quote-controls">
+    <p class="mono label label-dark">Instant quote</p>
+    <h2 id="quote-title" class="display-l">Price it<br>yourself.</h2>
+    <fieldset class="q-group">
+      <legend class="mono">A · What have you seen?</legend>
+      <div class="q-pests" id="q-pests"></div>
+    </fieldset>
+    <fieldset class="q-group">
+      <legend class="mono">B · Size of the property</legend>
+      <div class="q-size">
+        <input type="range" id="q-size" min="600" max="6000" step="100" value="1800" aria-describedby="q-size-out">
+        <output id="q-size-out" class="mono" for="q-size">1,800 sq ft</output>
+      </div>
+    </fieldset>
+    <fieldset class="q-group">
+      <legend class="mono">C · How often?</legend>
+      <div class="q-plans" id="q-plans"></div>
+    </fieldset>
+  </div>
+  <div class="quote-ticket" aria-live="polite">
+    <p class="mono ticket-head"><span>Estimate</span><span id="q-ref"></span></p>
+    <p class="price"><span class="price-cur">$</span><span id="q-price">0</span></p>
+    <p class="mono price-per" id="q-per">per visit</p>
+    <ul class="receipt mono" id="q-lines"></ul>
+    <p class="ticket-note" id="q-note"></p>
+    <a class="btn btn-hot btn-block" href="#book" id="q-book">Book with this quote</a>
+  </div>
+</section>
+
+<section class="promise" aria-labelledby="promise-title">
+  <h2 id="promise-title" class="promise-title">If they<br>come back,<br>so do we.</h2>
+  <div class="promise-small">
+    <p>Free re-treatment between scheduled visits, within 48 hours of your call. No call-out fee, no argument.</p>
+    <p class="mono" data-biz="licence">State licence PC-40117 · Insured to $2M · Pet & child safe products</p>
+  </div>
+</section>
+
+<section class="cases" id="cases" aria-labelledby="cases-title">
+  <div class="cases-head">
+    <h2 id="cases-title" class="display-xl">Case<br>files.</h2>
+    <p class="mono rating"><span class="rating-num">4.9</span> average from 1,312 reviews</p>
+  </div>
+  <div class="case-list" id="case-list"></div>
+</section>
+
+<section class="book" id="book" aria-labelledby="book-title">
+  <div class="book-info">
+    <h2 id="book-title" class="display-l">Book an<br>inspection.<br><span class="hot">$0.</span></h2>
+    <p>A technician walks the whole property, inside and out, shows you what they found and gives you a written price. You decide after.</p>
+    <table class="hours mono" aria-label="Opening hours"><tbody id="hours"></tbody></table>
+    <p class="addr mono" id="addr"></p>
+  </div>
+  <div class="booker" id="booker">
+    <div class="book-step">
+      <p class="mono step-label">1 · Pick a day</p>
+      <div class="days" id="days" role="radiogroup" aria-label="Day"></div>
+    </div>
+    <div class="book-step">
+      <p class="mono step-label">2 · Pick an arrival window</p>
+      <div class="slots" id="slots" role="radiogroup" aria-label="Arrival window"></div>
+    </div>
+    <form class="book-form" id="book-form" novalidate>
+      <p class="mono step-label">3 · Where and who</p>
+      <div class="fields">
+        <label><span class="mono">Name</span><input name="name" autocomplete="name" required></label>
+        <label><span class="mono">Phone</span><input name="phone" type="tel" autocomplete="tel" required></label>
+        <label class="wide"><span class="mono">Street address</span><input name="address" autocomplete="street-address" required></label>
+        <label><span class="mono">ZIP</span><input name="zip" inputmode="numeric" maxlength="5" autocomplete="postal-code" required></label>
+        <label><span class="mono">Main problem</span><select name="pest" id="book-pest"></select></label>
+        <label class="wide"><span class="mono">Anything we should know? (optional)</span><textarea name="notes" rows="2" placeholder="Dog in the yard, gate code, where you saw them…"></textarea></label>
+      </div>
+      <p class="form-error mono" id="book-error" role="alert"></p>
+      <button class="btn btn-hot btn-block" type="submit" id="book-submit">Confirm inspection</button>
+    </form>
+    <div class="confirm" id="confirm" hidden tabindex="-1"></div>
+  </div>
+</section>
+
+<section class="faq" id="faq" aria-labelledby="faq-title">
+  <h2 id="faq-title" class="faq-q">Q.</h2>
+  <div class="faq-list" id="faq-list"></div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="foot-cols">
+    <div><p class="mono label">Call</p><p><a data-biz-href="tel" data-biz="phone" href="tel:+15550142290">(555) 014-2290</a></p><p class="mono small">Emergency line open 24 hours</p></div>
+    <div><p class="mono label">Visit</p><p id="foot-addr"></p></div>
+    <div><p class="mono label">Licence</p><p data-biz="licence-short">PC-40117 · Insured</p></div>
+    <div><p class="mono label">Jump to</p><p><a href="#guide">Field guide</a> · <a href="#quote">Prices</a> · <a href="#book">Book</a></p></div>
+  </div>
+  <p class="foot-word" aria-hidden="true">Kestrel</p>
+  <p class="mono foot-fine">© <span id="year"></span> <span data-biz="name">Kestrel Pest Co.</span> Photos: public domain, Wikimedia Commons.</p>
+</footer>
+
+<div class="mobile-bar">
+  <a class="mb-call" data-biz-href="tel" href="tel:+15550142290">Call now</a>
+  <a class="mb-book" href="#book">Book inspection</a>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
