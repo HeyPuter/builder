@@ -79,6 +79,12 @@ window.FEATURE_FLAGS = {
     // generated block keep it (it is inert, ordinary HTML) until their next
     // build rewrites the page.
     webManifest: true,
+    // GitHub sync, a paid perk: every version of a project is saved as a
+    // commit on one branch of the user's repository, and commits made on
+    // GitHub come back in as new versions (the pure rules are in
+    // js/github-core.js). It needs codeEditor, whose hidden note and
+    // overwrite guard tell the AI about pulled files.
+    githubSync: true,
 };
 
 // Analytics. Fires a Plausible custom event for the handful of product actions

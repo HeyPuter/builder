@@ -1185,6 +1185,7 @@ window.showAppPreview = function(url, opts) {
                             <button class="preview-versions" title="Version history" aria-haspopup="dialog" aria-expanded="false">${window.history_svg}</button>
                             ${window.FEATURE_FLAGS.downloadProject ? `<button class="preview-download" title="Download project">${window.download_svg}</button>` : ''}
                             ${window.FEATURE_FLAGS.shareDraftLink ? `<button class="preview-share" title="Share draft" aria-haspopup="dialog" aria-expanded="false">${window.link_svg}</button>` : ''}
+                            ${window.GitHubSync ? `<button class="preview-github-btn" title="Source control" aria-label="Source control" aria-haspopup="dialog" aria-expanded="false">${window.source_control_svg || ''}<span class="preview-github-dot" aria-hidden="true" hidden></span></button>` : ''}
                         </div>
                         <!-- Phones don't have room for the history/download buttons next to the
                              centered switcher + Publish, so they collapse into this overflow
@@ -1277,6 +1278,7 @@ window.hideAppPreview = function() {
     window.closeVersionsPanel?.();
     window.closePublishPanel?.();
     window.closeSharePanel?.();
+    window.closeGitHubPanel?.();
     window.closeIssuesPanel?.();
     window.closeDevicePanel?.();
     // The Code view goes with the pane; the next project opens on its preview.
@@ -1325,6 +1327,7 @@ function openDevicePanel() {
     window.closeVersionsPanel?.();
     window.closePublishPanel?.();
     window.closeSharePanel?.();
+    window.closeGitHubPanel?.();
     window.closeIssuesPanel?.();
     _devicePanelOpen = true;
     // Drives the trigger's held "open" look (see styles.css).
@@ -1637,6 +1640,7 @@ function previewSubdomain(url) {
 function publishedDirForChat(chatId) {
     return `/${window.user.username}/AppData/${puter.appID}/.published/${chatId}`;
 }
+window.publishedDirForChat = publishedDirForChat;
 
 // A publish copies into a fresh release directory inside that container and
 // switches hosting to it, so the deployment the public address is serving stays
@@ -1814,6 +1818,7 @@ $(window).on('resize', function () {
     window.positionPanelCaret('.preview-publish-panel', '.preview-publish-btn');
     window.positionPanelCaret('.preview-share-panel', '.preview-share');
     window.positionPanelCaret('.preview-device-panel', '.preview-device-trigger');
+    window.positionPanelCaret('.preview-github-panel', '.preview-github-btn');
 });
 
 // The button reflects publish state; skip relabeling while a publish is in
@@ -2080,6 +2085,7 @@ function openPublishPanel() {
     // share-draft, issues, and device panels if any is open.
     window.closeVersionsPanel?.();
     window.closeSharePanel?.();
+    window.closeGitHubPanel?.();
     window.closeIssuesPanel?.();
     window.closeDevicePanel?.();
     _publishPanelOpen = true;
@@ -2137,7 +2143,9 @@ window.closePublishPanel = closePublishPanel;
 // The published deployment's source lives in the published container, not the
 // app directory, so the project's worker tools — which all scope by app-dir
 // ownership — can neither list, redeploy nor delete the live backend: the AI
-// cannot reach production by naming it.
+// cannot reach production by naming it. The one exception is set_secret with
+// live, which saves a key into the live backend's own store and can't touch
+// its code.
 //
 // What is NOT split is state. Both deployments run as the same account and use
 // whatever storage their code names, so a published app keeps reading and
@@ -2147,6 +2155,7 @@ function liveWorkerName(draftName) {
     const max = (window.WorkerOwnership && window.WorkerOwnership.MAX_NAME_LENGTH) || 50;
     return String(draftName || '').slice(0, max - LIVE_WORKER_SUFFIX.length) + LIVE_WORKER_SUFFIX;
 }
+window.liveWorkerName = liveWorkerName;
 
 // Deploy the published counterpart of every worker this project owns and point
 // the release at them. Returns the rename records. Throws: a release that still
@@ -2192,9 +2201,28 @@ async function deployPublishedWorkers(chatId, appDir, releaseDir, srcPath = appD
         if (!created || created.success === false || !created.url) {
             throw new Error(`Couldn’t deploy the published copy of the worker “${worker.name}”.`);
         }
+        // The live backend is its own worker app with its own store. Copy the
+        // draft backend's keys into it on every publish, so a key saved since
+        // the last one goes live too, except the keys the live site has of its
+        // own (see worker-secrets.js). A backend with no keys copies nothing
+        // and asks nothing. A live backend without its keys still publishes,
+        // with a warning, since only the calls that use a key fail. What it
+        // got goes on the rename as keys, for the line doPublish adds to the
+        // conversation.
+        let keys = null;
+        try {
+            keys = await window.WorkerSecrets?.copy(worker.name, liveName);
+            if (keys && !keys.ok) {
+                window.showToast?.(keys.reason === 'declined'
+                    ? `Your live backend “${liveName}” didn’t get its keys, so the parts that need them won’t work until you allow it. Publish again to be asked again.`
+                    : `Your live backend “${liveName}” didn’t get its keys. Publish again in a moment.`,
+                { type: 'warning', key: 'publish-keys', throttleMs: 5000, duration: 10000 });
+            }
+        } catch (e) { /* copy reports its own failures */ }
         renames.push({
             oldName: worker.name, newName: liveName,
             oldUrl: worker.url, newUrl: created.url, newFilePath: sourcePath,
+            keys,
         });
     }
 
@@ -2447,6 +2475,11 @@ async function retirePublishedWorkers(chatId, keepNames) {
     const keep = new Set(keepNames || []);
     for (const worker of mine) {
         if (keep.has(worker.name)) continue;
+        // Its keys first, as deleting a project does (see deleteChat). Puter
+        // reuses a sandbox app by worker name, so a later backend with this
+        // name, in any project, would find them, and a live key the user
+        // saved for this one would stay there for good.
+        try { await window.WorkerSecrets?.clear(worker.name); } catch (e) { /* best effort */ }
         try { await puter.workers.delete(worker.name); }
         catch (e) { console.warn('Publish: could not remove the retired backend', worker.name, e); continue; }
         try { await puter.fs.delete(worker.file_path); } catch (e) { /* best effort */ }
@@ -2647,6 +2680,19 @@ async function doPublish() {
             window.currentPublishedPath = pubDir;
             window.currentPublishedVersionId = versionId;
             window.currentPublishedAt = now;
+            // What the live site's backend got goes into the conversation, so
+            // the AI knows it on the next message and the user sees it too.
+            // That's which keys, and whether one is still a test key (see
+            // WorkerSecrets.publishNote). A project without keys gets no line.
+            // No turn can be running here, since a turn waits for a publish.
+            const keysNote = window.WorkerSecrets?.publishNote?.(
+                publishedWorkers.map(w => ({ live: w.newName, result: w.keys })));
+            if (keysNote && typeof chatHistory !== 'undefined' && Array.isArray(chatHistory)) {
+                const messageId = (typeof generateMessageId === 'function') ? generateMessageId() : null;
+                // versionNote: not a build reply (see countCompletedBuilds).
+                chatHistory.push({ role: 'assistant', content: keysNote, messageId, versionNote: true });
+                if (typeof appendMessage === 'function') appendMessage(keysNote, false);
+            }
             if (typeof saveCurrentChat === 'function') {
                 try { await saveCurrentChat({ currentChatId: chatId, chatHistory: chatHistory }); }
                 catch (e) { /* save surfaces its own toast on failure */ }
@@ -3211,6 +3257,7 @@ function openSharePanel() {
     window.closePublishPanel?.();
     window.closeIssuesPanel?.();
     window.closeDevicePanel?.();
+    window.closeGitHubPanel?.();
     _sharePanelOpen = true;
     $('.preview-share').attr('aria-expanded', 'true');
     let $panel = $('.preview-share-panel');
@@ -3420,6 +3467,13 @@ $(document).on('click', '.preview-overflow', function(e) {
             icon: svgDataUri(window.link_svg),
             label: 'Share draft',
             action: () => $('.preview-share').trigger('click'),
+        });
+    }
+    if (window.GitHubSync && window.source_control_svg) {
+        items.push({
+            icon: svgDataUri(window.source_control_svg),
+            label: 'Source control',
+            action: () => $('.preview-github-btn').trigger('click'),
         });
     }
     puter.ui.contextMenu({
@@ -5012,15 +5066,20 @@ function openUpgradeModal(source, { justUpgraded = false } = {}) {
     const forCode = !!window.FEATURE_FLAGS?.codeEditor && (source === 'code_editor' || source === 'chat_code_editor');
     const codePerk = 'Edit your app’s code in Builder';
     const modelPerk = 'Choose the AI model that builds your app';
+    // GitHub sync is only there with its flags on (see github-sync.js).
+    const githubPerk = 'Save your projects to GitHub<span class="beta-badge">Beta</span>';
     const perkList = [
         'More credits for building apps',
         ...(window.FEATURE_FLAGS?.codeEditor ? [codePerk] : []),
         ...(window.FEATURE_FLAGS?.modelPicker ? [modelPerk] : []),
+        ...(window.GitHubSync ? [githubPerk] : []),
         'Remove “Made with Puter” badge on your sites',
         'Premium features we release in the future',
     ];
     // Lead with the perk the user came for.
-    const lead = forCode ? codePerk : (source === 'model_picker' && window.FEATURE_FLAGS?.modelPicker ? modelPerk : null);
+    const lead = forCode ? codePerk
+        : source === 'model_picker' && window.FEATURE_FLAGS?.modelPicker ? modelPerk
+            : source === 'github' && window.GitHubSync ? githubPerk : null;
     if (lead) perkList.unshift(perkList.splice(perkList.indexOf(lead), 1)[0]);
     const perks =
         '<ul class="upgrade-perks">' +
@@ -5457,6 +5516,7 @@ function openUserPanel() {
     window.closeVersionsPanel?.();
     window.closePublishPanel?.();
     window.closeSharePanel?.();
+    window.closeGitHubPanel?.();
     window.closeIssuesPanel?.();
     window.closeDevicePanel?.();
     userPanelOpen = true;
