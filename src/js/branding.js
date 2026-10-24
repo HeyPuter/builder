@@ -17,6 +17,19 @@
     // Where a user upgrades. Billing lives on puter.com, not in the builder.
     const UPGRADE_URL = 'https://puter.com/#billing';
 
+    // The dashboard's upgrade page for a refusal, in the format puter.js
+    // builds for its own dialog (upgradeUrl in UsageLimitDialog.js): which
+    // upgrade (funds, subscription, storage), the app the call ran as, and the
+    // SDK call that was refused, as iface::method.
+    function upgradeUrl({ reason, appID, method } = {}) {
+        const url = new URL('https://puter.com/dashboard/');
+        if (reason) url.searchParams.set('upgrade', reason);
+        if (appID) url.searchParams.set('upgrade_app', appID);
+        if (method) url.searchParams.set('upgrade_method', method);
+        url.hash = 'home';
+        return url.href;
+    }
+
     // One runtime tag, either path, any attribute order or quoting, plus the
     // whitespace and line break it sat on so no blank line is left behind.
     // The attribute must be exactly `src` (whitespace before it, so never
@@ -42,5 +55,5 @@
         return !!(user && !user.is_temp && user.subscribed === true);
     }
 
-    window.Branding = { UPGRADE_URL, hasRuntimeTag, stripRuntimeTags, isSubscribed };
+    window.Branding = { UPGRADE_URL, upgradeUrl, hasRuntimeTag, stripRuntimeTags, isSubscribed };
 })();

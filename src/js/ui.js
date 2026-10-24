@@ -5287,7 +5287,10 @@ function limitStepsCard(steps) {
 }
 
 // Returns true when the dialog is up (just opened, or already open).
-function openLimitModal() {
+// upgradeUrl is the page Puter's own dialog would have opened, which knows the
+// refused call. Without one (opened from the console), it's built for a chat
+// call with no credit left.
+function openLimitModal(upgradeUrl) {
     if (document.querySelector('.limit-modal-overlay')) return true;
     if (document.querySelector('.upgrade-modal-overlay')) return true;
     window.closePublishPanel?.();
@@ -5301,7 +5304,9 @@ function openLimitModal() {
     window.track?.('Upgrade Opened', { source: 'usage_limit', plan, variant: copy.state, cohort });
 
     const shot = ctx.hasApp ? chatThumbUrl(ctx.previewUrl) : null;
-    const billing = htmlEscape(window.Branding.UPGRADE_URL);
+    const billing = htmlEscape(typeof upgradeUrl === 'string' && upgradeUrl.startsWith('https://')
+        ? upgradeUrl
+        : window.Branding.upgradeUrl({ reason: 'funds', appID: window.puter?.appID, method: 'puter-chat-completion::complete' }));
     const $overlay = $(`
         <div class="confirm-modal-overlay limit-modal-overlay">
             <div class="properties-modal limit-modal" role="dialog" aria-modal="true" aria-labelledby="limit-modal-title" aria-describedby="limit-modal-body" tabindex="-1">
@@ -5377,7 +5382,7 @@ function installLowBalanceOverride() {
             try {
                 if (this.heading === 'Low Balance' && window.user && !window.user.is_temp) {
                     const cohort = limitDialogCohort();
-                    if (cohort === 'custom' && openLimitModal()) {
+                    if (cohort === 'custom' && openLimitModal(this.upgradeUrl)) {
                         this.remove();
                         return;
                     }
