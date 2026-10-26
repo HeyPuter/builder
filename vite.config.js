@@ -77,6 +77,9 @@ const SCRIPTS = [
   'tools/fs/delete.js',
   'tools/fs/read.js',
   'tools/fs/view_image.js',
+  // After view_image.js: it shows its result through fitImageForVision.
+  'tools/fs/render_svg.js',
+  'tools/fs/show_image.js',
   'tools/fs/view_document.js',
   'tools/fs/rename.js',
   'tools/fs/copy.js',

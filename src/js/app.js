@@ -1103,6 +1103,11 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
                         for (const it of r.items) if (it && it.path) mediaPaths.add(it.path);
                     }
                 } catch (e) { /* the loop reports unparseable results as before */ }
+            } else if (m.content && typeof m.content === 'object' && m.content.type === 'tool_result'
+                && Array.isArray(m.content.content)) {
+                // A PNG drawn by RenderSvg (its result is image blocks).
+                const p = window.__renderSvgInternals?.renderedPath(m.content.content, window.projectRootDir());
+                if (p) mediaPaths.add(p);
             }
         }
         const mediaURLs = new Map();
@@ -1201,9 +1206,24 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
                     // Check if this is a generated image, video or audio result
                     try {
                         // Some tools (e.g. ViewImage) return content BLOCKS — an array,
-                        // not a JSON string. Those aren't replayable media results, so
-                        // skip them rather than throwing in JSON.parse.
-                        if (typeof message.content.content !== 'string') continue;
+                        // not a JSON string. Only RenderSvg's has a card to show
+                        // again (the PNG it saved); the rest are skipped rather
+                        // than thrown at JSON.parse.
+                        if (typeof message.content.content !== 'string') {
+                            const p = window.__renderSvgInternals?.renderedPath(message.content.content, window.projectRootDir());
+                            if (p) {
+                                try {
+                                    const readURL = await readURLFor(p);
+                                    if (superseded()) return chat;
+                                    const relative = p.slice(window.projectRootDir().length + 1);
+                                    window.GeneratedMedia?.renderSaved({ success: true, kind: 'image', prompt: relative, path: p, filename: p.slice(p.lastIndexOf('/') + 1) }, readURL);
+                                } catch (error) {
+                                    // Deleted or moved since: no card, as for a
+                                    // generated image whose file is gone.
+                                }
+                            }
+                            continue;
+                        }
                         const toolResponse = JSON.parse(message.content.content);
                         if (toolResponse.__clarify_result && !toolResponse.error) {
                             // Re-render the static recap of a past clarifying-questions
