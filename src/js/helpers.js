@@ -1035,7 +1035,10 @@ window.MARKED_OPTIONS = {
  * @param {{unavailableTools?: Array}} [opts] Passed on to shapeHistory.
  */
 function prepareHistoryForAI(historyArray, modelId, opts) {
-    const copy = structuredClone(historyArray);
+    const modelCore = typeof window !== 'undefined' ? window.ModelCore : null;
+    // Send only what the last compaction left (ModelCore.fromLastCompaction).
+    // Cut first, so the history it replaces is never copied.
+    const copy = structuredClone(modelCore ? modelCore.fromLastCompaction(historyArray, modelId) : historyArray);
     // Remove messageId and other DOM-only metadata from all messages
     copy.forEach(msg => {
         if (msg.messageId) {
@@ -1120,7 +1123,6 @@ function prepareHistoryForAI(historyArray, modelId, opts) {
     }
     // Per-model shaping last, on the finished copy: it drops the `model` stamps
     // and, for a non-Claude target, Anthropic-only fields and media placement.
-    const modelCore = typeof window !== 'undefined' ? window.ModelCore : null;
     if (modelCore) return modelCore.shapeHistory(deduped, modelId, opts);
     for (const m of deduped) if (m && 'model' in m) delete m.model;
     return deduped;
@@ -1323,6 +1325,20 @@ function costBand(cents) {
     if (v <= 0) return '$0';
     for (const [below, label] of COST_BANDS) if (v < below) return label;
     return '$20+';
+}
+
+// A request's input size in tokens (uncached, cache read and cache written
+// together), banded for the analytics events like costBand. The edges sit
+// around the compaction threshold (ModelCore compactAt) so its effect shows.
+const CONTEXT_BANDS = [
+    [50000, '<50k'], [100000, '50-100k'], [150000, '100-150k'], [200000, '150-200k'],
+    [500000, '200-500k'], [1000000, '500k-1M'],
+];
+function contextBand(tokens) {
+    const v = Number(tokens) || 0;
+    if (v <= 0) return 'unknown';
+    for (const [below, label] of CONTEXT_BANDS) if (v < below) return label;
+    return '1M+';
 }
 
 /**
