@@ -480,7 +480,7 @@ async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, other
     const o = UI.slice(UI.indexOf('function installLowBalanceOverride('));
     check('override is web only', /puter\.env !== 'web'/.test(o.slice(0, 400)));
     check('Puter\'s dialog is removed only after ours opens',
-        /cohort === 'custom' && openLimitModal\(\)\) \{\s*this\.remove\(\);\s*return;/.test(o));
+        /cohort === 'custom' && openLimitModal\(this\.upgradeUrl\)\) \{\s*this\.remove\(\);\s*return;/.test(o));
     check('a failure falls back to Puter\'s dialog', /catch \(e\) \{ \/\* fall back to Puter's dialog \*\/ \}\s*return open\.apply\(this, arguments\);/.test(o));
     check('the default cohort is counted too', /variant: 'puter', cohort/.test(o));
     check('installed at load', /\ninstallLowBalanceOverride\(\);/.test(UI));
