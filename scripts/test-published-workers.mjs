@@ -28,6 +28,7 @@ const ownershipSource = fs.readFileSync(new URL('../src/js/worker-ownership.js',
 const createWorkerSource = fs.readFileSync(new URL('../src/tools/workers/create_worker.js', import.meta.url), 'utf8');
 const listWorkerSource = fs.readFileSync(new URL('../src/tools/workers/list_workers.js', import.meta.url), 'utf8');
 const deleteWorkerSource = fs.readFileSync(new URL('../src/tools/workers/delete_worker.js', import.meta.url), 'utf8');
+const senderSource = fs.readFileSync(new URL('../src/js/worker-sender.js', import.meta.url), 'utf8');
 
 function extract(src, signature) {
     const a = src.indexOf(signature);
@@ -76,7 +77,7 @@ const PUB = ROOT + '/.published/chat1';
 const V1 = "router.get('/', () => ({ version: 1 }));";
 const V2 = "router.get('/', () => ({ version: 2, extra: true }));";
 
-function makeWorld({ failDeploy = false, takenLiveName = null } = {}) {
+function makeWorld({ failDeploy = false, takenLiveName = null, titles = {}, failRename = false } = {}) {
     const files = new Map([
         [WORK + '/index.html', "fetch('https://api-a.puter.work/items')"],
         [WORK + '/workers/api-a.js', V1],
@@ -93,6 +94,17 @@ function makeWorld({ failDeploy = false, takenLiveName = null } = {}) {
             file_path: '/alice/AppData/builder/other-project/workers/x.js',
         });
     }
+    // Each worker's sandbox app, whose title is the sender name on its email
+    // (worker-sender.js). puter.js makes one per worker name, titled with
+    // that name, and reuses it on every later deploy.
+    const apps = new Map();
+    const renames = [];
+    const ensureApp = (name) => {
+        const key = 'sandbox-' + name;
+        if (!apps.has(key)) apps.set(key, { uid: 'uid-' + name, name: key, title: key });
+    };
+    for (const name of deployed.keys()) ensureApp(name);
+    for (const [key, title] of Object.entries(titles)) apps.get(key).title = title;
     const sites = new Map([['ay-site', PUB]]);
     const alerts = [];
     const under = dir => [...files.keys()].filter(p => p.startsWith(dir + '/'));
@@ -173,21 +185,36 @@ function makeWorld({ failDeploy = false, takenLiveName = null } = {}) {
                     const url = `https://${name}.puter.work`;
                     // A deployment snapshots the source file's bytes.
                     deployed.set(name, { name, url, file_path: filePath, code: files.get(filePath) });
+                    ensureApp(name);
                     return { success: true, url };
                 },
                 delete: async name => { deployed.delete(name); },
+                get: async name => (deployed.has(name) ? { name, app_uid: apps.get('sandbox-' + name).uid } : null),
+            },
+            apps: {
+                get: async name => {
+                    if (!apps.has(name)) throw { error: { code: 'entity_not_found' } };
+                    return { ...apps.get(name) };
+                },
+                update: async (name, attrs) => {
+                    if (failRename) throw new Error('rename failed');
+                    renames.push([name, attrs.title]);
+                    apps.get(name).title = attrs.title;
+                    return { ...apps.get(name) };
+                },
             },
         },
     };
     sandbox.saveCurrentChat = async () => {};
     vm.createContext(sandbox);
     vm.runInContext(ownershipSource, sandbox, { filename: 'src/js/worker-ownership.js' });
+    vm.runInContext(senderSource, sandbox, { filename: 'src/js/worker-sender.js' });
     vm.runInContext(CODE, sandbox, { filename: 'src/js/ui.js' });
     for (const [name, src] of [['create_worker', createWorkerSource], ['list_workers', listWorkerSource], ['delete_worker', deleteWorkerSource]]) {
         vm.runInContext(src, sandbox, { filename: 'src/tools/workers/' + name + '.js' });
     }
     const tool = name => sandbox.window.tools.find(t => t.function.name === name);
-    return { sandbox, files, deployed, sites, alerts, tool, served: () => files.get(sites.get('ay-site') + '/index.html') };
+    return { sandbox, files, deployed, sites, alerts, tool, apps, renames, served: () => files.get(sites.get('ay-site') + '/index.html') };
 }
 
 // ---- The reported scenario --------------------------------------------------
@@ -229,6 +256,57 @@ function makeWorld({ failDeploy = false, takenLiveName = null } = {}) {
         w.deployed.get('api-a-live').code === V2, w.deployed.get('api-a-live').code);
     check('republish: the published backend keeps its URL, so live clients keep working',
         w.deployed.get('api-a-live').url === 'https://api-a-live.puter.work');
+}
+
+// ---- The email sender name goes live with the backend ----------------------
+{
+    // A project that never set a sender name: publishing renames nothing.
+    const w = makeWorld();
+    await w.sandbox.doPublish();
+    await w.sandbox.doPublish();
+    check('sender: a project on the default name renames nothing when it publishes',
+        w.renames.length === 0 && w.apps.get('sandbox-api-a-live').title === 'sandbox-api-a-live' && w.alerts.length === 0,
+        JSON.stringify(w.renames));
+}
+{
+    const w = makeWorld({ titles: { 'sandbox-api-a': 'Makor Family Portal' } });
+    await w.sandbox.doPublish();
+    check('sender: the live backend sends under the preview\'s name',
+        w.apps.get('sandbox-api-a-live').title === 'Makor Family Portal' && w.alerts.length === 0, JSON.stringify(w.renames));
+    await w.sandbox.doPublish();
+    check('sender: publishing again renames nothing more', w.renames.length === 1, JSON.stringify(w.renames));
+}
+{
+    // A live backend renamed by hand stays that way while the preview is on
+    // the default name.
+    const w = makeWorld();
+    await w.sandbox.doPublish();
+    w.apps.get('sandbox-api-a-live').title = 'Hand Set';
+    await w.sandbox.doPublish();
+    check('sender: a hand-set live name survives a publish', w.apps.get('sandbox-api-a-live').title === 'Hand Set' && w.renames.length === 0);
+}
+{
+    const w = makeWorld({ titles: { 'sandbox-api-a': 'Makor' }, failRename: true });
+    const toasts = [];
+    w.sandbox.window.showToast = (m, o) => toasts.push([m, o && o.key]);
+    await w.sandbox.doPublish();
+    check('sender: a failed rename never fails the publish',
+        w.alerts.length === 0 && w.deployed.has('api-a-live') && /api-a-live\.puter\.work/.test(w.served()), JSON.stringify(w.alerts));
+    check('sender: …and the user is told the live site has the old name',
+        toasts.some(([m, k]) => k === 'publish-sender' && /old sender name/.test(m)), JSON.stringify(toasts));
+}
+{
+    // The draft backend is deleted, so the next publish retires the live one.
+    // Puter reuses a sandbox app by worker name, so its name goes first.
+    const w = makeWorld({ titles: { 'sandbox-api-a': 'Makor' } });
+    await w.sandbox.doPublish();
+    check('sender: (setup) the live backend has the name', w.apps.get('sandbox-api-a-live').title === 'Makor');
+    w.deployed.delete('api-a');
+    w.files.delete(WORK + '/workers/api-a.js');
+    await w.sandbox.doPublish();
+    check('sender: a retired live backend gets its default name back',
+        !w.deployed.has('api-a-live') && w.apps.get('sandbox-api-a-live').title === 'sandbox-api-a-live',
+        JSON.stringify({ deployed: [...w.deployed.keys()], renames: w.renames }));
 }
 
 // ---- The AI cannot reach the live backend ----------------------------------
