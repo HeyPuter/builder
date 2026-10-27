@@ -44,6 +44,8 @@ const SCRIPTS = [
   'js/publish-state.js',
   'js/publish-errors.js',
   'js/branding.js',
+  // Pure: full URLs for a published page's og:image/twitter:image (ui.js).
+  'js/social-images.js',
   'js/issues-core.js',
   'js/worker-ownership.js',
   // A project's API keys, kept in each backend worker's own store (the
@@ -77,6 +79,9 @@ const SCRIPTS = [
   'tools/fs/delete.js',
   'tools/fs/read.js',
   'tools/fs/view_image.js',
+  // After view_image.js: it shows its result through fitImageForVision.
+  'tools/fs/render_svg.js',
+  'tools/fs/show_image.js',
   'tools/fs/view_document.js',
   'tools/fs/rename.js',
   'tools/fs/copy.js',

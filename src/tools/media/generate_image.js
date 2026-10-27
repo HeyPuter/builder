@@ -19,7 +19,7 @@
         type: "function",
         function: {
             name: "GenerateImage",
-            description: "Generate an image from a text description and show it to the user in the chat. Use it when the user asks for a picture, illustration, photo, logo, artwork, etc., or when a website you are building needs custom imagery. To edit, restyle or vary an existing image (one the user attached, or one you generated earlier), pass its path in input_images and describe the change in the prompt. The image appears in the chat automatically; never repeat its path or link in your reply.",
+            description: "Generate an image from a text description and show it to the user in the chat. Use it when the user asks for a picture, illustration, photo, artwork, etc., or when a website you are building needs custom imagery. Logos and icons are drawn as SVG instead, unless the user asks for a photographic, painted or 3D look. To edit, restyle or vary an existing image (one the user attached, or one you generated earlier), pass its path in input_images and describe the change in the prompt. The image appears in the chat automatically; never repeat its path or link in your reply.",
             parameters: {
                 type: "object",
                 properties: {

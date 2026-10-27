@@ -564,7 +564,8 @@ function lineBreakBefore(s, lineStart) {
 // (Firefox draws nothing), and the model is told to ship a viewBox without fixed
 // dimensions. Give the root element explicit width/height for the raster pass —
 // the file on disk is never modified. Returns null if this isn't an SVG.
-window.normalizeSvgForRaster = function (svgText, size) {
+// `height` defaults to `width` (icons are square; RenderSvg passes both).
+window.normalizeSvgForRaster = function (svgText, width, height = width) {
     const src = String(svgText || '');
     const open = src.match(/<svg\b[^>]*>/i);
     if (!open) return null;
@@ -576,7 +577,7 @@ window.normalizeSvgForRaster = function (svgText, size) {
     // 24px and drawImage upscale it to 512 — a visibly blurry icon.
     tag = tag.replace(/(\sstyle\s*=\s*)(["'])([^"']*)\2/i, (whole, pre, q, css) =>
         pre + q + css.replace(/\b(?:width|height)\s*:\s*[^;]*;?/gi, '').trim() + q);
-    tag = tag.replace(/^<svg/i, `<svg width="${size}" height="${size}"`);
+    tag = tag.replace(/^<svg/i, `<svg width="${width}" height="${height}"`);
     // No viewBox and no dimensions left: the drawing has no coordinate system we
     // can scale into, so refuse rather than emit a blank icon.
     if (!/\bviewBox\s*=/i.test(tag)) return null;

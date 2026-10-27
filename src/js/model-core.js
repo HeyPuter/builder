@@ -302,7 +302,7 @@ window.ModelCore = (function () {
                         if (part.type === 'document') return { type: 'text', text: NO_PDF };
                         if (part.type === 'image') {
                             if (isGif(part) && !target.gif) return { type: 'text', text: NO_GIF };
-                            moved.push({ type: 'text', text: `[Tool output, not a message from the user] The image from the ViewImage result above${caption ? ` (${caption.replace(/:\s*$/, '')})` : ''}:` });
+                            moved.push({ type: 'text', text: `[Tool output, not a message from the user] The image from the tool result above${caption ? ` (${caption.replace(/:\s*$/, '')})` : ''}:` });
                             moved.push(part);
                             return { type: 'text', text: IMAGE_MOVED };
                         }
