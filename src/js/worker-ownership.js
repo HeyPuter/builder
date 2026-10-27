@@ -29,10 +29,13 @@ window.WorkerOwnership = (function () {
 
     // Tools whose args/results carry a worker NAME that must follow a rename.
     // list_workers is handled separately (its result nests names in an array),
-    // and so are set_secret (its input and result call it `worker`) and the
-    // file tools, whose result reports a worker save as `worker.name`.
+    // and so are set_secret and set_email_sender_name (their input and result
+    // call it `worker`, see WORKER_FIELD_TOOLS) and the file tools, whose
+    // result reports a worker save as `worker.name`.
     const NAME_TOOLS = ['create_worker', 'delete_worker', 'get_worker'];
     const SAVE_TOOLS = ['edit', 'multi_edit', 'write'];
+    // Tools whose input and result name the worker in a `worker` field.
+    const WORKER_FIELD_TOOLS = ['set_secret', 'set_email_sender_name'];
 
     // Keep generated names comfortably inside subdomain-label territory (the
     // worker name becomes the host of its URL).
@@ -235,9 +238,9 @@ window.WorkerOwnership = (function () {
     //     the `name` fields of those tools' results (matched to their tool_use
     //     by id, so an unrelated tool's coincidental `name` field is never
     //     touched). list_workers results get their `workers[].name` entries
-    //     mapped the same way, set_secret its `worker` input and result, the
-    //     file tools the `worker.name` of a worker save, and create_worker's
-    //     note the quoted name in it.
+    //     mapped the same way, set_secret and set_email_sender_name their
+    //     `worker` input and result, the file tools the `worker.name` of a
+    //     worker save, and create_worker's note the quoted name in it.
     //
     // Pure: returns a NEW history array; the input is never mutated.
     function rewriteHistory(history, renames) {
@@ -271,7 +274,7 @@ window.WorkerOwnership = (function () {
                         if (b.id != null) resultKind.set(b.id, 'named');
                     } else if (b.name === 'list_workers' && b.id != null) {
                         resultKind.set(b.id, 'list');
-                    } else if (b.name === 'set_secret') {
+                    } else if (WORKER_FIELD_TOOLS.indexOf(b.name) !== -1) {
                         if (b.input && typeof b.input.worker === 'string' && byOldName.has(b.input.worker)) {
                             b.input.worker = byOldName.get(b.input.worker);
                         }

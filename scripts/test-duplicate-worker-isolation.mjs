@@ -24,6 +24,7 @@ function check(name, cond, detail) {
 const appSource = fs.readFileSync(new URL('../src/js/app.js', import.meta.url), 'utf8');
 const helpersSource = fs.readFileSync(new URL('../src/js/helpers.js', import.meta.url), 'utf8');
 const ownershipSource = fs.readFileSync(new URL('../src/js/worker-ownership.js', import.meta.url), 'utf8');
+const senderSource = fs.readFileSync(new URL('../src/js/worker-sender.js', import.meta.url), 'utf8');
 
 function extract(src, signature) {
     const a = src.indexOf(signature);
@@ -47,7 +48,7 @@ const PARENT = '/alice/AppData/builder';
 const OLD_DIR = PARENT + '/chat1';
 
 // failAt: null | 'list' | 'create-first' | 'create-second' | 'chat-write'
-async function run({ failAt = null, workerCount = 1 } = {}) {
+async function run({ failAt = null, workerCount = 1, senderTitle = null, failRename = false } = {}) {
     const files = new Map([
         [OLD_DIR + '/index.html', "fetch('https://original-api.puter.work/save', {method:'POST'})"],
         [OLD_DIR + '/workers/original-api.js', 'export default { fetch() {} }'],
@@ -69,8 +70,17 @@ async function run({ failAt = null, workerCount = 1 } = {}) {
             file_path: OLD_DIR + '/workers/original-two.js',
         });
     }
-    const alerts = [], sites = new Map();
+    const alerts = [], sites = new Map(), toasts = [];
     let creates = 0;
+    // Each worker's sandbox app, whose title is its email sender name
+    // (worker-sender.js). puter.js makes one per worker name, titled with it.
+    const apps = new Map();
+    const renames = [];
+    const ensureApp = name => {
+        if (!apps.has('sandbox-' + name)) apps.set('sandbox-' + name, { uid: 'uid-' + name, name: 'sandbox-' + name, title: 'sandbox-' + name });
+    };
+    for (const name of deployed.keys()) ensureApp(name);
+    if (senderTitle) apps.get('sandbox-original-api').title = senderTitle;
 
     const under = dir => [...files.keys()].filter(p => p.startsWith(dir + '/'));
     const sandbox = {
@@ -89,6 +99,7 @@ async function run({ failAt = null, workerCount = 1 } = {}) {
             user: { username: 'alice' },
             makeDraftSubdomain: () => 'copy-draft',
             withFileLock: (path, fn) => Promise.resolve().then(fn),
+            showToast: (m, o) => toasts.push([String(m), o && o.key]),
         },
         puter: {
             appID: 'builder',
@@ -108,9 +119,23 @@ async function run({ failAt = null, workerCount = 1 } = {}) {
                     if (failAt === 'create-second' && creates === 2) throw new Error('deploy failed');
                     const url = `https://${name}.puter.work`;
                     deployed.set(name, { name, url, file_path: filePath });
+                    ensureApp(name);
                     return { success: true, url };
                 },
                 delete: async name => { deployed.delete(name); },
+                get: async name => (deployed.has(name) ? { name, app_uid: apps.get('sandbox-' + name).uid } : null),
+            },
+            apps: {
+                get: async name => {
+                    if (!apps.has(name)) throw { error: { code: 'entity_not_found' } };
+                    return { ...apps.get(name) };
+                },
+                update: async (name, attrs) => {
+                    if (failRename) throw new Error('rename failed');
+                    renames.push([name, attrs.title]);
+                    apps.get(name).title = attrs.title;
+                    return { ...apps.get(name) };
+                },
             },
             fs: {
                 read: async path => {
@@ -160,6 +185,7 @@ async function run({ failAt = null, workerCount = 1 } = {}) {
     const m1 = helpersSource.indexOf('window.chatMediaDir =');
     new Function('window', helpersSource.slice(h0, h1) + helpersSource.slice(m0, m1))(sandbox.window);
     vm.runInContext(ownershipSource, sandbox, { filename: 'src/js/worker-ownership.js' });
+    vm.runInContext(senderSource, sandbox, { filename: 'src/js/worker-sender.js' });
     vm.runInContext(CODE, sandbox, { filename: 'src/js/app.js' });
 
     await sandbox.duplicateChat('chat1');
@@ -177,6 +203,7 @@ async function run({ failAt = null, workerCount = 1 } = {}) {
         copyCallsOriginal: copyFrontend.includes('original-api.puter.work'),
         copyFrontend,
         deployedNames: [...deployed.keys()].sort(),
+        apps, renames, toasts,
     };
 }
 
@@ -191,6 +218,25 @@ check('control: the copy has a worker of its own',
 check('control: the copy is hosted', ok.hosted.join() === 'copy-draft');
 check('control: no error shown', ok.alerts.length === 0, JSON.stringify(ok.alerts));
 check('control: the copy gets its own copy of the generated media', ok.copyMediaLeft === 1, String(ok.copyMediaLeft));
+check('control: a backend on its default sender name renames nothing', ok.renames.length === 0, JSON.stringify(ok.renames));
+
+// ---- The copy's backend sends under the original's sender name --------------
+{
+    const r = await run({ senderTitle: 'Makor Family Portal' });
+    const copyName = r.deployedNames.find(n => n.startsWith('original-api-'));
+    check('sender: the copy\'s backend gets the original\'s sender name',
+        r.listed && r.apps.get('sandbox-' + copyName).title === 'Makor Family Portal' &&
+        r.apps.get('sandbox-original-api').title === 'Makor Family Portal', JSON.stringify(r.renames));
+    const f = await run({ senderTitle: 'Makor', failRename: true });
+    check('sender: a failed copy never fails the duplicate, and the user is told',
+        f.listed && f.alerts.length === 0 && f.toasts.some(([m, k]) => k === 'duplicate-sender'), JSON.stringify({ alerts: f.alerts, toasts: f.toasts }));
+    // A duplicate that fails after the copy's backend got the name: the
+    // discarded backend gives the name back before it is deleted.
+    const d = await run({ senderTitle: 'Makor', failAt: 'chat-write' });
+    const discarded = [...d.apps.keys()].find(k => k.startsWith('sandbox-original-api-'));
+    check('sender: a discarded copy\'s backend gets its default name back',
+        !d.listed && !!discarded && d.apps.get(discarded).title === discarded, JSON.stringify(d.renames));
+}
 
 // ---- The copy's chat file can't be written: nothing is left behind -----------
 // Its files, its redeployed workers and its draft site were all created before

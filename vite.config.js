@@ -51,6 +51,9 @@ const SCRIPTS = [
   // A project's API keys, kept in each backend worker's own store (the
   // set_secret tool, publish, duplicate and delete use it).
   'js/worker-secrets.js',
+  // The sender name on email a project's backend sends (the
+  // set_email_sender_name tool, publish, duplicate and delete use it).
+  'js/worker-sender.js',
   // Pure half of the official templates (validation, placeholders, the note a
   // fork's system prompt carries); js/templates.js below is the I/O half.
   'js/template-core.js',
@@ -105,6 +108,7 @@ const SCRIPTS = [
   'tools/workers/list_workers.js',
   'tools/workers/get_worker.js',
   'tools/workers/set_secret.js',
+  'tools/workers/set_email_sender_name.js',
   'tools/external_info/external_fetch.js',
   'js/prompt.js',
   'js/dragdrop.js',
