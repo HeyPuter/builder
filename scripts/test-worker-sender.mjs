@@ -144,6 +144,33 @@ const title = (puter, worker) => puter.rawApps.get('sandbox-' + worker).title;
     check('set: a failed worker lookup is a failure', (await WSN.set('mail', 'X')).reason === 'failed');
 }
 
+{
+    // The two lookups behind every set, copy and clear run side by side (it
+    // runs for every backend on every publish, duplicate and delete).
+    const puter = makePuter({ titles: { 'sandbox-mail': 'Makor' } });
+    const get = puter.workers.get;
+    let open;
+    const gate = new Promise((r) => { open = r; });
+    let appAskedEarly = false, workerDone = false;
+    puter.workers.get = async (name) => { await gate; workerDone = true; return get(name); };
+    const appsGet = puter.apps.get;
+    puter.apps.get = async (name) => { if (!workerDone) appAskedEarly = true; return appsGet(name); };
+    const WSN = load(puter);
+    const p = WSN.copy('mail', 'mail-live');
+    await new Promise((r) => setTimeout(r, 0));
+    open();
+    const r = await p;
+    check('lookup: the app is looked up alongside the worker, not after it', appAskedEarly && r.ok && r.copied);
+}
+{
+    // A worker with no app is "no app" whatever the app lookup says.
+    const puter = makePuter();
+    puter.fail.get = true;
+    const WSN = load(puter);
+    check('lookup: a worker with no app is still "no app" when the app lookup fails', (await WSN.set('bare', 'X')).reason === 'no-app');
+    check('lookup: and clearing it is still fine', (await WSN.clear('bare')).ok === true);
+}
+
 // --- copying (Publish, Duplicate): a default name never changes anything ---
 {
     const puter = makePuter();
