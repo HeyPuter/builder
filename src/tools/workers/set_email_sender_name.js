@@ -34,7 +34,7 @@ window.tools.push({
         function refusal(reason, length, workerName) {
             const why = {
                 'too-long': `That name is ${length} characters long, and a sender name can be at most 78. Ask the user for a shorter one.`,
-                'bad-chars': 'A sender name can\'t contain @, quotes, backslashes, angle brackets or line breaks. It\'s only the name people see, not an email address, so ask the user for a name without them.',
+                'bad-chars': 'A sender name can\'t contain @, quotes, backslashes, angle brackets or invisible control characters. It\'s only the name people see, not an email address, so ask the user for a name without them.',
                 'no-app': 'This backend doesn\'t run as an app of its own, so its sender name can\'t be set. Tell the user in one short sentence.',
                 forbidden: `Puter didn't let Builder rename this backend, probably because it was first set up outside Builder. Tell the user they can set the name themselves: open the Dev Center at https://puter.com/app/dev-center, find the app named sandbox-${workerName || 'the worker name'}, change its title to the name they want, and save.`,
                 failed: 'Setting the sender name failed. Try once more, and if it fails again tell the user.',

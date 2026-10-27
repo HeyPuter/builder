@@ -278,12 +278,20 @@ async function throws(p) { try { await p; return null; } catch (e) { return e; }
     const { puter, tool } = toolSetup();
     const at = await tool.exec({ worker: 'mail', name: 'help@makor.org' }, { currentChatId: 'c1' });
     check('tool: an address is refused with a reason the AI can relay', at.success === false && /not an email address/.test(at.error));
+    // Line breaks are fine (they become spaces), so the refusal must not
+    // tell the user to remove them.
+    check('tool: the refusal never says line breaks are the problem', !/line break/i.test(at.error), at.error);
     const long = await tool.exec({ worker: 'mail', name: 'x'.repeat(90) }, { currentChatId: 'c1' });
     check('tool: a long name is refused with its length', long.success === false && /90 characters/.test(long.error));
     // The length is the one the check measured, after runs of spaces became one.
     const spaced = await tool.exec({ worker: 'mail', name: 'x'.repeat(40) + ' '.repeat(20) + 'y'.repeat(40) }, { currentChatId: 'c1' });
     check('tool: a long name\'s length is counted the way the limit is', spaced.success === false && /81 characters/.test(spaced.error), spaced.error);
     check('tool: a refused name renames nothing and never lists workers first', puter.updates.length === 0);
+}
+{
+    const { tool } = toolSetup();
+    const r = await tool.exec({ worker: 'mail', name: 'Makor\nPortal' }, { currentChatId: 'c1' });
+    check('tool: a line break in a name is accepted, as a space', r.success && r.sender_name === 'Makor Portal');
 }
 {
     const { puter, tool } = toolSetup();
