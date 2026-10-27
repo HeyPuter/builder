@@ -89,7 +89,7 @@
     function isHtml(abs) { return /\.html?$/i.test(abs); }
     function esc(s) { return typeof htmlEscape === 'function' ? htmlEscape(s) : String(s).replace(/[&<>"']/g, (c) => '&#' + c.charCodeAt(0) + ';'); }
     function stripTokens(abs, text) {
-        if (window.isWorkerSourcePath?.(abs)) return window.stripWorkerCanary(text);
+        if (window.stripWorkerCanary) text = window.stripWorkerCanary(text);
         return isHtml(abs) && window.stripPreviewCacheBust ? window.stripPreviewCacheBust(text) : text;
     }
     function deleted(chatId) { return typeof _deletedChatIds !== 'undefined' && _deletedChatIds.has(chatId); }
@@ -931,7 +931,7 @@
                 let out = text;
                 if (file.crlf) out = out.replace(/\n/g, '\r\n');
                 if (file.bom) out = '﻿' + out;
-                if (deploy.worker?.token) out = window.stampWorkerCanary(out, deploy.worker.token);
+                out = window.stampWorkerSave ? window.stampWorkerSave(deploy.worker, out) : out;
                 deploy.code = out;
                 await window.writeFileVerified(abs, out);
                 // Inside the lock, right after the bytes landed: a snapshot can

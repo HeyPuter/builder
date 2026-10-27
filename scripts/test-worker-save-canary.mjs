@@ -114,19 +114,32 @@ const strip = win.stripWorkerCanary;
 
 // === stamp / strip ===========================================================
 {
-    const samples = [v1, '', 'x', "'use strict';\nrouter.get('/a', () => 1);\n", "﻿router.get('/a', () => 1);", "\"use strict\"\nlet a;"];
-    check('strip undoes stamp exactly', samples.every(s => strip(win.stampWorkerCanary(s, 'abc123')) === s),
-        JSON.stringify(samples.map(s => strip(win.stampWorkerCanary(s, 'abc123')))));
+    const compiles = (code) => { try { new Function(code); return true; } catch (e) { return false; } };
+    const samples = [v1, '', 'x', "'use strict';\nrouter.get('/a', () => 1);\n", "﻿router.get('/a', () => 1);", "\"use strict\"\nlet a;",
+        "'use strict'; let a = 1;", "'use strict'\nrouter.get('/a', () => 1);", "// notes\n/* more */\n'use strict';\nlet a;", "'use strict'.length;\nlet a;"];
+    const roundTrips = samples.map(t => strip(win.stampWorkerCanary(t, 'abc123')) === t);
+    check('strip undoes stamp exactly, spaces included', roundTrips.every(Boolean), JSON.stringify(roundTrips));
+    const compile = samples.filter(t => compiles(t)).map(t => compiles(win.stampWorkerCanary(t, 'abc123')));
+    check('the stamped code compiles whenever the code did, a directive with no semicolon included', compile.every(Boolean), JSON.stringify(compile));
     const stamped = win.stampWorkerCanary(v1, 'abc123');
     check('the canary is the first route, on line 1, so a catch-all can not shadow it',
-        stamped.startsWith("router.get('/__builder/canary', () => 'abc123'); router.get('/v'"), stamped);
+        stamped.startsWith(";router.get('/__builder/canary', () => 'abc123');router.get('/v'"), stamped);
     check('…and adds no line, so error line numbers still match the file', stamped.split('\n').length === v1.split('\n').length);
-    check("a leading 'use strict' stays the first statement",
-        win.stampWorkerCanary("'use strict';\nlet a;", 't1').startsWith("'use strict'; router.get('/__builder/canary'"));
+    // A with statement is a SyntaxError only in strict code, so it shows
+    // whether the directive still applies.
+    const stillStrict = (t) => !compiles(win.stampWorkerCanary(t, 't1') + '\nwith ({}) {}');
+    check("a leading 'use strict' stays in force, with or without a semicolon, after comments too",
+        stillStrict("'use strict';\nlet a;") && stillStrict("'use strict'\nlet a;") && stillStrict("// notes\n/* more */\n'use strict';\nlet a;")
+        && win.stampWorkerCanary("'use strict'\nlet a;", 't1').startsWith("'use strict';router.get('/__builder/canary'"));
+    check("…and a string that only starts like one isn't taken for it",
+        win.stampWorkerCanary("'use strict'.length;", 't1').startsWith(";router.get"));
     check('restamping replaces the old canary', (win.stampWorkerCanary(stamped, 'def456').match(/__builder\/canary/g) || []).length === 1
         && tokenOf(win.stampWorkerCanary(stamped, 'def456')) === 'def456');
     check('strip leaves text without a canary as the same string', strip(v1) === v1);
-    check('the stamped code still compiles', (() => { try { new (Object.getPrototypeOf(async function () {}).constructor)(stamped); return true; } catch (e) { return false; } })());
+    const legacy = "router.get('/__builder/canary', () => 'old1'); " + v1;
+    check('the shape an earlier build wrote is stripped too, and replaced on the next stamp',
+        strip(legacy) === v1 && strip("'use strict'; router.get('/__builder/canary', () => 'old1');\nlet a;") === "'use strict';\nlet a;"
+        && (win.stampWorkerCanary(legacy, 'new1').match(/__builder\/canary/g) || []).length === 1);
 }
 
 // === edit on a deployed worker's source ======================================
@@ -195,6 +208,37 @@ DEPLOYS = false;
     await tool('write').exec({ path: API, data: v1 }, { appDir: ROOT, abortController: ac });
     check('a stopped turn stops waiting after one read', calls.canaryReads === 1, String(calls.canaryReads));
 }
+reset();
+DEPLOYS = false;
+{
+    // Puter runs a worker as a plain script and rejects top-level await.
+    const r = await tool('write').exec({ path: API, data: 'await Promise.resolve();\n' + v1 }, st);
+    check('top-level await is reported at once, as Puter rejects it',
+        r.worker && r.worker.live === false && /await/.test(r.worker.error) && calls.canaryReads === 0, JSON.stringify(r));
+}
+
+// === several saves of a file in one reply ===================================
+// Only the last is waited on: the others report nothing yet, and an edit
+// halfway through a change isn't compiled.
+reset();
+FILES.set(API, v1);
+{
+    const later = { appDir: ROOT, laterToolCalls: [{ name: 'edit', input: { path: API, old_content: 'x', new_content: 'y' } }] };
+    const r = await tool('edit').exec({ path: API, old_content: "'one' }));", new_content: "'one' });" }, later);
+    check('a save the same reply makes again is not waited on or compiled',
+        r.success === true && r.worker && !('live' in r.worker) && /later call in this reply/.test(r.worker.note) && calls.canaryReads === 0, JSON.stringify(r));
+    check('…but it still carries a canary', !!tokenOf(FILES.get(API)));
+    const other = { appDir: ROOT, laterToolCalls: [{ name: 'edit', input: { path: `${ROOT}/index.html` } }, { name: 'ReadTextFile', input: { path: API } }] };
+    const r2 = await tool('edit').exec({ path: API, old_content: "'one' });", new_content: "'one' }));" }, other);
+    check('later calls that save other files, or only read this one, still get the wait', r2.worker && r2.worker.live === true, JSON.stringify(r2));
+}
+
+// === a copy of a worker's source =============================================
+{
+    FILES.set(`${ROOT}/backup/api.js`, FILES.get(API));
+    const text = await tool('ReadTextFile').exec({ path: `${ROOT}/backup/api.js` }, st);
+    check('read: a copy of a worker source elsewhere shows no canary either', !/__builder/.test(text) && text.length > 0, text);
+}
 
 // === saves that overlap =====================================================
 // A Code view save and an AI save of the same file can overlap. Once the
@@ -209,7 +253,10 @@ reset();
     SERVED.set(url, older);
     const r2 = await win.workerSaveResult({ name: 'overlap', url, token: newer }, v1);
     check('…but an earlier save still being served does not count for a later one', r2.live === false, JSON.stringify(r2));
-    const t = (await win.workerSaveTarget(API, st)).token;
+    const target = await win.workerSaveTarget(API, st);
+    check('the lookup makes no token, so tokens follow the order saves are written', target && !('token' in target), JSON.stringify(target));
+    win.stampWorkerSave(target, v1);
+    const t = target.token;
     check('tokens start with the time they were made, padded to sort', /^[0-9a-z]{15}$/.test(t)
         && parseInt(t.slice(0, 9), 36) <= Date.now() && parseInt(t.slice(0, 9), 36) > Date.now() - 5000, t);
 }
@@ -281,23 +328,29 @@ WORKERS = [];
         dec(G.normalizeForGit('workers/api.js', enc(win.stampWorkerCanary(v1, 'tok9')), deps)) === v1);
     const plain = enc(v1);
     check('GitHub: a worker source without a canary is the same bytes', G.normalizeForGit('workers/api.js', plain, deps) === plain);
-    const other = enc(win.stampWorkerCanary(v1, 'tok9'));
-    check('GitHub: other .js files are never touched', G.normalizeForGit('src/api.js', other, deps) === other);
+    check('GitHub: a copy of a worker source elsewhere is pushed without the canary too',
+        dec(G.normalizeForGit('src/api.js', enc(win.stampWorkerCanary(v1, 'tok9')), deps)) === v1);
+    const css = enc('a{}');
+    check('GitHub: a file that is not a script is never read', G.normalizeForGit('a.css', css, deps) === css);
 }
 
 // === everywhere else a worker source is shown ================================
 {
     const editor = read('../src/js/code-editor.js');
-    check('the Code view hides the canary',
-        /function stripTokens\(abs, text\) \{\s*if \(window\.isWorkerSourcePath\?\.\(abs\)\) return window\.stripWorkerCanary\(text\);/.test(editor));
-    check('the project download hides the canary',
-        /else if \(window\.isWorkerSourcePath\(fullPath\)\) \{\s*zip\.file\(item\.name, window\.stripWorkerCanary\(await blob\.text\(\)\)\);/.test(HELP));
-    check('search hides the canary',
-        read('../src/tools/fs/search_files.js').includes('if (window.isWorkerSourcePath?.(f.path)) text = window.stripWorkerCanary(text);'));
+    check('the Code view hides the canary in every file',
+        /function stripTokens\(abs, text\) \{\s*if \(window\.stripWorkerCanary\) text = window\.stripWorkerCanary\(text\);/.test(editor));
+    check('the project download hides the canary, and keeps any other file as its bytes',
+        /const clean = window\.stripWorkerCanary\(raw\);\s*if \(clean !== raw\) text = clean;[\s\S]{0,40}zip\.file\(item\.name, text != null \? text : blob\);/.test(HELP));
+    check('search hides the canary in every file',
+        read('../src/tools/fs/search_files.js').includes('if (window.stripWorkerCanary) text = window.stripWorkerCanary(text);'));
+    check("the pull note's before side is the file as git has it, with no canary",
+        /if \(keepBytes && bytes\.length <= NOTE_TEXT_LIMIT\) bytesOf\[rel\] = norm;/.test(read('../src/js/github-sync.js')));
+    check('the published backend is written with the canary stripped',
+        /const source = await puter\.fs\.read\(worker\.file_path\)\.then\(d => d\.text\(\)\);\s*await puter\.fs\.write\(sourcePath, window\.stripWorkerCanary\(source\), \{ overwrite: true \}\);/.test(read('../src/js/ui.js')));
     const sync = read('../src/js/github-sync.js');
     check('GitHub sync passes the canary stripper', sync.includes('stripWorkerCanary: window.stripWorkerCanary,'));
     check('a GitHub pull writes a deployed backend with a canary, before the files are written',
-        /const worker = w\.text != null \? await window\.workerSaveTarget\?\.\(w\.path, \{ appDir \}\) : null;[\s\S]{0,300}w\.bytes = new TextEncoder\(\)\.encode\(code\);[\s\S]*?window\.applyExternalUpdate\(/.test(sync));
+        /const worker = w\.text != null \? await window\.workerSaveTarget\?\.\(w\.path, \{ appDir \}\) : null;[\s\S]{0,300}window\.stampWorkerSave\(worker,[\s\S]{0,120}w\.bytes = new TextEncoder\(\)\.encode\(code\);[\s\S]*?window\.applyExternalUpdate\(/.test(sync));
     check('…then waits on it, and never redeploys with create()',
         sync.includes('window.workerSaveResult?.(s.worker, s.code)') && !/redeployWorkerSource|workers\.create/.test(sync));
 }

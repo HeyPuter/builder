@@ -40,7 +40,7 @@ window.tools.push({
             text = window.stripPreviewCacheBust(text);
         }
         // And a worker's deploy canary (see stampWorkerCanary).
-        if (window.isWorkerSourcePath?.(path)) text = window.stripWorkerCanary(text);
+        if (window.stripWorkerCanary) text = window.stripWorkerCanary(text);
         // Cap what one read pulls into the conversation. The result is stored in
         // the chat history and re-sent with every later request, so a single
         // huge file (text attachments can be 10MB) didn't just fail this request

@@ -34,18 +34,17 @@ const CUT_OFF_TOOL_ERROR = 'This call was cut off at the output limit before its
 // deploys from) is how it is updated. Puter redeploys it from the saved file.
 // Every save of one, by the AI's edit, multi_edit and write, a Code view save
 // or a GitHub pull, looks up the worker before the save (workerSaveTarget),
-// stamps the canary token from it onto the code (see stampWorkerCanary in
-// helpers.js), and after the save waits until the worker serves that token
-// (workerSaveResult). So the AI's result tells it whether its change is live,
-// and it never resends the whole worker to create_worker just to deploy an
-// edit.
+// stamps a canary token onto the code as it writes it (stampWorkerSave, and
+// stampWorkerCanary in helpers.js), and after the save waits until the worker
+// serves that token (workerSaveResult). So the AI's result tells it whether
+// its change is live, and it never resends the whole worker to create_worker
+// just to deploy an edit.
 // Puter documents up to 30 seconds for a deploy to reach every edge.
 window.workerCanaryTiming = { pollMs: 500, limitMs: 30000 };
 
-// The deployed worker this project runs from `path`, with a fresh canary
-// token: { name, url, token }. { lookupFailed: true } when the worker list
-// can't be read, null for any other file. A token starts with the time it was
-// made, so a later save's token sorts after it.
+// The deployed worker this project runs from `path`: { name, url, path }.
+// { lookupFailed: true } when the worker list can't be read, null for any
+// other file.
 window.workerSaveTarget = async function(path, state) {
     const root = window.projectRootDir(state);
     if (!root || typeof path !== 'string' || path.indexOf(root + '/') !== 0) return null;
@@ -55,9 +54,27 @@ window.workerSaveTarget = async function(path, state) {
     catch (e) { return { lookupFailed: true }; }
     const worker = owned.find(w => window.normalizePosixPath(w.file_path) === path);
     if (!worker || !worker.url) return null;
-    const token = Date.now().toString(36).padStart(9, '0') + Math.random().toString(36).slice(2, 8).padEnd(6, '0');
-    return { name: worker.name, url: worker.url, token };
+    return { name: worker.name, url: worker.url, path };
 };
+
+// `text` stamped with a fresh canary token for `target`'s save, kept on the
+// target for workerSaveResult. Called inside the file's write lock, so tokens
+// are made in the order the saves are written. A token starts with the time it
+// was made, so a later save's token sorts after it.
+window.stampWorkerSave = function(target, text) {
+    if (!target || !target.url) return text;
+    target.token = Date.now().toString(36).padStart(9, '0') + window.WorkerOwnership.randomSuffix();
+    return window.stampWorkerCanary(text, target.token);
+};
+
+// Whether another edit, multi_edit or write later in the same reply saves the
+// file at `path` again. Only the last save of a file in a reply is waited on.
+function savedAgainThisReply(state, path) {
+    return (state?.laterToolCalls || []).some(t => {
+        if (!t || !['edit', 'multi_edit', 'write'].includes(t.name) || !t.input) return false;
+        try { return window.assertPathInProject(t.input.path, state) === path; } catch (e) { return false; }
+    });
+}
 
 // Whether the worker serving canary `served` runs the save that stamped
 // `token`, or a later save of the same file (one made while this one waited).
@@ -82,11 +99,19 @@ window.workerSaveResult = async function(target, code, state) {
     if (target.lookupFailed) {
         return { live: false, note: "Builder couldn't look up this project's workers, so it couldn't check whether this save is live." };
     }
+    if (!target.token) return null;
+    // A save the same reply makes again is checked there, once, so an edit
+    // halfway through a change isn't compiled or waited on.
+    if (savedAgainThisReply(state, target.path)) {
+        return { name: target.name, url: target.url,
+            note: "Not checked, since a later call in this reply saves this file again. That call's result says whether the worker is serving it." };
+    }
     // Puter reports nothing about a save it can't deploy, and keeps running
-    // the previous code. It runs a worker as a plain script, so code that
-    // doesn't compile here won't deploy there either, and there is nothing to
-    // wait for. This compiles the code without running it.
-    try { new (Object.getPrototypeOf(async function() {}).constructor)(code); }
+    // the previous code. It runs a worker as a plain script (it rejects
+    // import, export and top-level await), so code that doesn't compile as a
+    // plain function body here won't deploy there either, and there is
+    // nothing to wait for. This compiles the code without running it.
+    try { new Function(code); }
     catch (e) {
         return { name: target.name, live: false, error: e && e.message ? (e.name || 'Error') + ': ' + e.message : String(e),
             note: "The file is saved, but it doesn't parse, so the worker is still running its previous code. Fix the error and save the file again." };
@@ -217,7 +242,9 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
     };
 
     // Execute all tools and collect results
-    for (const toolCall of toolCalls) {
+    for (const [index, toolCall] of toolCalls.entries()) {
+        // The calls still to run in this reply (see savedAgainThisReply).
+        c.laterToolCalls = toolCalls.slice(index + 1).filter(t => t && !cutOffIds.has(t.id));
         // Check for abort (or a chat switch) before each tool execution
         if (isAborted(c.abortController) || isStaleTurn(c)) {
             liftReadGuards();
@@ -279,6 +306,7 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
             }
         }
     }
+    c.laterToolCalls = null;
     liftReadGuards();
 
     // Checkpoint this round's results (the assistant tool_use + every tool_result

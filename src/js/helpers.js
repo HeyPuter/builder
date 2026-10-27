@@ -1483,14 +1483,17 @@ async function addDirToZip(dirPath, zip) {
             try {
                 const blob = await puter.fs.read(fullPath);
                 // Strip preview cache-bust tokens so the downloaded HTML is clean,
-                // and the deploy canary so a worker's source is.
+                // and the deploy canary so a worker's source is. Any other file
+                // goes in as its bytes.
+                let text = null;
                 if (/\.html?$/i.test(item.name) && window.stripPreviewCacheBust) {
-                    zip.file(item.name, window.stripPreviewCacheBust(await blob.text()));
-                } else if (window.isWorkerSourcePath(fullPath)) {
-                    zip.file(item.name, window.stripWorkerCanary(await blob.text()));
-                } else {
-                    zip.file(item.name, blob);
+                    text = window.stripPreviewCacheBust(await blob.text());
+                } else if (/\.js$/i.test(item.name)) {
+                    const raw = await blob.text();
+                    const clean = window.stripWorkerCanary(raw);
+                    if (clean !== raw) text = clean;
                 }
+                zip.file(item.name, text != null ? text : blob);
             } catch (e) {
                 console.warn('Skipping file (read failed):', fullPath, e);
             }
@@ -1995,22 +1998,24 @@ window.applyFileEdit = function (content, oldContent, newContent) {
 // The route goes first because routes match in the order they're defined, and
 // workers usually end with a catch-all that would answer it otherwise. It goes
 // on line 1 itself, not a line of its own, so the line numbers in the worker's
-// errors still match the file. Like the preview's cache-bust tokens, the
-// canary is a serving detail: stripWorkerCanary() removes it everywhere the AI
-// or the user sees a worker's source (the read, search and edit tools, the
-// Code view, GitHub sync and the project download).
+// errors still match the file. It starts with its own semicolon, so it ends
+// whatever comes before it, and it adds no other characters, so taking it out
+// gives back the file exactly. A leading 'use strict' directive keeps its
+// place, with the canary right after it. Like the preview's cache-bust tokens,
+// the canary is a serving detail: stripWorkerCanary() removes it everywhere the
+// AI or the user sees a file (the read, search and edit tools, the Code view,
+// GitHub sync, the project download and the published backend). It runs on any
+// file, so a copy of a worker's source is covered too.
 
 window.WORKER_CANARY_PATH = '/__builder/canary';
-const _WORKER_CANARY_RE = / ?router\.get\('\/__builder\/canary', \(\) => '[a-z0-9]+'\); ?/g;
-// A leading 'use strict' stays first, or it would stop being a directive.
-const _WORKER_DIRECTIVE_RE = /^﻿?(?:\s*(["'])use strict\1;?)?/;
+// The canary, and the shape an earlier build wrote (no semicolon in front, a
+// space around it), still found in projects saved then.
+const _WORKER_CANARY_RE = /;router\.get\('\/__builder\/canary', \(\) => '[a-z0-9]+'\);| ?router\.get\('\/__builder\/canary', \(\) => '[a-z0-9]+'\); ?/g;
+// A 'use strict' directive as the first statement, after any comments, ending
+// the statement (a semicolon, a line break or the end of the file).
+const _WORKER_DIRECTIVE_RE = /^﻿?(?:\s+|\/\/[^\n]*|\/\*[\s\S]*?\*\/)*(["'])use strict\1(?=[ \t]*(?:;|\r?\n|$))/;
 
-// Whether `path` is a worker's source, as create_worker names it.
-window.isWorkerSourcePath = function (path) {
-    return /(?:^|\/)workers\/[A-Za-z0-9_-]{1,50}\.js$/.test(String(path || ''));
-};
-
-// Remove the canary route. Safe to run on text that has none.
+// Remove the canary route. Safe to run on any text.
 window.stripWorkerCanary = function (text) {
     if (typeof text !== 'string' || text.indexOf('/__builder/canary') === -1) return text;
     return text.replace(_WORKER_CANARY_RE, '');
@@ -2020,9 +2025,10 @@ window.stripWorkerCanary = function (text) {
 // of any old one.
 window.stampWorkerCanary = function (text, token) {
     const clean = window.stripWorkerCanary(text);
-    const route = "router.get('/__builder/canary', () => '" + token + "');";
-    const at = _WORKER_DIRECTIVE_RE.exec(clean)[0].length;
-    return at ? clean.slice(0, at) + ' ' + route + clean.slice(at) : route + ' ' + clean;
+    const route = ";router.get('/__builder/canary', () => '" + token + "');";
+    const directive = _WORKER_DIRECTIVE_RE.exec(clean);
+    const at = directive ? directive[0].length : (clean.charCodeAt(0) === 0xFEFF ? 1 : 0);
+    return clean.slice(0, at) + route + clean.slice(at);
 };
 
 // ---- Preview sub-resource cache-busting ----------------------------------

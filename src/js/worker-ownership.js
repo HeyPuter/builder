@@ -28,8 +28,11 @@ window.WorkerOwnership = (function () {
     'use strict';
 
     // Tools whose args/results carry a worker NAME that must follow a rename.
-    // list_workers is handled separately (its result nests names in an array).
+    // list_workers is handled separately (its result nests names in an array),
+    // and so are set_secret (its input and result call it `worker`) and the
+    // file tools, whose result reports a worker save as `worker.name`.
     const NAME_TOOLS = ['create_worker', 'delete_worker', 'get_worker'];
+    const SAVE_TOOLS = ['edit', 'multi_edit', 'write'];
 
     // Keep generated names comfortably inside subdomain-label territory (the
     // worker name becomes the host of its URL).
@@ -90,29 +93,48 @@ window.WorkerOwnership = (function () {
         return hits.length === 1 ? hits[0] : null;
     }
 
+    // Six random letters and digits, for a name that must not clash.
+    function randomSuffix() {
+        return Math.random().toString(36).slice(2, 8).padEnd(6, '0');
+    }
+
     // create_worker names a new worker after the name the model asked for plus
-    // a random suffix ('guestbook' -> 'guestbook-k3x9p2'). Worker names are
-    // shared by everyone on Puter (each one's URL, and its 'sandbox-<name>'
-    // app), so a plain name like 'guestbook' is usually someone else's. The
-    // stem is lowercased, as Puter lowercases the name, and short enough that
-    // the published copy's name (liveWorkerName in ui.js) keeps the suffix.
+    // a suffix ('guestbook' -> 'guestbook-k3x9p2'). Worker names are shared by
+    // everyone on Puter (each one's URL, and its 'sandbox-<name>' app), so a
+    // plain name like 'guestbook' is usually someone else's. The suffix is a
+    // hash of the project's directory and the requested name, so the same
+    // request in the same project always names the same worker (a retry or a
+    // repeat redeploys it rather than making another), while two projects, or
+    // two names that differ anywhere, get different ones. The stem is
+    // lowercased, as Puter lowercases the name, and short enough that the
+    // published copy's name (liveWorkerName in ui.js) keeps the suffix.
     const NEW_NAME_STEM_LENGTH = 38;
     function newNameStem(requested) {
         return String(requested || '').toLowerCase().slice(0, NEW_NAME_STEM_LENGTH).replace(/-+$/, '') || 'worker';
     }
+    function requestedName(appDir, requested) {
+        // 32-bit FNV-1a, as six base-36 characters.
+        const s = stripTrailingSlashes(appDir || '') + '\n' + String(requested || '').toLowerCase();
+        let h = 0x811c9dc5;
+        for (let i = 0; i < s.length; i++) {
+            h ^= s.charCodeAt(i);
+            h = Math.imul(h, 0x01000193);
+        }
+        return newNameStem(requested) + '-' + (h >>> 0).toString(36).padStart(7, '0').slice(-6);
+    }
 
     // The worker of this project's `owned` workers that a create_worker call
-    // for `requested` means: the one by that very name, else the one an
-    // earlier call for that name made (the stem plus a suffix). Null when
-    // there is none, or more than one to choose from.
-    function ownedForRequest(owned, requested) {
-        const wanted = String(requested || '').toLowerCase();
+    // for `requested` means: the one by that very name (a worker deployed
+    // before names got a suffix, or the model passing back the full name), or
+    // the one an earlier call for that name made. Null when there is none.
+    function ownedForRequest(owned, appDir, requested) {
+        const wanted = [String(requested || '').toLowerCase(), requestedName(appDir, requested)];
         const usable = (owned || []).filter(w => w && typeof w.name === 'string');
-        const exact = usable.find(w => w.name.toLowerCase() === wanted);
-        if (exact) return exact;
-        const suffixed = new RegExp('^' + escapeRegExp(newNameStem(requested)) + '-[a-z0-9]{6}$');
-        const made = usable.filter(w => suffixed.test(w.name.toLowerCase()));
-        return made.length === 1 ? made[0] : null;
+        for (const name of wanted) {
+            const hit = usable.find(w => w.name.toLowerCase() === name);
+            if (hit) return hit;
+        }
+        return null;
     }
 
     // A fresh account-unique name for a copy's redeployed worker: the original
@@ -213,7 +235,9 @@ window.WorkerOwnership = (function () {
     //     the `name` fields of those tools' results (matched to their tool_use
     //     by id, so an unrelated tool's coincidental `name` field is never
     //     touched). list_workers results get their `workers[].name` entries
-    //     mapped the same way.
+    //     mapped the same way, set_secret its `worker` input and result, the
+    //     file tools the `worker.name` of a worker save, and create_worker's
+    //     note the quoted name in it.
     //
     // Pure: returns a NEW history array; the input is never mutated.
     function rewriteHistory(history, renames) {
@@ -233,7 +257,7 @@ window.WorkerOwnership = (function () {
 
         // Pass 2 — names, structurally.
         const byOldName = new Map(usable.map(r => [r.oldName, r.newName]));
-        const resultKind = new Map(); // tool_use id -> 'named' | 'list'
+        const resultKind = new Map(); // tool_use id -> 'named' | 'list' | 'secret' | 'save'
         for (const msg of out) {
             if (!msg || typeof msg !== 'object') continue;
             if (msg.role === 'assistant') {
@@ -247,6 +271,13 @@ window.WorkerOwnership = (function () {
                         if (b.id != null) resultKind.set(b.id, 'named');
                     } else if (b.name === 'list_workers' && b.id != null) {
                         resultKind.set(b.id, 'list');
+                    } else if (b.name === 'set_secret') {
+                        if (b.input && typeof b.input.worker === 'string' && byOldName.has(b.input.worker)) {
+                            b.input.worker = byOldName.get(b.input.worker);
+                        }
+                        if (b.id != null) resultKind.set(b.id, 'secret');
+                    } else if (SAVE_TOOLS.indexOf(b.name) !== -1 && b.id != null) {
+                        resultKind.set(b.id, 'save');
                     }
                 }
             } else if (msg.role === 'user' && msg.content && typeof msg.content === 'object' &&
@@ -261,7 +292,20 @@ window.WorkerOwnership = (function () {
                 let touched = false;
                 if (kind === 'named') {
                     if (parsed && typeof parsed.name === 'string' && byOldName.has(parsed.name)) {
-                        parsed.name = byOldName.get(parsed.name);
+                        const oldName = parsed.name;
+                        parsed.name = byOldName.get(oldName);
+                        if (typeof parsed.note === 'string') parsed.note = parsed.note.split("'" + oldName + "'").join("'" + parsed.name + "'");
+                        touched = true;
+                    }
+                } else if (kind === 'secret') {
+                    if (parsed && typeof parsed.worker === 'string' && byOldName.has(parsed.worker)) {
+                        parsed.worker = byOldName.get(parsed.worker);
+                        touched = true;
+                    }
+                } else if (kind === 'save') {
+                    const w = parsed && parsed.worker;
+                    if (w && typeof w === 'object' && typeof w.name === 'string' && byOldName.has(w.name)) {
+                        w.name = byOldName.get(w.name);
                         touched = true;
                     }
                 } else if (parsed && Array.isArray(parsed.workers)) {
@@ -284,7 +328,9 @@ window.WorkerOwnership = (function () {
         ownedWorkers: ownedWorkers,
         matchesByName: matchesByName,
         findByName: findByName,
+        randomSuffix: randomSuffix,
         newNameStem: newNameStem,
+        requestedName: requestedName,
         ownedForRequest: ownedForRequest,
         deriveCopyName: deriveCopyName,
         planCopies: planCopies,

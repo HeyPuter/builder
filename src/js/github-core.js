@@ -227,23 +227,23 @@ window.GitHubCore = (function () {
     }
 
     const HTML_RE = /\.html?$/i;
-    const WORKER_SOURCE_RE = /^workers\/[A-Za-z0-9_-]{1,50}\.js$/;
+    const JS_RE = /\.js$/i;
 
     // The bytes a file has in git: a page's preview cache-bust tokens taken out
-    // (deps.stripCacheBust), and a worker source's deploy canary
-    // (deps.stripWorkerCanary), both of which the Code view hides too.
+    // (deps.stripCacheBust), and a script's deploy canary (deps.stripWorkerCanary,
+    // a worker's source or a copy of one), both of which the Code view hides too.
     // Builder's install tags stay, since the Code view shows them. Only a file
     // that carries a token or a canary is touched. Everything else comes back
     // as the SAME bytes object, never re-encoded, so CRLF, a BOM and any byte
     // Builder didn't write survive.
     function normalizeForGit(rel, bytes, deps) {
         const html = HTML_RE.test(String(rel || ''));
-        const worker = !html && WORKER_SOURCE_RE.test(String(rel || ''));
-        if (!bytes || !(html || worker) || !isText(bytes)) return bytes;
+        const script = !html && JS_RE.test(String(rel || ''));
+        if (!bytes || !(html || script) || !isText(bytes)) return bytes;
         const text = new TextDecoder('utf-8', { ignoreBOM: true }).decode(bytes);
         let out = text;
         if (html && out.indexOf('__pcb=') !== -1 && deps && typeof deps.stripCacheBust === 'function') out = deps.stripCacheBust(out);
-        if (worker && out.indexOf('/__builder/canary') !== -1 && deps && typeof deps.stripWorkerCanary === 'function') out = deps.stripWorkerCanary(out);
+        if (script && out.indexOf('/__builder/canary') !== -1 && deps && typeof deps.stripWorkerCanary === 'function') out = deps.stripWorkerCanary(out);
         return out === text ? bytes : new TextEncoder().encode(out);
     }
 

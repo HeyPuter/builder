@@ -69,14 +69,34 @@ After deployment, full propagation may take 5-30 seconds across edge servers. Wo
         // already deployed redeploys it (ownership = the deployed record's
         // source file lives inside this project's directory, see
         // WorkerOwnership.ownedWorkers), and any other call gets a new worker,
-        // named after the request plus a random suffix the account doesn't
-        // hold yet. Another project's live backend is never replaced. The
-        // account's list is read first, so a lookup failure fails CLOSED.
+        // named after the request plus a suffix (WorkerOwnership.requestedName),
+        // the same one every time this project asks for that name. Another
+        // project's live backend is never replaced. The account's list is read
+        // first, so a lookup failure fails CLOSED.
         const all = await puter.workers.list();
-        const mine = WO.ownedForRequest(WO.ownedWorkers(all, root), requested);
-        const taken = (Array.isArray(all) ? all : []).map(w => w && w.name);
-        const name = mine ? mine.name
-            : WO.deriveCopyName(WO.newNameStem(requested), taken, () => Math.random().toString(36).slice(2, 8).padEnd(6, '0'));
+        const mine = WO.ownedForRequest(WO.ownedWorkers(all, root), root, requested);
+        let name = mine ? mine.name : null;
+        if (!name) {
+            // A name another project or another Puter user already holds gets
+            // a random suffix instead. Checked before anything is written, so
+            // a taken name leaves no file behind.
+            const heldElsewhere = async (candidate) => {
+                if (WO.matchesByName(all, candidate).length) return true;
+                if (!puter.apps || typeof puter.apps.get !== 'function') return false;
+                let app;
+                try { app = await puter.apps.get('sandbox-' + candidate); } catch (e) { return false; }
+                if (!app) return false;
+                return !app.owner || app.owner.uuid !== (await puter.getUser()).uuid;
+            };
+            const taken = (Array.isArray(all) ? all : []).map(w => w && w.name);
+            for (let attempt = 0; attempt < 4 && !name; attempt++) {
+                const candidate = attempt === 0 ? WO.requestedName(root, requested)
+                    : WO.deriveCopyName(WO.newNameStem(requested), taken, WO.randomSuffix);
+                if (!candidate) break;
+                if (await heldElsewhere(candidate)) taken.push(candidate);
+                else name = candidate;
+            }
+        }
         if (!name) throw new Error('Could not pick a free name for the worker. Call create_worker again.');
         // Write the worker code to a file in the app directory. Validate the
         // computed path so a name containing "/" or ".." can't escape the project
@@ -98,7 +118,9 @@ After deployment, full propagation may take 5-30 seconds across edge servers. Wo
             result = await puter.workers.create(name, filePath, { sandbox: true });
         } catch (e) {
             // puter.js reads the owner of the 'sandbox-<name>' app, which it
-            // can't see when another Puter user holds the name.
+            // can't see when another Puter user holds the name (one who took it
+            // since the check above). The next call sees it held and picks
+            // another.
             const msg = typeof extractErrorText === 'function' ? extractErrorText(e) : String((e && e.message) || e);
             if (/reading 'uuid'|not owned by you/i.test(msg)) {
                 throw new Error(`The worker name '${name}' is already taken by another Puter user. Call create_worker again, and Builder will pick another name.`);

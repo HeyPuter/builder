@@ -67,9 +67,9 @@ window.tools.push({
             if (/\.html?$/i.test(path) && window.stripPreviewCacheBust) {
                 content = window.stripPreviewCacheBust(content);
             }
-            // The same for a worker's deploy canary, which the save stamps
-            // afresh below.
-            if (window.isWorkerSourcePath?.(path)) content = window.stripWorkerCanary(content);
+            // The same for a deploy canary (any file may carry a copy of one),
+            // which a worker's save stamps afresh below.
+            if (window.stripWorkerCanary) content = window.stripWorkerCanary(content);
 
             // window.applyFileEdit does the matching — exact first, then
             // whitespace- and unicode-flexible fallbacks — and returns the updated
@@ -80,7 +80,7 @@ window.tools.push({
             const hadCRLF = content.includes('\r\n');
             let updated = window.applyFileEdit(content, args.old_content, args.new_content);
             if (hadCRLF) updated = updated.replace(/\n/g, '\r\n');
-            if (worker?.token) updated = window.stampWorkerCanary(updated, worker.token);
+            if (window.stampWorkerSave) updated = window.stampWorkerSave(worker, updated);
             written = updated;
 
             // Don't trust a bare write: confirm the new content actually landed

@@ -291,7 +291,7 @@ check('restores save code first behind a starting mark, wait for sends and publi
     && /restoreNoted = true;/.test(versions) && /_sendSetupInFlight\)\) \{\s*await puter\.ui\.alert\('Please wait for the current task/.test(versions));
 check('a saved backend is stamped with a deploy canary in its one write, then waited on, never redeployed with create()',
     /const deploy = \{ worker: file\.info\.backend \? await window\.workerSaveTarget\?\.\(abs, \{ appDir: file\.appDir \}\) : null, code: null \};\s*\/\/ The publish check and the lock request happen in the same tick/.test(editor)
-    && /if \(deploy\.worker\?\.token\) out = window\.stampWorkerCanary\(out, deploy\.worker\.token\);\s*deploy\.code = out;\s*await window\.writeFileVerified\(abs, out\);/.test(editor)
+    && /out = window\.stampWorkerSave \? window\.stampWorkerSave\(deploy\.worker, out\) : out;\s*deploy\.code = out;\s*await window\.writeFileVerified\(abs, out\);/.test(editor)
     && /window\.workerSaveResult\?\.\(deploy\.worker, deploy\.code\)/.test(editor)
     && !/redeployWorkerSource/.test(editor + versions));
 check('a save re-checks a delete inside the lock, before writing',

@@ -542,9 +542,12 @@
 
     // ----- restore -----------------------------------------------------------
 
-    // A restore rewrites the project's files, but a serverless worker keeps
-    // running the code it was last DEPLOYED with — so the restored frontend
-    // kept talking to the newer backend: undoing a bad backend change left it
+    // A restore puts the project's files back by copying them, and that never
+    // deploys the restored worker code. (Writing a worker's source in place
+    // redeploys the worker, which is how every other save updates it, but a
+    // copy over it replaces the file, and Puter deletes the worker deployed
+    // from it.) Without a redeploy the restored frontend kept talking to the
+    // newer backend, or to none: undoing a bad backend change left it
     // running, and an endpoint the newer version had changed broke the app the
     // user had just rolled back to. Redeploy each of the project's own deployed
     // workers from its (now restored) source file. One whose source this

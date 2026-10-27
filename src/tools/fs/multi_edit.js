@@ -76,9 +76,9 @@ window.tools.push({
             if (/\.html?$/i.test(path) && window.stripPreviewCacheBust) {
                 content = window.stripPreviewCacheBust(content);
             }
-            // The same for a worker's deploy canary, which the save stamps
-            // afresh below.
-            if (window.isWorkerSourcePath?.(path)) content = window.stripWorkerCanary(content);
+            // The same for a deploy canary (any file may carry a copy of one),
+            // which a worker's save stamps afresh below.
+            if (window.stripWorkerCanary) content = window.stripWorkerCanary(content);
 
             // The model always outputs '\n'; if the file used '\r\n' we restore it
             // once, after every edit has been applied in '\n' space.
@@ -99,7 +99,7 @@ window.tools.push({
 
             let updated = working;
             if (hadCRLF) updated = updated.replace(/\n/g, '\r\n');
-            if (worker?.token) updated = window.stampWorkerCanary(updated, worker.token);
+            if (window.stampWorkerSave) updated = window.stampWorkerSave(worker, updated);
             written = updated;
 
             // Confirm the bytes actually persisted (read-back, retry-then-throw)

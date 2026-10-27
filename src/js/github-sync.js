@@ -425,7 +425,9 @@
             }
             const norm = Core.normalizeForGit(rel, bytes, deps);
             files[rel] = { sha: await Core.gitBlobSha(norm, deps.digest), size: bytes.length };
-            if (keepBytes && bytes.length <= NOTE_TEXT_LIMIT) bytesOf[rel] = bytes;
+            // As git has it, so the AI's note never shows a cache-bust token or
+            // a deploy canary.
+            if (keepBytes && bytes.length <= NOTE_TEXT_LIMIT) bytesOf[rel] = norm;
         });
         return { files, generatedManifest, bytesOf };
     }
@@ -853,11 +855,13 @@
             // A pulled deployed backend's source is written with a deploy canary
             // (see workerSaveTarget in tools.js). GitHub never gets it back
             // (normalizeForGit), and the AI's note above keeps the clean text.
+            // Every other writer waits while the pull writes (applyExternalUpdate),
+            // so stamping here keeps the tokens in write order.
             const workerSaves = [];
             for (const w of writes) {
                 const worker = w.text != null ? await window.workerSaveTarget?.(w.path, { appDir }) : null;
-                if (!worker?.token) continue;
-                const code = window.stampWorkerCanary(new TextDecoder('utf-8', { ignoreBOM: true }).decode(w.bytes), worker.token);
+                if (!worker?.url) continue;
+                const code = window.stampWorkerSave(worker, new TextDecoder('utf-8', { ignoreBOM: true }).decode(w.bytes));
                 w.bytes = new TextEncoder().encode(code);
                 workerSaves.push({ worker, code, rel: w.rel });
             }
