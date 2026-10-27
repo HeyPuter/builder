@@ -89,11 +89,12 @@ function recordUsageChunk(context, completion) {
     acc.output += call.output;
     acc.cacheRead += call.cacheRead;
     acc.cacheWrite += call.cacheWrite;
-    acc.lastInput = size;
+    // A usage line with no input counts leaves the last size as it was.
+    if (size > 0) acc.lastInput = size;
     const stats = context.turnStats;
     if (stats) {
         stats.cents = (stats.cents || 0) + cents;
-        stats.lastInput = size;
+        if (size > 0) stats.lastInput = size;
     }
 }
 
@@ -126,7 +127,7 @@ function flushTurnUsage(context) {
     // context is created, so this snapshot always reflects the successful attempt.
     context.turnUsage = {
         cents: acc.cents, input: acc.input, output: acc.output,
-        cacheRead: acc.cacheRead, cacheWrite: acc.cacheWrite, lastInput: acc.lastInput || 0,
+        cacheRead: acc.cacheRead, cacheWrite: acc.cacheWrite,
     };
     const hist = context.chatHistory;
     if (!Array.isArray(hist)) return;
@@ -288,6 +289,9 @@ async function handleMessageStream(stream, context) {
     // Where this attempt's messages begin — bounds revealFinalReply below to
     // text this stream produced, never an earlier turn's.
     const historyStart = Array.isArray(context.chatHistory) ? context.chatHistory.length : 0;
+    // Compaction entries this stream inserted at historyStart, so a second one
+    // goes after the first.
+    let compactionsHere = 0;
 
     // Local ownership matters: recursive tool rounds and stale turns must not
     // tear down another stream's preview. Always dispose before a tool handoff.
@@ -372,13 +376,16 @@ async function handleMessageStream(stream, context) {
             if (completion.type === 'compaction') {
                 // The model summarized the older history (ModelCore compactAt).
                 // Stored as its own entry where this request's output begins,
-                // ahead of its reply's text and tool calls. Puter usually sends
-                // it first, but sends it after the message when Anthropic didn't
-                // stream it. The next request starts from here
-                // (ModelCore.fromLastCompaction). The model stamp says which
-                // vendor can read it back.
+                // ahead of its reply's text and tool calls. Puter writes it
+                // before the usage line, which it writes last as it closes the
+                // stream, so it always arrives before this reply's tool calls
+                // run. Usually it comes first. When Anthropic didn't stream it,
+                // Puter sends it after the message, and inserting at
+                // historyStart still puts it ahead. The next request starts
+                // from here (ModelCore.fromLastCompaction). The model stamp says
+                // which vendor can read it back.
                 if (typeof completion.encrypted_content === 'string' && completion.encrypted_content) {
-                    context.chatHistory.splice(historyStart, 0, {
+                    context.chatHistory.splice(historyStart + compactionsHere++, 0, {
                         role: 'assistant',
                         content: [{ type: 'compaction', id: completion.id, encrypted_content: completion.encrypted_content }],
                         compaction: true,

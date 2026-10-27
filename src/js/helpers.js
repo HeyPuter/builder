@@ -1037,9 +1037,8 @@ window.MARKED_OPTIONS = {
 function prepareHistoryForAI(historyArray, modelId, opts) {
     const modelCore = typeof window !== 'undefined' ? window.ModelCore : null;
     // Send only what the last compaction left (ModelCore.fromLastCompaction).
-    // First, while the isError markers it reads are still on the messages.
-    let copy = structuredClone(historyArray);
-    if (modelCore) copy = modelCore.fromLastCompaction(copy, modelId);
+    // Cut first, so the history it replaces is never copied.
+    const copy = structuredClone(modelCore ? modelCore.fromLastCompaction(historyArray, modelId) : historyArray);
     // Remove messageId and other DOM-only metadata from all messages
     copy.forEach(msg => {
         if (msg.messageId) {

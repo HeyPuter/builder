@@ -114,40 +114,66 @@ window.ModelCore = (function () {
     }
 
     // A compaction item is stored as its own assistant entry, { role:
-    // 'assistant', content: [item], compaction: true, model }, pushed when the
-    // stream hands it over, so it sits right before the reply it came with
-    // (handleMessageStream). It stands in for everything before it.
+    // 'assistant', content: [item], compaction: true, model }, inserted when the
+    // stream hands it over, ahead of the reply it came with (handleMessageStream).
+    // It stands in for everything before it.
     //
-    // Cut a request copy (prepareHistoryForAI's clone, before its other
-    // passes) down to the leading system messages plus the last usable
-    // compaction entry and what follows it. The full history stays on disk for
-    // the chat, Resume and the cost totals. An entry is usable when:
-    // - a model of the same family made it. The payload is opaque and only the
-    //   vendor that wrote it reads it, so after a switch to another vendor the
-    //   full history goes, and the new model compacts it its own way.
-    // - a reply follows it. A round that failed after compacting leaves an
-    //   entry with nothing, or only an error, after it. Its summary is skipped,
-    //   and the next request compacts again.
+    // A request carries the leading system messages, then the last usable
+    // compaction entry and what follows it. Older messages are left out, so
+    // they're never copied or sent. The full history stays on disk for the
+    // chat, Resume and the cost totals. Returns a new array and never changes
+    // the messages it's given. An entry is usable when:
+    // - the target can read it. Same family, it goes as Puter documents it, as
+    //   the first block of the assistant turn after it. A Claude summary is
+    //   plain text in Puter, so another vendor gets it as a text message.
+    //   OpenAI's is encrypted and only OpenAI reads it, so another vendor falls
+    //   back to an older entry it can read, or the full history.
+    // - a message other than a compaction entry follows it, so the request
+    //   doesn't end on it. A round that failed after compacting still left a
+    //   complete summary, so its entry is used once anything follows, such as
+    //   the error card or Resume's note.
     // Every other compaction entry is left out of the request.
+    const SUMMARY_NOTE = '[A summary of the earlier conversation follows. The messages it covers were removed to save space. Read files again before relying on details from it.]\n\n';
     function isCompactionEntry(m) {
         return !!(m && m.compaction === true && m.role === 'assistant');
+    }
+    function compactionBlock(m) {
+        const b = isCompactionEntry(m) && Array.isArray(m.content) ? m.content[0] : null;
+        return b && b.type === 'compaction' && typeof b.encrypted_content === 'string' && b.encrypted_content ? b : null;
+    }
+    function asBlocks(content) {
+        if (typeof content === 'string') return content ? [{ type: 'text', text: content }] : [];
+        if (Array.isArray(content)) return content;
+        return content && typeof content === 'object' ? [content] : [];
     }
     function fromLastCompaction(messages, modelId) {
         if (!Array.isArray(messages)) return messages;
         const family = MODELS[idOrDefault(modelId)].family;
         let cut = -1;
+        let followed = false;
         for (let i = messages.length - 1; i >= 0; i--) {
             const m = messages[i];
-            if (!isCompactionEntry(m) || !get(m.model) || MODELS[m.model].family !== family) continue;
-            const next = messages[i + 1];
-            if (next && next.role === 'assistant' && !next.isError && !isCompactionEntry(next)) { cut = i; break; }
+            if (!isCompactionEntry(m)) { followed = true; continue; }
+            if (!followed || !compactionBlock(m) || !get(m.model)) continue;
+            const from = MODELS[m.model].family;
+            if (from === family || from === 'claude') { cut = i; break; }
         }
         let start = 0;
         while (start < messages.length && messages[start] && messages[start].role === 'system') start++;
-        const kept = cut < 0 ? messages : [...messages.slice(0, start), ...messages.slice(cut)];
-        const out = kept.filter((m, i) => !isCompactionEntry(m) || (cut >= 0 && i === start));
-        for (const m of out) if (m && 'compaction' in m) delete m.compaction;
-        return out;
+        const head = messages.slice(0, start);
+        const rest = messages.slice(cut < 0 ? start : cut + 1).filter((m) => !isCompactionEntry(m));
+        if (cut < 0) return [...head, ...rest];
+        const entry = messages[cut];
+        const block = compactionBlock(entry);
+        if (MODELS[entry.model].family !== family) {
+            return [...head, { role: 'user', content: [{ type: 'text', text: SUMMARY_NOTE + block.encrypted_content }] }, ...rest];
+        }
+        const item = { type: 'compaction', ...(block.id != null ? { id: block.id } : {}), encrypted_content: block.encrypted_content };
+        const next = rest[0];
+        if (next && next.role === 'assistant') {
+            return [...head, { ...next, content: [item, ...asBlocks(next.content)] }, ...rest.slice(1)];
+        }
+        return [...head, { role: 'assistant', content: [item] }, ...rest];
     }
 
     // MCP tool schemas are written by whatever server the user connected.
