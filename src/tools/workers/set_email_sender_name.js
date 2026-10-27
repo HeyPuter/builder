@@ -81,8 +81,13 @@ window.tools.push({
 
         const shown = reset ? `its default name (sandbox-${record.name})` : `"${name}"`;
         const where = live === 'updated' ? 'on the preview and the live site' : 'on the preview';
+        // Publishing carries a chosen name to the live site, never the
+        // default (see WorkerSender.copy), so a reset the live backend missed
+        // only goes through by calling this again.
         const after = live === 'updated' ? ''
-            : live === 'failed' ? ' The live site’s backend couldn’t be changed this time, so its email still uses the old name. Publishing again copies the name to it.'
+            : live === 'failed' ? (reset
+                ? ' The live site’s backend couldn’t be changed this time, so its email still uses the old name. Call set_email_sender_name again with the same empty name to reset it too.'
+                : ' The live site’s backend couldn’t be changed this time, so its email still uses the old name. Publishing again copies the name to it.')
             : ' The site isn’t published yet. Publishing gives the live site the same name by itself.';
         return {
             success: true,
