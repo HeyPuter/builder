@@ -592,7 +592,6 @@ window.GeneratedMedia = (function () {
                 try {
                     await window.withFileLock(projectDest, () => puter.fs.copy(path, dir, { newName: base, overwrite: true }));
                     window.markProjectModified?.(undefined, state?.currentChatId);
-                    window.recordPreviewChange?.(projectDest);
                     window.schedulePreviewRefresh?.();
                     projectPath = projectDest;
                 } catch (e) {

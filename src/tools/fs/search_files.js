@@ -309,6 +309,8 @@ window.tools.push({
                     if (++entriesSeen > L.MAX_ENTRIES) { moreFiles = true; queue.length = 0; break; }
                     const full = dir + '/' + it.name;
                     if (it.is_dir) {
+                        // Puter's own folder (mirrors the readdir tool).
+                        if (it.name === '.puter') continue;
                         if (depth + 1 > L.MAX_DEPTH) { depthCapped = true; continue; }
                         queue.push({ dir: full, depth: depth + 1 });
                         continue;

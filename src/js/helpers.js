@@ -1459,6 +1459,8 @@ async function addDirToZip(dirPath, zip) {
         if (!item.is_dir && /^__deploy_.*\.png$/.test(item.name)) {
             continue;
         }
+        // Skip Puter's own folder (its screenshots, the preview canary).
+        if (item.is_dir && item.name === '.puter') continue;
         if (item.is_dir) {
             await addDirToZip(fullPath, zip.folder(item.name));
         } else {

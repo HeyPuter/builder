@@ -23,8 +23,10 @@ window.tools.push({
         const path = window.assertPathInProject(args.path, state);
         const res = await puter.fs.readdir(path);
         return res
-            // Hide internal CDN-propagation marker files from the model.
+            // Hide internal CDN-propagation marker files and Puter's own
+            // .puter folder (its screenshots, the preview canary) from the model.
             .filter(item => !(!item.is_dir && /^__deploy_.*\.png$/.test(item.name)))
+            .filter(item => !(item.is_dir && item.name === '.puter'))
             .map(item => ({
                 name: item.name,
                 is_dir: item.is_dir,

@@ -636,11 +636,9 @@ function reloadPreviewFrame(url, opts) {
     const keepPending = !!(opts && opts.keepPendingUpdate) && _previewRefreshActiveSeq !== 0;
     if (!keepPending) {
         // A plain reload supersedes any in-flight propagation probe and clears its
-        // overlay; it also satisfies/forgets pending changed-paths (the user is now
-        // looking at current content), preventing the changed-set from accumulating.
+        // overlay.
         _previewRefreshSeq++;
         showPreviewUpdating(false);
-        window.clearPreviewChanges?.();
     }
     // Reload through a FRESH cache-bust token. Pointing the frame at
     // about:blank and back is a navigation, not a forced reload, so the browser
@@ -660,18 +658,25 @@ function reloadPreviewFrame(url, opts) {
 }
 
 // ---- Deploy-propagation readiness ----------------------------------------
-// Published sites are served through a CDN; after files change it takes ~1-5s
-// for the new content to reach the edge the browser hits. Reloading the iframe
-// immediately would show stale content.
+// puter.site sends Cache-Control: no-store, but Cloudflare's edge caches every
+// file anyway and ignores the query string, so a reload straight after a write
+// can show the old build. The edge keeps a separate copy of each file per
+// Origin request header. A write clears only the copy fetched without one,
+// which is the iframe's, 2 to 12 seconds later. A hosting.update clears every
+// copy on the site, with a similar delay. A fetch from this page always sends
+// Origin, so it can't see the iframe's copy, only its own.
 //
-// To know when the live site actually serves the new content, we compare what
-// the edge returns for the entry document against the file on disk. We fetch
-// straight from the browser (puter.site hosting sends Access-Control-Allow-Origin
-// *, so cross-origin reads work) with cache:'no-store' and a unique query each
-// time — exactly the edge the iframe will hit, so the probe tracks what the
-// iframe gets. When the served entry matches the on-disk file (or simply changes
-// from what was first observed), we reload the iframe. A timeout guarantees we
-// always reload.
+// So the refresh uses a canary, .puter/canary.txt, whose content changes on
+// every refresh. It reads the canary (so this page's copy holds the old value),
+// writes a new value, asks for the site-wide clear, and polls. This page's copy
+// can only turn to another value through that clear, and the same clear
+// refreshed the iframe's copy of every file, so the reload comes right then.
+// Measured on 2026-10-27, the clear landed 3.6 to 6.8 seconds after the
+// hosting.update, and a write alone never changed this page's copy. A limit
+// caps the wait. The canary lives in .puter/, the folder Puter keeps its own
+// files in, which the Code view, GitHub sync, the AI's file tools and the zip
+// download all skip. Run `localStorage.debugCache = 1` to log each step to the
+// console as [preview-canary].
 //
 // Separately, before reloading we stamp a version token onto the local href/src
 // in the served HTML (applyPreviewCacheBust) so the browser also re-fetches the
@@ -688,67 +693,25 @@ function bustedUrl(base) {
     return base + (base.includes('?') ? '&' : '?') + '__pv=' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
 }
 
-// Absolute paths of files changed since the last refresh (populated by the tool
-// dispatcher and by version-restore). Used to know WHICH files to verify — a
-// change to only css/js must be detected, not just index.html.
-const _changedPreviewPaths = new Set();
-window.recordPreviewChange = function(absPath) {
-    if (absPath && typeof absPath === 'string') _changedPreviewPaths.add(absPath);
-};
-// Drop all pending changed-paths. Called when the preview context resets (manual
-// reload, chat switch, preview hidden) so stale paths can't accumulate and crowd
-// out a later turn's real changes within the probe cap.
-window.clearPreviewChanges = function() { _changedPreviewPaths.clear(); };
+// The canary file in the published directory, how often the refresh reads it,
+// and how long it waits for the clear before reloading anyway.
+const PREVIEW_CANARY = '.puter/canary.txt';
+const PREVIEW_CANARY_POLL_MS = 500;
+const PREVIEW_CANARY_LIMIT_MS = 15000;
 
-// Build the set of text files to verify on the live site: the entry document
-// plus the text files that actually changed (under the published root). Each
-// target carries its expected (on-disk) content. Capped and prioritized
-// (entry, then css, then js, then the rest) to bound the number of probe fetches.
-const _TEXT_RE = /\.(html?|css|js|mjs|cjs|json|svg|txt|xml|webmanifest)$/i;
-function _extPriority(rel) {
-    if (/(^|\/)index\.html?$/i.test(rel)) return 0;
-    if (/\.css$/i.test(rel)) return 1;
-    if (/\.(m?js|cjs)$/i.test(rel)) return 2;
-    return 3;
-}
-async function buildProbeTargets(baseUrl, dir, changedPaths) {
-    const CAP = 6;
-    const candidates = [];
-    if (dir) candidates.push(dir + '/index.html'); // always verify the entry
-    for (const p of (changedPaths || [])) candidates.push(p);
-
-    const seenRel = new Set();
-    const rels = [];
-    for (const absPath of candidates) {
-        if (!dir || !absPath.startsWith(dir + '/')) continue; // not served by this site
-        const rel = absPath.slice(dir.length + 1);
-        if (!rel || seenRel.has(rel) || !_TEXT_RE.test(rel)) continue;
-        seenRel.add(rel);
-        rels.push(rel);
-    }
-    rels.sort((a, b) => _extPriority(a) - _extPriority(b));
-
-    // Read the candidates a batch at a time, in priority order: as many as
-    // there are slots left, in parallel (they were read one after another,
-    // a round trip each, on every preview update). A file that can't be read
-    // (deleted / unreadable / binary) frees its slot for the next candidate.
-    const targets = [];
-    for (let i = 0; i < rels.length && targets.length < CAP;) {
-        const batch = rels.slice(i, i + (CAP - targets.length));
-        i += batch.length;
-        const read = await Promise.all(batch.map(rel =>
-            puter.fs.read(dir + '/' + rel).then(b => b.text()).then(text => ({ rel, text }), () => null)));
-        for (const r of read) {
-            if (!r) continue;
-            const url = baseUrl + r.rel.split('/').map(encodeURIComponent).join('/');
-            targets.push({ url, expected: (r.text || '').trim() });
-        }
-    }
-    return targets;
+// The canary as this page's copy at the edge holds it, or null when it isn't
+// there (a 404 is only cached briefly and can expire on its own, so it is no
+// old value to watch) or the fetch fails.
+async function readPreviewCanary(baseUrl) {
+    try {
+        const resp = await fetch(bustedUrl(baseUrl + PREVIEW_CANARY), { cache: 'no-store', signal: _probeAbortSignal(5000) });
+        if (!resp.ok) return null;
+        return (await resp.text()).trim();
+    } catch (e) { return null; }
 }
 
 // Per-request timeout for a probe fetch, so a single stalled request can't block
-// the poll loop from re-checking the overall timeout. Degrades to no signal on
+// the poll loop from re-checking its limit. Degrades to no signal on
 // environments without AbortSignal.timeout.
 function _probeAbortSignal(ms) {
     try {
@@ -757,40 +720,6 @@ function _probeAbortSignal(ms) {
         }
     } catch (e) { /* fall through */ }
     return undefined;
-}
-
-// Poll each target on the live site until it serves its expected on-disk content
-// (or changes from what was first observed). Returns true once ALL targets are
-// fresh, false on timeout. Each target stops being fetched once confirmed fresh,
-// to bound the number of proxy fetches. mySeq lets a newer op abort early.
-async function probeFilesFresh(targets, mySeq, opts) {
-    opts = opts || {};
-    const interval = opts.interval || 700;
-    const timeout = opts.timeout || 9000;
-    const start = Date.now();
-    const initial = new Map();
-    const fresh = new Set();
-    while (Date.now() - start < timeout) {
-        if (mySeq !== _previewRefreshSeq) return false; // superseded
-        for (const t of targets) {
-            if (fresh.has(t.url)) continue;
-            let cur;
-            try {
-                const resp = await fetch(bustedUrl(t.url), { cache: 'no-store', signal: _probeAbortSignal(5000) });
-                cur = await resp.text();
-            } catch (e) { cur = undefined; }
-            if (mySeq !== _previewRefreshSeq) return false;
-            if (typeof cur === 'string') {
-                const trimmed = cur.trim();
-                if (trimmed === t.expected) fresh.add(t.url);
-                else if (!initial.has(t.url)) initial.set(t.url, trimmed);
-                else if (trimmed !== initial.get(t.url)) fresh.add(t.url);
-            }
-        }
-        if (fresh.size >= targets.length) return true;
-        await new Promise(r => setTimeout(r, interval));
-    }
-    return false;
 }
 
 // Whether the live preview host already stops the BROWSER from serving stale
@@ -962,8 +891,8 @@ async function refreshPreviewWhenReady() {
     const $frame = $('.preview-frame');
     const baseUrl = window.currentPreviewUrl;
     if (!$frame.length || !baseUrl) return;
-    // The project this refresh belongs to. Read once, here: the wait below is
-    // ten seconds or more, and a load of another chat can reassign the global
+    // The project this refresh belongs to. Read once, here: the wait below can
+    // take seconds, and a load of another chat can reassign the global
     // before it ends (loadChat only tears the pane down when the target has no
     // preview of its own).
     const ownerChatId = currentChatId;
@@ -986,9 +915,6 @@ window.refreshPreviewWhenReady = refreshPreviewWhenReady;
 async function runPreviewRefresh($frame, baseUrl, ownerChatId, seq) {
     showPreviewUpdating(true);
 
-    // Figure out which files to verify on the live site (entry + changed files).
-    // Snapshot the changed-set WITHOUT clearing it — if this refresh is
-    // superseded before it commits, the paths must remain for the next refresh.
     const dir = publishedRootDir();
 
     // Stamp cache-bust tokens onto the served HTML's local assets so the browser
@@ -996,13 +922,13 @@ async function runPreviewRefresh($frame, baseUrl, ownerChatId, seq) {
     // host already returns a no-store/no-cache policy: the browser then never
     // serves stale sub-resources, so stamping is redundant — and skipping it
     // removes the only background writer that races AI edits (see withFileLock).
-    // Best-effort; never blocks the reload. Must run before buildProbeTargets so
-    // the probe verifies (and the iframe loads) the same HTML the server serves.
+    // Best-effort; never blocks the reload. Must run before the canary
+    // below, so the clear it proves covers the stamped pages too.
     // Make the app installable: generate/refresh its manifest.json, icons and
     // the <head> block that links them (see js/manifest.js). Runs BEFORE the
     // cache-bust pass, so the tags it writes get their tokens in the same sweep,
-    // and before the origin re-sync below, so the new files ship with this
-    // cycle. Skips its own IO when nothing about the app's identity changed.
+    // and before the canary below, so the clear it proves covers the new files.
+    // Skips its own IO when nothing about the app's identity changed.
     // Best-effort; never blocks the reload.
     try {
         await window.ensureAppManifest?.(dir, {
@@ -1018,75 +944,70 @@ async function runPreviewRefresh($frame, baseUrl, ownerChatId, seq) {
         if (seq !== _previewRefreshSeq) return; // superseded while stamping
     }
 
-    // Re-sync the live host to the current directory. puter.site serves the
-    // snapshot captured when the subdomain was published (puter.hosting.create);
-    // editing files in the directory does NOT update the live site on its own —
-    // so without this, every edit after the first publish stays invisible on the
-    // live site (and therefore in this preview). Re-pointing the subdomain at the
-    // same directory pushes the current on-disk files to the origin. Runs AFTER
-    // applyPreviewCacheBust so the synced copy includes the freshly stamped
-    // tokens. Best-effort: skipped for non-puter.site addresses; a failure just
-    // leaves this cycle serving stale (the next refresh retries).
+    // The canary (see the top of this section). Every step comes after the
+    // project's writes above, so the clear it proves covers all of them.
+    // 1. Read it, so this page's copy holds the old value. A project without
+    //    one yet gets one first and reads that. With no old value at all (a
+    //    failed fetch or write) a later change proves nothing.
+    // 2. Write a new value.
+    // 3. Ask for the site-wide clear. hosting.update to the directory the
+    //    subdomain already serves changes nothing else.
+    // 4. Poll until this page's copy holds anything but the old value, then
+    //    reload. Any other value counts, so another tab's refresh on the same
+    //    project, whose own clear is just as good, can't hold this one up. If
+    //    it never changes, reload at the limit.
+    // Skipped for non-puter.site addresses, which only get the limit.
     const sub = previewSubdomain(baseUrl);
-    if (sub && dir) {
-        try { await puter.hosting.update(sub, dir); } catch (e) { /* best effort */ }
-        if (seq !== _previewRefreshSeq) return; // superseded while re-syncing
+    const log = (...a) => {
+        try { if (localStorage.getItem('debugCache')) console.log('[preview-canary]', ...a); } catch (e) { /* no storage */ }
+    };
+    const canaryPath = dir + '/' + PREVIEW_CANARY;
+    const t0 = Date.now();
+    let before = null;
+    if (sub && dir && typeof fetch === 'function') {
+        before = await readPreviewCanary(baseUrl);
+        if (seq !== _previewRefreshSeq) return; // superseded while reading the canary
+        if (before === null) {
+            try {
+                await puter.fs.write(canaryPath, 'start', { createMissingParents: true });
+                before = await readPreviewCanary(baseUrl);
+            } catch (e) { /* no old value, so the limit */ }
+            if (seq !== _previewRefreshSeq) return; // superseded while creating the canary
+        }
+        log('old value', before === null ? '(none, will wait for the limit)' : before);
+        const next = Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+        try {
+            await puter.fs.write(canaryPath, next, { createMissingParents: true });
+            log('wrote', next);
+        } catch (e) { before = null; log('write failed', e); }
+        if (seq !== _previewRefreshSeq) return; // superseded while writing the canary
+        try {
+            await puter.hosting.update(sub, dir);
+            log('asked for the clear', (Date.now() - t0) + 'ms');
+        } catch (e) { before = null; log('hosting.update failed', e); }
+        if (seq !== _previewRefreshSeq) return; // superseded while asking for the clear
     }
-    // The propagation floor below is measured from the re-sync (see there).
-    // It started only after the probe targets had been read, so those reads
-    // added to every update instead of overlapping the wait.
-    const waitStart = Date.now();
-
-    const changedPaths = Array.from(_changedPreviewPaths);
-    const canProbe = typeof fetch === 'function';
-    let targets = [];
-    if (canProbe) {
-        targets = await buildProbeTargets(baseUrl, dir, changedPaths);
+    const giveUpAt = Date.now() + PREVIEW_CANARY_LIMIT_MS;
+    let flipped = false;
+    while (Date.now() < giveUpAt) {
+        if (before !== null) {
+            const seen = await readPreviewCanary(baseUrl);
+            if (seq !== _previewRefreshSeq) return; // superseded while polling
+            if (seen !== null && seen !== before) { flipped = true; break; }
+        }
+        await new Promise(r => setTimeout(r, Math.min(PREVIEW_CANARY_POLL_MS, Math.max(0, giveUpAt - Date.now()))));
+        if (seq !== _previewRefreshSeq) return; // superseded while waiting
     }
-    if (seq !== _previewRefreshSeq) return; // superseded while reading
-
-    // Hard floor on the propagation wait: never reload until at least
-    // MIN_PROPAGATION_DELAY_MS has elapsed since the origin re-sync, regardless of
-    // how the probe turns out (fast confirm, full timeout, or nothing to probe at
-    // all). puter.site only serves freshly-synced files from the edge after its
-    // cache cycle turns over, so a probe that reports "fresh" early — or the
-    // no-probe path — must not let us reload before the change has reliably
-    // propagated. Measured from just after the re-sync (waitStart, above), so
-    // it is a true post-sync settling window.
-    const MIN_PROPAGATION_DELAY_MS = 10000;
-
-    if (canProbe && targets.length > 0) {
-        // The origin was just re-synced, but puter.site caches each file for ~20s
-        // (Cache-Control: max-age=20) and the edge ignores our cache-bust query,
-        // so the freshly-synced content can take up to a full cache cycle to
-        // surface at the edge. Wait long enough to catch it before reloading —
-        // otherwise we'd reload stale and not refresh again until the next turn.
-        await probeFilesFresh(targets, seq, { interval: 700, timeout: 22000 });
-    }
-    if (seq !== _previewRefreshSeq) return; // superseded during the probe
-
-    // Top up to the minimum delay: add back whatever the probe (or the no-probe
-    // path) did not already consume, so the total settling time is never under
-    // the floor — this is the "10s regardless of any logic" guarantee.
-    const waited = Date.now() - waitStart;
-    if (waited < MIN_PROPAGATION_DELAY_MS) {
-        await new Promise(r => setTimeout(r, MIN_PROPAGATION_DELAY_MS - waited));
-    }
+    log(flipped ? 'cleared, reloading' : 'no clear seen, reloading at the limit', (Date.now() - t0) + 'ms');
 
     // Bail if a newer reload/refresh/chat-switch happened, or the live preview
     // URL changed under us — never reload the iframe to a now-stale target.
-    // (We did NOT clear the changed-set, so the superseding refresh inherits it.)
     if (seq !== _previewRefreshSeq || window.currentPreviewUrl !== baseUrl) {
         if (seq === _previewRefreshSeq) showPreviewUpdating(false);
         return;
     }
 
-    // Committed to reloading: now drop the paths we verified (leave any recorded
-    // by a concurrently-running turn for its own upcoming refresh).
-    changedPaths.forEach(p => _changedPreviewPaths.delete(p));
-
-    // Reload the iframe with a unique query so the browser re-fetches the page
-    // (the probe already confirmed the edge serves fresh content for such URLs).
+    // Reload the iframe with a unique query so the browser re-fetches the page.
     const url = bustedUrl(baseUrl);
     $frame.data('preview-url', url);
     // Hide only if we're still the latest op, so a stale timer can't uncover a
@@ -1268,8 +1189,6 @@ window.hideAppPreview = function() {
     window.currentPublishedAt = null;
     previewRefreshPending = false;
     showPreviewUpdating(false);
-    // Forget pending changed-paths so they don't carry into the next chat/preview.
-    window.clearPreviewChanges?.();
     // Drop any pending click-to-edit selection (chip + armed target) — its target
     // element belongs to the preview we're tearing down.
     window.clearEditTarget?.();
