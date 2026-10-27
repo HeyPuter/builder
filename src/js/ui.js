@@ -2062,9 +2062,10 @@ window.closePublishPanel = closePublishPanel;
 // The published deployment's source lives in the published container, not the
 // app directory, so the project's worker tools — which all scope by app-dir
 // ownership — can neither list, redeploy nor delete the live backend: the AI
-// cannot reach production by naming it. The one exception is set_secret with
-// live, which saves a key into the live backend's own store and can't touch
-// its code.
+// cannot reach production by naming it. The exceptions are set_secret with
+// live, which saves a key into the live backend's own store, and
+// set_email_sender_name, which renames the live backend's app to match the
+// preview's. Neither can touch its code.
 //
 // What is NOT split is state. Both deployments run as the same account and use
 // whatever storage their code names, so a published app keeps reading and
@@ -2143,6 +2144,17 @@ async function deployPublishedWorkers(chatId, appDir, releaseDir, srcPath = appD
                 { type: 'warning', key: 'publish-keys', throttleMs: 5000, duration: 10000 });
             }
         } catch (e) { /* copy reports its own failures */ }
+        // The sender name the user chose for this backend's email goes live
+        // too (see worker-sender.js). A backend on its default name copies
+        // nothing. A live backend without the name still publishes, with a
+        // warning, since its mail still goes out, under the old name.
+        try {
+            const sender = await window.WorkerSender?.copy(worker.name, liveName);
+            if (sender && !sender.ok) {
+                window.showToast?.('Email from your live site still uses its old sender name. Publish again in a moment.',
+                    { type: 'warning', key: 'publish-sender', throttleMs: 5000, duration: 10000 });
+            }
+        } catch (e) { /* the warning above covers it */ }
         renames.push({
             oldName: worker.name, newName: liveName,
             oldUrl: worker.url, newUrl: created.url, newFilePath: sourcePath,
@@ -2429,6 +2441,8 @@ async function retirePublishedWorkers(chatId, keepNames) {
         // name, in any project, would find them, and a live key the user
         // saved for this one would stay there for good.
         try { await window.WorkerSecrets?.clear(worker.name); } catch (e) { /* best effort */ }
+        // Its sender name too, for the same reason (see worker-sender.js).
+        try { await window.WorkerSender?.clear(worker.name); } catch (e) { /* best effort */ }
         try { await puter.workers.delete(worker.name); }
         catch (e) { console.warn('Publish: could not remove the retired backend', worker.name, e); continue; }
         try { await puter.fs.delete(worker.file_path); } catch (e) { /* best effort */ }

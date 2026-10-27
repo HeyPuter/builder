@@ -23,6 +23,7 @@ function check(name, cond, detail) {
 
 const appSource = fs.readFileSync(new URL('../src/js/app.js', import.meta.url), 'utf8');
 const ownershipSource = fs.readFileSync(new URL('../src/js/worker-ownership.js', import.meta.url), 'utf8');
+const senderSource = fs.readFileSync(new URL('../src/js/worker-sender.js', import.meta.url), 'utf8');
 
 function extract(src, signature) {
     const a = src.indexOf(signature);
@@ -42,12 +43,16 @@ const APP_DIR = '/alice/AppData/builder/chat1';
 function notFound() { const e = new Error('not found'); e.code = 'subject_does_not_exist'; return e; }
 
 // failing: which step rejects, and with what kind of error.
-async function run({ failing = null, notFoundOnly = false, ...opts } = {}) {
+async function run({ failing = null, notFoundOnly = false, senderTitle = null, failRename = false, ...opts } = {}) {
     const sites = new Set(['draft-one', 'pub-one']);
     const workers = new Map([['api-a', { name: 'api-a', file_path: APP_DIR + '/workers/api-a.js' }]]);
     const dirs = new Set([APP_DIR, '/alice/AppData/builder/.published/chat1', 'chat-history/chat1.json']);
     const alerts = [];
     const toasts = [];
+    // The worker's sandbox app, whose title is its email sender name
+    // (worker-sender.js), and every rename.
+    const app = { uid: 'uid-api-a', name: 'sandbox-api-a', title: senderTitle || 'sandbox-api-a' };
+    const renames = [];
     const boom = step => {
         if (failing !== step) return null;
         return notFoundOnly ? notFound() : new Error('service unavailable');
@@ -96,6 +101,19 @@ async function run({ failing = null, notFoundOnly = false, ...opts } = {}) {
                     if (!workers.has(name)) throw notFound();
                     workers.delete(name);
                 },
+                get: async name => (workers.has(name) ? { name, app_uid: 'uid-' + name } : null),
+            },
+            apps: {
+                get: async name => {
+                    if (name !== app.name) throw { error: { code: 'entity_not_found' } };
+                    return { ...app };
+                },
+                update: async (name, attrs) => {
+                    if (failRename) throw new Error('rename failed');
+                    renames.push([name, attrs.title]);
+                    app.title = attrs.title;
+                    return { ...app };
+                },
             },
             fs: {
                 delete: async path => {
@@ -109,6 +127,7 @@ async function run({ failing = null, notFoundOnly = false, ...opts } = {}) {
     };
     vm.createContext(sandbox);
     vm.runInContext(ownershipSource, sandbox, { filename: 'src/js/worker-ownership.js' });
+    vm.runInContext(senderSource, sandbox, { filename: 'src/js/worker-sender.js' });
     vm.runInContext(CODE, sandbox, { filename: 'src/js/app.js' });
 
     let threw = false;
@@ -122,6 +141,8 @@ async function run({ failing = null, notFoundOnly = false, ...opts } = {}) {
         sitesLeft: [...sites].sort(),
         workersLeft: [...workers.keys()],
         dirsLeft: [...dirs].sort(),
+        senderTitle: app.title,
+        renames,
     };
 }
 
@@ -134,6 +155,20 @@ check('control: sites and workers are gone',
 check('control: files are gone', ok.dirsLeft.length === 0, JSON.stringify(ok.dirsLeft));
 check('control: tombstoned so a late save cannot resurrect it', ok.tombstoned === true);
 check('control: no error shown', ok.alerts.length === 0 && ok.threw === false, JSON.stringify(ok.alerts));
+
+check('control: a worker on its default sender name is never renamed', ok.renames.length === 0, JSON.stringify(ok.renames));
+
+// ---- The email sender name is reset before the worker goes ------------------
+// Puter reuses a sandbox app by worker name, so a later worker with this name
+// would otherwise send under it (worker-sender.js).
+{
+    const r = await run({ senderTitle: 'Makor Family Portal' });
+    check('sender: the worker\'s sender name goes back to the default',
+        r.senderTitle === 'sandbox-api-a' && r.workersLeft.length === 0 && r.stillListed === false, JSON.stringify(r));
+    const f = await run({ senderTitle: 'Makor', failRename: true });
+    check('sender: a failed reset never blocks the delete',
+        f.workersLeft.length === 0 && f.stillListed === false && f.alerts.length === 0 && f.threw === false, JSON.stringify(f));
+}
 
 // ---- Each cleanup step failing in turn --------------------------------------
 for (const [step, label, survives] of [
