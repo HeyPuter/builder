@@ -192,22 +192,15 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
             window.markProjectModified?.(toolCall.name, c.currentChatId);
             // Counted for the Usage Limit Hit event (limitHitTurnProps).
             if (c.turnStats && toolCall.name === 'update_preview') c.turnStats.previewChecks++;
-            // Record the ACTUAL file paths each tool writes, so the preview can
-            // verify exactly those files have propagated to the live site before
-            // reloading. rename/copy/move land the file at a COMPUTED path (not
-            // the raw input): rename -> dir(path)/new_name, copy/move -> dest/basename.
-            // Only tools that write: the probe verifies at most six files, and
-            // the paths the model merely read (ReadTextFile, ViewImage, stat,
-            // SearchFiles…) took those slots, so a file that DID change could go
-            // unverified and the preview reloaded before it had propagated.
-            // Recorded as the path the tool ACTED on, not as the model spelled
-            // it: the tools resolve a relative path against the project
-            // directory and normalise ./, ../ and // (assertPathInProject),
-            // while the probe matches recorded paths against the site's
-            // directory by exact prefix. A file written as "styles.css" was
-            // recorded as "styles.css", matched nothing, and went unverified —
-            // the preview reloaded on the floor delay while the edge still
-            // served the old stylesheet, and then verified that stale page.
+            // Record the ACTUAL file paths each tool writes, as the preview's
+            // pending changes (see recordPreviewChange in ui.js). rename/copy/move
+            // land the file at a COMPUTED path, not the raw input. rename ->
+            // dir(path)/new_name, copy/move -> dest/basename. Only tools that
+            // write, so a path the model merely read (ReadTextFile, ViewImage,
+            // stat, SearchFiles…) is never queued as a change. Recorded as the
+            // path the tool ACTED on, not as the model spelled it. The tools
+            // resolve a relative path against the project directory and
+            // normalise ./, ../ and // (assertPathInProject).
             if (!window.isMutatingTool || window.isMutatingTool(toolCall.name)) {
                 try {
                     const _inp = toolCall.input || {};
@@ -251,6 +244,21 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
     // owns the chat) persists what this round added.
     if (toolCalls.length > 0 && !isAborted(c.abortController) && !isStaleTurn(c)) {
         scheduleSaveCurrentChat(c);
+    }
+
+    // SuggestNextSteps is the turn's final action (see suggest.js), and its
+    // result is only {success:true}. When the reply that called it already
+    // carried the summary, another round only made the model repeat it, so the
+    // user saw it twice. The turn ends here then. A reply with no text still
+    // gets the round, since the model sometimes writes its summary after.
+    const lastCall = toolCalls[toolCalls.length - 1];
+    if (lastCall && lastCall.name === 'SuggestNextSteps' && textContent && textContent.trim()
+        && !isAborted(c.abortController) && !isStaleTurn(c)) {
+        const result = c.chatHistory.find(m => m && m.role === 'user' && m.content
+            && m.content.type === 'tool_result' && m.content.tool_use_id === lastCall.id);
+        if (result && !result.content.is_error) {
+            return { history: c.chatHistory, messageContent: '' };
+        }
     }
 
     // Bail BEFORE touching the spinner. showSpinner() hands back whatever dots

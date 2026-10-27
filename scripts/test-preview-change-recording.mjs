@@ -1,12 +1,10 @@
 import fs from 'node:fs';
 
 // ---- Regression guard: only written files are queued for preview checking ----
-// After every tool call the dispatcher records the paths it touched; before the
-// preview reloads, those files are probed on the live site (at most six, see
-// buildProbeTargets in ui.js) until they serve the new bytes. The recording ran
-// for EVERY tool, so the files the model merely read (ReadTextFile, ViewImage,
-// stat, SearchFiles…) took probe slots, and a file that actually changed could
-// go unverified — the preview then reloaded before it had propagated.
+// After every tool call the dispatcher records the paths it wrote, as the
+// preview's pending changes (see recordPreviewChange in ui.js). The recording
+// once ran for EVERY tool, so the files the model merely read (ReadTextFile,
+// ViewImage, stat, SearchFiles…) were queued as changes too.
 //
 // Runs the real handleToolCalls from tools.js against stubs, with the real
 // isMutatingTool from versions.js.
@@ -66,9 +64,8 @@ check('files the model only read are not queued for checking',
 check('files the model wrote are queued, at the path they landed',
     recorded.includes('/u/app/index.html') && recorded.includes('/u/app/new.js') && recorded.includes('/u/app/app.js'), JSON.stringify(recorded));
 
-// The model may spell a path relatively or with ./ ../ //; the tools resolve
-// it against the project, and the probe matches by exact prefix — so what is
-// recorded must be the resolved path, or the file goes unverified.
+// The model may spell a path relatively or with ./ ../ //. The tools resolve
+// it against the project, so what is recorded must be the resolved path.
 recorded.length = 0;
 win.__reset();
 await handleToolCalls([

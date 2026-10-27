@@ -1027,14 +1027,14 @@
     }
 
     // One preview refresh at a time, plus one more if a save landed while it
-    // ran (that save's bytes may have missed its sync). Each refresh waits at
-    // least 10 seconds for puter.site to serve the new files.
+    // ran (its reload may come before that save is live). Each refresh waits
+    // until puter.site serves the new files, at most 15 seconds.
     let _refreshRunning = false;
     let _refreshAgain = false;
     async function refreshPreview() {
         if (_refreshRunning) { _refreshAgain = true; return; }
         _refreshRunning = true;
-        setStatus('Saved. Updating the preview, usually 10 to 25 seconds.', 'busy');
+        setStatus('Saved. Updating the preview, usually a few seconds.', 'busy');
         try {
             do {
                 _refreshAgain = false;
