@@ -31,9 +31,9 @@ window.tools.push({
     exec: async function (args, state) {
         const WSN = window.WorkerSender;
         // What the AI should do when the name can't be set.
-        function refusal(reason, raw, workerName) {
+        function refusal(reason, length, workerName) {
             const why = {
-                'too-long': `That name is ${String(raw).trim().length} characters long, and a sender name can be at most 78. Ask the user for a shorter one.`,
+                'too-long': `That name is ${length} characters long, and a sender name can be at most 78. Ask the user for a shorter one.`,
                 'bad-chars': 'A sender name can\'t contain @, quotes, backslashes, angle brackets or line breaks. It\'s only the name people see, not an email address, so ask the user for a name without them.',
                 'no-app': 'This backend doesn\'t run as an app of its own, so its sender name can\'t be set. Tell the user in one short sentence.',
                 forbidden: `Puter didn't let Builder rename this backend, probably because it was first set up outside Builder. Tell the user they can set the name themselves: open the Dev Center at https://puter.com/app/dev-center, find the app named sandbox-${workerName || 'the worker name'}, change its title to the name they want, and save.`,
@@ -49,7 +49,7 @@ window.tools.push({
         let name = null;
         if (!reset) {
             const c = WSN.check(raw);
-            if (!c.ok) return { success: false, error: refusal(c.reason, raw) };
+            if (!c.ok) return { success: false, error: refusal(c.reason, c.length) };
             name = c.name;
         }
         // Only this project's own backends, by the same ownership rule the
@@ -65,7 +65,7 @@ window.tools.push({
         }
 
         const r = await WSN.set(record.name, reset ? '' : name);
-        if (!r.ok) return { success: false, error: refusal(r.reason, raw, record.name) };
+        if (!r.ok) return { success: false, error: refusal(r.reason, r.length, record.name) };
 
         // The published copy of this backend, owned the way publishing owns
         // it: deployed from this project's published folder.

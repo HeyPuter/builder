@@ -36,13 +36,14 @@
 
     // A sender name as the user wrote it, checked. Resolves
     // { ok: true, name } with whitespace tidied, or { ok: false, reason } with
-    // reason 'empty', 'too-long' or 'bad-chars'.
+    // reason 'empty', 'too-long' (with the tidied name's length) or
+    // 'bad-chars'.
     function check(raw) {
         const s = String(raw == null ? '' : raw);
         if (BAD_CHARS.test(s.replace(/[\t\n\r]/g, ' '))) return { ok: false, reason: 'bad-chars' };
         const name = s.replace(/\s+/g, ' ').trim();
         if (!name) return { ok: false, reason: 'empty' };
-        if (name.length > MAX_LENGTH) return { ok: false, reason: 'too-long' };
+        if (name.length > MAX_LENGTH) return { ok: false, reason: 'too-long', length: name.length };
         return { ok: true, name };
     }
 
