@@ -89,6 +89,7 @@
     function isHtml(abs) { return /\.html?$/i.test(abs); }
     function esc(s) { return typeof htmlEscape === 'function' ? htmlEscape(s) : String(s).replace(/[&<>"']/g, (c) => '&#' + c.charCodeAt(0) + ';'); }
     function stripTokens(abs, text) {
+        if (window.stripWorkerCanary) text = window.stripWorkerCanary(text);
         return isHtml(abs) && window.stripPreviewCacheBust ? window.stripPreviewCacheBust(text) : text;
     }
     function deleted(chatId) { return typeof _deletedChatIds !== 'undefined' && _deletedChatIds.has(chatId); }
@@ -896,6 +897,9 @@
         const before = file.buf.base;
         file.buf = C.reduceBuffer(file.buf, { type: 'saving' });
         renderChrome();
+        // A deployed backend's source goes live on save (see tools.js). Looked
+        // up before the publish check below, which must stay in the lock's tick.
+        const deploy = { worker: file.info.backend ? await window.workerSaveTarget?.(abs, { appDir: file.appDir }) : null, code: null };
         // The publish check and the lock request happen in the same tick: a
         // publish starting now either sees this save in its drain or this
         // save sees it and stops.
@@ -927,6 +931,8 @@
                 let out = text;
                 if (file.crlf) out = out.replace(/\n/g, '\r\n');
                 if (file.bom) out = '﻿' + out;
+                out = window.stampWorkerSave ? window.stampWorkerSave(deploy.worker, out) : out;
+                deploy.code = out;
                 await window.writeFileVerified(abs, out);
                 // Inside the lock, right after the bytes landed: a snapshot can
                 // never count this save as captured before it is, and a publish
@@ -969,12 +975,12 @@
         markUnsavedLines(file);
         renderTabs();
         renderTree();
-        afterSave(file, abs, before, text, opts);
+        afterSave(file, abs, before, text, opts, deploy);
         renderChrome();
         return true;
     }
 
-    function afterSave(file, abs, before, after, opts) {
+    function afterSave(file, abs, before, after, opts, deploy) {
         const chatId = file.chatId;
         if (deleted(chatId)) return;
         window.refreshPublishButton?.();
@@ -997,7 +1003,7 @@
         window.cancelPendingAutoFixes?.();
         if (S.heldErrors.delete(chatId)) renderBars();
         track('Code Saved', { language: file.info.language || file.info.kind, backend: !!file.info.backend });
-        if (file.info.backend) redeployBackend(file, abs);
+        if (deploy && deploy.worker) waitForBackend(abs, deploy);
         if (opts.turnSetup || opts.deferRefresh) {
             // The turn that is about to start, or the publish, refreshes the
             // preview itself and covers this file there.
@@ -1009,17 +1015,22 @@
         }
     }
 
-    async function redeployBackend(file, abs) {
-        setStatus('Saved. Updating your app’s backend, which can take up to 30 seconds.', 'busy');
-        const r = await window.redeployWorkerSource?.(file.appDir, abs);
-        if (r && r.failed && !r.name) {
-            setStatus('Saved, but Builder couldn’t check whether the backend needs updating. Save again to retry.', 'warn');
+    // Puter redeploys the backend from the saved file. The save carried a
+    // canary, and this waits until the backend serves it (see tools.js).
+    async function waitForBackend(abs, deploy) {
+        setStatus('Saved. Updating your app’s backend.', 'busy');
+        const r = await window.workerSaveResult?.(deploy.worker, deploy.code);
+        if (!r) { setStatus('Saved.', 'ok'); return; }
+        if (!r.name) {
+            setStatus('Saved, but Builder couldn’t check whether the backend picked up the change. Save again to retry.', 'warn');
             return;
         }
-        if (!r || !r.name) { setStatus('Saved.', 'ok'); return; }
-        if (r.failed) {
-            setStatus('Saved, but the backend couldn’t be updated. It is still running the previous code.', 'warn');
-            toast('Saved ' + baseName(abs) + ', but the backend couldn’t be updated. Save again to retry.', { type: 'warning', duration: 8000 });
+        if (!r.live) {
+            const why = r.error
+                ? 'the code has an error (' + r.error + '), so the backend is still running the previous code.'
+                : 'the backend hasn’t picked up the change yet. It may still be updating.';
+            setStatus('Saved, but ' + why, 'warn');
+            toast('Saved ' + baseName(abs) + ', but ' + why, { type: 'warning', duration: 8000 });
             return;
         }
         if (!S.status || S.status.kind !== 'busy') setStatus('Saved. The backend is updated.', 'ok');
@@ -1350,7 +1361,7 @@
                 out.push(bar('info', '<span>This file was deleted or moved. Close it, or copy what you need first.</span>'));
             }
             if (file.readOnlyReason) out.push(bar('info', `${ICON.lock}<span>${esc(READ_ONLY_REASONS[file.readOnlyReason])}</span>`));
-            else if (file.info.backend && S.access === 'edit') out.push(bar('note', `${ICON.cloud}<span>This is your app’s backend. Saving it redeploys the backend, which takes up to 30 seconds.</span>`));
+            else if (file.info.backend && S.access === 'edit') out.push(bar('note', `${ICON.cloud}<span>This is your app’s backend. Saving it redeploys the backend.</span>`));
         }
         // Rewrite only when something changed: the bars hold alerts, which a
         // screen reader announces again on every rewrite, and buttons that

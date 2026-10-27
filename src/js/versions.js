@@ -542,9 +542,12 @@
 
     // ----- restore -----------------------------------------------------------
 
-    // A restore rewrites the project's files, but a serverless worker keeps
-    // running the code it was last DEPLOYED with — so the restored frontend
-    // kept talking to the newer backend: undoing a bad backend change left it
+    // A restore puts the project's files back by copying them, and that never
+    // deploys the restored worker code. (Writing a worker's source in place
+    // redeploys the worker, which is how every other save updates it, but a
+    // copy over it replaces the file, and Puter deletes the worker deployed
+    // from it.) Without a redeploy the restored frontend kept talking to the
+    // newer backend, or to none: undoing a bad backend change left it
     // running, and an endpoint the newer version had changed broke the app the
     // user had just rolled back to. Redeploy each of the project's own deployed
     // workers from its (now restored) source file. One whose source this
@@ -593,36 +596,6 @@
         });
         return slot.chain;
     }
-
-    // The Code view saved a backend's source by hand. A worker keeps running
-    // the code it was last deployed with, so redeploy that one worker, under
-    // its own name (same URL) and sandboxed like every other deploy. It waits
-    // its turn on the project's redeploy queue above, so it never races a
-    // restore's redeploy. A file under workers/ that no deployed worker of
-    // this project points at is left alone: it is not a backend (yet).
-    // Resolves to { name, failed } for a redeploy, or {} when there was none.
-    window.redeployWorkerSource = function (appDir, filePath) {
-        const WO = window.WorkerOwnership;
-        if (!WO || !puter.workers || typeof puter.workers.list !== 'function' || typeof puter.workers.create !== 'function') return Promise.resolve({});
-        const slot = _redeploys.get(appDir) || { gen: 0, chain: Promise.resolve() };
-        _redeploys.set(appDir, slot);
-        const target = window.normalizePosixPath ? window.normalizePosixPath(filePath) : filePath;
-        const run = slot.chain.catch(function () {}).then(async function () {
-            let owned;
-            try { owned = WO.ownedWorkers(await puter.workers.list(), appDir); }
-            catch (e) { return { name: null, failed: true }; }
-            const worker = owned.find(w => (window.normalizePosixPath ? window.normalizePosixPath(w.file_path) : w.file_path) === target);
-            if (!worker) return {};
-            try {
-                const res = await puter.workers.create(worker.name, worker.file_path, { sandbox: true });
-                return { name: worker.name, failed: !res || res.success === false };
-            } catch (e) {
-                return { name: worker.name, failed: true };
-            }
-        });
-        slot.chain = run;
-        return run;
-    };
 
     // Recursively make curDir an exact copy of snapDir. For each snapshot entry:
     // copy files in (overwriting), recurse into directories, and — if a same-name

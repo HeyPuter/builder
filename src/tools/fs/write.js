@@ -43,8 +43,15 @@ window.tools.push({
         // writeFileVerified reads the file back inside the lock to confirm the
         // bytes persisted (retry-then-throw on failure), so a write that silently
         // fails to land surfaces as a tool error instead of a false success.
-        await window.withFileLock(path, () => window.writeFileVerified(path, args.data));
+        // A deployed worker's source goes live on save (see tools.js).
+        const worker = await window.workerSaveTarget?.(path, state);
+        let data = args.data;
+        await window.withFileLock(path, () => {
+            if (window.stampWorkerSave) data = window.stampWorkerSave(worker, data);
+            return window.writeFileVerified(path, data);
+        });
         window.schedulePreviewRefresh?.();
-        return { success: true, path };
+        const live = await window.workerSaveResult?.(worker, data, state);
+        return live ? { success: true, path, worker: live } : { success: true, path };
     }
 })

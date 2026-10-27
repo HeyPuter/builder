@@ -227,18 +227,23 @@ window.GitHubCore = (function () {
     }
 
     const HTML_RE = /\.html?$/i;
+    const JS_RE = /\.js$/i;
 
-    // The bytes a page has in git: the preview's cache-bust tokens taken out
-    // (deps.stripCacheBust), which the Code view hides too. Builder's install
-    // tags stay, since the Code view shows them. Only a page that carries a
-    // token is touched. Everything else comes back as the SAME bytes object,
-    // never re-encoded, so CRLF, a BOM and any byte Builder didn't write
-    // survive.
+    // The bytes a file has in git: a page's preview cache-bust tokens taken out
+    // (deps.stripCacheBust), and a script's deploy canary (deps.stripWorkerCanary,
+    // a worker's source or a copy of one), both of which the Code view hides too.
+    // Builder's install tags stay, since the Code view shows them. Only a file
+    // that carries a token or a canary is touched. Everything else comes back
+    // as the SAME bytes object, never re-encoded, so CRLF, a BOM and any byte
+    // Builder didn't write survive.
     function normalizeForGit(rel, bytes, deps) {
-        if (!bytes || !HTML_RE.test(String(rel || '')) || !isText(bytes)) return bytes;
+        const html = HTML_RE.test(String(rel || ''));
+        const script = !html && JS_RE.test(String(rel || ''));
+        if (!bytes || !(html || script) || !isText(bytes)) return bytes;
         const text = new TextDecoder('utf-8', { ignoreBOM: true }).decode(bytes);
         let out = text;
-        if (out.indexOf('__pcb=') !== -1 && deps && typeof deps.stripCacheBust === 'function') out = deps.stripCacheBust(out);
+        if (html && out.indexOf('__pcb=') !== -1 && deps && typeof deps.stripCacheBust === 'function') out = deps.stripCacheBust(out);
+        if (script && out.indexOf('/__builder/canary') !== -1 && deps && typeof deps.stripWorkerCanary === 'function') out = deps.stripWorkerCanary(out);
         return out === text ? bytes : new TextEncoder().encode(out);
     }
 
@@ -275,7 +280,7 @@ window.GitHubCore = (function () {
     // Project files to { map: {path: sha}, excluded: [{path, reason}] }.
     // entries: [{ rel, bytes, size?, servedRel? }]. ctx as isExcluded, plus
     // lfsMatch(path) from the repository's .gitattributes. deps: { digest,
-    // stripCacheBust }.
+    // stripCacheBust, stripWorkerCanary }.
     async function buildMap(entries, ctx, deps) {
         ctx = ctx || {};
         const map = {};
