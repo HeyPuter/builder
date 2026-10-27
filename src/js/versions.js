@@ -383,7 +383,9 @@
             // lose. It used to resolve null like one, and restore treats null
             // as "couldn't save your files": with the dir left flagged dirty,
             // every restore was refused for good — the one way back blocked.
-            if (items.length === 0) return NOTHING_TO_SNAPSHOT;
+            // Puter's own .puter folder (its screenshots, the preview canary)
+            // doesn't count as content.
+            if (!items.some(it => !(it && it.is_dir && it.name === '.puter'))) return NOTHING_TO_SNAPSHOT;
 
             const versionId = generateVersionId();
             const root = versionsRootForChat(chatId);
@@ -679,9 +681,6 @@
                 await restoreDirFromSnapshot(dest, snapDir + '/' + snapItem.name, leftovers);
             } else {
                 await lockedFs(dest, () => puter.fs.copy(snapDir + '/' + snapItem.name, curDir, { overwrite: true }));
-                // Record the restored file so the preview can verify it has
-                // propagated to the live site before reloading.
-                window.recordPreviewChange?.(dest);
             }
         };
         await forEachLimited(snapItems.filter(it => !it.is_dir), RESTORE_CONCURRENCY, restoreEntry);
@@ -1204,11 +1203,9 @@
                 } catch (e) {
                     if (!(typeof isNotFoundError === 'function' && isNotFoundError(e))) throw e;
                 }
-                window.recordPreviewChange?.(path);
             }
             await forEachLimited(writes, RESTORE_CONCURRENCY, async (w) => {
                 await lockedFs(w.path, () => puter.fs.write(w.path, w.bytes, { createMissingParents: true, overwrite: true }));
-                window.recordPreviewChange?.(w.path);
             });
             window.invalidateAppManifestCache?.(appDir);
             const versionId = await window.createProjectVersion({ chatId, appDir, label: opts.label, fromRestore: true, partial: !!opts.partial, labelSource: opts.labelSource });

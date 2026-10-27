@@ -30,10 +30,17 @@ function saveCurrentMessage(context) {
 // chat looking frozen: every "continue" got a reply that only showed up after
 // a reload. Called once the whole turn has drained; renders the final message
 // if it never got a bubble. `fromIndex` limits it to this attempt's messages.
+// A turn that SuggestNextSteps ended (see handleToolCalls) ends on that call
+// and its result, so the reply is the message before them.
 function revealFinalReply(context, fromIndex) {
     const hist = context.chatHistory;
-    if (!Array.isArray(hist) || hist.length === 0 || hist.length - 1 < fromIndex) return;
-    const last = hist[hist.length - 1];
+    if (!Array.isArray(hist) || hist.length === 0) return;
+    let at = hist.length - 1;
+    const use = hist[at - 1] && hist[at - 1].role === 'assistant' && hist[at - 1].content;
+    if (use && use.type === 'tool_use' && use.name === 'SuggestNextSteps'
+        && hist[at].role === 'user' && hist[at].content && hist[at].content.tool_use_id === use.id) at -= 2;
+    if (at < fromIndex) return;
+    const last = hist[at];
     if (!last || last.role !== 'assistant' || last.isError) return;
     if (typeof last.content !== 'string' || !last.content.trim()) return;
     // Already on screen — streamed normally, or re-rendered by a chat reload.
