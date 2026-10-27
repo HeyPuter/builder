@@ -316,6 +316,24 @@ async function throws(p) { try { await p; return null; } catch (e) { return e; }
         title(puter, 'mail') === 'Makor' && /Publishing again/.test(r.note));
 }
 {
+    // Going back to the default while the live backend can't be reached:
+    // publishing never carries a default name over (copy leaves the target
+    // alone), so the note must not promise that it will.
+    const { puter, tool } = toolSetup({ titles: { 'sandbox-mail': 'Makor', 'sandbox-mail-live': 'Makor' } });
+    const update = puter.apps.update;
+    let liveDown = true;
+    puter.apps.update = async (name, attrs) => { if (liveDown && name === 'sandbox-mail-live') throw new Error('network'); return update(name, attrs); };
+    const r = await tool.exec({ worker: 'mail', name: '' }, { currentChatId: 'c1' });
+    const WSN = load(puter);
+    await WSN.copy('mail', 'mail-live');
+    check('tool: (publishing really leaves a live name alone when the preview is on the default)', title(puter, 'mail-live') === 'Makor');
+    check('tool: a reset the live backend missed doesn\'t promise publishing fixes it', r.success && r.live === 'failed' &&
+        !/Publishing again/.test(r.note) && /set_email_sender_name again/.test(r.note), r.note);
+    liveDown = false;
+    const again = await tool.exec({ worker: 'mail', name: '' }, { currentChatId: 'c1' });
+    check('tool: calling it again does reset the live backend', again.live === 'updated' && title(puter, 'mail-live') === 'sandbox-mail-live');
+}
+{
     const { tool } = toolSetup();
     const e = await throws(tool.exec({ worker: 'mail', name: 'X' }, { currentChatId: 'c1' }).then(() => null));
     check('tool: a missing chat id still works for the preview', e === null);
