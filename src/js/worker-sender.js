@@ -50,18 +50,23 @@
     // The worker's sandbox app ({ uid, name, title }), or null when the worker
     // runs as no app or as an app that isn't its own sandbox app (renaming
     // that would rename something else). Throws when Puter can't be reached,
-    // so a lookup failure is never mistaken for "no app".
+    // so a lookup failure is never mistaken for "no app". Both lookups go out
+    // at once: this runs for every backend on every publish, duplicate and
+    // delete.
     async function appOf(workerName) {
-        const info = await puter.workers.get(workerName);
-        const uid = info && info.app_uid;
+        const [info, found] = await Promise.allSettled([
+            puter.workers.get(workerName),
+            puter.apps.get(SANDBOX_PREFIX + workerName),
+        ]);
+        if (info.status === 'rejected') throw info.reason;
+        const uid = info.value && info.value.app_uid;
         if (!uid) return null;
-        let app;
-        try { app = await puter.apps.get(SANDBOX_PREFIX + workerName); }
-        catch (e) {
+        if (found.status === 'rejected') {
             // A worker deployed without a sandbox app of its own.
-            if (notFound(e)) return null;
-            throw e;
+            if (notFound(found.reason)) return null;
+            throw found.reason;
         }
+        const app = found.value;
         if (!app || app.uid !== uid || typeof app.name !== 'string' || !app.name) return null;
         return app;
     }
