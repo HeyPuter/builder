@@ -88,9 +88,9 @@ try { await fetch(limitedURL); } catch (e) { released = true; }
 check('clearing the chat releases those blob URLs', released);
 check('loadChat and new_chat release them when they clear the chat box',
     (app.match(/\$\('\.chat-box'\)\.empty\(\);\n\s*revokeChatMediaBlobURLs\(\);/g) || []).length === 2);
-// Four call sites: image refs, legacy files, a single generated file, and each
-// image of a multi-image grid.
-check('the loop uses the prefetched URLs', !/await puter\.fs\.getReadURL\((item|toolResponse|it)\./.test(load) && (load.match(/await readURLFor\(/g) || []).length === 4);
+// Five call sites: image refs, legacy files, a single generated file, each
+// image of a multi-image grid, and a PNG drawn by RenderSvg.
+check('the loop uses the prefetched URLs', !/await puter\.fs\.getReadURL\((item|toolResponse|it)\./.test(load) && (load.match(/await readURLFor\(/g) || []).length === 5);
 
 if (failures) { console.error(`\n${failures} check(s) FAILED`); process.exit(1); }
 console.log('\nAll load media-URL checks passed.');

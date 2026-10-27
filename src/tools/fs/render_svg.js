@@ -83,7 +83,7 @@ window.tools.push({
     type: "function",
     function: {
         name: "RenderSvg",
-        description: "Draw an SVG file in the project into a PNG file in the project, at the pixel size you choose. SVG stays the default for graphics you draw, so use this only where SVG isn't accepted: a social preview image for og:image/twitter:image (1200x630), an apple-touch-icon, or when the user asks for a PNG. Write the SVG with the write tool first. Keep the SVG self-contained: external images, stylesheets and web fonts are not loaded, and <text> uses the system fonts (embed other images as data: URIs). The rendered PNG is shown to you so you can check it. For photos or painted imagery use GenerateImage instead.",
+        description: "Draw an SVG file in the project into a PNG file in the project, at the pixel size you choose. SVG stays the default for graphics you draw, so use this only where SVG isn't accepted: a social preview image for og:image/twitter:image (1200x630, referenced by its relative path, which publishing makes a full URL), or when the user asks for a PNG. Write the SVG with the write tool first. Keep the SVG self-contained: external images, stylesheets and web fonts are not loaded, and <text> uses the system fonts (embed other images as data: URIs). The rendered PNG is shown to you so you can check it. For photos or painted imagery use GenerateImage instead.",
         parameters: {
             type: "object",
             properties: {

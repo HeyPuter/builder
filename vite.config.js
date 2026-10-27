@@ -44,6 +44,8 @@ const SCRIPTS = [
   'js/publish-state.js',
   'js/publish-errors.js',
   'js/branding.js',
+  // Pure: full URLs for a published page's og:image/twitter:image (ui.js).
+  'js/social-images.js',
   'js/issues-core.js',
   'js/worker-ownership.js',
   // A project's API keys, kept in each backend worker's own store (the

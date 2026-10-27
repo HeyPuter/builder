@@ -170,6 +170,15 @@ check('its result is shaped like a GenerateImage result, so a reload shows the c
 const showRejects = async (args, re) => {
     try { await show.exec(args, { appDir: ROOT }); return false; } catch (e) { return re.test(e.message); }
 };
+cards.length = 0;
+let stopped = false;
+win.isAborted = () => stopped;
+const slow = win.GeneratedMedia.displayURL;
+win.GeneratedMedia.displayURL = async (p) => { stopped = true; return slow(p); };
+await show.exec({ path: 'assets/logo.svg' }, { appDir: ROOT });
+check('a chat switch while the image URL loads leaves the other chat alone', cards.length === 0);
+win.GeneratedMedia.displayURL = slow;
+delete win.isAborted;
 check('ShowImage refuses a file that is not an image', await showRejects({ path: 'index.html' }, /not an image/));
 check('ShowImage refuses a missing file', await showRejects({ path: 'assets/nope.svg' }, /does not exist/));
 check('ShowImage stays inside the project', await showRejects({ path: '/u/AppData/app/chat2/x.svg' }, /outside the project/));
@@ -182,6 +191,9 @@ const app = read('../src/js/app.js');
 check('loadChat shows the card again and resolves its URL up front',
     (app.match(/__renderSvgInternals\?\.renderedPath\(/g) || []).length === 2 && app.includes("renderSaved({ success: true, kind: 'image'"));
 const prompt = read('../src/js/prompt.js');
+const pngRule = prompt.split('\n').find((l) => l.includes('RenderSvg')) || '';
+check('the RenderSvg rule leaves apple-touch-icons to the builder (it makes them from icon.svg)',
+    !/apple-touch-icon/.test(pngRule) && !/apple-touch-icon/.test(tool.function.description));
 check('ShowImage is in the bundle', vite.includes("'tools/fs/show_image.js'"));
 check('the prompt has the AI show a drawn logo with ShowImage instead of generating one',
     prompt.includes('ShowImage') && !prompt.includes('a logo idea'));

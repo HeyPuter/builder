@@ -22,6 +22,9 @@
         const filename = path.slice(path.lastIndexOf('/') + 1);
         try {
             const url = await GM.displayURL(path);
+            // Again after the fetch: a chat switch meanwhile stopped the turn,
+            // and the card would land in the chat the user switched to.
+            if (window.isAborted?.(state?.abortController) || window.isStaleTurn?.(state)) return false;
             const $card = GM.pendingCard({ kind: 'image', prompt: relative });
             GM.fillCard($card, { kind: 'image', url, path, filename, prompt: relative });
             GM.appendToChat($card);
@@ -69,7 +72,7 @@
                 filename: path.slice(path.lastIndexOf('/') + 1),
                 note: shown
                     ? 'The image is now showing in the chat. Do not repeat its path, a link, or Markdown to display it.'
-                    : 'The image could not be shown in the chat (the turn was stopped or the chat changed).',
+                    : 'The image could not be shown in the chat.',
             };
         }
     });

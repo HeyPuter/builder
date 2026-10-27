@@ -2284,6 +2284,31 @@ async function stripBrandingFromRelease(dir) {
     }
 }
 
+// Fill in the site's full address in the og:image/twitter:image tags of a
+// release's pages, which the AI writes as relative paths (see
+// social-images.js). `moveFrom` lists other addresses of the site whose full
+// URLs move to this one. Best effort, like the badge: a page that keeps a
+// relative path only loses its preview card on X and the like.
+async function absolutizeSocialImagesInRelease(dir, siteUrl, moveFrom = [], rel = '') {
+    let items = [];
+    try { items = await puter.fs.readdir(dir); } catch (e) { return; }
+    for (const item of items) {
+        const fullPath = dir + '/' + item.name;
+        if (item.is_dir) {
+            if (item.name !== 'assets') await absolutizeSocialImagesInRelease(fullPath, siteUrl, moveFrom, rel + item.name + '/');
+            continue;
+        }
+        if (!/\.html?$/i.test(item.name)) continue;
+        try {
+            const pageUrl = new URL((rel + item.name).split('/').map(encodeURIComponent).join('/'), siteUrl).href;
+            const result = window.SocialImages.absolutize(await puter.fs.read(fullPath).then(d => d.text()), pageUrl, moveFrom);
+            if (result.changed) await puter.fs.write(fullPath, result.text);
+        } catch (e) {
+            console.warn('Publish: could not fill in the social image address in', fullPath, e);
+        }
+    }
+}
+
 // Whether the LIVE release loads the badge, by path → 'badge' | 'none'. A path
 // is a release directory, and a release never changes once served, so an
 // answer never goes stale. Missing while the read is in flight (or when it
@@ -2562,6 +2587,9 @@ async function doPublish() {
     // site — and saved that address onto this project. The destination belongs to
     // the chat we publish FOR, so it is captured with chatId/appDir/path above.
     const startUrl = window.currentPublishedUrl;
+    // The preview's address too: a social image the AI pointed at the preview
+    // is moved to the published address (absolutizeSocialImagesInRelease).
+    const startPreviewUrl = window.currentPreviewUrl || null;
     // Same for the version baseline: getCurrentVersionId() answers for whichever
     // project is open, so it is only trustworthy for this one while it still is.
     // If the user switches away, no "Published" snapshot is taken below (that is
@@ -2629,9 +2657,11 @@ async function doPublish() {
             // coded error for an invalid/taken explicit name (handled below).
             const sub = await createPublishSubdomain(releaseDir, desiredName, startHistory);
             url = `https://${sub}.puter.site/`;
+            await absolutizeSocialImagesInRelease(releaseDir, url, [startPreviewUrl]);
         } else {
             // Re-publish: re-point the existing public subdomain at the freshly
-            // copied release.
+            // copied release, once its pages carry the full address.
+            await absolutizeSocialImagesInRelease(releaseDir, url, [startPreviewUrl]);
             await puter.hosting.update(existingSub, releaseDir);
         }
         // Live from here on — no longer ours to delete on failure.
@@ -3174,10 +3204,12 @@ $(document).on('click', '.publish-address-save', async function () {
         // Create the new subdomain first; only drop the old one once that
         // succeeds, so a failure (e.g. name taken) leaves the site reachable.
         await puter.hosting.create(newSub, path);
+        const newUrl = `https://${newSub}.puter.site/`;
+        // Social image URLs move to the new address before the old one goes.
+        await absolutizeSocialImagesInRelease(path, newUrl, [oldUrl]);
         try { await puter.hosting.delete(oldSub); }
         catch (e) { console.warn('Failed to remove old published subdomain:', e); }
 
-        const newUrl = `https://${newSub}.puter.site/`;
         const fields = { publishedUrl: newUrl, publishedPath: path, publishedVersionId, publishedAt };
         if (currentChatId === chatId) {
             window.currentPublishedUrl = newUrl;
@@ -4726,6 +4758,9 @@ async function showChatProperties(chatId) {
             // Create the new subdomain first; only drop the old one once that
             // succeeds, so a failure leaves the site reachable.
             await puter.hosting.create(newSub, path);
+            // Social image URLs move to the new address (see the toolbar's
+            // address editor).
+            await absolutizeSocialImagesInRelease(path, `https://${newSub}.puter.site/`, [pub.url]);
             if (oldSub) {
                 try { await puter.hosting.delete(oldSub); }
                 catch (e) { console.warn('Failed to remove old published subdomain:', e); }

@@ -286,6 +286,7 @@ check('switch/auto-name: the address is derived from A’s chat, not B’s',
     const b = source.indexOf('\n});\n', a);
     const handlerSrc = source.slice(a + marker.length, b + 2);
     const saved = [];
+    const absolutized = [];
     let releaseCreate;
     const input = { val: () => 'new-name', prop() { return input; }, trigger() { return input; } };
     const panel = { find: () => input, removeClass() { return panel; } };
@@ -311,6 +312,7 @@ check('switch/auto-name: the address is derived from A’s chat, not B’s',
         },
         resolvePublishedDir: async (p) => p,
         previewSubdomain: (u) => (u.match(/^https?:\/\/([^.]+)\.puter\.site/) || [])[1] || null,
+        absolutizeSocialImagesInRelease: async (...args) => { absolutized.push(args); },
         console: { warn() {} },
     };
     vm.createContext(sandbox);
@@ -334,6 +336,11 @@ check('switch/auto-name: the address is derived from A’s chat, not B’s',
         JSON.stringify(fields));
     check('change address: the open project\'s globals are left alone',
         sandbox.window.currentPublishedUrl === 'https://b-site.puter.site/');
+    // The social image URLs follow this project's rename, read before the switch.
+    check('change address: social image URLs move from this project\'s old address to the new one',
+        absolutized.length === 1 && absolutized[0][0] === '/alice/AppData/builder/.published/chat-a/r1'
+        && absolutized[0][1] === 'https://new-name.puter.site/' && absolutized[0][2][0] === 'https://old-name.puter.site/',
+        JSON.stringify(absolutized));
 }
 
 if (failures) { console.error(failures + ' failure(s)'); process.exit(1); }
