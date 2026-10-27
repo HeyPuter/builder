@@ -34,7 +34,7 @@ const { prepareHistoryForAI, dropDuplicateToolResults } = new Function('window',
     slice(helpers, 'function prepareHistoryForAI(', '/**\n * Sum the AI-reported cost') +
     '\nreturn { prepareHistoryForAI, dropDuplicateToolResults };')(win);
 const hasToolResultFor = new Function('window',
-    slice(tools, 'function hasToolResultFor(', 'async function handleToolCalls(') + '\nreturn hasToolResultFor;')(win);
+    slice(tools, 'function findToolResult(', 'async function handleToolCalls(') + '\nreturn hasToolResultFor;')(win);
 
 const toolUse = (id) => ({ role: 'assistant', content: { type: 'tool_use', id, name: 'write', input: {} } });
 const toolResult = (id, text) => ({ role: 'user', content: { type: 'tool_result', tool_use_id: id, content: text } });

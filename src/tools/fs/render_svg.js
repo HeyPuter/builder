@@ -178,7 +178,6 @@ window.tools.push({
             }
         });
         window.markProjectModified?.(undefined, state?.currentChatId);
-        window.recordPreviewChange?.(output);
         window.schedulePreviewRefresh?.();
 
         const root = window.projectRootDir(state);

@@ -61,17 +61,22 @@ function addToolResultToHistory(history, toolCallId, toolResponse, isError = fal
     });
 }
 
-// True when `history` already holds a tool_result for `toolUseId` — i.e. the
-// interrupted-turn repair (repairDanglingToolUses in app.js) got there first.
-function hasToolResultFor(history, toolUseId) {
-    if (!Array.isArray(history) || toolUseId == null) return false;
+// The tool_result message for `toolUseId` in `history`, newest first, or null.
+function findToolResult(history, toolUseId) {
+    if (!Array.isArray(history) || toolUseId == null) return null;
     for (let i = history.length - 1; i >= 0; i--) {
         const m = history[i];
         const c = m && m.content;
         if (m && m.role === 'user' && c && typeof c === 'object' && !Array.isArray(c)
-            && c.type === 'tool_result' && c.tool_use_id === toolUseId) return true;
+            && c.type === 'tool_result' && c.tool_use_id === toolUseId) return m;
     }
-    return false;
+    return null;
+}
+
+// True when `history` already holds a tool_result for `toolUseId` — i.e. the
+// interrupted-turn repair (repairDanglingToolUses in app.js) got there first.
+function hasToolResultFor(history, toolUseId) {
+    return !!findToolResult(history, toolUseId);
 }
 window.hasToolResultFor = hasToolResultFor;
 
@@ -114,6 +119,7 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
     // Add tool_use to history, stamped with the model that made the calls so a
     // later request to another model can drop provider-only fields
     // (ModelCore.shapeHistory, which also strips the stamp before sending).
+    const toolUseAt = c.chatHistory.length;
     c.chatHistory.push({
         role: "assistant",
         content: completion.length === 1 ? completion[0] : completion,
@@ -192,36 +198,7 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
             window.markProjectModified?.(toolCall.name, c.currentChatId);
             // Counted for the Usage Limit Hit event (limitHitTurnProps).
             if (c.turnStats && toolCall.name === 'update_preview') c.turnStats.previewChecks++;
-            // Record the ACTUAL file paths each tool writes, as the preview's
-            // pending changes (see recordPreviewChange in ui.js). rename/copy/move
-            // land the file at a COMPUTED path, not the raw input. rename ->
-            // dir(path)/new_name, copy/move -> dest/basename. Only tools that
-            // write, so a path the model merely read (ReadTextFile, ViewImage,
-            // stat, SearchFiles…) is never queued as a change. Recorded as the
-            // path the tool ACTED on, not as the model spelled it. The tools
-            // resolve a relative path against the project directory and
-            // normalise ./, ../ and // (assertPathInProject).
             if (!window.isMutatingTool || window.isMutatingTool(toolCall.name)) {
-                try {
-                    const _inp = toolCall.input || {};
-                    const _abs = p => (window.assertPathInProject ? window.assertPathInProject(p, c) : p);
-                    const _base = s => (typeof s === 'string' ? s.slice(s.lastIndexOf('/') + 1) : '');
-                    const _trimEnd = s => (typeof s === 'string' ? s.replace(/\/+$/, '') : '');
-                    if (toolCall.name === 'rename' && _inp.path && _inp.new_name) {
-                        const abs = _abs(_inp.path);
-                        window.recordPreviewChange?.(abs.slice(0, abs.lastIndexOf('/') + 1) + _inp.new_name);
-                    } else if (toolCall.name === 'copy' && _inp.path && _inp.destination) {
-                        // The source may be in the chat's media folder (see copy.js).
-                        const _src = window.assertPathInProjectOrMedia ? window.assertPathInProjectOrMedia(_inp.path, c) : _abs(_inp.path);
-                        window.recordPreviewChange?.(_abs(_trimEnd(_inp.destination)) + '/' + _base(_src));
-                    } else if (toolCall.name === 'move' && Array.isArray(_inp.paths_array) && _inp.destination) {
-                        const dest = _abs(_trimEnd(_inp.destination));
-                        _inp.paths_array.forEach(p => window.recordPreviewChange?.(dest + '/' + _base(_abs(p))));
-                    } else {
-                        if (_inp.path) window.recordPreviewChange?.(_abs(_inp.path));
-                        if (Array.isArray(_inp.paths_array)) _inp.paths_array.forEach(p => window.recordPreviewChange?.(_abs(p)));
-                    }
-                } catch (e) { /* recording is best-effort */ }
                 // Files open in the Code view follow what the AI just wrote: a
                 // clean one reloads, one with unsaved edits shows a conflict.
                 window.CodeEditor?.onToolWrite?.(toolCall.name, c.currentChatId);
@@ -249,13 +226,18 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
     // SuggestNextSteps is the turn's final action (see suggest.js), and its
     // result is only {success:true}. When the reply that called it already
     // carried the summary, another round only made the model repeat it, so the
-    // user saw it twice. The turn ends here then. A reply with no text still
-    // gets the round, since the model sometimes writes its summary after.
-    const lastCall = toolCalls[toolCalls.length - 1];
-    if (lastCall && lastCall.name === 'SuggestNextSteps' && textContent && textContent.trim()
+    // user saw it twice. The turn ends here then. The summary is the assistant
+    // text just before this reply's tool_use: the stream saves it there before
+    // calling us (saveCurrentMessage), so `textContent` is usually empty. A
+    // reply with no text still gets the round, since the model sometimes
+    // writes its summary after. So does a reply with other calls next to it,
+    // whose results (a failed write, update_preview's errors) the model must
+    // see, and a failed SuggestNextSteps.
+    const replyText = c.chatHistory[toolUseAt - 1];
+    if (toolCalls.length === 1 && toolCalls[0].name === 'SuggestNextSteps'
+        && replyText && replyText.role === 'assistant' && typeof replyText.content === 'string' && replyText.content.trim()
         && !isAborted(c.abortController) && !isStaleTurn(c)) {
-        const result = c.chatHistory.find(m => m && m.role === 'user' && m.content
-            && m.content.type === 'tool_result' && m.content.tool_use_id === lastCall.id);
+        const result = findToolResult(c.chatHistory, toolCalls[0].id);
         if (result && !result.content.is_error) {
             return { history: c.chatHistory, messageContent: '' };
         }

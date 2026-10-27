@@ -8,8 +8,9 @@ import fs from 'node:fs';
 // every reload to at least 10 seconds after a hosting.update, about 12 s in all.
 // Now it reads a canary file (so the builder's copy holds the old value), writes
 // a new value, calls hosting.update, and reloads the moment the builder's copy
-// shows the new value, which only that site-wide clear can do. With no old
-// value to read it waits for the limit instead.
+// shows another value, which only that site-wide clear can do. A project
+// without a canary gets one first. With no old value at all it waits for the
+// limit instead.
 //
 // Runs the real functions sliced out of ui.js against stubs, a fake edge and a
 // fake clock.
@@ -33,13 +34,13 @@ const BLOCK =
     slice('// Wait for the latest changes to reach the live site', 'let previewRefreshPending = false;');
 
 const DIR = '/u/AppData/app/c1';
-const CANARY = '.cache/canary.txt';
+const CANARY = '.puter/canary.txt';
 const START = 1_000_000;
 
 // The fake edge, as the builder sees it. Its copy of a file is saved on the
 // first fetch and dropped only by the site-wide clear a hosting.update asks for
 // (opts.clearDelay ms later, never when null). A missing file is a 404 and is
-// not saved.
+// not saved. opts.down makes every fetch fail.
 function makeEnv(opts = {}) {
     let now = START;
     const timers = [];
@@ -67,6 +68,8 @@ function makeEnv(opts = {}) {
             update: async () => {
                 calls.hostingUpdate++;
                 if (opts.updateFails) throw new Error('hosting.update failed');
+                // Another tab's refresh writing its own value just before the clear.
+                if (opts.otherTab) later(() => { disk[CANARY] = 'other-tab'; }, clearDelay - 1);
                 if (clearDelay != null) later(() => { for (const k of Object.keys(copy)) delete copy[k]; }, clearDelay);
             },
         },
@@ -79,6 +82,7 @@ function makeEnv(opts = {}) {
         },
     };
     const fetch = async (url) => {
+        if (opts.down) throw new Error('offline');
         const n = new URL(url).pathname.slice(1);
         if (!n) return { ok: true, headers: { get: (h) => (/cache-control/i.test(h) ? 'no-store' : null) }, text: async () => '' };
         if (!(n in copy)) {
@@ -91,7 +95,7 @@ function makeEnv(opts = {}) {
     const quiet = { log() {}, warn() {}, error() {} };
     const api = new Function('$', 'window', 'puter', 'fetch', 'Date', 'setTimeout', 'AbortSignal', 'console',
         'currentChatId', 'currentAppDir', 'chatHistory', 'generateChatTitle',
-        BLOCK + '\nreturn { refreshPreviewWhenReady, reloadPreviewFrame, ensurePreviewCanary,' +
+        BLOCK + '\nreturn { refreshPreviewWhenReady, reloadPreviewFrame,' +
         ' limit: typeof PREVIEW_CANARY_LIMIT_MS === "number" ? PREVIEW_CANARY_LIMIT_MS : null };'
     )($, win, puter, fetch, { now: () => now }, later, undefined, quiet, 'c1', DIR, [], () => '');
     return {
@@ -142,8 +146,22 @@ check('there is an upper limit, under the old 22 s', typeof L === 'number' && L 
 {
     const env = makeEnv({ canary: false, clearDelay: 4000 });
     await env.run(env.refreshPreviewWhenReady());
-    check('with no canary yet it waits for the limit', env.reloads[0] - START >= L, `${env.reloads[0] - START}ms`);
-    check('and creates the canary for next time', CANARY in env.disk);
+    check('a project with no canary yet gets one and is just as quick',
+        env.reloads[0] - START >= 4000 && env.reloads[0] - START <= 4600, `${env.reloads[0] - START}ms`);
+    check('and the canary is in .puter/, which the project tools skip', CANARY in env.disk && CANARY.startsWith('.puter/'));
+}
+
+{
+    const env = makeEnv({ otherTab: true, clearDelay: 4000 });
+    await env.run(env.refreshPreviewWhenReady());
+    check('another tab\'s value showing up after the clear counts too',
+        env.reloads[0] - START >= 4000 && env.reloads[0] - START <= 4600, `${env.reloads[0] - START}ms`);
+}
+
+{
+    const env = makeEnv({ down: true });
+    await env.run(env.refreshPreviewWhenReady());
+    check('with the canary unreadable it waits for the limit', env.reloads[0] - START >= L, `${env.reloads[0] - START}ms`);
 }
 
 {
@@ -172,15 +190,6 @@ check('there is an upper limit, under the old 22 s', typeof L === 'number' && L 
     env.reloadPreviewFrame('https://preview-x.puter.site/'); // a plain reload, or a chat switch
     await env.run(first);
     check('a superseded refresh never reloads', env.reloads.length === 1 && env.reloads[0] === START + 30, JSON.stringify(env.reloads));
-}
-
-{
-    const env = makeEnv({ canary: false });
-    await env.ensurePreviewCanary(DIR);
-    check('opening a project without a canary creates one', env.disk[CANARY] === 'start');
-    env.disk[CANARY] = 'abc';
-    await env.ensurePreviewCanary(DIR);
-    check('and leaves an existing one alone', env.disk[CANARY] === 'abc');
 }
 
 if (failures) { console.error(`\n${failures} check(s) FAILED`); process.exit(1); }

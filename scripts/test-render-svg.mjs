@@ -42,7 +42,6 @@ win.GeneratedMedia = {
 };
 const changed = [];
 win.markProjectModified = () => changed.push('modified');
-win.recordPreviewChange = (p) => changed.push('preview:' + p);
 win.schedulePreviewRefresh = () => changed.push('refresh');
 
 const files = new Map();
@@ -135,7 +134,7 @@ check('the AI is shown the rendered image',
     Array.isArray(out.__contentBlocks) && out.__contentBlocks[1].type === 'image' && out.__contentBlocks[1].source.media_type === 'image/png');
 check('the result names the relative path to reference', out.__contentBlocks[0].text.includes('"assets/preview.png"'));
 check('the save counts as a project change for history and the preview',
-    changed.includes('modified') && changed.includes('preview:' + ROOT + '/assets/preview.png') && changed.includes('refresh'));
+    changed.includes('modified') && changed.includes('refresh'));
 
 check('the PNG shows in the chat as a card, from the saved file',
     cards.length === 1 && cards[0].filled.url === 'blob:' + ROOT + '/assets/preview.png'

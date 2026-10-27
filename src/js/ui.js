@@ -636,11 +636,9 @@ function reloadPreviewFrame(url, opts) {
     const keepPending = !!(opts && opts.keepPendingUpdate) && _previewRefreshActiveSeq !== 0;
     if (!keepPending) {
         // A plain reload supersedes any in-flight propagation probe and clears its
-        // overlay; it also satisfies/forgets pending changed-paths (the user is now
-        // looking at current content), preventing the changed-set from accumulating.
+        // overlay.
         _previewRefreshSeq++;
         showPreviewUpdating(false);
-        window.clearPreviewChanges?.();
     }
     // Reload through a FRESH cache-bust token. Pointing the frame at
     // about:blank and back is a navigation, not a forced reload, so the browser
@@ -668,14 +666,17 @@ function reloadPreviewFrame(url, opts) {
 // copy on the site, with a similar delay. A fetch from this page always sends
 // Origin, so it can't see the iframe's copy, only its own.
 //
-// So the refresh uses a canary, .cache/canary.txt, whose content changes on
+// So the refresh uses a canary, .puter/canary.txt, whose content changes on
 // every refresh. It reads the canary (so this page's copy holds the old value),
 // writes a new value, asks for the site-wide clear, and polls. This page's copy
-// can only turn to the new value through that clear, and the same clear
+// can only turn to another value through that clear, and the same clear
 // refreshed the iframe's copy of every file, so the reload comes right then.
 // Measured on 2026-10-27, the clear landed 3.6 to 6.8 seconds after the
 // hosting.update, and a write alone never changed this page's copy. A limit
-// caps the wait. Each step is logged to the console as [preview-canary].
+// caps the wait. The canary lives in .puter/, the folder Puter keeps its own
+// files in, which the Code view, GitHub sync, the AI's file tools and the zip
+// download all skip. Run `localStorage.debugCache = 1` to log each step to the
+// console as [preview-canary].
 //
 // Separately, before reloading we stamp a version token onto the local href/src
 // in the served HTML (applyPreviewCacheBust) so the browser also re-fetches the
@@ -692,21 +693,9 @@ function bustedUrl(base) {
     return base + (base.includes('?') ? '&' : '?') + '__pv=' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
 }
 
-// Absolute paths of files changed since the last refresh (populated by the tool
-// dispatcher and by version-restore). A refresh that commits drops the ones it
-// covered.
-const _changedPreviewPaths = new Set();
-window.recordPreviewChange = function(absPath) {
-    if (absPath && typeof absPath === 'string') _changedPreviewPaths.add(absPath);
-};
-// Drop all pending changed-paths. Called when the preview context resets (manual
-// reload, chat switch, preview hidden) so stale paths can't accumulate into a
-// later turn's refresh.
-window.clearPreviewChanges = function() { _changedPreviewPaths.clear(); };
-
 // The canary file in the published directory, how often the refresh reads it,
 // and how long it waits for the clear before reloading anyway.
-const PREVIEW_CANARY = '.cache/canary.txt';
+const PREVIEW_CANARY = '.puter/canary.txt';
 const PREVIEW_CANARY_POLL_MS = 500;
 const PREVIEW_CANARY_LIMIT_MS = 15000;
 
@@ -719,14 +708,6 @@ async function readPreviewCanary(baseUrl) {
         if (!resp.ok) return null;
         return (await resp.text()).trim();
     } catch (e) { return null; }
-}
-
-// Create the canary when a project's preview opens and it has none yet, so the
-// first refresh already has an old value to read.
-async function ensurePreviewCanary(dir) {
-    if (!dir) return;
-    try { await puter.fs.stat(dir + '/' + PREVIEW_CANARY); return; } catch (e) { /* missing */ }
-    try { await puter.fs.write(dir + '/' + PREVIEW_CANARY, 'start', { createMissingParents: true }); } catch (e) { /* best effort */ }
 }
 
 // Per-request timeout for a probe fetch, so a single stalled request can't block
@@ -934,8 +915,6 @@ window.refreshPreviewWhenReady = refreshPreviewWhenReady;
 async function runPreviewRefresh($frame, baseUrl, ownerChatId, seq) {
     showPreviewUpdating(true);
 
-    // The changed-set is snapshotted further down WITHOUT clearing it, so a
-    // refresh superseded before it commits leaves the paths for the next one.
     const dir = publishedRootDir();
 
     // Stamp cache-bust tokens onto the served HTML's local assets so the browser
@@ -967,43 +946,54 @@ async function runPreviewRefresh($frame, baseUrl, ownerChatId, seq) {
 
     // The canary (see the top of this section). Every step comes after the
     // project's writes above, so the clear it proves covers all of them.
-    // 1. Read it, so this page's copy holds the old value. Without one (no
-    //    canary yet, a failed fetch) a later match proves nothing.
+    // 1. Read it, so this page's copy holds the old value. A project without
+    //    one yet gets one first and reads that. With no old value at all (a
+    //    failed fetch or write) a later change proves nothing.
     // 2. Write a new value.
     // 3. Ask for the site-wide clear. hosting.update to the directory the
     //    subdomain already serves changes nothing else.
-    // 4. Poll until this page's copy holds the new value, then reload. If it
-    //    never does, reload at the limit.
+    // 4. Poll until this page's copy holds anything but the old value, then
+    //    reload. Any other value counts, so another tab's refresh on the same
+    //    project, whose own clear is just as good, can't hold this one up. If
+    //    it never changes, reload at the limit.
     // Skipped for non-puter.site addresses, which only get the limit.
-    const changedPaths = Array.from(_changedPreviewPaths);
     const sub = previewSubdomain(baseUrl);
-    const log = (...a) => console.log('[preview-canary]', ...a);
+    const log = (...a) => {
+        try { if (localStorage.getItem('debugCache')) console.log('[preview-canary]', ...a); } catch (e) { /* no storage */ }
+    };
+    const canaryPath = dir + '/' + PREVIEW_CANARY;
     const t0 = Date.now();
-    let token = null;
+    let before = null;
     if (sub && dir && typeof fetch === 'function') {
-        const before = await readPreviewCanary(baseUrl);
+        before = await readPreviewCanary(baseUrl);
         if (seq !== _previewRefreshSeq) return; // superseded while reading the canary
+        if (before === null) {
+            try {
+                await puter.fs.write(canaryPath, 'start', { createMissingParents: true });
+                before = await readPreviewCanary(baseUrl);
+            } catch (e) { /* no old value, so the limit */ }
+            if (seq !== _previewRefreshSeq) return; // superseded while creating the canary
+        }
         log('old value', before === null ? '(none, will wait for the limit)' : before);
         const next = Date.now() + '-' + Math.random().toString(36).slice(2, 8);
         try {
-            await puter.fs.write(dir + '/' + PREVIEW_CANARY, next, { createMissingParents: true });
-            if (before !== null) token = next;
+            await puter.fs.write(canaryPath, next, { createMissingParents: true });
             log('wrote', next);
-        } catch (e) { log('write failed', e); }
+        } catch (e) { before = null; log('write failed', e); }
         if (seq !== _previewRefreshSeq) return; // superseded while writing the canary
         try {
             await puter.hosting.update(sub, dir);
             log('asked for the clear', (Date.now() - t0) + 'ms');
-        } catch (e) { token = null; log('hosting.update failed', e); }
+        } catch (e) { before = null; log('hosting.update failed', e); }
         if (seq !== _previewRefreshSeq) return; // superseded while asking for the clear
     }
     const giveUpAt = Date.now() + PREVIEW_CANARY_LIMIT_MS;
     let flipped = false;
     while (Date.now() < giveUpAt) {
-        if (token !== null) {
+        if (before !== null) {
             const seen = await readPreviewCanary(baseUrl);
             if (seq !== _previewRefreshSeq) return; // superseded while polling
-            if (seen === token) { flipped = true; break; }
+            if (seen !== null && seen !== before) { flipped = true; break; }
         }
         await new Promise(r => setTimeout(r, Math.min(PREVIEW_CANARY_POLL_MS, Math.max(0, giveUpAt - Date.now()))));
         if (seq !== _previewRefreshSeq) return; // superseded while waiting
@@ -1012,15 +1002,10 @@ async function runPreviewRefresh($frame, baseUrl, ownerChatId, seq) {
 
     // Bail if a newer reload/refresh/chat-switch happened, or the live preview
     // URL changed under us — never reload the iframe to a now-stale target.
-    // (We did NOT clear the changed-set, so the superseding refresh inherits it.)
     if (seq !== _previewRefreshSeq || window.currentPreviewUrl !== baseUrl) {
         if (seq === _previewRefreshSeq) showPreviewUpdating(false);
         return;
     }
-
-    // Committed to reloading: now drop the paths this refresh covered (leave any
-    // recorded by a concurrently-running turn for its own upcoming refresh).
-    changedPaths.forEach(p => _changedPreviewPaths.delete(p));
 
     // Reload the iframe with a unique query so the browser re-fetches the page.
     const url = bustedUrl(baseUrl);
@@ -1151,9 +1136,6 @@ window.showAppPreview = function(url, opts) {
         });
     }
     window.currentPreviewUrl = url;
-    // Projects without a canary yet get one now, so their first refresh can
-    // already read an old value (see readPreviewCanary).
-    if (previewSubdomain(url)) ensurePreviewCanary(publishedRootDir());
     $('body').addClass('preview-active');
     // On mobile, default to showing the freshly-previewed app (not the chat).
     $('body').removeClass('mobile-view-chat');
@@ -1207,8 +1189,6 @@ window.hideAppPreview = function() {
     window.currentPublishedAt = null;
     previewRefreshPending = false;
     showPreviewUpdating(false);
-    // Forget pending changed-paths so they don't carry into the next chat/preview.
-    window.clearPreviewChanges?.();
     // Drop any pending click-to-edit selection (chip + armed target) — its target
     // element belongs to the preview we're tearing down.
     window.clearEditTarget?.();

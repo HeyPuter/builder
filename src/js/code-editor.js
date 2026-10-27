@@ -977,7 +977,6 @@
     function afterSave(file, abs, before, after, opts) {
         const chatId = file.chatId;
         if (deleted(chatId)) return;
-        window.recordPreviewChange?.(abs);
         window.refreshPublishButton?.();
         // What the AI is told on its next turn, and what goes in the next
         // checkpoint. before is kept from the first save since the AI last saw

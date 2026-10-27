@@ -37,7 +37,7 @@ const MEDIA = '/u/AppData/app/.media/chat1';
 
 // ---- Environment ------------------------------------------------------------
 function makeEnv({ stale = false, testMode = false } = {}) {
-    const calls = { txt2img: [], txt2vid: [], txt2speech: [], grids: [], frames: [], appended: [], copy: [], mkdir: [], marked: [], recorded: [], cards: [], filled: [], removed: [], saved: [], tracked: [] };
+    const calls = { txt2img: [], txt2vid: [], txt2speech: [], grids: [], frames: [], appended: [], copy: [], mkdir: [], marked: [], refreshed: [], cards: [], filled: [], removed: [], saved: [], tracked: [] };
     const win = { tools: [], FEATURE_FLAGS: {} };
     // Path helpers: the real block from helpers.js.
     const a = helpersSrc.indexOf('window.normalizePosixPath =');
@@ -47,8 +47,7 @@ function makeEnv({ stale = false, testMode = false } = {}) {
     win.isStaleTurn = () => env.stale;
     win.withFileLock = (p, fn) => Promise.resolve().then(fn);
     win.markProjectModified = (tool, chatId) => calls.marked.push([tool, chatId]);
-    win.recordPreviewChange = (p) => calls.recorded.push(p);
-    win.schedulePreviewRefresh = () => {};
+    win.schedulePreviewRefresh = () => calls.refreshed.push(1);
     win.track = (ev, props) => calls.tracked.push([ev, props]);
     const env = {
         win, calls, stale,
@@ -144,7 +143,7 @@ async function rejects(p) { try { await p; return null; } catch (e) { return e; 
     check('…and tells the model not to repeat a link', /Do not repeat its path/.test(r.note));
     check('a pending card was shown, then filled with a read URL',
         env.calls.cards.length === 1 && env.calls.filled.length === 1 && env.calls.filled[0][1].url === 'https://read.example' + r.path);
-    check('nothing touched the project (no version-history change)', env.calls.marked.length === 0 && env.calls.copy.length === 0 && env.calls.recorded.length === 0);
+    check('nothing touched the project (no version-history change)', env.calls.marked.length === 0 && env.calls.copy.length === 0 && env.calls.refreshed.length === 0);
 }
 
 // ---- 3. save_to_project ---------------------------------------------------
@@ -155,7 +154,7 @@ async function rejects(p) { try { await p; return null; } catch (e) { return e; 
     check('save_to_project copies the saved file into the project', src === r.path && dest === ROOT + '/assets' && opts && opts.newName === 'hero.png' && opts.overwrite === true);
     check('…adding .png to a name without an image extension', r.project_path === ROOT + '/assets/hero.png' && r.relative_path === 'assets/hero.png');
     check('…counts as a project change for version history', env.calls.marked.length === 1 && env.calls.marked[0][0] === undefined && env.calls.marked[0][1] === 'chat1');
-    check('…and for the preview\'s change verification', env.calls.recorded.join() === ROOT + '/assets/hero.png');
+    check('…and refreshes the preview', env.calls.refreshed.length === 1);
     check('…and the model is told the relative path to use', /assets\/hero\.png/.test(r.note));
 }
 {
@@ -189,7 +188,7 @@ async function rejects(p) { try { await p; return null; } catch (e) { return e; 
     const err = await rejects(env.tool('GenerateImage').exec({ prompt: 'Hero photo', save_to_project: 'assets/hero.png' }, env.state()));
     check('a failed copy into the project still shows the generated image', !err && env.calls.filled.length === 1 && env.calls.removed.length === 0, err && err.message);
     check('…and is reported as generated', env.calls.tracked.length === 1 && env.calls.tracked[0][0] === 'Image Generated' && env.calls.tracked[0][1].for_project === false, env.calls.tracked);
-    check('…not as a project change', env.calls.marked.length === 0 && env.calls.recorded.length === 0);
+    check('…not as a project change', env.calls.marked.length === 0 && env.calls.refreshed.length === 0);
 }
 {
     const env = makeEnv();
@@ -287,7 +286,7 @@ async function rejects(p) { try { await p; return null; } catch (e) { return e; 
     const state = env.state();
     env.generateImpl = async (p, options) => { state.abortController.abort(); env.existing.add(options.puter_output_path); return { src: env.src }; };
     const r = await env.tool('GenerateImage').exec({ prompt: 'x', save_to_project: 'assets/hero.png' }, state);
-    check('Stop during generation writes nothing into the project', env.calls.copy.length === 0 && env.calls.marked.length === 0 && env.calls.recorded.length === 0, env.calls.copy);
+    check('Stop during generation writes nothing into the project', env.calls.copy.length === 0 && env.calls.marked.length === 0 && env.calls.refreshed.length === 0, env.calls.copy);
     check('…and the result says the project file was not saved', r && r.path && !r.project_path && /could NOT be saved into the project/.test(r.note) && /stopped/.test(r.note), r && r.note);
 }
 {

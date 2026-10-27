@@ -34,7 +34,7 @@ function slice(startMarker, endMarker) {
 // fails the ASSERTIONS below rather than the extraction.
 const BLOCK =
     slice('// Monotonic counter identifying the latest preview operation', '// ---- Deploy-propagation readiness') +
-    slice('function bustedUrl(base) {', '\n\n// Absolute paths of files changed');
+    slice('function bustedUrl(base) {', '\n\n// The canary file in the published directory');
 
 // A frame stub recording every src it is pointed at, plus its .data() store.
 function makeEnv() {
@@ -48,7 +48,7 @@ function makeEnv() {
     };
     const $ = (sel) => (sel === '.preview-frame' ? frame : { length: 0, find: () => ({ length: 0 }), append: () => {}, remove: () => {} });
     const env = {
-        $, window: { clearPreviewChanges: () => {} },
+        $, window: {},
         showPreviewUpdating: () => {},
         setTimeout: (fn) => { timers.push(fn); },
         Date, Math, String, RegExp,
@@ -138,20 +138,16 @@ function makeEnv() {
     env.reloadPreviewFrame('https://a.puter.site/');
     env.flush();
     const before = env.seq();
-    let cleared = 0;
-    env.window.clearPreviewChanges = () => { cleared++; };
     env.setActive(before);              // a propagation refresh is mid-flight
     env.reloadPreviewFrame(undefined, { keepPendingUpdate: true });
     env.flush();
     const url = env.srcs[env.srcs.length - 1];
     check('Reload during a pending update still reloads the frame', /[?&]__pv=/.test(url) && url !== 'about:blank', url);
     check('… but does NOT supersede the pending update', env.seq() === before);
-    check('… and keeps its changed paths for that update', cleared === 0);
 
     env.setActive(0);                   // nothing in flight
     env.reloadPreviewFrame(undefined, { keepPendingUpdate: true });
     check('with nothing pending, the same Reload supersedes as before', env.seq() === before + 1);
-    check('… and forgets the changed paths', cleared === 1);
 }
 
 if (failures) { console.error('\n' + failures + ' check(s) failed'); process.exit(1); }

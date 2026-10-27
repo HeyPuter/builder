@@ -1,4 +1,6 @@
+import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import vm from 'node:vm';
 
 // ---- Regression guard: SuggestNextSteps ends the turn ----------------------
 // SuggestNextSteps is the turn's final action and its result is only
@@ -6,79 +8,121 @@ import fs from 'node:fs';
 // when the reply that called it already carried the summary, the model wrote
 // it again, so the turn showed it twice. Now the turn ends there. A reply with
 // no text still gets the round, since the model sometimes writes its summary
-// after. Any other last call, or a failed SuggestNextSteps, still gets it too.
+// after. A reply with other calls beside it, or a failed SuggestNextSteps,
+// still gets it too. The summary is shown even while the checklist hides
+// narration.
 //
-// Runs the real handleToolCalls from tools.js against stubs.
+// Runs the REAL handleMessageStream.js, tools.js and model-core.js together,
+// fed text, tool_use and usage chunks the way Puter streams them.
+
+const read = (p) => fs.readFileSync(new URL(p, import.meta.url), 'utf8');
+const streamSource = read('../src/js/handleMessageStream.js');
+const toolsSource = read('../src/js/tools.js');
+const modelSource = read('../src/js/model-core.js');
+
+async function* chunks(...items) { yield* items; }
+const tool = (name, id) => ({ type: 'tool_use', id, name, input: {}, text: '' });
+const usage = () => ({ type: 'usage', usage: { usd_cents: 1, output_tokens: 10 } });
+const text = (t) => ({ type: 'text', text: t });
+
+function setup({ todos = false, fail = null } = {}) {
+    const requests = [];
+    const shown = [];
+    let ids = 0;
+    const jq = () => ({ length: 0, find: () => ({ html() {} }), attr() {}, remove() {} });
+    const env = {
+        AbortController, DOMException, setTimeout, clearTimeout, console,
+        currentChatId: 'one', shouldStop: false,
+        marked: { parse: (s) => s },
+        escapeMarkdownSource: (s) => s,
+        $: () => ({ length: 0 }),
+        hasActiveTodos: () => todos,
+        appendMessage: (content) => { if (content) shown.push(content); return jq(); },
+        autoScrollTrigger() {},
+        createThinkingPreview: () => ({ append() {}, remove() {} }),
+        isStaleTurn: (c) => c.currentChatId !== env.currentChatId,
+        isAborted: (ac) => !!(ac && ac.signal.aborted),
+        showSpinner() {}, startSpinnerStub() {}, stopSpinnerStub() {},
+        scheduleSaveCurrentChat() {},
+        generateMessageId: () => 'msg_' + (++ids),
+        prepareHistoryForAI: (h) => h,
+        puter: {
+            ai: {
+                chat: async () => { requests.push(1); return chunks(text('Again.'), usage()); },
+            },
+        },
+    };
+    env.window = env;
+    vm.createContext(env);
+    vm.runInContext(modelSource, env);
+    vm.runInContext(streamSource, env);
+    vm.runInContext(toolsSource, env);
+    const makeTool = (name) => ({
+        type: 'function',
+        function: { name, parameters: { type: 'object', properties: {} } },
+        exec: async () => { if (fail === name) throw new Error('boom'); return { success: true }; },
+    });
+    env.tools.push(makeTool('write'), makeTool('SuggestNextSteps'));
+    const context = {
+        currentChatId: 'one', abortController: new AbortController(), model: 'claude-opus-5-5',
+        tools: env.tools, chatHistory: [], currentMessage: null, currentMessageContent: '',
+    };
+    return { env, context, requests, shown };
+}
+
+const summaries = (h, t) => h.filter((m) => m.role === 'assistant' && m.content === t).length;
 
 let failures = 0;
-function check(name, cond, detail) {
-    if (cond) console.log('ok   - ' + name);
-    else { console.error('FAIL - ' + name + (detail ? '\n       ' + detail : '')); failures++; }
+async function check(name, fn) {
+    try { await fn(); console.log('ok   - ' + name); }
+    catch (e) { failures++; console.log('FAIL - ' + name + '\n       ' + e.message); }
 }
 
-const tools = fs.readFileSync(new URL('../src/js/tools.js', import.meta.url), 'utf8');
-const win = { isMutatingTool: () => false, markProjectModified: () => {} };
-let rounds = 0;
-const stubs = { round: () => { rounds++; }, fail: null };
-const handleToolCalls = new Function('window', 'stubs',
-    'const generateMessageId = () => "m"; const hasActiveTodos = () => false; const appendMessage = () => {};' +
-    'const isAborted = () => false; const isStaleTurn = () => false; const scheduleSaveCurrentChat = () => {};' +
-    'const showSpinner = () => ({}); let spinner;' +
-    'const executeFunction = async (name, input) => { if (stubs.fail === name) throw new Error("boom"); return { success: true }; };' +
-    'const hasToolResultFor = () => false;' +
-    'const abortableAwait = (p) => p; const prepareHistoryForAI = (h) => h;' +
-    'const puter = { ai: { chat: async () => { stubs.round(); return {}; } } };' +
-    'const handleMessageStream = async () => {};' +
-    tools.slice(tools.indexOf('function addToolResultToHistory('), tools.indexOf('function hasToolResultFor(')) +
-    tools.slice(tools.indexOf('async function handleToolCalls('), tools.lastIndexOf('}') + 1) +
-    '\nreturn handleToolCalls;')(
-    Object.assign(win, { ModelCore: { buildChatOptions: () => ({}) } }),
-    stubs);
+await check('a summary then SuggestNextSteps asks the model for nothing more', async () => {
+    const h = setup();
+    await h.env.handleMessageStream(chunks(text('Made the heading blue.'), tool('SuggestNextSteps', 's1'), usage()), h.context);
+    assert.equal(h.requests.length, 0);
+    assert.equal(summaries(h.context.chatHistory, 'Made the heading blue.'), 1, 'the summary is stored once');
+    assert.ok(h.context.chatHistory.some((m) => m.role === 'user' && m.content && m.content.tool_use_id === 's1'),
+        'the call\'s result is stored');
+});
 
-const use = (id, name, input = {}) => ({ type: 'tool_use', id, name, input });
-const ctx = () => ({ chatHistory: [], abortController: new AbortController(), currentChatId: 'c1' });
+await check('SuggestNextSteps with no summary gets the round to write it', async () => {
+    const h = setup();
+    await h.env.handleMessageStream(chunks(tool('SuggestNextSteps', 's1'), usage()), h.context);
+    assert.equal(h.requests.length, 1);
+});
 
-{
-    rounds = 0;
-    const c = ctx();
-    const done = use('s1', 'SuggestNextSteps', { suggestions: [] });
-    done.text = 'Made the heading blue.';
-    const res = await handleToolCalls(done, true, c);
-    check('a reply ending in SuggestNextSteps asks the model for nothing more', rounds === 0, String(rounds));
-    check('and the turn ends cleanly', res && !res.error);
-    check('its result is still in the history',
-        c.chatHistory.some(m => m.role === 'user' && m.content && m.content.tool_use_id === 's1'));
-    check('and so is the summary that came with it',
-        c.chatHistory.some(m => m.role === 'assistant' && m.content === 'Made the heading blue.'));
-}
+await check('a summary with another call beside SuggestNextSteps still gets the round', async () => {
+    const h = setup();
+    await h.env.handleMessageStream(chunks(text('Done.'), tool('write', 'w1'), tool('SuggestNextSteps', 's1'), usage()), h.context);
+    assert.equal(h.requests.length, 1);
+});
 
-{
-    rounds = 0;
-    await handleToolCalls(use('s0', 'SuggestNextSteps', { suggestions: [] }), true, ctx());
-    check('SuggestNextSteps with no summary in the reply gets the round to write it', rounds === 1, String(rounds));
-}
+await check('a failed write beside SuggestNextSteps reaches the model', async () => {
+    const h = setup({ fail: 'write' });
+    await h.env.handleMessageStream(chunks(text('Done.'), tool('write', 'w1'), tool('SuggestNextSteps', 's1'), usage()), h.context);
+    assert.equal(h.requests.length, 1);
+});
 
-{
-    rounds = 0;
-    await handleToolCalls(use('u1', 'update_preview'), true, ctx());
-    check('any other last call still gets the next round', rounds === 1, String(rounds));
-}
+await check('a failed SuggestNextSteps still gets the round', async () => {
+    const h = setup({ fail: 'SuggestNextSteps' });
+    await h.env.handleMessageStream(chunks(text('Done.'), tool('SuggestNextSteps', 's1'), usage()), h.context);
+    assert.equal(h.requests.length, 1);
+});
 
-{
-    rounds = 0;
-    const pair = [use('s2', 'SuggestNextSteps', { suggestions: [] }), use('w1', 'update_preview')]; pair.text = 'Done.';
-    await handleToolCalls(pair, true, ctx());
-    check('SuggestNextSteps followed by another call still gets the next round', rounds === 1, String(rounds));
-}
+await check('any other last call still gets the round', async () => {
+    const h = setup();
+    await h.env.handleMessageStream(chunks(text('Writing it.'), tool('write', 'w1'), usage()), h.context);
+    assert.equal(h.requests.length, 1);
+});
 
-{
-    rounds = 0;
-    stubs.fail = 'SuggestNextSteps';
-    const failed = use('s3', 'SuggestNextSteps', { suggestions: [] }); failed.text = 'Done.';
-    await handleToolCalls(failed, true, ctx());
-    stubs.fail = null;
-    check('a failed SuggestNextSteps still gets the next round', rounds === 1, String(rounds));
-}
+await check('with the checklist still open, the summary is shown at the end', async () => {
+    const h = setup({ todos: true });
+    await h.env.handleMessageStream(chunks(text('Made the heading blue.'), tool('SuggestNextSteps', 's1'), usage()), h.context);
+    assert.equal(h.requests.length, 0);
+    assert.deepEqual(h.shown, ['Made the heading blue.']);
+});
 
 if (failures) { console.error(`\n${failures} check(s) FAILED`); process.exit(1); }
 console.log('\nAll suggest-ends-turn checks passed.');
