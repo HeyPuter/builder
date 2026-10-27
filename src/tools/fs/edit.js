@@ -36,6 +36,9 @@ window.tools.push({
         // fails as a model-directed tool error. The RESOLVED path is what we read
         // and write (see the note in write.js). See window.assertPathInProject.
         const path = window.assertPathInProject(args.path, state);
+        // A deployed worker's source goes live on save (see tools.js).
+        const worker = await window.workerSaveTarget?.(path, state);
+        let written = null;
 
         // Serialize the ENTIRE read-modify-write under this path's write-lock, so
         // the background preview cache-bust (applyPreviewCacheBust) — or any other
@@ -64,6 +67,9 @@ window.tools.push({
             if (/\.html?$/i.test(path) && window.stripPreviewCacheBust) {
                 content = window.stripPreviewCacheBust(content);
             }
+            // The same for a worker's deploy canary, which the save stamps
+            // afresh below.
+            if (window.isWorkerSourcePath?.(path)) content = window.stripWorkerCanary(content);
 
             // window.applyFileEdit does the matching — exact first, then
             // whitespace- and unicode-flexible fallbacks — and returns the updated
@@ -74,6 +80,8 @@ window.tools.push({
             const hadCRLF = content.includes('\r\n');
             let updated = window.applyFileEdit(content, args.old_content, args.new_content);
             if (hadCRLF) updated = updated.replace(/\n/g, '\r\n');
+            if (worker?.token) updated = window.stampWorkerCanary(updated, worker.token);
+            written = updated;
 
             // Don't trust a bare write: confirm the new content actually landed
             // (read-back inside this lock, retry-then-throw on failure) so a write
@@ -84,6 +92,7 @@ window.tools.push({
         });
 
         window.schedulePreviewRefresh?.();
-        return result;
+        const live = await window.workerSaveResult?.(worker, written, state);
+        return live ? { ...result, worker: live } : result;
     }
 })

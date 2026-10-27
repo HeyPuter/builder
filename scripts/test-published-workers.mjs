@@ -235,10 +235,12 @@ function makeWorld({ failDeploy = false, takenLiveName = null } = {}) {
     check('tools: the model cannot delete the live backend', refusedDelete);
     check('tools: …and it is still deployed', w.deployed.has('api-a-live'));
 
-    let refusedCreate = false;
-    try { await w.tool('create_worker').exec({ name: 'api-a-live', code: 'x' }, {}); }
-    catch (e) { refusedCreate = /belongs to a different project/.test(e.message); }
-    check('tools: the model cannot redeploy over the live backend', refusedCreate);
+    // Asking for the live backend's name gets a new worker of the project's
+    // own, under a suffixed name (create_worker never reuses a name it
+    // doesn't own).
+    const made = await w.tool('create_worker').exec({ name: 'api-a-live', code: 'x' }, {});
+    check('tools: the model cannot redeploy over the live backend',
+        /^api-a-live-[a-z0-9]{6}$/.test(made.name), made.name);
     check('tools: …and its code is untouched', w.deployed.get('api-a-live').code === V1);
 }
 

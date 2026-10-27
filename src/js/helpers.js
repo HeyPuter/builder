@@ -1482,9 +1482,12 @@ async function addDirToZip(dirPath, zip) {
         } else {
             try {
                 const blob = await puter.fs.read(fullPath);
-                // Strip preview cache-bust tokens so the downloaded HTML is clean.
+                // Strip preview cache-bust tokens so the downloaded HTML is clean,
+                // and the deploy canary so a worker's source is.
                 if (/\.html?$/i.test(item.name) && window.stripPreviewCacheBust) {
                     zip.file(item.name, window.stripPreviewCacheBust(await blob.text()));
+                } else if (window.isWorkerSourcePath(fullPath)) {
+                    zip.file(item.name, window.stripWorkerCanary(await blob.text()));
                 } else {
                     zip.file(item.name, blob);
                 }
@@ -1978,6 +1981,48 @@ window.applyFileEdit = function (content, oldContent, newContent) {
         }
     }
     throw new Error("old_content not found in file." + hint + " Read the file first to see its exact contents.");
+};
+
+// ---- Worker deploy canary --------------------------------------------------
+// A deployed worker serves its source file, workers/<name>.js, and Puter
+// redeploys it whenever that file is saved. Nothing says when the new code is
+// live, and a save that doesn't parse leaves the previous code running with no
+// error anywhere. So every save of a deployed worker's source (the AI's file
+// tools, a Code view save, a GitHub pull) puts a canary route with a fresh
+// token at the very start of the file, and waits until the worker answers that
+// route with the token (see workerSaveResult in tools.js).
+//
+// The route goes first because routes match in the order they're defined, and
+// workers usually end with a catch-all that would answer it otherwise. It goes
+// on line 1 itself, not a line of its own, so the line numbers in the worker's
+// errors still match the file. Like the preview's cache-bust tokens, the
+// canary is a serving detail: stripWorkerCanary() removes it everywhere the AI
+// or the user sees a worker's source (the read, search and edit tools, the
+// Code view, GitHub sync and the project download).
+
+window.WORKER_CANARY_PATH = '/__builder/canary';
+const _WORKER_CANARY_RE = / ?router\.get\('\/__builder\/canary', \(\) => '[a-z0-9]+'\); ?/g;
+// A leading 'use strict' stays first, or it would stop being a directive.
+const _WORKER_DIRECTIVE_RE = /^﻿?(?:\s*(["'])use strict\1;?)?/;
+
+// Whether `path` is a worker's source, as create_worker names it.
+window.isWorkerSourcePath = function (path) {
+    return /(?:^|\/)workers\/[A-Za-z0-9_-]{1,50}\.js$/.test(String(path || ''));
+};
+
+// Remove the canary route. Safe to run on text that has none.
+window.stripWorkerCanary = function (text) {
+    if (typeof text !== 'string' || text.indexOf('/__builder/canary') === -1) return text;
+    return text.replace(_WORKER_CANARY_RE, '');
+};
+
+// `text` with a canary route answering `token` (letters and digits) in place
+// of any old one.
+window.stampWorkerCanary = function (text, token) {
+    const clean = window.stripWorkerCanary(text);
+    const route = "router.get('/__builder/canary', () => '" + token + "');";
+    const at = _WORKER_DIRECTIVE_RE.exec(clean)[0].length;
+    return at ? clean.slice(0, at) + ' ' + route + clean.slice(at) : route + ' ' + clean;
 };
 
 // ---- Preview sub-resource cache-busting ----------------------------------

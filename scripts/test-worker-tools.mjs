@@ -129,26 +129,59 @@ WORKERS = [own('api'), theirs('billing'), theirs('Reports')];
 resetCalls();
 {
     const r = await create.exec({ name: 'fresh', code: 'router.get("/", () => 1);' }, st);
-    check('create: a free name deploys', calls.created.length === 1 && r.success === true && r.name === 'fresh');
-    check('create: source lands at <project>/workers/<name>.js', calls.writes[0] && calls.writes[0].p === `${ROOT}/workers/fresh.js`);
-    check('create: deployed from that file, sandboxed',
-        calls.created[0].path === `${ROOT}/workers/fresh.js` && calls.created[0].opts && calls.created[0].opts.sandbox === true);
+    // Worker names are shared by everyone on Puter, so a new worker gets a
+    // random suffix (issue #35: "guestbook" was another user's).
+    check('create: a new worker is named after the request plus a suffix',
+        calls.created.length === 1 && r.success === true && /^fresh-[a-z0-9]{6}$/.test(r.name), r.name);
+    check('create: …and the result says to use that name', /Builder named this worker 'fresh-[a-z0-9]{6}'/.test(r.note || ''), r.note);
+    check('create: source lands at <project>/workers/<name>.js',
+        calls.writes[0] && calls.writes[0].p === `${ROOT}/workers/${r.name}.js` && r.file_path === calls.writes[0].p);
+    check('create: deployed from that file under that name, sandboxed',
+        calls.created[0].name === r.name && calls.created[0].path === `${ROOT}/workers/${r.name}.js`
+        && calls.created[0].opts && calls.created[0].opts.sandbox === true);
     check('create: workers/ dir is created under the project', calls.mkdir[0] === `${ROOT}/workers`);
     check('create: the account list is consulted before writing', calls.listed === 1);
 }
 resetCalls();
 {
     const r = await create.exec({ name: 'api', code: 'x' }, st);
-    check("create: redeploying this project's OWN worker is allowed", calls.created.length === 1 && r.name === 'api');
+    check("create: this project's OWN worker by that name is redeployed, not suffixed",
+        calls.created.length === 1 && r.name === 'api' && calls.created[0].name === 'api' && !r.note);
 }
 resetCalls();
-check("create: a name held by another project is refused",
-    await rejects(create.exec({ name: 'billing', code: 'x' }, st), 'belongs to a different project'));
-check('create: refusal writes and deploys nothing', calls.writes.length === 0 && calls.created.length === 0 && calls.mkdir.length === 0);
+{
+    WORKERS = [own('api'), own('notes-k3x9p2'), theirs('billing'), theirs('Reports')];
+    const r = await create.exec({ name: 'Notes', code: 'x' }, st);
+    check('create: a request for a name this project already got a suffixed worker for redeploys that worker',
+        calls.created.length === 1 && r.name === 'notes-k3x9p2' && calls.created[0].path === `${ROOT}/workers/notes-k3x9p2.js`, r.name);
+    WORKERS = [own('api'), theirs('billing'), theirs('Reports')];
+}
 resetCalls();
-check("create: a case-variant of another project's name is refused too",
-    await rejects(create.exec({ name: 'reports', code: 'x' }, st), 'belongs to a different project'));
-check('create: (case-variant) nothing written or deployed', calls.writes.length === 0 && calls.created.length === 0);
+{
+    const r = await create.exec({ name: 'billing', code: 'x' }, st);
+    check("create: a name held by another project gets a new worker of this project's own",
+        /^billing-[a-z0-9]{6}$/.test(r.name) && calls.created.length === 1 && calls.created[0].name === r.name, r.name);
+}
+resetCalls();
+{
+    const r = await create.exec({ name: 'reports', code: 'x' }, st);
+    check("create: so does a case-variant of another project's name",
+        /^reports-[a-z0-9]{6}$/.test(r.name) && calls.created[0].name === r.name, r.name);
+}
+resetCalls();
+{
+    const r = await create.exec({ name: 'A'.repeat(50), code: 'x' }, st);
+    check('create: a long name is shortened so the published copy ("-live") keeps the whole suffix',
+        /^a{38}-[a-z0-9]{6}$/.test(r.name) && (r.name.slice(0, 45) + '-live').includes(r.name.slice(-6)), r.name);
+}
+resetCalls();
+{
+    const realCreate = puter.workers.create;
+    puter.workers.create = async () => { throw new TypeError("Cannot read properties of undefined (reading 'uuid')"); };
+    check("create: puter.js's crash on another user's name is explained to the model",
+        await rejects(create.exec({ name: 'guestbook', code: 'x' }, st), 'already taken by another Puter user'));
+    puter.workers.create = realCreate;
+}
 resetCalls();
 check('create: a name that escapes the project dir is refused before any IO',
     await rejects(create.exec({ name: '../../escape', code: 'x' }, st), 'Invalid worker name') && calls.listed === 0 && calls.writes.length === 0);
@@ -229,7 +262,7 @@ LIST_THROWS = false;
 
 // === Wiring: the guards stay hooked up ========================================
 check('delete_worker consults WorkerOwnership.ownedWorkers', DELETE.includes('WorkerOwnership.ownedWorkers('));
-check('create_worker consults WorkerOwnership.ownedWorkers', CREATE.includes('WorkerOwnership.ownedWorkers('));
+check('create_worker consults WorkerOwnership.ownedWorkers', CREATE.includes('WO.ownedWorkers(all, root)'));
 check('list_workers consults WorkerOwnership.ownedWorkers', LIST.includes('WorkerOwnership.ownedWorkers('));
 check('get_worker consults WorkerOwnership.ownedWorkers', GET.includes('WorkerOwnership.ownedWorkers('));
 check('all four tools scope to the turn-captured project dir',

@@ -30,6 +30,80 @@ window.getUnavailableTools = function(modelId) {
 // would fail on a missing field at best, and at worst write an empty file.
 const CUT_OFF_TOOL_ERROR = 'This call was cut off at the output limit before its arguments were complete, so it was not run. Send it again. If it was a large file, write it in smaller parts (a shorter write, then edits).';
 
+// Saving a deployed worker's source (workers/<name>.js, the file create_worker
+// deploys from) is how it is updated. Puter redeploys it from the saved file.
+// Every save of one, by the AI's edit, multi_edit and write, a Code view save
+// or a GitHub pull, looks up the worker before the save (workerSaveTarget),
+// stamps the canary token from it onto the code (see stampWorkerCanary in
+// helpers.js), and after the save waits until the worker serves that token
+// (workerSaveResult). So the AI's result tells it whether its change is live,
+// and it never resends the whole worker to create_worker just to deploy an
+// edit.
+// Puter documents up to 30 seconds for a deploy to reach every edge.
+window.workerCanaryTiming = { pollMs: 500, limitMs: 30000 };
+
+// The deployed worker this project runs from `path`, with a fresh canary
+// token: { name, url, token }. { lookupFailed: true } when the worker list
+// can't be read, null for any other file. A token starts with the time it was
+// made, so a later save's token sorts after it.
+window.workerSaveTarget = async function(path, state) {
+    const root = window.projectRootDir(state);
+    if (!root || typeof path !== 'string' || path.indexOf(root + '/') !== 0) return null;
+    if (!window.EditorCore?.classify(path.slice(root.length + 1)).backend) return null;
+    let owned;
+    try { owned = window.WorkerOwnership.ownedWorkers(await puter.workers.list(), root); }
+    catch (e) { return { lookupFailed: true }; }
+    const worker = owned.find(w => window.normalizePosixPath(w.file_path) === path);
+    if (!worker || !worker.url) return null;
+    const token = Date.now().toString(36).padStart(9, '0') + Math.random().toString(36).slice(2, 8).padEnd(6, '0');
+    return { name: worker.name, url: worker.url, token };
+};
+
+// Whether the worker serving canary `served` runs the save that stamped
+// `token`, or a later save of the same file (one made while this one waited).
+function servesSave(served, token) {
+    return served === token || (/^[0-9a-z]{15}$/.test(served || '') && served.slice(0, 9) > token.slice(0, 9));
+}
+
+// The canary the worker at `url` serves, or null when it doesn't answer.
+async function readWorkerCanary(url) {
+    const bust = '?__pv=' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    try {
+        const signal = typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(5000) : undefined;
+        const resp = await fetch(url.replace(/\/+$/, '') + window.WORKER_CANARY_PATH + bust, { cache: 'no-store', signal });
+        return resp.ok ? (await resp.text()).trim() : null;
+    } catch (e) { return null; }
+}
+
+// The `worker` field of a worker save's result, once the worker serves the
+// saved `code` or the wait runs out. Null when the file isn't a worker's.
+window.workerSaveResult = async function(target, code, state) {
+    if (!target) return null;
+    if (target.lookupFailed) {
+        return { live: false, note: "Builder couldn't look up this project's workers, so it couldn't check whether this save is live." };
+    }
+    // Puter reports nothing about a save it can't deploy, and keeps running
+    // the previous code. It runs a worker as a plain script, so code that
+    // doesn't compile here won't deploy there either, and there is nothing to
+    // wait for. This compiles the code without running it.
+    try { new (Object.getPrototypeOf(async function() {}).constructor)(code); }
+    catch (e) {
+        return { name: target.name, live: false, error: e && e.message ? (e.name || 'Error') + ': ' + e.message : String(e),
+            note: "The file is saved, but it doesn't parse, so the worker is still running its previous code. Fix the error and save the file again." };
+    }
+    const { pollMs, limitMs } = window.workerCanaryTiming;
+    const deadline = Date.now() + limitMs;
+    for (;;) {
+        if (servesSave(await readWorkerCanary(target.url), target.token)) {
+            return { name: target.name, url: target.url, live: true };
+        }
+        if (Date.now() >= deadline || state?.abortController?.signal?.aborted) break;
+        await new Promise(r => setTimeout(r, pollMs));
+    }
+    return { name: target.name, live: false,
+        note: `The file is saved, but the worker wasn't serving it yet after ${Math.round(limitMs / 1000)} seconds. It may still be updating, or still running its previous code.` };
+};
+
 window.findTool = function(name, state) {
     return (state?.tools || window.getTurnTools()).find(tool => tool.function.name === name);
 }

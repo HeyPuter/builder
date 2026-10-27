@@ -399,6 +399,7 @@
         return {
             digest: (alg, data) => crypto.subtle.digest(alg, data),
             stripCacheBust: window.stripPreviewCacheBust,
+            stripWorkerCanary: window.stripWorkerCanary,
         };
     }
 
@@ -487,19 +488,6 @@
         return _lfs.get(attrs.sha);
     }
 
-    // The project-relative paths of this project's deployed backends. A failed
-    // listing fails the pass: guessing "none" would send their keys.
-    const _owned = new Map();
-    async function ownedWorkersOf(appDir) {
-        const hit = _owned.get(appDir);
-        if (hit && Date.now() - hit.at < 60000) return hit.paths;
-        const list = await puter.workers.list();
-        const paths = (window.WorkerOwnership ? window.WorkerOwnership.ownedWorkers(list, appDir) : [])
-            .map((w) => String(w.file_path).slice(appDir.length + 1))
-            .filter(Boolean);
-        _owned.set(appDir, { at: Date.now(), paths });
-        return paths;
-    }
 
     // The folder the preview serves, relative to the project. Known for the
     // open project, remembered for the others.
@@ -862,6 +850,18 @@
                 return 'ok';
             }
 
+            // A pulled deployed backend's source is written with a deploy canary
+            // (see workerSaveTarget in tools.js). GitHub never gets it back
+            // (normalizeForGit), and the AI's note above keeps the clean text.
+            const workerSaves = [];
+            for (const w of writes) {
+                const worker = w.text != null ? await window.workerSaveTarget?.(w.path, { appDir }) : null;
+                if (!worker?.token) continue;
+                const code = window.stampWorkerCanary(new TextDecoder('utf-8', { ignoreBOM: true }).decode(w.bytes), worker.token);
+                w.bytes = new TextEncoder().encode(code);
+                workerSaves.push({ worker, code, rel: w.rel });
+            }
+
             const entry = index.versions.find((v) => v.id === index.current) || {};
             const count = writes.length + deletes.length;
             const res = await window.applyExternalUpdate({
@@ -896,11 +896,17 @@
             // A pulled change to a deployed backend's code goes live on the
             // draft backend (the published one changes only on Publish), and
             // its keys stay in its store. Puter redeploys a worker when its
-            // source file is written. Builder deploys once more to be sure, as
-            // a Code view save does.
-            const deployed = new Set(await ownedWorkersOf(appDir).catch(() => []));
-            for (const w of writes) {
-                if (deployed.has(w.rel)) Promise.resolve(window.redeployWorkerSource?.(appDir, w.path)).catch(() => {});
+            // source file is written. The write carried a canary (above), and
+            // the user hears if the backend doesn't serve it, as for a Code
+            // view save.
+            for (const s of workerSaves) {
+                Promise.resolve(window.workerSaveResult?.(s.worker, s.code)).then((r) => {
+                    if (!r || r.live || !r.name) return;
+                    window.showToast?.('The change to ' + s.rel + ' from GitHub '
+                        + (r.error ? 'has an error (' + r.error + '), so your app’s backend is still running the previous code.'
+                            : 'hasn’t reached your app’s backend yet. It may still be updating.'),
+                        { type: 'warning', key: 'github-backend', duration: 8000 });
+                }).catch(() => {});
             }
             const pulled = plan.pull.map((p) => p.path);
             // The new version is exactly GitHub's head when nothing was kept

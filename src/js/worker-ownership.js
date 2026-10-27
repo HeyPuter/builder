@@ -90,6 +90,31 @@ window.WorkerOwnership = (function () {
         return hits.length === 1 ? hits[0] : null;
     }
 
+    // create_worker names a new worker after the name the model asked for plus
+    // a random suffix ('guestbook' -> 'guestbook-k3x9p2'). Worker names are
+    // shared by everyone on Puter (each one's URL, and its 'sandbox-<name>'
+    // app), so a plain name like 'guestbook' is usually someone else's. The
+    // stem is lowercased, as Puter lowercases the name, and short enough that
+    // the published copy's name (liveWorkerName in ui.js) keeps the suffix.
+    const NEW_NAME_STEM_LENGTH = 38;
+    function newNameStem(requested) {
+        return String(requested || '').toLowerCase().slice(0, NEW_NAME_STEM_LENGTH).replace(/-+$/, '') || 'worker';
+    }
+
+    // The worker of this project's `owned` workers that a create_worker call
+    // for `requested` means: the one by that very name, else the one an
+    // earlier call for that name made (the stem plus a suffix). Null when
+    // there is none, or more than one to choose from.
+    function ownedForRequest(owned, requested) {
+        const wanted = String(requested || '').toLowerCase();
+        const usable = (owned || []).filter(w => w && typeof w.name === 'string');
+        const exact = usable.find(w => w.name.toLowerCase() === wanted);
+        if (exact) return exact;
+        const suffixed = new RegExp('^' + escapeRegExp(newNameStem(requested)) + '-[a-z0-9]{6}$');
+        const made = usable.filter(w => suffixed.test(w.name.toLowerCase()));
+        return made.length === 1 ? made[0] : null;
+    }
+
     // A fresh account-unique name for a copy's redeployed worker: the original
     // name plus a '-<suffix>' tail. `takenNames` is every name already in use
     // (compared case-insensitively — worker names are account-global and the
@@ -259,6 +284,8 @@ window.WorkerOwnership = (function () {
         ownedWorkers: ownedWorkers,
         matchesByName: matchesByName,
         findByName: findByName,
+        newNameStem: newNameStem,
+        ownedForRequest: ownedForRequest,
         deriveCopyName: deriveCopyName,
         planCopies: planCopies,
         rewriteUrlsInText: rewriteUrlsInText,
