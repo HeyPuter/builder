@@ -48,6 +48,9 @@ const CODE = [
     helpersSource.slice(
         helpersSource.indexOf('const _fileLocks = new Map()'),
         helpersSource.indexOf('// Write `data` to `path` and CONFIRM')),
+    helpersSource.slice(
+        helpersSource.indexOf('// ---- Worker deploy canary'),
+        helpersSource.indexOf('// ---- Preview sub-resource cache-busting')),
     appSource.match(/^const WORKER_URL_TEXT_FILE_RE = .*$/m)[0],
     extract(appSource, 'async function rewriteWorkerUrlsInDir(dir, renames, changed = new Set()) {'),
     'window.rewriteWorkerUrlsInDir = rewriteWorkerUrlsInDir;',
@@ -204,6 +207,14 @@ function makeWorld({ failDeploy = false, takenLiveName = null } = {}) {
         w.deployed.get('api-a-live').file_path);
     check('publish: no error', w.alerts.length === 0, JSON.stringify(w.alerts));
 
+    // A draft saved since carries a deploy canary (stampWorkerCanary). The
+    // published backend gets the code without it.
+    w.files.set(WORK + '/workers/api-a.js', w.sandbox.window.stampWorkerCanary(V1, '0abc123def45678'));
+    await w.sandbox.doPublish();
+    check('republish: the published backend never gets the draft\'s deploy canary',
+        w.deployed.get('api-a-live').code === V1, w.deployed.get('api-a-live').code);
+    w.files.set(WORK + '/workers/api-a.js', V1);
+
     // Now the draft edit the report is about: the AI updates the worker.
     await w.tool('create_worker').exec({ name: 'api-a', code: V2 }, {});
     check('draft edit: the DRAFT worker is updated', w.deployed.get('api-a').code === V2);
@@ -235,10 +246,12 @@ function makeWorld({ failDeploy = false, takenLiveName = null } = {}) {
     check('tools: the model cannot delete the live backend', refusedDelete);
     check('tools: …and it is still deployed', w.deployed.has('api-a-live'));
 
-    let refusedCreate = false;
-    try { await w.tool('create_worker').exec({ name: 'api-a-live', code: 'x' }, {}); }
-    catch (e) { refusedCreate = /belongs to a different project/.test(e.message); }
-    check('tools: the model cannot redeploy over the live backend', refusedCreate);
+    // Asking for the live backend's name gets a new worker of the project's
+    // own, under a suffixed name (create_worker never reuses a name it
+    // doesn't own).
+    const made = await w.tool('create_worker').exec({ name: 'api-a-live', code: 'x' }, {});
+    check('tools: the model cannot redeploy over the live backend',
+        /^api-a-live-[a-z0-9]{6}$/.test(made.name), made.name);
     check('tools: …and its code is untouched', w.deployed.get('api-a-live').code === V1);
 }
 

@@ -289,8 +289,11 @@ check('restores save code first behind a starting mark, wait for sends and publi
     /_restoresStarting\.add\(startingChat\);[\s\S]{0,200}await window\.CodeEditor\.beforeRestore\(startingChat, \{ skipConfirm \}\);[\s\S]{0,120}_restoresStarting\.delete\(startingChat\);/.test(versions)
     && versions.includes('window.CodeEditor?.onRestoreEnd?.(chatId, filesTouched, restoreNoted);')
     && /restoreNoted = true;/.test(versions) && /_sendSetupInFlight\)\) \{\s*await puter\.ui\.alert\('Please wait for the current task/.test(versions));
-check('a saved backend redeploys under its own name, sandboxed, on the restore queue',
-    /window\.redeployWorkerSource = function[\s\S]*?puter\.workers\.create\(worker\.name, worker\.file_path, \{ sandbox: true \}\)/.test(versions));
+check('a saved backend is stamped with a deploy canary in its one write, then waited on, never redeployed with create()',
+    /const deploy = \{ worker: file\.info\.backend \? await window\.workerSaveTarget\?\.\(abs, \{ appDir: file\.appDir \}\) : null, code: null \};\s*\/\/ The publish check and the lock request happen in the same tick/.test(editor)
+    && /out = window\.stampWorkerSave \? window\.stampWorkerSave\(deploy\.worker, out\) : out;\s*deploy\.code = out;\s*await window\.writeFileVerified\(abs, out\);/.test(editor)
+    && /window\.workerSaveResult\?\.\(deploy\.worker, deploy\.code\)/.test(editor)
+    && !/redeployWorkerSource/.test(editor + versions));
 check('a save re-checks a delete inside the lock, before writing',
     /if \(deleted\(file\.chatId\)\) return \{ gone: true \};\s*let out = text;/.test(editor));
 check('the auto-fix hold rests on the stored note, so it survives a reload or a switch',

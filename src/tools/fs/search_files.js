@@ -360,6 +360,7 @@ window.tools.push({
                 if (/\.html?$/i.test(f.path) && window.stripPreviewCacheBust) {
                     text = window.stripPreviewCacheBust(text);
                 }
+                if (window.stripWorkerCanary) text = window.stripWorkerCanary(text);
                 const viaWorker = regexRunner ? await regexRunner.match(text, L.MAX_PER_FILE, deadline) : null;
                 if (viaWorker) {
                     perFile[i] = viaWorker;

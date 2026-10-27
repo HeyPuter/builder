@@ -2113,9 +2113,14 @@ async function deployPublishedWorkers(chatId, appDir, releaseDir, srcPath = appD
         }
         // Freeze the source: the deployment reads the file now, so this copy is
         // what the published worker runs until the next publish, whatever the
-        // draft's own copy becomes in the meantime.
+        // draft's own copy becomes in the meantime. Written rather than copied,
+        // so the live backend never gets the draft's deploy canary (see
+        // stampWorkerCanary), and so a republish keeps the live worker's file:
+        // a copy over it replaces the file, and Puter deletes the worker until
+        // it is created again.
         const sourcePath = backendDir + '/' + liveName + '.js';
-        await puter.fs.copy(worker.file_path, backendDir, { newName: liveName + '.js', overwrite: true });
+        const source = await puter.fs.read(worker.file_path).then(d => d.text());
+        await puter.fs.write(sourcePath, window.stripWorkerCanary(source), { overwrite: true });
         const created = await puter.workers.create(liveName, sourcePath, { sandbox: true });
         if (!created || created.success === false || !created.url) {
             throw new Error(`Couldn’t deploy the published copy of the worker “${worker.name}”.`);

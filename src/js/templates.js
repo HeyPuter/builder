@@ -74,10 +74,6 @@
 
     // ---- The fork -------------------------------------------------------------
 
-    function randomSuffix() {
-        return Math.random().toString(36).slice(2, 8);
-    }
-
     // Run fn over items, `limit` at a time, in order. Unlike mapWithConcurrency
     // (app.js), the first failure stops any further item from starting, and the
     // call rejects only once the ones already running have settled: a fork's
@@ -189,7 +185,7 @@
                 const taken = (Array.isArray(existing) ? existing : []).map(w => w && w.name).filter(Boolean);
                 for (const workerName of template.workers) {
                     const name = window.WorkerOwnership.deriveCopyName(
-                        core().workerBaseName(template.slug, workerName), taken, randomSuffix);
+                        core().workerBaseName(template.slug, workerName), taken, window.WorkerOwnership.randomSuffix);
                     if (!name) throw new Error('could not pick a name for the backend');
                     taken.push(name);
                     // create_worker's own convention (workers/<name>.js), so a

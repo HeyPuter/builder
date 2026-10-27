@@ -1624,7 +1624,7 @@ async function redeployWorkersForCopy(oldAppDir, newAppDir) {
     const allWorkers = await puter.workers.list();
     const takenNames = (Array.isArray(allWorkers) ? allWorkers : []).map(w => w && w.name);
     const plans = window.WorkerOwnership.planCopies(allWorkers, takenNames, oldAppDir, newAppDir,
-        () => Math.random().toString(36).slice(2, 8));
+        window.WorkerOwnership.randomSuffix);
     const renames = [], failed = [];
     for (const plan of plans) {
         try {
