@@ -1478,6 +1478,9 @@ async function deleteChat(chatId) {
             // project, would find them. Best effort: a key left behind costs no
             // live endpoint, so it never holds up the delete.
             try { await window.WorkerSecrets?.clear(worker.name); } catch (e) { /* best effort */ }
+            // Its email sender name too, for the same reason (see
+            // worker-sender.js), and just as best effort.
+            try { await window.WorkerSender?.clear(worker.name); } catch (e) { /* best effort */ }
             await cleanup(`the worker ${worker.name}`, () => puter.workers.delete(worker.name));
         }
 
@@ -1649,6 +1652,16 @@ async function redeployWorkersForCopy(oldAppDir, newAppDir) {
                         { type: 'warning', key: 'duplicate-keys', throttleMs: 5000 });
                 }
             } catch (e) { /* the warning above covers it */ }
+            // And the original's email sender name (see worker-sender.js). A
+            // backend on its default name copies nothing, and a copy without
+            // the name still sends, so this never fails the duplicate either.
+            try {
+                const sender = await window.WorkerSender?.copy(plan.oldName, plan.newName);
+                if (sender && !sender.ok) {
+                    window.showToast?.('The copy’s backend didn’t get the original’s email sender name. Ask the AI in the copy to set it again.',
+                        { type: 'warning', key: 'duplicate-sender', throttleMs: 5000 });
+                }
+            } catch (e) { /* the warning above covers it */ }
         } catch (e) {
             console.warn('Duplicate: could not redeploy worker for the copy:', plan.oldName, e);
             failed.push(plan.oldName);
@@ -1687,6 +1700,9 @@ async function redeployWorkersForCopy(oldAppDir, newAppDir) {
 // the user, so a leftover costs storage, not correctness.
 async function discardCopyAttempt(newAppDir, renames) {
     for (const rename of (renames || [])) {
+        // The sender name it may have been given goes first, as on delete
+        // (see worker-sender.js).
+        try { await window.WorkerSender?.clear(rename.newName); } catch (e) { /* best effort */ }
         try { await puter.workers.delete(rename.newName); }
         catch (e) { console.warn('Duplicate: could not remove the copy’s worker:', rename.newName, e); }
     }
