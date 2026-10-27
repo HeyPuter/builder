@@ -54,31 +54,48 @@ function revealFinalReply(context, fromIndex) {
 // token counts on the turn's shared context — one accumulator spans every round
 // of the agentic loop, since the nested handleMessageStream/handleToolCalls
 // calls all share this same `context`. cacheWrite folds the ephemeral
-// (cache-creation) buckets the streamed usage reports.
+// (cache-creation) buckets the streamed usage reports. lastInput is the size of
+// the latest request (all its input buckets together), the context size the
+// analytics events band. The latest, not the largest: a refused request is the
+// one after it, and on a request that compacted Puter's usage adds the
+// summarizing pass, so that one reads high. The turn's stats, shared by every
+// attempt, get the cost and that size too, so a turn refused for credits can
+// still report them.
 function recordUsageChunk(context, completion) {
     const u = completion && completion.usage;
     if (!u || typeof u !== 'object') return;
     const num = v => { const n = Number(v); return isFinite(n) && n > 0 ? n : 0; };
     const acc = context.pendingUsage || (context.pendingUsage = {
-        cents: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0,
+        cents: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0, lastInput: 0,
     });
-    acc.cents += num(u.usd_cents);
     // Token keys are each vendor's own. Claude's (and the Responses API's)
     // input_tokens/output_tokens are read as before. Routes that name them
     // otherwise (prompt_tokens, Gemini's counts) fall back to Puter's
     // provider-neutral usageDetails, which carries at least the totals.
     const d = completion.usageDetails;
-    if (!('input_tokens' in u) && !('output_tokens' in u) && d && typeof d === 'object') {
-        acc.input += num(d.inputTokens);
-        acc.output += num(d.outputTokens);
-        acc.cacheRead += num(d.cacheReadTokens);
-        acc.cacheWrite += num(d.cacheWrite5mTokens) + num(d.cacheWrite1hTokens);
-        return;
+    const call = (!('input_tokens' in u) && !('output_tokens' in u) && d && typeof d === 'object')
+        ? {
+            input: num(d.inputTokens), output: num(d.outputTokens), cacheRead: num(d.cacheReadTokens),
+            cacheWrite: num(d.cacheWrite5mTokens) + num(d.cacheWrite1hTokens),
+        }
+        : {
+            input: num(u.input_tokens), output: num(u.output_tokens), cacheRead: num(u.cache_read_input_tokens),
+            cacheWrite: num(u.ephemeral_5m_input_tokens) + num(u.ephemeral_1h_input_tokens),
+        };
+    const cents = num(u.usd_cents);
+    const size = call.input + call.cacheRead + call.cacheWrite;
+    acc.cents += cents;
+    acc.input += call.input;
+    acc.output += call.output;
+    acc.cacheRead += call.cacheRead;
+    acc.cacheWrite += call.cacheWrite;
+    // A usage line with no input counts leaves the last size as it was.
+    if (size > 0) acc.lastInput = size;
+    const stats = context.turnStats;
+    if (stats) {
+        stats.cents = (stats.cents || 0) + cents;
+        if (size > 0) stats.lastInput = size;
     }
-    acc.input += num(u.input_tokens);
-    acc.output += num(u.output_tokens);
-    acc.cacheRead += num(u.cache_read_input_tokens);
-    acc.cacheWrite += num(u.ephemeral_5m_input_tokens) + num(u.ephemeral_1h_input_tokens);
 }
 
 // At the end of a turn, fold the accumulated cost + token usage onto the turn's
@@ -123,6 +140,9 @@ function flushTurnUsage(context) {
             t.output += acc.output;
             t.cacheRead += acc.cacheRead;
             t.cacheWrite += acc.cacheWrite;
+            // The latest request, a refused turn's fallback context size
+            // (lastRequestSize in app.js). Not summed: it's a size, not a spend.
+            if (acc.lastInput > 0) t.lastInput = acc.lastInput;
             context.pendingUsage = null;
             return;
         }
@@ -269,6 +289,9 @@ async function handleMessageStream(stream, context) {
     // Where this attempt's messages begin — bounds revealFinalReply below to
     // text this stream produced, never an earlier turn's.
     const historyStart = Array.isArray(context.chatHistory) ? context.chatHistory.length : 0;
+    // Compaction entries this stream inserted at historyStart, so a second one
+    // goes after the first.
+    let compactionsHere = 0;
 
     // Local ownership matters: recursive tool rounds and stale turns must not
     // tear down another stream's preview. Always dispose before a tool handoff.
@@ -347,6 +370,28 @@ async function handleMessageStream(stream, context) {
                 if (typeof completion.reasoning === 'string' && completion.reasoning.length) {
                     thinkingPreview ||= createThinkingPreview(context);
                     thinkingPreview.append(completion.reasoning);
+                }
+                continue;
+            }
+            if (completion.type === 'compaction') {
+                // The model summarized the older history (ModelCore compactAt).
+                // Stored as its own entry where this request's output begins,
+                // ahead of its reply's text and tool calls. Puter writes it
+                // before the usage line, which it writes last as it closes the
+                // stream, so it always arrives before this reply's tool calls
+                // run. Usually it comes first. When Anthropic didn't stream it,
+                // Puter sends it after the message, and inserting at
+                // historyStart still puts it ahead. The next request starts
+                // from here (ModelCore.fromLastCompaction). The model stamp says
+                // which vendor can read it back.
+                if (typeof completion.encrypted_content === 'string' && completion.encrypted_content) {
+                    context.chatHistory.splice(historyStart + compactionsHere++, 0, {
+                        role: 'assistant',
+                        content: [{ type: 'compaction', id: completion.id, encrypted_content: completion.encrypted_content }],
+                        compaction: true,
+                        ...(context.model ? { model: context.model } : {}),
+                    });
+                    if (context.turnStats) context.turnStats.compactions = (context.turnStats.compactions || 0) + 1;
                 }
                 continue;
             }

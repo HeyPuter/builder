@@ -23,10 +23,12 @@ const APP = fs.readFileSync(new URL('../src/js/app.js', import.meta.url), 'utf8'
 const HELPERS = fs.readFileSync(new URL('../src/js/helpers.js', import.meta.url), 'utf8');
 const bandSrc = HELPERS.slice(HELPERS.indexOf('const COST_BANDS = ['));
 const costBand = new Function(bandSrc.slice(0, bandSrc.indexOf('\n}\n', bandSrc.indexOf('function costBand(')) + 3) + 'return costBand;')();
+const ctxSrc = HELPERS.slice(HELPERS.indexOf('const CONTEXT_BANDS = ['));
+const contextBand = new Function(ctxSrc.slice(0, ctxSrc.indexOf('\n}\n', ctxSrc.indexOf('function contextBand(')) + 3) + 'return contextBand;')();
 const a = APP.indexOf('// ===== usage-limit-unblock (start) =====');
 const b = APP.indexOf('// ===== usage-limit-unblock (end) =====');
 if (a < 0 || b < 0) throw new Error('could not extract usage-limit-unblock block');
-const make = new Function('window', 'localStorage', 'Date', 'puter', 'navigator', 'costBand',
+const make = new Function('window', 'localStorage', 'Date', 'puter', 'navigator', 'costBand', 'contextBand',
     APP.slice(a, b) + '\nreturn { recordUsageLimitHit, reportUnblockAfterLimit, LIMIT_HIT_PREFIX, countCompletedBuilds, usageLimitHitProps, isLowBalanceRefusal, planChange, recordPlanAtLimit, checkPaidAfterLimit, LIMIT_PAY_PREFIX, creditsAtStart, readTurnAccount, limitHitTurnProps, afterAccountRead, limitDialogCohort, projectDisplayName, limitDialogCopy };');
 
 const HOUR = 36e5;
@@ -51,7 +53,7 @@ function harness({ storage = memStorage(), uuid = 'user-a', puter = null, naviga
     }
     const win = { user: uuid ? { uuid } : null, _calls: [] };
     win.track = (event, props) => { win._calls.push([event, props]); };
-    const api = make(win, storage, FakeDate, puter, navigator, costBand);
+    const api = make(win, storage, FakeDate, puter, navigator, costBand, contextBand);
     return { ...api, win, storage, setNow: t => { now = t; } };
 }
 
@@ -188,6 +190,11 @@ for (const bad of ['not json', 'null', '{}', '{"at":"yesterday"}']) {
         count([sys, user('a'), toolUse, legacyRestore, user('b')]) === 0);
     check('restore note after a finished build → still counted once',
         count([sys, user('a'), reply('ok'), restore, user('b')]) === 1);
+    const compaction = { role: 'assistant', content: [{ type: 'compaction', id: 'c', encrypted_content: 's' }], compaction: true };
+    check('a round that gave up right after compacting → not counted',
+        count([sys, user('a'), toolUse, toolResult, compaction]) === 0);
+    check('a build that compacted and finished → counted once',
+        count([sys, user('a'), toolUse, toolResult, compaction, reply('done')]) === 1);
     check('mixed history counts each finished build',
         count([sys, user('a'), toolUse, toolResult, reply('ok'), user('b'), toolUse, user('c'), reply('ok'), user('d')]) === 2);
 
@@ -370,6 +377,26 @@ async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, other
     check('turn props: preview checks cap at 3+',
         props(account, stats(1, 2)).preview_checks === '2' && props(account, stats(1, 3)).preview_checks === '3+' &&
         props(account, stats(1, 7)).preview_checks === '3+');
+
+    // How big the turn's requests were, and what it spent before the refusal.
+    const big = { calls: 3, previewChecks: 0, cents: 120, lastInput: 240000, compactions: 1 };
+    const pb = props(account, big, []);
+    check('turn props: the latest request, banded', pb.context_band === '200-500k');
+    check('turn props: what the turn spent, banded like cost_band', pb.turn_cost_band === '$1-1.50');
+    check('turn props: whether it compacted', pb.compacted === true && p0.compacted === false);
+    const history = [
+        { role: 'user', content: 'go' },
+        { role: 'assistant', content: 'done', tokenUsage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, lastInput: 180000 } },
+        { role: 'user', content: 'again' },
+        { role: 'assistant', content: 'x', tokenUsage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0 } },
+    ];
+    check('turn props: refused on its first call → the chat\'s last measured request',
+        props(account, stats(0, 0), history).context_band === '150-200k');
+    check('turn props: a measured request wins over the history',
+        props(account, { ...big, lastInput: 60000 }, history).context_band === '50-100k');
+    check('turn props: nothing measured anywhere → unknown',
+        p0.context_band === 'unknown' && props(account, stats(0, 0), [{ role: 'assistant', content: 'old' }]).context_band === 'unknown');
+    check('turn props: nothing spent → $0', p0.turn_cost_band === '$0');
 }
 
 {
@@ -505,12 +532,16 @@ async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, other
     check('every limit branch sends the extra props',
         (send.match(/trackLimitHit\([^\n]*\.\.\.usageLimitHitProps\(turnSaveContext\.chatHistory, savedChats, turnChatId, window\.currentPublishedUrl\)/g) || []).length === 3);
     check('the limit hit waits for the account read, then adds the turn props',
-        /const trackLimitHit = props => afterAccountRead\(turnAccountRead,\s*\(\) => window\.track\?\.\('Usage Limit Hit', \{ \.\.\.props, \.\.\.limitHitTurnProps\(turnAccount, turnStats\) \}\)\);/.test(send));
+        /const trackLimitHit = props => afterAccountRead\(turnAccountRead,\s*\(\) => window\.track\?\.\('Usage Limit Hit', \{ \.\.\.props, \.\.\.limitHitTurnProps\(turnAccount, turnStats, turnSaveContext\.chatHistory\) \}\)\);/.test(send));
     check('the account is read once per turn, before the attempts',
         /turnAccountRead = readTurnAccount\(\)\.then\(a => \{ turnAccount = a; \}, \(\) => \{\}\);\s*while \(true\)/.test(send));
     check('every attempt shares the turn stats', /interrupted: true, turnStats\}/.test(send));
     check('Build Completed carries cost band, plan and credits',
         /'Build Completed',[\s\S]{0,300}cost_band: costBand\(costCents\), plan: turnAccount\.plan, credits_at_start: turnAccount\.credits/.test(send));
+    check('Build Completed carries the context size and whether the turn compacted',
+        /'Build Completed',[\s\S]{0,400}context_band: contextBand\(turnStats\.lastInput\), compacted: turnStats\.compactions > 0/.test(send));
+    check('the turn stats start with room for cost, size and compactions',
+        /const turnStats = \{ calls: 0, previewChecks: 0, cents: 0, lastInput: 0, compactions: 0 \};/.test(send));
     check('error branch counts only Low Balance refusals',
         /if \(isLowBalanceRefusal\(error\)\) \{\s*trackLimitHit\(/.test(send));
     check('a stream cut short for credits records the hit instead of an unblock',
