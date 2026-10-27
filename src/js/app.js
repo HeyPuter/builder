@@ -3670,7 +3670,8 @@ function countCompletedBuilds(history) {
             finish();
             inBuild = true;
             last = null;
-        } else if (m.role === 'assistant' && !isVersionNote(m)) {
+        } else if (m.role === 'assistant' && !isVersionNote(m) && !m.compaction) {
+            // A compaction entry (ModelCore.fromLastCompaction) is no reply.
             last = m;
         }
     }
@@ -3823,13 +3824,30 @@ function afterAccountRead(read, fn) {
 
 // How far a turn got before the limit stopped it: model calls that went through
 // (a refused one sends no usage, so isn't counted), and update_preview calls
-// (3+ means it was stuck fixing errors).
-function limitHitTurnProps(account, stats) {
+// (3+ means it was stuck fixing errors). Also how big its requests were and
+// what it spent before the refusal. A turn refused on its first call measured
+// nothing, so its size is the chat's last measured request, which the refused
+// one only adds the new message to.
+function limitHitTurnProps(account, stats, history) {
     return {
         credits_at_start: account.credits,
         calls: stats.calls >= 30 ? '30+' : stats.calls,
         preview_checks: stats.previewChecks >= 3 ? '3+' : String(stats.previewChecks),
+        context_band: contextBand(stats.lastInput || lastRequestSize(history)),
+        turn_cost_band: costBand(stats.cents),
+        compacted: (stats.compactions || 0) > 0,
     };
+}
+
+// The size of the chat's latest measured request (see flushTurnUsage), or 0
+// for a chat with none, such as one from before it was recorded.
+function lastRequestSize(history) {
+    if (!Array.isArray(history)) return 0;
+    for (let i = history.length - 1; i >= 0; i--) {
+        const t = history[i] && history[i].role === 'assistant' && history[i].tokenUsage;
+        if (t && t.lastInput > 0) return t.lastInput;
+    }
+    return 0;
 }
 // ===== usage-limit-unblock (end) =====
 
@@ -4804,9 +4822,9 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // is never awaited; an event that fires before it lands says 'unknown'.
     let turnAccount = { credits: 'unknown', plan: 'unknown' };
     let turnAccountRead = null;
-    const turnStats = { calls: 0, previewChecks: 0 };
+    const turnStats = { calls: 0, previewChecks: 0, cents: 0, lastInput: 0, compactions: 0 };
     const trackLimitHit = props => afterAccountRead(turnAccountRead,
-        () => window.track?.('Usage Limit Hit', { ...props, ...limitHitTurnProps(turnAccount, turnStats) }));
+        () => window.track?.('Usage Limit Hit', { ...props, ...limitHitTurnProps(turnAccount, turnStats, turnSaveContext.chatHistory) }));
     // Transient-failure auto-retry state (see the retry loop below). `attempt`
     // counts retries used this turn; `retryGaveUp` is set once they're exhausted,
     // which routes the turn to the calm resume banner instead of an error card.
@@ -5277,7 +5295,8 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             window.track?.(
                 'Build Completed',
                 { first_build: isFirstBuildTurn, model: turnModel, cost_cents: Number(costCents.toFixed(4)),
-                    cost_band: costBand(costCents), plan: turnAccount.plan, credits_at_start: turnAccount.credits },
+                    cost_band: costBand(costCents), plan: turnAccount.plan, credits_at_start: turnAccount.credits,
+                    context_band: contextBand(turnStats.lastInput), compacted: turnStats.compactions > 0 },
                 costCents > 0 ? { currency: 'USD', amount: -(costCents / 100) } : undefined,
             );
             if (attempt > 0) window.track?.('Build Recovered', { attempts: attempt });

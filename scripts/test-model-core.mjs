@@ -100,9 +100,22 @@ check('the three candidates are registered', () => {
 
 // ---- Request options --------------------------------------------------------
 
-check('Opus: medium effort, one tool call per reply, started on Anthropic', () => {
+check('Opus: medium effort, one tool call per reply, started on Anthropic, compacts past 100k', () => {
     const o = M.buildChatOptions('claude-opus-5-5', { tools: ['t'], signal: 's' });
-    assert.deepEqual(plain(o), plain({ model: 'claude-opus-5-5', tools: ['t'], stream: true, reasoning_effort: 'medium', parallelToolCalls: false, provider: 'claude', signal: 's' }));
+    assert.deepEqual(plain(o), plain({ model: 'claude-opus-5-5', tools: ['t'], stream: true, reasoning_effort: 'medium', parallelToolCalls: false, provider: 'claude', compaction: { trigger_tokens: 100000 }, signal: 's' }));
+});
+
+check('Sonnet and GPT compact past 100k, Gemini never compacts', () => {
+    assert.deepEqual(plain(M.buildChatOptions('claude-sonnet-5-5').compaction), { trigger_tokens: 100000 });
+    assert.deepEqual(plain(M.buildChatOptions('gpt-6.1-sol').compaction), { trigger_tokens: 100000 });
+    assert.ok(!('compaction' in M.buildChatOptions('gemini-4-argon')));
+});
+
+check('every compaction threshold is at or above Anthropic\'s 50k floor', () => {
+    for (const id of M.ids()) {
+        const at = M.MODELS[id].compactAt;
+        if (at != null) assert.ok(at >= 50000, id);
+    }
 });
 
 check('Sonnet 5.5 runs at high effort', () => {

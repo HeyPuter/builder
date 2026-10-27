@@ -17,6 +17,10 @@
 //   tool result. The other routes drop them or swap them for an error note, so
 //   shapeHistory moves images into a user message of their own, and
 //   ViewDocument refuses on models that can't take a PDF at all.
+// - compactAt: the input size, in tokens, past which the model summarizes the
+//   older history into a compaction item (see fromLastCompaction). Gemini has
+//   none, since Puter only documents compaction for OpenAI and Anthropic.
+//   Anthropic won't compact below 50k.
 window.ModelCore = (function () {
     const DEFAULT_MODEL = 'claude-opus-5-5';
 
@@ -25,17 +29,17 @@ window.ModelCore = (function () {
     const MODELS = {
         'claude-opus-5-5': {
             label: 'Claude Opus 5.5', short: 'Opus 5.5', family: 'claude', route: 'claude',
-            reasoningEffort: 'medium', toolResultMedia: true, pdf: true, gif: true,
+            reasoningEffort: 'medium', toolResultMedia: true, pdf: true, gif: true, compactAt: 100000,
             note: 'Default. Optimized for Puter AI Builder.',
         },
         'claude-sonnet-5-5': {
             label: 'Claude Sonnet 5.5', short: 'Sonnet 5.5', family: 'claude', route: 'claude',
-            reasoningEffort: 'high', toolResultMedia: true, pdf: true, gif: true,
+            reasoningEffort: 'high', toolResultMedia: true, pdf: true, gif: true, compactAt: 100000,
             note: 'Fast and efficient for everyday builds.',
         },
         'gpt-6.1-sol': {
             label: 'GPT-6.1 Sol', short: 'GPT-6.1 Sol', family: 'openai', route: 'openai-responses',
-            reasoningEffort: 'medium', toolResultMedia: false, pdf: false, gif: true,
+            reasoningEffort: 'medium', toolResultMedia: false, pdf: false, gif: true, compactAt: 100000,
             note: "OpenAI's flagship model, strong at reasoning.",
         },
         'gemini-4-argon': {
@@ -93,6 +97,7 @@ window.ModelCore = (function () {
     // changes nothing on the wire (Puter already turns parallel calls off), so
     // the prompt cache is unaffected. Gemini has no such switch, which is why
     // handleMessageStream runs a whole reply's tool calls as one batch.
+    // compaction is sent on every round, so a long build can compact again.
     function buildChatOptions(modelId, { tools, signal } = {}) {
         const id = idOrDefault(modelId);
         const m = MODELS[id];
@@ -103,8 +108,46 @@ window.ModelCore = (function () {
             reasoning_effort: m.reasoningEffort,
             parallelToolCalls: false,
             provider: m.route,
+            ...(m.compactAt ? { compaction: { trigger_tokens: m.compactAt } } : {}),
             signal,
         };
+    }
+
+    // A compaction item is stored as its own assistant entry, { role:
+    // 'assistant', content: [item], compaction: true, model }, pushed when the
+    // stream hands it over, so it sits right before the reply it came with
+    // (handleMessageStream). It stands in for everything before it.
+    //
+    // Cut a request copy (prepareHistoryForAI's clone, before its other
+    // passes) down to the leading system messages plus the last usable
+    // compaction entry and what follows it. The full history stays on disk for
+    // the chat, Resume and the cost totals. An entry is usable when:
+    // - a model of the same family made it. The payload is opaque and only the
+    //   vendor that wrote it reads it, so after a switch to another vendor the
+    //   full history goes, and the new model compacts it its own way.
+    // - a reply follows it. A round that failed after compacting leaves an
+    //   entry with nothing, or only an error, after it. Its summary is skipped,
+    //   and the next request compacts again.
+    // Every other compaction entry is left out of the request.
+    function isCompactionEntry(m) {
+        return !!(m && m.compaction === true && m.role === 'assistant');
+    }
+    function fromLastCompaction(messages, modelId) {
+        if (!Array.isArray(messages)) return messages;
+        const family = MODELS[idOrDefault(modelId)].family;
+        let cut = -1;
+        for (let i = messages.length - 1; i >= 0; i--) {
+            const m = messages[i];
+            if (!isCompactionEntry(m) || !get(m.model) || MODELS[m.model].family !== family) continue;
+            const next = messages[i + 1];
+            if (next && next.role === 'assistant' && !next.isError && !isCompactionEntry(next)) { cut = i; break; }
+        }
+        let start = 0;
+        while (start < messages.length && messages[start] && messages[start].role === 'system') start++;
+        const kept = cut < 0 ? messages : [...messages.slice(0, start), ...messages.slice(cut)];
+        const out = kept.filter((m, i) => !isCompactionEntry(m) || (cut >= 0 && i === start));
+        for (const m of out) if (m && 'compaction' in m) delete m.compaction;
+        return out;
     }
 
     // MCP tool schemas are written by whatever server the user connected.
@@ -330,7 +373,7 @@ window.ModelCore = (function () {
 
     return {
         DEFAULT_MODEL, MODELS, get, ids, isClaude, supportsPdf, supportsGif, noteFor,
-        pickerAccess, projectModel, resolveTurnModel, buildChatOptions, turnTools, shapeHistory,
+        pickerAccess, projectModel, resolveTurnModel, buildChatOptions, turnTools, shapeHistory, fromLastCompaction,
         portableSchema, unavailableTools, unavailableToolsNote,
     };
 })();
