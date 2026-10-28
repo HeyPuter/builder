@@ -5491,7 +5491,12 @@ async function completeUpgrade(key) {
     const now = JSON.parse(localStorage.getItem(key) || 'null');
     if (!now || now.at !== pending.at) return;
     localStorage.removeItem(key);
-    window.track?.('Upgrade Completed', { source: pending.source });
+    // Bucketed like since_limit on 'Upgrade After Limit'.
+    const mins = (Date.now() - pending.at) / 6e4;
+    window.track?.('Upgrade Completed', {
+        source: pending.source,
+        since_click: mins < 10 ? '<10m' : mins < 60 ? '10-60m' : '1-24h',
+    });
     window.user = user;
     updateUserMenu();
     if (_publishPanelOpen) renderPublishPanel();

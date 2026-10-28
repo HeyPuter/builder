@@ -106,6 +106,7 @@ const completed = p => p.win._calls.filter(c => c[0] === 'Upgrade Completed');
     await p.refreshSubscriptionAfterUpgrade();
     const c = completed(p);
     check('paid → one Upgrade Completed with the source', c.length === 1 && c[0][1].source === 'github');
+    check('paid 5 minutes after the click → since_click <10m', c[0] && c[0][1].since_click === '<10m');
     check('paid → the click is cleared', !p.storage._m.has(KEY));
     check('paid → the success dialog opens for that source', p.win._dialogs.length === 1 && p.win._dialogs[0][0] === 'github' && p.win._dialogs[0][1].justUpgraded === true);
     check('paid → the cached user is the paid one', p.win.user.subscribed === true);
@@ -126,6 +127,7 @@ const completed = p => p.win._calls.filter(c => c[0] === 'Upgrade Completed');
     await reloaded.refreshSubscriptionAfterUpgrade();
     const c = completed(reloaded);
     check('after a reload → credited to the click from before it', c.length === 1 && c[0][1].source === 'code_editor');
+    check('2 hours after the click → since_click 1-24h', c[0] && c[0][1].since_click === '1-24h');
     check('after a reload → the success dialog still opens', reloaded.win._dialogs.length === 1 && reloaded.win._dialogs[0][0] === 'code_editor');
 }
 
@@ -139,8 +141,18 @@ const completed = p => p.win._calls.filter(c => c[0] === 'Upgrade Completed');
     p.setUpgradePending('toolbar');
     box.subscribed = true;
     await p.refreshSubscriptionAfterUpgrade();
-    const c = completed(p);
+    let c = completed(p);
     check('two clicks → the last one is credited, once', c.length === 1 && c[0][1].source === 'toolbar');
+
+    clock.now = T0;
+    const later = { subscribed: false };
+    const q = page(later, memStorage());
+    q.setUpgradePending('chat');
+    later.subscribed = true;
+    clock.now = T0 + 30 * 60 * 1000;
+    await q.refreshSubscriptionAfterUpgrade();
+    c = completed(q);
+    check('30 minutes after the click → since_click 10-60m', c.length === 1 && c[0][1].since_click === '10-60m');
 }
 
 // Too old, someone else, or nothing to do
