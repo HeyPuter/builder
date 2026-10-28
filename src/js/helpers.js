@@ -90,7 +90,7 @@ window.FEATURE_FLAGS = {
     // and later requests start from that summary. Off while Build Completed's
     // context_band shows how big builds get, so the threshold can be chosen
     // from it. When false no request asks for compaction, and a chat that
-    // compacted while it was on sends its full history again.
+    // compacted while it was on keeps its summary, sent as text.
     compaction: false,
 };
 

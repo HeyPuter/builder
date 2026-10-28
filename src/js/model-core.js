@@ -98,7 +98,8 @@ window.ModelCore = (function () {
     // changes nothing on the wire (Puter already turns parallel calls off), so
     // the prompt cache is unaffected. Gemini has no such switch, which is why
     // handleMessageStream runs a whole reply's tool calls as one batch.
-    // compaction is sent on every round, so a long build can compact again.
+    // While compaction is on, it's asked for on every round, so a long build
+    // can compact again.
     function buildChatOptions(modelId, { tools, signal } = {}) {
         const id = idOrDefault(modelId);
         const m = MODELS[id];
@@ -124,13 +125,15 @@ window.ModelCore = (function () {
     // they're never copied or sent. The full history stays on disk for the
     // chat, Resume and the cost totals. Returns a new array and never changes
     // the messages it's given. An entry is usable when:
-    // - FEATURE_FLAGS.compaction is on. Off, no entry is, so the full history
-    //   goes, as it did before compaction.
     // - the target can read it. Same family, it goes as Puter documents it, as
     //   the first block of the assistant turn after it. A Claude summary is
     //   plain text in Puter, so another vendor gets it as a text message.
     //   OpenAI's is encrypted and only OpenAI reads it, so another vendor falls
-    //   back to an older entry it can read, or the full history.
+    //   back to an older entry it can read, or the full history. With
+    //   FEATURE_FLAGS.compaction off, no request asks for compaction, so every
+    //   target is treated as another vendor. A chat that compacted while it
+    //   was on keeps its Claude summary, as text, instead of a full history
+    //   that may no longer fit.
     // - a message other than a compaction entry follows it, so the request
     //   doesn't end on it. A round that failed after compacting still left a
     //   complete summary, so its entry is used once anything follows, such as
@@ -154,10 +157,10 @@ window.ModelCore = (function () {
     }
     function fromLastCompaction(messages, modelId) {
         if (!Array.isArray(messages)) return messages;
-        const family = MODELS[idOrDefault(modelId)].family;
+        const family = compactionOn() ? MODELS[idOrDefault(modelId)].family : null;
         let cut = -1;
         let followed = false;
-        for (let i = messages.length - 1; compactionOn() && i >= 0; i--) {
+        for (let i = messages.length - 1; i >= 0; i--) {
             const m = messages[i];
             if (!isCompactionEntry(m)) { followed = true; continue; }
             if (!followed || !compactionBlock(m) || !get(m.model)) continue;

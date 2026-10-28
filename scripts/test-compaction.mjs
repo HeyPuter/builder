@@ -344,14 +344,14 @@ await check('context bands', () => {
 
 // ---- With the flag off -----------------------------------------------------
 
-await check('flag off: every summary is left out and the full history goes', () => {
+await check('flag off: a Claude summary goes as text to every model, an OpenAI one is passed over', () => {
     flags.compaction = false;
     try {
         const h = [sys, user('a'), item('1'), reply('b'), user('c'), item('2', GPT), reply('d'), user('e')];
-        const full = ['system:common', 'user:a', 'assistant:b', 'user:c', 'assistant:d', 'user:e'];
+        const fromSummary = ['system:common', 'user:Sblob-1', 'assistant:b', 'user:c', 'assistant:d', 'user:e'];
         for (const target of [OPUS, GPT, 'gemini-4-argon']) {
-            assert.deepEqual(texts(M.fromLastCompaction(h, target)), full, target);
-            assert.deepEqual(texts(prepareHistoryForAI(h, target)), full, target);
+            assert.deepEqual(texts(M.fromLastCompaction(h, target)), fromSummary, target);
+            assert.deepEqual(texts(prepareHistoryForAI(h, target)), fromSummary, target);
         }
     } finally {
         flags.compaction = true;
