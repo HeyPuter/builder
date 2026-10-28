@@ -2816,7 +2816,7 @@ $(document).ready(async function(){
     // An Upgrade click from before a reload may have been paid for since.
     // After the deep-link restore, so the success dialog can offer that
     // project's next step (publish again, start editing).
-    refreshSubscriptionAfterUpgrade();
+    startUpgradeChecks();
 
     // Reconcile the greeting against the now-known auth/chat state. ensureAuth
     // already did this for the signed-in case; this also covers the signed-out

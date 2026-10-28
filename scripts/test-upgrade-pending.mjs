@@ -2,7 +2,7 @@ import fs from 'node:fs';
 
 // ---- Regression guard for 'Upgrade Completed' -------------------------------
 // A free user's Upgrade click saves { source, at } in localStorage under a
-// per-account key. The next check that finds the account paid reports
+// per-account key, and in memory for the tab it was made in. The next check that finds the account paid reports
 // 'Upgrade Completed' with that source once, clears it and shows the success
 // dialog, even after a reload. This test
 //   * evaluates the REAL block sliced out of ui.js against a fake window,
@@ -24,7 +24,7 @@ const b = UI.indexOf('// ===== upgrade-pending (end) =====');
 if (a < 0 || b < 0) throw new Error('could not extract upgrade-pending block');
 const make = new Function('window', 'localStorage', 'Date', 'puter', 'navigator', 'document',
     'updateUserMenu', '_publishPanelOpen', 'renderPublishPanel', 'openUpgradeModal',
-    UI.slice(a, b) + '\nreturn { setUpgradePending, refreshSubscriptionAfterUpgrade, UPGRADE_PENDING_PREFIX };');
+    UI.slice(a, b) + '\nreturn { setUpgradePending, refreshSubscriptionAfterUpgrade, startUpgradeChecks, UPGRADE_PENDING_PREFIX };');
 
 const HOUR = 36e5;
 const T0 = Date.UTC(2026, 9, 28, 12, 0, 0);
@@ -59,7 +59,7 @@ function lockManager() {
 // One page load. `box` is what Puter answers, shared by every tab, and the
 // clock is shared too, so a later tab is a reload.
 const clock = { now: T0 };
-function page(box, storage, { locks = lockManager(), hidden = false, signedIn = true } = {}) {
+function page(box, storage, { locks = lockManager(), hidden = false, signedIn = true, start = true } = {}) {
     const RealDate = globalThis.Date;
     class FakeDate extends RealDate {
         constructor(...args) { super(...(args.length ? args : [clock.now])); }
@@ -85,7 +85,9 @@ function page(box, storage, { locks = lockManager(), hidden = false, signedIn = 
     };
     const api = make(win, storage, FakeDate, puter, locks ? { locks } : {}, { visibilityState: hidden ? 'hidden' : 'visible' },
         () => {}, false, () => {}, (source, opts) => { win._dialogs.push([source, opts]); });
-    return { ...api, win, storage, locks };
+    // Startup's own check, once it has reopened the project.
+    const started = start ? api.startUpgradeChecks() : null;
+    return { ...api, started, win, storage, locks };
 }
 const completed = p => p.win._calls.filter(c => c[0] === 'Upgrade Completed');
 
@@ -124,7 +126,7 @@ const completed = p => p.win._calls.filter(c => c[0] === 'Upgrade Completed');
     box.subscribed = true;
     clock.now = T0 + 2 * HOUR;
     const reloaded = page(box, storage);
-    await reloaded.refreshSubscriptionAfterUpgrade();
+    await reloaded.started;
     const c = completed(reloaded);
     check('after a reload → credited to the click from before it', c.length === 1 && c[0][1].source === 'code_editor');
     check('2 hours after the click → since_click 1-24h', c[0] && c[0][1].since_click === '1-24h');
@@ -248,17 +250,69 @@ const completed = p => p.win._calls.filter(c => c[0] === 'Upgrade Completed');
     check('no Web Locks → the re-read still reports once', await twoTabs(null) === 1);
 }
 
+// The tab that clicked still turns paid when another tab credited the click
+{
+    clock.now = T0;
+    const box = { subscribed: false };
+    const storage = memStorage();
+    const clicked = page(box, storage), other = page(box, storage);
+    clicked.setUpgradePending('usage_limit');
+    box.subscribed = true;
+    await other.refreshSubscriptionAfterUpgrade();
+    check('another tab back first → it credits the click', completed(other).length === 1 && completed(other)[0][1].source === 'usage_limit');
+    await clicked.refreshSubscriptionAfterUpgrade();
+    check('the tab that clicked → no second Upgrade Completed', completed(clicked).length === 0);
+    check('the tab that clicked → still turns paid and shows its success dialog',
+        clicked.win.user.subscribed === true && clicked.win._dialogs.length === 1 && clicked.win._dialogs[0][0] === 'usage_limit');
+    await clicked.refreshSubscriptionAfterUpgrade();
+    check('the tab that clicked → only once', clicked.win._dialogs.length === 1 && clicked.win._fetches === 1);
+}
+
+// Storage that doesn't take the click
+{
+    for (const [name, storage] of [
+        ['storage full', { getItem: () => null, setItem() { throw new Error('QuotaExceededError'); }, removeItem() {} }],
+        ['storage blocked', { getItem() { throw new Error('SecurityError'); }, setItem() { throw new Error('SecurityError'); }, removeItem() {} }],
+    ]) {
+        clock.now = T0;
+        const box = { subscribed: false };
+        const p = page(box, storage);
+        p.setUpgradePending('chat');
+        box.subscribed = true;
+        clock.now = T0 + 5 * 60 * 1000;
+        await p.refreshSubscriptionAfterUpgrade();
+        const c = completed(p);
+        check(`${name} → the same tab still credits the click once`, c.length === 1 && c[0][1].source === 'chat' && c[0][1].since_click === '<10m');
+        check(`${name} → and shows the success dialog`, p.win._dialogs.length === 1 && p.win.user.subscribed === true);
+        await p.refreshSubscriptionAfterUpgrade();
+        check(`${name} → only once`, completed(p).length === 1);
+    }
+}
+
+// Nothing runs before startup has reopened the project
+{
+    clock.now = T0;
+    const box = { subscribed: false };
+    const storage = memStorage();
+    page(box, storage).setUpgradePending('code_editor');
+    box.subscribed = true;
+    const booting = page(box, storage, { start: false });
+    await booting.refreshSubscriptionAfterUpgrade();
+    check('a focus during startup → no requests, the click kept', booting.win._fetches === 0 && storage._m.has(KEY));
+    await booting.startUpgradeChecks();
+    check('startup done → credited and the success dialog shown', completed(booting).length === 1 && booting.win._dialogs.length === 1);
+}
+
 // Wiring
 {
     check('the Upgrade dialog saves a free user\'s click', UI.includes('if (!paid) setUpgradePending(source);'));
     check('the out-of-credits dialog saves a free user\'s click', UI.includes("if (!ctx.paid) setUpgradePending('usage_limit');"));
-    check('nothing keeps the click only in memory', !/_upgradePending/.test(UI) && !/_upgradePending/.test(APP));
     check('the check runs on focus and on return to the tab',
         UI.includes("window.addEventListener('focus', refreshSubscriptionAfterUpgrade);") &&
         UI.includes("document.addEventListener('visibilitychange', refreshSubscriptionAfterUpgrade);"));
-    check('the check runs on load, after the deep-link restore',
-        /window\.hideProjectLoading\?\.\(\);\s*\}\s*(\/\/[^\n]*\n\s*)*refreshSubscriptionAfterUpgrade\(\);/.test(APP) &&
-        APP.indexOf('refreshSubscriptionAfterUpgrade();') > APP.indexOf('await ensureAuthenticated();'));
+    check('the checks start on load, after the deep-link restore',
+        /window\.hideProjectLoading\?\.\(\);\s*\}\s*(\/\/[^\n]*\n\s*)*startUpgradeChecks\(\);/.test(APP) &&
+        APP.indexOf('startUpgradeChecks();') > APP.indexOf('await ensureAuthenticated();'));
 }
 
 if (failures) { console.error('\n' + failures + ' check(s) failed'); process.exit(1); }

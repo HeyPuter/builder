@@ -5433,10 +5433,16 @@ window.refreshUserPlan = refreshUserPlan;
 // 'Upgrade Completed' credits its source. It is saved per account in
 // localStorage, so the credit and the success dialog survive a reload. Phones
 // often discard this tab while the user pays in another. Like the limit's
-// record (recordPlanAtLimit in app.js), it lives 24 hours. Without storage the
-// click goes uncredited.
+// record (recordPlanAtLimit in app.js), it lives 24 hours.
 const UPGRADE_PENDING_PREFIX = 'upgrade_pending:';
 const UPGRADE_PENDING_WINDOW_MS = 24 * 36e5;
+// The click made in this tab, kept here too. It still brings this tab to the
+// paid state when another tab credited the saved click first, or when storage
+// failed. `saved` says whether storage took it, so it is never counted twice.
+let _upgradePending = null;
+// Off until startup has reopened the project from the link, so a focus during
+// startup can't show the success dialog without that project's next step.
+let _upgradeChecksStarted = false;
 
 function upgradePendingKey() {
     const id = window.user && window.user.uuid;
@@ -5444,65 +5450,95 @@ function upgradePendingKey() {
 }
 
 function setUpgradePending(source) {
+    const at = Date.now();
+    _upgradePending = { source, at, saved: false };
     try {
         const key = upgradePendingKey();
-        if (key) localStorage.setItem(key, JSON.stringify({ source, at: Date.now() }));
-    } catch (e) { /* no storage */ }
+        if (key) {
+            localStorage.setItem(key, JSON.stringify({ source, at }));
+            _upgradePending.saved = true;
+        }
+    } catch (e) { /* no storage, so only this tab will notice */ }
+}
+
+function readSavedUpgrade(key) {
+    try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) { return null; }
 }
 
 // Back from Puter's upgrade page, or loaded again after it. Fetch the user
 // again, and if the plan is now paid, swap the Upgrade offers for the paid
-// state and show the success dialog. Runs on page load and each time the tab
-// regains focus, and does nothing (no requests) unless a click is pending.
+// state and show the success dialog. Runs once startup is done and each time
+// the tab regains focus, and does nothing (no requests) unless a click is
+// pending.
 //
 // Two tabs can check at once, so the click is consumed under a per-account Web
 // Lock, as in checkPaidAfterLimit (app.js). Focus and visibilitychange usually
 // fire together, and one fetch serves both.
 let _upgradeCheckInFlight = false;
 async function refreshSubscriptionAfterUpgrade() {
-    if (_upgradeCheckInFlight || document.visibilityState === 'hidden') return;
+    if (!_upgradeChecksStarted || _upgradeCheckInFlight || document.visibilityState === 'hidden') return;
     try {
         const key = upgradePendingKey();
-        if (!key || !localStorage.getItem(key)) return;
+        if (!key || (!_upgradePending && !readSavedUpgrade(key))) return;
         _upgradeCheckInFlight = true;
         if (navigator.locks && navigator.locks.request) {
             await navigator.locks.request(key, { ifAvailable: true }, (lock) => lock && completeUpgrade(key));
         } else {
             await completeUpgrade(key);
         }
-    } catch (e) { /* offline, or no storage. The next check tries again. */ }
+    } catch (e) { /* offline. The next check tries again. */ }
     finally { _upgradeCheckInFlight = false; }
+}
+
+// Called by startup once it has reopened the project from the link.
+function startUpgradeChecks() {
+    _upgradeChecksStarted = true;
+    return refreshSubscriptionAfterUpgrade();
 }
 
 async function completeUpgrade(key) {
     // Read again under the lock. A tab that held it before may have credited
-    // this click and removed it.
-    const pending = JSON.parse(localStorage.getItem(key) || 'null');
-    if (!pending) return;
-    const age = typeof pending.at === 'number' ? Date.now() - pending.at : -1;
-    if (typeof pending.source !== 'string' || age < 0 || age >= UPGRADE_PENDING_WINDOW_MS) {
-        localStorage.removeItem(key);
-        return;
+    // the saved click and removed it.
+    let pending = readSavedUpgrade(key);
+    if (pending) {
+        const age = typeof pending.at === 'number' ? Date.now() - pending.at : -1;
+        if (typeof pending.source !== 'string' || age < 0 || age >= UPGRADE_PENDING_WINDOW_MS) {
+            localStorage.removeItem(key);
+            pending = null;
+        }
     }
+    const mine = _upgradePending;
+    if (!pending && !mine) return;
     const user = await puter.auth.getUser();
     if (!user || !window.user || user.uuid !== window.user.uuid || !window.Branding.isSubscribed(user)) return;
-    // A newer click saved while Puter was answering is the one to credit, on
-    // the next check.
-    const now = JSON.parse(localStorage.getItem(key) || 'null');
-    if (!now || now.at !== pending.at) return;
-    localStorage.removeItem(key);
-    // Bucketed like since_limit on 'Upgrade After Limit'.
-    const mins = (Date.now() - pending.at) / 6e4;
-    window.track?.('Upgrade Completed', {
-        source: pending.source,
-        since_click: mins < 10 ? '<10m' : mins < 60 ? '10-60m' : '1-24h',
-    });
+    let credit = null;
+    if (pending) {
+        // A newer click saved while Puter was answering is the one to credit,
+        // on the next check.
+        const now = readSavedUpgrade(key);
+        if (!now || now.at !== pending.at) return;
+        localStorage.removeItem(key);
+        credit = pending;
+    } else if (!mine.saved) {
+        credit = mine;
+    }
+    // Otherwise only this tab's click is left, and another tab credited it.
+    if (credit) {
+        // Bucketed like since_limit on 'Upgrade After Limit'.
+        const mins = (Date.now() - credit.at) / 6e4;
+        window.track?.('Upgrade Completed', {
+            source: credit.source,
+            since_click: mins < 10 ? '<10m' : mins < 60 ? '10-60m' : '1-24h',
+        });
+    }
+    const source = (credit || mine).source;
+    _upgradePending = null;
     window.user = user;
     updateUserMenu();
     if (_publishPanelOpen) renderPublishPanel();
     // This path skips refreshUserPlan, so tell the Code view here too.
     window.CodeEditor?.onPlanChanged?.();
-    openUpgradeModal(pending.source, { justUpgraded: true });
+    openUpgradeModal(source, { justUpgraded: true });
 }
 // ===== upgrade-pending (end) =====
 window.addEventListener('focus', refreshSubscriptionAfterUpgrade);
