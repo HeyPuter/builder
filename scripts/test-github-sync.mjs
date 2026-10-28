@@ -666,8 +666,8 @@ const PAGE = '<!doctype html>\n<html lang="en">\n  <head>\n    <meta charset="UT
     const uiMain = read('../src/js/ui.js');
     const upgrade = uiMain.slice(uiMain.indexOf('function openUpgradeModal('), uiMain.indexOf('window.openUpgradeModal = openUpgradeModal;'));
     check('upgrade: the dialog lists GitHub, with its Beta badge, first when opened from its panel',
-        /\.\.\.\(window\.GitHubSync \? \[githubPerk\] : \[\]\)/.test(upgrade) && /Save your projects to GitHub<span class="beta-badge">Beta<\/span>/.test(upgrade) &&
-        /: source === 'github' && window\.GitHubSync \? githubPerk : null;/.test(upgrade) && /if \(lead\) perkList\.unshift\(perkList\.splice\(perkList\.indexOf\(lead\), 1\)\[0\]\);/.test(upgrade));
+        /\.\.\.\(window\.GitHubSync \? \[\{ id: 'github', title: 'Save to GitHub', beta: true,/.test(upgrade) && /\$\{b\.beta \? '<span class="beta-badge">Beta<\/span>' : ''\}/.test(upgrade) &&
+        /: source === 'github' \? 'github'/.test(upgrade) && /if \(leadAt > 0\) benefits\.unshift\(benefits\.splice\(leadAt, 1\)\[0\]\);/.test(upgrade));
     // Builder never holds a version back for a key, and the panel has no
     // buttons for one. The AI asks the user in the chat instead.
     check('panel: no buttons hold a key back', !/gh-store-key|gh-keep-out|gh-allow-secret/.test(ui) && !/backend file, which Builder never sends/.test(ui));
