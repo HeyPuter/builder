@@ -94,10 +94,10 @@ function makeEnv(opts = {}) {
     };
     const quiet = { log() {}, warn() {}, error() {} };
     const api = new Function('$', 'window', 'puter', 'fetch', 'Date', 'setTimeout', 'AbortSignal', 'console',
-        'currentChatId', 'currentAppDir', 'chatHistory', 'generateChatTitle', 'isProcessing',
+        'currentChatId', 'currentAppDir', 'chatHistory', 'generateChatTitle', 'isProcessing', 'previewRefreshPending',
         BLOCK + '\nreturn { refreshPreviewWhenReady, reloadPreviewFrame,' +
         ' limit: typeof PREVIEW_CANARY_LIMIT_MS === "number" ? PREVIEW_CANARY_LIMIT_MS : null };'
-    )($, win, puter, fetch, { now: () => now }, later, undefined, quiet, 'c1', DIR, [], () => '', opts.processing !== false);
+    )($, win, puter, fetch, { now: () => now }, later, undefined, quiet, 'c1', DIR, [], () => '', opts.processing !== false, opts.pending !== false);
     return {
         ...api, calls, reloads, disk, copy,
         startEarly: () => win.startEarlyPreviewClear(),
@@ -233,6 +233,16 @@ check('there is an upper limit, under the old 22 s', typeof L === 'number' && L 
         env.calls.canaryWrites === 2 && env.calls.hostingUpdate === 2, JSON.stringify(env.calls));
     check('…whose read came after the write, so any clear seen after it counts',
         env.reloads.length === 1 && env.reloads[0] - START >= 4000 && env.reloads[0] - START <= 5600, `${env.reloads[0] - START}ms`);
+}
+
+{
+    // A failed write schedules no refresh, and publish_site's own refresh
+    // clears the flag, so neither starts a clear of its own.
+    const env = makeEnv({ clearDelay: 4000, pending: false });
+    env.startEarly();
+    await env.run(env.sleep(2000));
+    check('no early clear without a pending refresh', env.calls.canaryWrites === 0 && env.calls.hostingUpdate === 0,
+        JSON.stringify(env.calls));
 }
 
 {

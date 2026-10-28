@@ -1209,9 +1209,9 @@ window.dropDuplicateToolResults = dropDuplicateToolResults;
 // small model once the turn is over (generateContinueSuggestions in app.js)
 // and the tool is gone. A chat keeps the system prompt it started with, so an
 // older chat still tells the model to call it, and its history still holds
-// the calls. On the request copy those calls and their results are left out,
-// and such a prompt gets a note that the tool is gone, so the model ends the
-// turn on its summary instead of reaching for a tool it doesn't have.
+// the calls. On the request copy, earlier turns' calls and their results are
+// left out, and such a prompt gets a note that the tool is gone, so the model
+// ends the turn on its summary instead of reaching for a tool it doesn't have.
 const RETIRED_SUGGEST_TOOL = 'SuggestNextSteps';
 const RETIRED_SUGGEST_NOTE = '[The SuggestNextSteps tool no longer exists. Builder shows the "what next?" suggestions by itself once your turn ends, so end each turn with your short summary and never call SuggestNextSteps.]';
 function retireSuggestNextSteps(messages) {
@@ -1223,12 +1223,24 @@ function retireSuggestNextSteps(messages) {
         && sys.content.some((p) => p && typeof p.text === 'string' && p.text.includes(RETIRED_SUGGEST_TOOL))) {
         sys.content.push({ type: 'text', text: RETIRED_SUGGEST_NOTE });
     }
+    // Only earlier turns' calls go. One made in this turn keeps its "Unknown
+    // function" result, so the model sees that the call failed instead of
+    // making it again, and a Resume of a turn cut off after one still ends on
+    // that result, not on the assistant's own message. As in
+    // stubStaleDocumentBlocks, the current turn begins at the last user message
+    // that is not a tool result.
+    let turnStart = 0;
+    for (let i = messages.length - 1; i >= 0; i--) {
+        const m = messages[i];
+        if (m && m.role === 'user' && !(m.content && typeof m.content === 'object'
+            && !Array.isArray(m.content) && m.content.type === 'tool_result')) { turnStart = i; break; }
+    }
     const ids = new Set();
     const isCall = (b) => b && b.type === 'tool_use' && b.name === RETIRED_SUGGEST_TOOL;
     const kept = [];
-    for (const m of messages) {
+    for (const [i, m] of messages.entries()) {
         const c = m && m.content;
-        if (m && m.role === 'assistant' && c && typeof c === 'object') {
+        if (i < turnStart && m && m.role === 'assistant' && c && typeof c === 'object') {
             // One call is stored as a bare block, a batch as an array of them.
             const blocks = Array.isArray(c) ? c : [c];
             const calls = blocks.filter(isCall);

@@ -25,9 +25,6 @@ window.getUnavailableTools = function(modelId) {
     return window.ModelCore ? window.ModelCore.unavailableTools(modelId, mcp) : [];
 };
 
-// The answer to a tool call whose reply hit the output limit before its
-// arguments were complete. Puter turns cut-off JSON into {}, so running it
-// would fail on a missing field at best, and at worst write an empty file.
 // Tools that never write the project's files, so an early preview cache clear
 // (startEarlyPreviewClear in ui.js) still covers everything after they run.
 // Any other tool is taken to write, MCP tools included, since a connected
@@ -38,7 +35,10 @@ const PREVIEW_SAFE_TOOLS = new Set(['stat', 'readdir', 'ReadTextFile', 'SearchFi
     'ShowImage', 'update_preview', 'TodoWrite', 'AskClarifyingQuestions', 'OfferUpgrade', 'list_workers', 'get_worker',
     'set_secret', 'set_email_sender_name', 'delete_worker', 'FetchExternalResource']);
 
-const CUT_OFF_TOOL_ERROR ='This call was cut off at the output limit before its arguments were complete, so it was not run. Send it again. If it was a large file, write it in smaller parts (a shorter write, then edits).';
+// The answer to a tool call whose reply hit the output limit before its
+// arguments were complete. Puter turns cut-off JSON into {}, so running it
+// would fail on a missing field at best, and at worst write an empty file.
+const CUT_OFF_TOOL_ERROR = 'This call was cut off at the output limit before its arguments were complete, so it was not run. Send it again. If it was a large file, write it in smaller parts (a shorter write, then edits).';
 
 // Saving a deployed worker's source (workers/<name>.js, the file create_worker
 // deploys from) is how it is updated. Puter redeploys it from the saved file.
@@ -400,6 +400,12 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
     if (isTopLevel) {
         // Non-blocking + coalesced: mid-turn checkpoints keep crash safety but
         // no longer stack up serial full-history writes as the recursion unwinds.
+        // The rounds below made no more calls and the turn wasn't stopped, so
+        // the conversation is finished, and this checkpoint saves it as such.
+        // The end-of-turn save no longer holds the composer, and if the tab
+        // closed before it landed, an interrupted:true left by this one would
+        // offer Resume on a finished build.
+        c.interrupted = false;
         scheduleSaveCurrentChat(c);
     }
     

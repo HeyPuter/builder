@@ -98,6 +98,35 @@ const results = (out) => out.filter((m) => m.content && m.content.type === 'tool
     check('…and only its result goes', results(out).join() === 'p1');
 }
 {
+    // An old prompt can still lead the model to call it. That call and its
+    // error stay, or the next request would look the same and it would call
+    // again, round after round.
+    const h = [
+        { role: 'system', content: OLD_PROMPT },
+        user('make the heading blue'),
+        toolUse('e1', 'edit'), toolResult('e1'),
+        toolUse('s1', 'SuggestNextSteps'),
+        { role: 'user', content: { type: 'tool_result', tool_use_id: 's1', content: '{"error":"Unknown function: SuggestNextSteps"}', is_error: true } },
+    ];
+    const out = prepareHistoryForAI(h);
+    check('a call made in this turn keeps its error, so the model sees it failed',
+        calls(out).includes('SuggestNextSteps') && results(out).includes('s1'));
+}
+{
+    // Resuming an older chat cut off right after the call: no nudge is added
+    // (it ends on a result), so the request must still end on that result.
+    const h = [
+        { role: 'system', content: OLD_PROMPT },
+        user('build it'),
+        toolUse('p1', 'update_preview'), toolResult('p1'),
+        assistant('Built it.'),
+        toolUse('s1', 'SuggestNextSteps'), toolResult('s1'),
+    ];
+    const out = prepareHistoryForAI(h);
+    check('a resumed turn still ends on a tool result, never on the assistant',
+        out[out.length - 1].role === 'user' && out[out.length - 1].content.tool_use_id === 's1');
+}
+{
     // The two-block prompt: the cached common block must stay as it was.
     const common = { type: 'text', text: OLD_PROMPT, cache_control: { type: 'ephemeral', ttl: '1h' } };
     const h = [

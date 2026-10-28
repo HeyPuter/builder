@@ -5427,8 +5427,8 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // restore point. Uses the chat/appDir captured at turn start so a mid-turn
         // chat switch can't misattribute the snapshot. Kicked off FIRST (and left
         // unawaited: the directory copy can be slow, so it must not block/hang the
-        // UI reset) so it runs concurrently with the awaited chat save below and
-        // has a head start on completing before the user can act again.
+        // UI reset). The composer is handed back right after, so its head start
+        // over the next turn's file writes is that turn's first model round.
         //
         // Two exceptions. A newer turn started in this chat while this one was
         // still unwinding (Stop during a slow tool, then a Resume or a quick

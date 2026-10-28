@@ -1067,6 +1067,10 @@ async function clearPreviewCache(baseUrl, dir, live) {
 let _earlyPreviewClear = null;
 window.startEarlyPreviewClear = function () {
     window.dropEarlyPreviewClear();
+    // Only when files changed and a refresh is still to come. A round whose
+    // write failed, or whose publish_site already started its own refresh
+    // (showAppPreview), leaves nothing for an early clear to cover.
+    if (!previewRefreshPending) return;
     const baseUrl = window.currentPreviewUrl;
     if (!baseUrl || !$('.preview-frame').length || !$('body').hasClass('preview-active')) return;
     const run = { baseUrl, dir: publishedRootDir(), chatId: currentChatId, seq: _previewRefreshSeq, dropped: false };

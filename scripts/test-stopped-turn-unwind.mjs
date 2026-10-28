@@ -133,6 +133,12 @@ const read = (p) => fs.readFileSync(new URL(p, import.meta.url), 'utf8');
     check('…and never removes a spinner on that path', !/spinner\.remove\(\)/.test(body.slice(0, body.indexOf('await abortableAwait(puter.ai.chat('))));
     check('a stopped/stale round skips its mid-turn checkpoint save (the turn\'s own end-of-turn save covers it)',
         /if \(toolCalls\.length > 0 && !isAborted\(c\.abortController\) && !isStaleTurn\(c\)\) \{\s*scheduleSaveCurrentChat\(c\);/.test(body));
+    // The end-of-turn save no longer holds the composer, so a reload can come
+    // before it lands. The checkpoint saved once the turn's rounds are done
+    // (and it wasn't stopped) must not leave interrupted:true behind.
+    const unwind = body.slice(body.indexOf('await handleMessageStream(stream, c)'));
+    check('the checkpoint after the last round saves the turn as finished',
+        /if \(isAborted\(c\.abortController\) \|\| isStaleTurn\(c\)\) \{\s*return \{ error: 'Aborted'[\s\S]*?if \(isTopLevel\) \{[\s\S]*?c\.interrupted = false;\s*scheduleSaveCurrentChat\(c\);/.test(unwind));
 }
 
 // ---- issues.js: a batch is settled only by the turn that carries it -----------
