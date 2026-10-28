@@ -104,7 +104,8 @@ check('anything but code_editor is the badge',
 check('a reloaded chat replays the card for its perk',
     read('../src/js/app.js').includes('window.renderUpgradeCard?.({ feature: toolResponse.feature })'));
 check('the tool never limits changes made in chat', upgradeToolSrcForTracking.includes('keep making every change the user asks for in chat, on any plan'));
-check('the dialog lists the code editor perk', uiSrc.includes("'Edit your app’s code in Builder'"));
+check('the dialog lists the code editor perk, first when opened from the editor',
+    uiSrc.includes("{ id: 'code', title: 'Edit the code yourself',") && uiSrc.includes("const lead = forCode ? 'code'"));
 check('upgrading from the editor offers to start editing', uiSrc.includes('upgrade-start-editing'));
 check('Project Published carries branding', /'Project Published', \{[^}]*branding/.test(uiSrc));
 check('usage-limit upgrade button is tracked', uiSrc.includes("'Upgrade Clicked', { source: 'usage_limit' }"));
