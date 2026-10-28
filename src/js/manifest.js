@@ -717,14 +717,18 @@ async function statOf(path) {
     catch (e) { if (isMissingFileError(e)) return null; throw e; }
 }
 
-// The page whose <title>/description/theme-color define the app's identity.
+// The page whose <title>/description/theme-color define the app's identity, as
+// { path, text }, or null when the app has no page yet.
 // index.html by convention; otherwise the alphabetically FIRST root HTML file —
 // sorted, not readdir order, because the pick feeds the manifest's name, the
 // monogram letter and every page's stamped block: a pick that flapped with
 // directory listing order would rewrite all of them on random refreshes.
-async function findEntryHtml(appDir) {
+// index.html is read straight away rather than checked for first, which was
+// one more round trip on every refresh.
+async function readEntryHtml(appDir) {
     const index = appDir + '/index.html';
-    if (await statOf(index)) return index;
+    const indexText = await readText(index);
+    if (indexText != null) return { path: index, text: indexText };
     let items;
     try { items = await puter.fs.readdir(appDir); }
     catch (e) { return null; }
@@ -732,7 +736,10 @@ async function findEntryHtml(appDir) {
         .filter((it) => !it.is_dir && /\.html?$/i.test(it.name))
         .map((it) => it.name)
         .sort();
-    return names.length ? appDir + '/' + names[0] : null;
+    if (!names.length) return null;
+    const path = appDir + '/' + names[0];
+    const text = await readText(path);
+    return text == null ? null : { path, text };
 }
 
 async function writeIcons(appDir, meta, svgText) {
@@ -801,9 +808,10 @@ window.ensureAppManifest = async function (appDir, opts) {
 
 // The app's pages, excluding assets/ — attachments saved there are the user's
 // own files, never touched (see the attachment save path in app.js).
-async function listAppPages(appDir, entryPath) {
+// `found` is a walk already under way (see ensureAppManifestInner).
+async function listAppPages(appDir, entryPath, found) {
     const collect = window.collectPreviewHtmlFiles;
-    const htmlFiles = collect ? await collect(appDir, 50) : [entryPath];
+    const htmlFiles = found ? await found : (collect ? await collect(appDir, 50) : [entryPath]);
     const assetsPrefix = appDir + '/assets/';
     return htmlFiles.filter((p) => !p.startsWith(assetsPrefix));
 }
@@ -834,23 +842,34 @@ async function destampAppPages(appDir, entryPath) {
 }
 
 async function ensureAppManifestInner(appDir, opts) {
-    const entryPath = await findEntryHtml(appDir);
-    if (!entryPath) return; // no app yet — nothing to make installable
+    // This pass runs before every preview reload, and one read at a time its
+    // reads took about a second. None of them depends on another, so they all
+    // start now and are awaited where each was read before, which keeps the
+    // early returns and the error handling as they were. The no-op catches only
+    // silence a read that an early return leaves unawaited.
+    const manifestPath = appDir + '/manifest.json';
+    const iconSvgPath = appDir + '/icon.svg';
+    const entryRead = readEntryHtml(appDir);
+    const manifestRead = readText(manifestPath);
+    const iconSvgRead = statOf(iconSvgPath);
+    const walk = window.collectPreviewHtmlFiles ? window.collectPreviewHtmlFiles(appDir, 50) : null;
+    for (const p of [manifestRead, iconSvgRead, walk]) if (p) p.catch(() => {});
 
-    const entryHtml = await readText(entryPath);
-    if (entryHtml == null) return;
+    const entry = await entryRead;
+    if (!entry) return; // no app yet — nothing to make installable
+    const entryPath = entry.path;
+    const entryHtml = entry.text;
     const cleanEntry = window.stripPreviewCacheBust ? window.stripPreviewCacheBust(entryHtml) : entryHtml;
     // The app runs its own PWA setup — leave every part of it alone, and take
     // back any block we stamped before it did.
     if (hasForeignManifestLink(cleanEntry)) return destampAppPages(appDir, entryPath);
 
     // A manifest.json we did not write is somebody else's file — the app's own
-    // PWA setup, or app data that happens to use the name. Read it before doing
+    // PWA setup, or app data that happens to use the name. Check it before doing
     // anything else and stay out of the project entirely: overwriting it would
     // destroy data, and a block stamped earlier would now point the browser (and
     // any install) at a file that isn't an app manifest — so remove that too.
-    const manifestPath = appDir + '/manifest.json';
-    const existing = await readText(manifestPath);
+    const existing = await manifestRead;
     if (existing != null && !window.isGeneratedManifest(existing)) return destampAppPages(appDir, entryPath);
 
     const meta = window.deriveManifestMeta(cleanEntry, opts.fallbackName);
@@ -858,8 +877,7 @@ async function ensureAppManifestInner(appDir, opts) {
     // something when index.html exists; for any other entry, name the file.
     const entryName = entryPath.slice(appDir.length + 1);
     meta.startUrl = entryName === 'index.html' ? './' : './' + encodeURI(entryName);
-    const iconSvgPath = appDir + '/icon.svg';
-    const iconSvgStat = await statOf(iconSvgPath);
+    const iconSvgStat = await iconSvgRead;
     const iconStamp = iconSvgStat ? String(iconSvgStat.modified || iconSvgStat.size || '1') : '';
 
     // The signature gates only the EXPENSIVE half (reading/writing the manifest
@@ -904,9 +922,10 @@ async function ensureAppManifestInner(appDir, opts) {
             else if (!iconSvgStat &&
                 monogramLetter(prevManifest.name || '') !== monogramLetter(meta.name)) needIcons = true;
         }
+        // The icons are checked together, not one by one.
         let oldestIcon = Infinity;
-        for (const rel of Object.values(ICON_FILES)) {
-            const st = await statOf(appDir + '/' + rel);
+        const iconStats = await Promise.all(Object.values(ICON_FILES).map((rel) => statOf(appDir + '/' + rel)));
+        for (const st of iconStats) {
             if (!st) { needIcons = true; break; }
             const m = Number(st.modified);
             if (isFinite(m)) oldestIcon = Math.min(oldestIcon, m);
@@ -932,7 +951,7 @@ async function ensureAppManifestInner(appDir, opts) {
     // point gives the same app identity. Each file is rewritten under its write
     // lock, exactly like applyPreviewCacheBust, so a concurrent AI edit can't be
     // clobbered by our stale buffer.
-    for (const path of await listAppPages(appDir, entryPath)) {
+    for (const path of await listAppPages(appDir, entryPath, walk)) {
         // How far below the app root this page lives, so its hrefs can climb
         // back to the root relatively (see stampManifestTags).
         const rel = path.slice(appDir.length + 1);

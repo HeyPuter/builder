@@ -25,6 +25,16 @@ window.getUnavailableTools = function(modelId) {
     return window.ModelCore ? window.ModelCore.unavailableTools(modelId, mcp) : [];
 };
 
+// Tools that never write the project's files, so an early preview cache clear
+// (startEarlyPreviewClear in ui.js) still covers everything after they run.
+// Any other tool is taken to write, MCP tools included, since a connected
+// server could write files too. Leaving a read-only tool off this list only
+// costs an extra clear, while a writing tool on it would leave the preview
+// stale.
+const PREVIEW_SAFE_TOOLS = new Set(['stat', 'readdir', 'ReadTextFile', 'SearchFiles', 'ViewImage', 'ViewDocument',
+    'ShowImage', 'update_preview', 'TodoWrite', 'AskClarifyingQuestions', 'OfferUpgrade', 'list_workers', 'get_worker',
+    'set_secret', 'set_email_sender_name', 'delete_worker', 'FetchExternalResource']);
+
 // The answer to a tool call whose reply hit the output limit before its
 // arguments were complete. Puter turns cut-off JSON into {}, so running it
 // would fail on a missing field at best, and at worst write an empty file.
@@ -218,7 +228,6 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
     // Add tool_use to history, stamped with the model that made the calls so a
     // later request to another model can drop provider-only fields
     // (ModelCore.shapeHistory, which also strips the stamp before sending).
-    const toolUseAt = c.chatHistory.length;
     c.chatHistory.push({
         role: "assistant",
         content: completion.length === 1 ? completion[0] : completion,
@@ -257,6 +266,10 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
             }
             continue;
         }
+
+        // A clear started before this write wouldn't cover it (see
+        // startEarlyPreviewClear in ui.js).
+        if (!PREVIEW_SAFE_TOOLS.has(toolCall.name)) window.dropEarlyPreviewClear?.();
 
         // Tell the background-freeze watchdog (app.js) a local tool is running:
         // the turn isn't waiting on its stream meanwhile, so silence isn't a stall.
@@ -325,24 +338,14 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
         scheduleSaveCurrentChat(c);
     }
 
-    // SuggestNextSteps is the turn's final action (see suggest.js), and its
-    // result is only {success:true}. When the reply that called it already
-    // carried the summary, another round only made the model repeat it, so the
-    // user saw it twice. The turn ends here then. The summary is the assistant
-    // text just before this reply's tool_use: the stream saves it there before
-    // calling us (saveCurrentMessage), so `textContent` is usually empty. A
-    // reply with no text still gets the round, since the model sometimes
-    // writes its summary after. So does a reply with other calls next to it,
-    // whose results (a failed write, update_preview's errors) the model must
-    // see, and a failed SuggestNextSteps.
-    const replyText = c.chatHistory[toolUseAt - 1];
-    if (toolCalls.length === 1 && toolCalls[0].name === 'SuggestNextSteps'
-        && replyText && replyText.role === 'assistant' && typeof replyText.content === 'string' && replyText.content.trim()
-        && !isAborted(c.abortController) && !isStaleTurn(c)) {
-        const result = findToolResult(c.chatHistory, toolCalls[0].id);
-        if (result && !result.content.is_error) {
-            return { history: c.chatHistory, messageContent: '' };
-        }
+    // The round's writes are done. Start clearing the preview's cache for them
+    // while the model works out its next step, usually update_preview, which
+    // then has less to wait for (see startEarlyPreviewClear in ui.js). Not
+    // after a round that already ran update_preview, whose refresh covered it.
+    if (!isAborted(c.abortController) && !isStaleTurn(c)
+        && toolCalls.some(t => !cutOffIds.has(t.id) && !PREVIEW_SAFE_TOOLS.has(t.name))
+        && !toolCalls.some(t => t.name === 'update_preview')) {
+        window.startEarlyPreviewClear?.();
     }
 
     // Bail BEFORE touching the spinner. showSpinner() hands back whatever dots
@@ -397,6 +400,12 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
     if (isTopLevel) {
         // Non-blocking + coalesced: mid-turn checkpoints keep crash safety but
         // no longer stack up serial full-history writes as the recursion unwinds.
+        // The rounds below made no more calls and the turn wasn't stopped, so
+        // the conversation is finished, and this checkpoint saves it as such.
+        // The end-of-turn save no longer holds the composer, and if the tab
+        // closed before it landed, an interrupted:true left by this one would
+        // offer Resume on a finished build.
+        c.interrupted = false;
         scheduleSaveCurrentChat(c);
     }
     

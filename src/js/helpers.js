@@ -1121,7 +1121,8 @@ function prepareHistoryForAI(historyArray, modelId, opts) {
     stubStaleDocumentBlocks(copy);
     // Drop a second tool_result for an id that already has one (see
     // dropDuplicateToolResults) so a history corrupted that way still sends.
-    const deduped = dropDuplicateToolResults(copy);
+    // An older chat's SuggestNextSteps calls and prompt (see retireSuggestNextSteps).
+    const deduped = retireSuggestNextSteps(dropDuplicateToolResults(copy));
     // No half characters on the wire (see wellFormedDeep).
     wellFormedDeep(deduped);
     // Apply cacheLast logic to the last message
@@ -1201,6 +1202,64 @@ function dropDuplicateToolResults(messages) {
     });
 }
 window.dropDuplicateToolResults = dropDuplicateToolResults;
+
+// SuggestNextSteps was a tool the build model called as the last action of a
+// turn, to fill the "what next?" chips. Writing that call kept the composer
+// locked for seconds after the reply was done, so the chips now come from a
+// small model once the turn is over (generateContinueSuggestions in app.js)
+// and the tool is gone. A chat keeps the system prompt it started with, so an
+// older chat still tells the model to call it, and its history still holds
+// the calls. On the request copy, earlier turns' calls and their results are
+// left out, and such a prompt gets a note that the tool is gone, so the model
+// ends the turn on its summary instead of reaching for a tool it doesn't have.
+const RETIRED_SUGGEST_TOOL = 'SuggestNextSteps';
+const RETIRED_SUGGEST_NOTE = '[The SuggestNextSteps tool no longer exists. Builder shows the "what next?" suggestions by itself once your turn ends, so end each turn with your short summary and never call SuggestNextSteps.]';
+function retireSuggestNextSteps(messages) {
+    if (!Array.isArray(messages)) return messages;
+    const sys = messages[0] && messages[0].role === 'system' ? messages[0] : null;
+    if (sys && typeof sys.content === 'string' && sys.content.includes(RETIRED_SUGGEST_TOOL)) {
+        sys.content += '\n\n' + RETIRED_SUGGEST_NOTE;
+    } else if (sys && Array.isArray(sys.content)
+        && sys.content.some((p) => p && typeof p.text === 'string' && p.text.includes(RETIRED_SUGGEST_TOOL))) {
+        sys.content.push({ type: 'text', text: RETIRED_SUGGEST_NOTE });
+    }
+    // Only earlier turns' calls go. One made in this turn keeps its "Unknown
+    // function" result, so the model sees that the call failed instead of
+    // making it again, and a Resume of a turn cut off after one still ends on
+    // that result, not on the assistant's own message. As in
+    // stubStaleDocumentBlocks, the current turn begins at the last user message
+    // that is not a tool result.
+    let turnStart = 0;
+    for (let i = messages.length - 1; i >= 0; i--) {
+        const m = messages[i];
+        if (m && m.role === 'user' && !(m.content && typeof m.content === 'object'
+            && !Array.isArray(m.content) && m.content.type === 'tool_result')) { turnStart = i; break; }
+    }
+    const ids = new Set();
+    const isCall = (b) => b && b.type === 'tool_use' && b.name === RETIRED_SUGGEST_TOOL;
+    const kept = [];
+    for (const [i, m] of messages.entries()) {
+        const c = m && m.content;
+        if (i < turnStart && m && m.role === 'assistant' && c && typeof c === 'object') {
+            // One call is stored as a bare block, a batch as an array of them.
+            const blocks = Array.isArray(c) ? c : [c];
+            const calls = blocks.filter(isCall);
+            if (calls.length) {
+                calls.forEach((b) => ids.add(b.id));
+                if (calls.length === blocks.length) continue;
+                m.content = blocks.filter((b) => !isCall(b));
+            }
+        }
+        kept.push(m);
+    }
+    if (!ids.size) return messages;
+    return kept.filter((m) => {
+        const c = m && m.content;
+        return !(m && m.role === 'user' && c && typeof c === 'object' && !Array.isArray(c)
+            && c.type === 'tool_result' && ids.has(c.tool_use_id));
+    });
+}
+window.retireSuggestNextSteps = retireSuggestNextSteps;
 
 // Placeholder that replaces a retired PDF block. Tells the model what was
 // there and how to get it back, so it neither assumes the content is lost nor
@@ -2098,6 +2157,8 @@ function _resolvePreviewAsset(htmlDir, siteRoot, ref) {
 // (never ours to rewrite — see the attachment save path in app.js and
 // listAppPages in manifest.js), and a dropped folder can put up to a thousand
 // directories in there, each a sequential readdir on every preview refresh.
+// .puter/ is skipped too. It is Puter's own folder (the preview canary, the
+// site screenshots), holds no pages, and cost two readdirs on every refresh.
 async function _collectPreviewHtmlFiles(root, cap) {
     const out = [];
     const assetsDir = String(root || '').replace(/\/+$/, '') + '/assets';
@@ -2108,7 +2169,7 @@ async function _collectPreviewHtmlFiles(root, cap) {
         for (const it of items) {
             if (out.length >= cap) return;
             const full = dir + '/' + it.name;
-            if (it.is_dir) { if (full !== assetsDir) await walk(full); }
+            if (it.is_dir) { if (full !== assetsDir && it.name !== '.puter') await walk(full); }
             else if (/\.html?$/i.test(it.name)) out.push(full);
         }
     }

@@ -4758,6 +4758,9 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // Start tracking file changes for this turn (used to decide whether to
     // snapshot the project for version history when the turn finishes).
     window.resetTurnFileChanges?.();
+    // A preview cache clear started before this turn may predate files written
+    // since, by the Code view or a GitHub pull (see startEarlyPreviewClear).
+    window.dropEarlyPreviewClear?.();
     // Capture the chat/appDir this turn operates on, so the end-of-turn snapshot
     // is attributed to the right project even if the user switches chats mid-turn.
     const turnChatId = currentChatId;
@@ -4851,9 +4854,6 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // which routes the turn to the calm resume banner instead of an error card.
     let attempt = 0;
     let retryGaveUp = false;
-    // The SuggestNextSteps chips went out with the end-of-turn save (see there),
-    // so showing them needs no save of its own.
-    let chipsSavedWithTurn = false;
     // Transient failures that strike while the page is HIDDEN (phone locked /
     // app backgrounded) don't consume the retry budget — the service didn't
     // fail, the device's radio was asleep. Counted separately with its own cap
@@ -5427,8 +5427,8 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // restore point. Uses the chat/appDir captured at turn start so a mid-turn
         // chat switch can't misattribute the snapshot. Kicked off FIRST (and left
         // unawaited: the directory copy can be slow, so it must not block/hang the
-        // UI reset) so it runs concurrently with the awaited chat save below and
-        // has a head start on completing before the user can act again.
+        // UI reset). The composer is handed back right after, so its head start
+        // over the next turn's file writes is that turn's first model round.
         //
         // Two exceptions. A newer turn started in this chat while this one was
         // still unwinding (Stop during a slow tool, then a Resume or a quick
@@ -5472,42 +5472,27 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         }
 
         // Persist the turn's chat history on EVERY terminal path — success, error,
-        // AND abort — and AWAIT it so the conversation is durable on disk before
-        // the turn is marked done. Previously only the success path saved (and
-        // only fire-and-forget), so a mid-turn throw — e.g. a failed puter.ai.chat
-        // re-invocation on a long multi-round turn — unwound past every per-round
-        // checkpoint and dropped all of the turn's assistant/tool messages on
-        // reload, even though the files had already been written to disk.
+        // AND abort. Previously only the success path saved, so a mid-turn throw —
+        // e.g. a failed puter.ai.chat re-invocation on a long multi-round turn —
+        // unwound past every per-round checkpoint and dropped all of the turn's
+        // assistant/tool messages on reload, even though the files had already
+        // been written to disk.
         //
-        // Cap the wait: in the normal case the write finishes in well under the
-        // timeout and we get the durability guarantee; if the FS write is slow or
-        // hung we re-enable the UI anyway and let the background writer (and the
-        // pagehide net) flush the tail, so persistence can never freeze the input.
-        // The writer swallows its own errors, so this never rejects.
-        if (!supersededSameChat) {
-            // A finished turn's SuggestNextSteps chips are known already. Cache
-            // them for the chat before this save, so it persists them (an open
-            // chat's save writes its cached chips) — showing them below used to
-            // write the whole chat file a second time just to add them, and a
-            // chat file can run to megabytes.
-            const toolChips = window._pendingTurnSuggestions;
-            if (turnSucceeded && turnChatId === currentChatId && Array.isArray(toolChips) && toolChips.length) {
-                _suggestionsByChat.set(turnChatId, { suggestions: toolChips });
-                chipsSavedWithTurn = true;
-            }
-            try {
-                await Promise.race([
-                    scheduleSaveCurrentChat(turnSaveContext),
-                    new Promise(resolve => setTimeout(resolve, 8000)),
-                ]);
-            } catch (e) { /* writer swallows */ }
-        }
+        // Not awaited. The save writes the chat file, then reads and writes the
+        // chat list, about two seconds on Puter, and waiting for it kept the
+        // composer locked that long after the reply had finished. A chat's saves
+        // run in order through one queue (scheduleSaveCurrentChat), so a message
+        // sent straight away is saved after this one, and the pagehide net
+        // flushes a queued save if the tab closes first. The writer swallows its
+        // own errors.
+        if (!supersededSameChat) scheduleSaveCurrentChat(turnSaveContext);
     }
 
     // A newer turn may have started in this SAME chat while this one was still
     // unwinding: Stop drops isProcessing at once (resetUIForAbort) and shows the
-    // Resume banner, but this turn's end-of-turn save above can take seconds —
-    // so a quick Resume / re-send (or an auto error-fix turn) races ahead of
+    // Resume banner, but this turn can take seconds to unwind (a Stop lands
+    // while a slow tool runs, and tool execs aren't abortable) — so a quick
+    // Resume / re-send (or an auto error-fix turn) races ahead of
     // it. The chat-id guards below can't tell (same chat), and everything from
     // here on is THIS turn's teardown/follow-up: resetUIState would re-enable
     // the composer mid-stream, null the live turn's abortController (so Stop
@@ -5552,36 +5537,18 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     }
 
     // After a completed turn, offer up to 5 one-click "what next?" suggestions
-    // above the input. Primary path: the build model emitted them via the
-    // SuggestNextSteps tool — it has full ground truth (every file it wrote, the
-    // whole conversation), so the ideas never re-propose an existing feature and
-    // are far better targeted than a second-hand snapshot. We render that stashed
-    // set here, at the natural end-of-turn moment. If the model didn't call the
-    // tool (a pure-chat turn, or it skipped), fall back to the cheap Haiku
-    // generator so the user still gets suggestions. Both self-guard against the
-    // user having since switched chats or started another turn.
+    // above the input. They come from the small suggestion model, started here
+    // and never awaited. The composer is already unlocked (resetUIState above),
+    // and the chips appear whenever they're ready. The build model used to
+    // write them itself as its last tool call, which kept the composer locked
+    // for seconds after its reply was done. The generator discards its result
+    // if the user has since switched chats or started another turn.
     // (When the issues review card is asking "did the fixes work?", the chips
     // produced here are cached but not painted — renderContinueSuggestions
     // defers them until the card leaves the chat.)
     if (turnSucceeded && turnChatId === currentChatId && !isProcessing) {
-        const toolSuggestions = Array.isArray(window._pendingTurnSuggestions) ? window._pendingTurnSuggestions : null;
-        if (toolSuggestions && toolSuggestions.length) {
-            // Remember the context so the trailing "regenerate" chip still works
-            // (it re-runs the Haiku generator against this conversation/app state).
-            _lastSuggestionContext = turnSaveContext;
-            // Bump the sequence so any older in-flight Haiku generation that lands
-            // later sees itself superseded and bows out instead of clobbering these.
-            _suggestSeq++;
-            renderContinueSuggestions(toolSuggestions);
-            // Persist the freshly-shown chips so a reload restores them too —
-            // normally done already, by the end-of-turn save above (see
-            // chipsSavedWithTurn); saved here only if that save went without them.
-            if (!chipsSavedWithTurn) scheduleSaveCurrentChat(turnSaveContext);
-        } else {
-            generateContinueSuggestions(turnSaveContext);
-        }
+        generateContinueSuggestions(turnSaveContext);
     }
-    window._pendingTurnSuggestions = null;
 
     // The turn ended without finishing (a Stop, or the stream aborted) — offer to
     // resume the build right here, without needing a reload. Mutually exclusive
@@ -5760,9 +5727,6 @@ function clearContinueSuggestions() {
     // A new turn/chat changes the context, so the "already shown" avoid list no
     // longer applies — start fresh.
     _recentSuggestionLabels = [];
-    // Drop any SuggestNextSteps payload stashed by the previous turn so it can't
-    // leak into a later turn that doesn't call the tool.
-    window._pendingTurnSuggestions = null;
     $('.chat-suggestions').remove();
 }
 window.clearContinueSuggestions = clearContinueSuggestions;

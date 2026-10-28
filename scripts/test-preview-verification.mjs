@@ -46,8 +46,8 @@ check('prompt: no template-literal metacharacters in the added listener',
 check('prompt: update_preview rule describes the verification loop',
     /update_preview[\s\S]*verif/i.test(PROMPT_SRC) &&
     PROMPT_SRC.includes('re-verify') || /verification[\s\S]*field/i.test(PROMPT_SRC));
-check('prompt: SuggestNextSteps waits for a clean preview',
-    /SuggestNextSteps[\s\S]*update_preview has come back clean/i.test(PROMPT_SRC));
+check('prompt: the turn is not done while update_preview reports errors',
+    PROMPT_SRC.includes("Do not consider the turn's work done while update_preview is still reporting errors."));
 
 // -- ui.js: the verification surface exists -----------------------------------
 check('ui: defines window.verifyPreview', UI.includes('window.verifyPreview = async function'));

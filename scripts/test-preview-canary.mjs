@@ -58,7 +58,7 @@ function makeEnv(opts = {}) {
         attr: (k, v) => { if (k === 'src' && v !== 'about:blank') reloads.push(now); return frame; },
         one: () => frame,
     };
-    const body = { length: 1, find: () => ({ length: 0, remove() {} }), append() {} };
+    const body = { length: 1, find: () => ({ length: 0, remove() {} }), append() {}, hasClass: () => true };
     const $ = (sel) => (sel === '.preview-frame' ? frame : body);
     const win = { currentPreviewUrl: 'https://preview-x.puter.site/', currentPreviewPath: DIR };
     const later = (fn, ms) => { timers.push({ at: now + (ms || 0), fn }); };
@@ -94,12 +94,15 @@ function makeEnv(opts = {}) {
     };
     const quiet = { log() {}, warn() {}, error() {} };
     const api = new Function('$', 'window', 'puter', 'fetch', 'Date', 'setTimeout', 'AbortSignal', 'console',
-        'currentChatId', 'currentAppDir', 'chatHistory', 'generateChatTitle',
+        'currentChatId', 'currentAppDir', 'chatHistory', 'generateChatTitle', 'isProcessing', 'previewRefreshPending',
         BLOCK + '\nreturn { refreshPreviewWhenReady, reloadPreviewFrame,' +
         ' limit: typeof PREVIEW_CANARY_LIMIT_MS === "number" ? PREVIEW_CANARY_LIMIT_MS : null };'
-    )($, win, puter, fetch, { now: () => now }, later, undefined, quiet, 'c1', DIR, [], () => '');
+    )($, win, puter, fetch, { now: () => now }, later, undefined, quiet, 'c1', DIR, [], () => '', opts.processing !== false, opts.pending !== false);
     return {
         ...api, calls, reloads, disk, copy,
+        startEarly: () => win.startEarlyPreviewClear(),
+        dropEarly: () => win.dropEarlyPreviewClear(),
+        sleep: (ms) => new Promise((r) => later(r, ms)),
         now: () => now,
         async run(promise) {
             let done = false;
@@ -190,6 +193,90 @@ check('there is an upper limit, under the old 22 s', typeof L === 'number' && L 
     env.reloadPreviewFrame('https://preview-x.puter.site/'); // a plain reload, or a chat switch
     await env.run(first);
     check('a superseded refresh never reloads', env.reloads.length === 1 && env.reloads[0] === START + 30, JSON.stringify(env.reloads));
+}
+
+// ---- Clearing early ---------------------------------------------------------
+// A model round (about 2 s) sits between the AI's last write and its
+// update_preview call. The tool loop starts the clear when the writing round
+// ends, and the refresh update_preview kicks off takes it over.
+
+{
+    const env = makeEnv({ clearDelay: 4000 });
+    env.startEarly();
+    await env.run(env.sleep(2000)); // the model's round
+    await env.run(env.refreshPreviewWhenReady());
+    check('a refresh takes over the early clear and reloads when it lands, 2 s sooner',
+        env.reloads.length === 1 && env.reloads[0] - START >= 4000 && env.reloads[0] - START <= 4600, `${env.reloads[0] - START}ms`);
+    check('…writing the canary and asking for the clear only once', env.calls.canaryWrites === 1 && env.calls.hostingUpdate === 1,
+        JSON.stringify(env.calls));
+}
+
+{
+    const env = makeEnv({ clearDelay: 4000 });
+    env.startEarly();
+    await env.run(env.sleep(6000)); // the model took longer than the clear
+    await env.run(env.refreshPreviewWhenReady());
+    check('an early clear that already landed reloads at once',
+        env.reloads.length === 1 && env.reloads[0] - START >= 6000 && env.reloads[0] - START <= 6100, `${env.reloads[0] - START}ms`);
+    check('…and never reloaded before it was taken over', env.calls.hostingUpdate === 1);
+}
+
+{
+    const env = makeEnv({ clearDelay: 4000 });
+    env.startEarly();
+    await env.run(env.sleep(1000));
+    env.dropEarly(); // the model wrote another file instead
+    env.startEarly(); // and its round ended
+    await env.run(env.sleep(1000));
+    await env.run(env.refreshPreviewWhenReady());
+    check('a write drops the early clear, and the next round starts a new one',
+        env.calls.canaryWrites === 2 && env.calls.hostingUpdate === 2, JSON.stringify(env.calls));
+    check('…whose read came after the write, so any clear seen after it counts',
+        env.reloads.length === 1 && env.reloads[0] - START >= 4000 && env.reloads[0] - START <= 5600, `${env.reloads[0] - START}ms`);
+}
+
+{
+    // A failed write schedules no refresh, and publish_site's own refresh
+    // clears the flag, so neither starts a clear of its own.
+    const env = makeEnv({ clearDelay: 4000, pending: false });
+    env.startEarly();
+    await env.run(env.sleep(2000));
+    check('no early clear without a pending refresh', env.calls.canaryWrites === 0 && env.calls.hostingUpdate === 0,
+        JSON.stringify(env.calls));
+}
+
+{
+    const env = makeEnv({ clearDelay: 4000 });
+    env.startEarly();
+    await env.run(env.sleep(500));
+    env.dropEarly();
+    await env.run(env.sleep(1500));
+    await env.run(env.refreshPreviewWhenReady());
+    // Taken over, it would ask for no clear of its own. (Its own read can
+    // still see the earlier clear land, which proves just as much.)
+    check('a dropped early clear is never taken over', env.calls.canaryWrites === 2 && env.calls.hostingUpdate === 2,
+        JSON.stringify(env.calls));
+}
+
+{
+    const env = makeEnv({ clearDelay: 4000, processing: false });
+    env.startEarly();
+    await env.run(env.sleep(2000));
+    await env.run(env.refreshPreviewWhenReady());
+    check('outside a turn the refresh starts its own clear (the Code view or a pull may have written since)',
+        env.calls.canaryWrites === 2 && env.calls.hostingUpdate === 2 && env.reloads.length === 1, JSON.stringify(env.calls));
+}
+
+{
+    const env = makeEnv({ clearDelay: 4000 });
+    env.startEarly();
+    await env.run(env.sleep(500));
+    env.reloadPreviewFrame('https://preview-x.puter.site/'); // a plain reload, or a chat switch
+    await env.run(env.sleep(1500));
+    const before = env.reloads.length;
+    await env.run(env.refreshPreviewWhenReady());
+    check('a reload or chat switch ends the early clear too',
+        env.calls.canaryWrites === 2 && env.calls.hostingUpdate === 2 && env.reloads.length === before + 1, JSON.stringify(env.calls));
 }
 
 if (failures) { console.error(`\n${failures} check(s) FAILED`); process.exit(1); }
