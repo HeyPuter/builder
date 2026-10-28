@@ -671,6 +671,8 @@ if (built) {
         extract(HELPERS, 'function wellFormedDeep(value) {'),
         extract(HELPERS, 'function prepareHistoryForAI(historyArray, modelId, opts) {'),
         extract(HELPERS, 'function dropDuplicateToolResults(messages) {'),
+        ...HELPERS.match(/^const RETIRED_SUGGEST_\w+ = .*$/gm),
+        extract(HELPERS, 'function retireSuggestNextSteps(messages) {'),
         extract(HELPERS, 'function stubStaleDocumentBlocks(messages) {'),
     ].join('\n'), sandbox);
     const history = [

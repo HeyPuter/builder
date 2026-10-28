@@ -514,7 +514,7 @@ await test('the shipped tools stay within Claude’s strict-tool limit, includin
     };
     checkLimit();
     for (const name of ['write', 'edit', 'multi_edit', 'delete', 'mkdir', 'rename', 'copy', 'move',
-        'create_worker', 'delete_worker', 'publish_site', 'TodoWrite', 'AskClarifyingQuestions', 'SuggestNextSteps']) {
+        'create_worker', 'delete_worker', 'publish_site', 'TodoWrite', 'AskClarifyingQuestions']) {
         assert.equal(window.findTool(name)?.function.strict, true, `${name} must keep strict inputs`);
     }
     // Exercise the largest supported MCP connection through the real adapter,
