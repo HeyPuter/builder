@@ -5023,9 +5023,6 @@ $(document).on('click', '.sign-in-btn', async function(e) {
 //     Also the success screen when an upgrade is detected (justUpgraded).
 // Reached from the toolbar's Upgrade/Benefits button, the publish popover's
 // branding note and the chat's upgrade card. `source` is for analytics only.
-// The source of the last Upgrade click, while its return is unconfirmed —
-// 'Upgrade Completed' credits it. null when nothing is pending.
-let _upgradePending = null;
 function openUpgradeModal(source, { justUpgraded = false } = {}) {
     if (document.querySelector('.upgrade-modal-overlay')) return;
     window.closePublishPanel?.();
@@ -5170,7 +5167,7 @@ function openUpgradeModal(source, { justUpgraded = false } = {}) {
         window.track?.('Upgrade Clicked', { source, plan });
         // A free user's return is re-checked for the upgrade (see below). A
         // paid user is already subscribed, so there is nothing to detect.
-        if (!paid) _upgradePending = source;
+        if (!paid) setUpgradePending(source);
         close();
     });
     $overlay.find('.upgrade-republish').on('click', () => {
@@ -5344,7 +5341,7 @@ function openLimitModal(upgradeUrl) {
         window.track?.('Upgrade Clicked', { source: 'usage_limit', plan, variant: copy.state, cohort });
         // Same as the Upgrade dialog. Only a free account's return can be told
         // apart by its plan, so only that one waits for 'Upgrade Completed'.
-        if (!ctx.paid) _upgradePending = 'usage_limit';
+        if (!ctx.paid) setUpgradePending('usage_limit');
         _limitResumeChatId = ctx.building ? chatId : null;
         close();
     });
@@ -5431,28 +5428,78 @@ async function refreshUserPlan() {
 }
 window.refreshUserPlan = refreshUserPlan;
 
-// Back from Puter's upgrade page: fetch the user again, and if the plan is now
-// paid, swap the Upgrade offers for the paid state and show the success
-// dialog. Until then, keep checking each time the tab regains focus.
-// (Focus and visibilitychange usually fire together; one fetch serves both.)
+// ===== upgrade-pending (start) =====
+// A free user's last Upgrade click, while the upgrade is unconfirmed.
+// 'Upgrade Completed' credits its source. It is saved per account in
+// localStorage, so the credit and the success dialog survive a reload. Phones
+// often discard this tab while the user pays in another. Like the limit's
+// record (recordPlanAtLimit in app.js), it lives 24 hours. Without storage the
+// click goes uncredited.
+const UPGRADE_PENDING_PREFIX = 'upgrade_pending:';
+const UPGRADE_PENDING_WINDOW_MS = 24 * 36e5;
+
+function upgradePendingKey() {
+    const id = window.user && window.user.uuid;
+    return id ? UPGRADE_PENDING_PREFIX + id : null;
+}
+
+function setUpgradePending(source) {
+    try {
+        const key = upgradePendingKey();
+        if (key) localStorage.setItem(key, JSON.stringify({ source, at: Date.now() }));
+    } catch (e) { /* no storage */ }
+}
+
+// Back from Puter's upgrade page, or loaded again after it. Fetch the user
+// again, and if the plan is now paid, swap the Upgrade offers for the paid
+// state and show the success dialog. Runs on page load and each time the tab
+// regains focus, and does nothing (no requests) unless a click is pending.
+//
+// Two tabs can check at once, so the click is consumed under a per-account Web
+// Lock, as in checkPaidAfterLimit (app.js). Focus and visibilitychange usually
+// fire together, and one fetch serves both.
 let _upgradeCheckInFlight = false;
 async function refreshSubscriptionAfterUpgrade() {
-    if (!_upgradePending || _upgradeCheckInFlight || document.visibilityState === 'hidden') return;
-    _upgradeCheckInFlight = true;
-    let user;
-    try { user = await puter.auth.getUser(); } catch (e) { return; }
+    if (_upgradeCheckInFlight || document.visibilityState === 'hidden') return;
+    try {
+        const key = upgradePendingKey();
+        if (!key || !localStorage.getItem(key)) return;
+        _upgradeCheckInFlight = true;
+        if (navigator.locks && navigator.locks.request) {
+            await navigator.locks.request(key, { ifAvailable: true }, (lock) => lock && completeUpgrade(key));
+        } else {
+            await completeUpgrade(key);
+        }
+    } catch (e) { /* offline, or no storage. The next check tries again. */ }
     finally { _upgradeCheckInFlight = false; }
-    if (!_upgradePending || !window.Branding.isSubscribed(user)) return;
-    const source = _upgradePending;
-    window.track?.('Upgrade Completed', { source });
-    _upgradePending = null;
+}
+
+async function completeUpgrade(key) {
+    // Read again under the lock. A tab that held it before may have credited
+    // this click and removed it.
+    const pending = JSON.parse(localStorage.getItem(key) || 'null');
+    if (!pending) return;
+    const age = typeof pending.at === 'number' ? Date.now() - pending.at : -1;
+    if (typeof pending.source !== 'string' || age < 0 || age >= UPGRADE_PENDING_WINDOW_MS) {
+        localStorage.removeItem(key);
+        return;
+    }
+    const user = await puter.auth.getUser();
+    if (!user || !window.user || user.uuid !== window.user.uuid || !window.Branding.isSubscribed(user)) return;
+    // A newer click saved while Puter was answering is the one to credit, on
+    // the next check.
+    const now = JSON.parse(localStorage.getItem(key) || 'null');
+    if (!now || now.at !== pending.at) return;
+    localStorage.removeItem(key);
+    window.track?.('Upgrade Completed', { source: pending.source });
     window.user = user;
     updateUserMenu();
     if (_publishPanelOpen) renderPublishPanel();
     // This path skips refreshUserPlan, so tell the Code view here too.
     window.CodeEditor?.onPlanChanged?.();
-    openUpgradeModal(source, { justUpgraded: true });
+    openUpgradeModal(pending.source, { justUpgraded: true });
 }
+// ===== upgrade-pending (end) =====
 window.addEventListener('focus', refreshSubscriptionAfterUpgrade);
 document.addEventListener('visibilitychange', refreshSubscriptionAfterUpgrade);
 
