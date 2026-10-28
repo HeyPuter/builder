@@ -10,7 +10,8 @@ import vm from 'node:vm';
 // so the prompt cache keeps hitting.
 
 const source = fs.readFileSync(new URL('../src/js/model-core.js', import.meta.url), 'utf8');
-const sandbox = { window: {} };
+const flags = { compaction: false };
+const sandbox = { window: { FEATURE_FLAGS: flags } };
 vm.createContext(sandbox);
 vm.runInContext(source, sandbox);
 const M = sandbox.window.ModelCore;
@@ -100,15 +101,25 @@ check('the three candidates are registered', () => {
 
 // ---- Request options --------------------------------------------------------
 
-check('Opus: medium effort, one tool call per reply, started on Anthropic, compacts past 100k', () => {
+check('Opus: medium effort, one tool call per reply, started on Anthropic', () => {
     const o = M.buildChatOptions('claude-opus-5-5', { tools: ['t'], signal: 's' });
-    assert.deepEqual(plain(o), plain({ model: 'claude-opus-5-5', tools: ['t'], stream: true, reasoning_effort: 'medium', parallelToolCalls: false, provider: 'claude', compaction: { trigger_tokens: 100000 }, signal: 's' }));
+    assert.deepEqual(plain(o), plain({ model: 'claude-opus-5-5', tools: ['t'], stream: true, reasoning_effort: 'medium', parallelToolCalls: false, provider: 'claude', signal: 's' }));
 });
 
-check('Sonnet and GPT compact past 100k, Gemini never compacts', () => {
-    assert.deepEqual(plain(M.buildChatOptions('claude-sonnet-5-5').compaction), { trigger_tokens: 100000 });
-    assert.deepEqual(plain(M.buildChatOptions('gpt-6.1-sol').compaction), { trigger_tokens: 100000 });
-    assert.ok(!('compaction' in M.buildChatOptions('gemini-4-argon')));
+check('with the compaction flag off, no model asks for it', () => {
+    for (const id of M.ids()) assert.ok(!('compaction' in M.buildChatOptions(id)), id);
+});
+
+check('with the flag on, Opus, Sonnet and GPT compact past 100k, Gemini never compacts', () => {
+    flags.compaction = true;
+    try {
+        assert.deepEqual(plain(M.buildChatOptions('claude-opus-5-5').compaction), { trigger_tokens: 100000 });
+        assert.deepEqual(plain(M.buildChatOptions('claude-sonnet-5-5').compaction), { trigger_tokens: 100000 });
+        assert.deepEqual(plain(M.buildChatOptions('gpt-6.1-sol').compaction), { trigger_tokens: 100000 });
+        assert.ok(!('compaction' in M.buildChatOptions('gemini-4-argon')));
+    } finally {
+        flags.compaction = false;
+    }
 });
 
 check('every compaction threshold is at or above Anthropic\'s 50k floor', () => {
