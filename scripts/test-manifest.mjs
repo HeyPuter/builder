@@ -340,6 +340,41 @@ async function refresh(app) {
     check('a no-op refresh writes nothing', m.writes.length === 0);
 }
 
+// The pass runs before every preview reload. One call at a time, its reads
+// took about a second, so the independent ones go out together, index.html is
+// read without a stat first, and the page walk skips Puter's own .puter/.
+{
+    const m = mountFs(Object.assign({
+        [APP + '/index.html']: APP_PAGE,
+        [APP + '/.puter/canary.txt']: 'x',
+        [APP + '/.puter/screenshots/index.png']: 'png',
+    }, ICONS));
+    await refresh(APP);
+    m.writes.length = 0;
+    const fs = globalThis.puter.fs;
+    const calls = [];
+    let inFlight = 0, maxInFlight = 0;
+    const slow = (name) => {
+        const real = fs[name];
+        return async (...a) => {
+            calls.push(name + ' ' + a[0]);
+            inFlight++; maxInFlight = Math.max(maxInFlight, inFlight);
+            try { await new Promise((r) => setTimeout(r, 5)); return await real(...a); }
+            finally { inFlight--; }
+        };
+    };
+    const real = { stat: fs.stat, read: fs.read, readdir: fs.readdir };
+    for (const name of Object.keys(real)) fs[name] = slow(name);
+    await fullWindow.ensureAppManifest(APP, { fallbackName: 'Fallback' });
+    Object.assign(fs, real);
+    check('a no-op pass still writes nothing', m.writes.length === 0, JSON.stringify(m.writes));
+    check('its reads go out together', maxInFlight >= 4, 'at most ' + maxInFlight + ' at once');
+    check('index.html is read without a stat first', !calls.includes('stat ' + APP + '/index.html'), calls.join(', '));
+    check('the page walk never lists .puter/', !calls.some((c) => c.startsWith('readdir ') && c.includes('/.puter')), calls.join(', '));
+    check('the entry page is still read once more, under its lock, for the stamp check',
+        calls.filter((c) => c === 'read ' + APP + '/index.html').length === 2);
+}
+
 // The model rewriting a page it already stamped (a plain `write` of index.html)
 // drops the block. Nothing about the app's identity changed, so the cheap
 // "skip, nothing changed" path must NOT be what decides this — otherwise the app
@@ -621,9 +656,10 @@ check('manifest.js is in the build', /'js\/manifest\.js'/.test(viteSrc));
 check('manifest.js loads before ui.js (shared globals are load-ordered)',
     viteSrc.indexOf("'js/manifest.js'") < viteSrc.indexOf("'js/ui.js'"));
 
-// The hook must live in the refresh, ahead of the cache-bust pass.
-const refreshStart = uiSrc.indexOf('async function refreshPreviewWhenReady');
-const refreshBody = uiSrc.slice(refreshStart, refreshStart + 4000);
+// The hook must live in the refresh, ahead of the cache-bust pass. It runs in
+// clearPreviewCache, the part of the refresh a turn can start early.
+const refreshStart = uiSrc.indexOf('async function clearPreviewCache');
+const refreshBody = uiSrc.slice(refreshStart, uiSrc.indexOf('let previewRefreshPending', refreshStart));
 check('the preview refresh calls ensureAppManifest',
     refreshStart !== -1 && /window\.ensureAppManifest\?\.\(/.test(refreshBody));
 check('it runs BEFORE applyPreviewCacheBust (so the new tags get tokens)',

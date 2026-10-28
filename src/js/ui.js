@@ -896,12 +896,15 @@ async function refreshPreviewWhenReady() {
     // before it ends (loadChat only tears the pane down when the target has no
     // preview of its own).
     const ownerChatId = currentChatId;
+    // A clear this turn already started for these files (see
+    // startEarlyPreviewClear), taken before the counter below moves on.
+    const early = takeEarlyPreviewClear(baseUrl, ownerChatId);
 
     // Guard against overlapping refreshes / chat switches — only the latest wins.
     const seq = ++_previewRefreshSeq;
     _previewRefreshActiveSeq = seq;
     try {
-        await runPreviewRefresh($frame, baseUrl, ownerChatId, seq);
+        await runPreviewRefresh($frame, baseUrl, ownerChatId, seq, early);
     } finally {
         // Committed (the iframe is now loading the new build) or bowed out —
         // either way this refresh no longer has an update pending.
@@ -910,95 +913,21 @@ async function refreshPreviewWhenReady() {
 }
 window.refreshPreviewWhenReady = refreshPreviewWhenReady;
 
-// The body of refreshPreviewWhenReady: every step below re-checks `seq` against
-// _previewRefreshSeq after each await and bows out when superseded.
-async function runPreviewRefresh($frame, baseUrl, ownerChatId, seq) {
+// The body of refreshPreviewWhenReady: it bows out the moment `seq` is no
+// longer _previewRefreshSeq.
+async function runPreviewRefresh($frame, baseUrl, ownerChatId, seq, early) {
     showPreviewUpdating(true);
 
-    const dir = publishedRootDir();
-
-    // Stamp cache-bust tokens onto the served HTML's local assets so the browser
-    // re-fetches changed CSS/JS/images, not just the page. SKIPPED when the live
-    // host already returns a no-store/no-cache policy: the browser then never
-    // serves stale sub-resources, so stamping is redundant — and skipping it
-    // removes the only background writer that races AI edits (see withFileLock).
-    // Best-effort; never blocks the reload. Must run before the canary
-    // below, so the clear it proves covers the stamped pages too.
-    // Make the app installable: generate/refresh its manifest.json, icons and
-    // the <head> block that links them (see js/manifest.js). Runs BEFORE the
-    // cache-bust pass, so the tags it writes get their tokens in the same sweep,
-    // and before the canary below, so the clear it proves covers the new files.
-    // Skips its own IO when nothing about the app's identity changed.
-    // Best-effort; never blocks the reload.
-    try {
-        await window.ensureAppManifest?.(dir, {
-            fallbackName: typeof generateChatTitle === 'function' ? generateChatTitle(chatHistory) : '',
-        });
-    } catch (e) { /* best effort */ }
-    if (seq !== _previewRefreshSeq) return; // superseded while generating
-
-    const skipStamp = await previewHostSkipsBrowserCache(baseUrl);
-    if (seq !== _previewRefreshSeq) return; // superseded while probing cache policy
-    if (!skipStamp) {
-        try { await window.applyPreviewCacheBust?.(dir); } catch (e) { /* best effort */ }
-        if (seq !== _previewRefreshSeq) return; // superseded while stamping
+    const live = () => seq === _previewRefreshSeq;
+    let cleared;
+    if (early) {
+        // The early clear is this refresh's now, and bows out with it.
+        early.live = live;
+        cleared = await early.cleared;
+    } else {
+        cleared = await clearPreviewCache(baseUrl, publishedRootDir(), live);
     }
-
-    // The canary (see the top of this section). Every step comes after the
-    // project's writes above, so the clear it proves covers all of them.
-    // 1. Read it, so this page's copy holds the old value. A project without
-    //    one yet gets one first and reads that. With no old value at all (a
-    //    failed fetch or write) a later change proves nothing.
-    // 2. Write a new value.
-    // 3. Ask for the site-wide clear. hosting.update to the directory the
-    //    subdomain already serves changes nothing else.
-    // 4. Poll until this page's copy holds anything but the old value, then
-    //    reload. Any other value counts, so another tab's refresh on the same
-    //    project, whose own clear is just as good, can't hold this one up. If
-    //    it never changes, reload at the limit.
-    // Skipped for non-puter.site addresses, which only get the limit.
-    const sub = previewSubdomain(baseUrl);
-    const log = (...a) => {
-        try { if (localStorage.getItem('debugCache')) console.log('[preview-canary]', ...a); } catch (e) { /* no storage */ }
-    };
-    const canaryPath = dir + '/' + PREVIEW_CANARY;
-    const t0 = Date.now();
-    let before = null;
-    if (sub && dir && typeof fetch === 'function') {
-        before = await readPreviewCanary(baseUrl);
-        if (seq !== _previewRefreshSeq) return; // superseded while reading the canary
-        if (before === null) {
-            try {
-                await puter.fs.write(canaryPath, 'start', { createMissingParents: true });
-                before = await readPreviewCanary(baseUrl);
-            } catch (e) { /* no old value, so the limit */ }
-            if (seq !== _previewRefreshSeq) return; // superseded while creating the canary
-        }
-        log('old value', before === null ? '(none, will wait for the limit)' : before);
-        const next = Date.now() + '-' + Math.random().toString(36).slice(2, 8);
-        try {
-            await puter.fs.write(canaryPath, next, { createMissingParents: true });
-            log('wrote', next);
-        } catch (e) { before = null; log('write failed', e); }
-        if (seq !== _previewRefreshSeq) return; // superseded while writing the canary
-        try {
-            await puter.hosting.update(sub, dir);
-            log('asked for the clear', (Date.now() - t0) + 'ms');
-        } catch (e) { before = null; log('hosting.update failed', e); }
-        if (seq !== _previewRefreshSeq) return; // superseded while asking for the clear
-    }
-    const giveUpAt = Date.now() + PREVIEW_CANARY_LIMIT_MS;
-    let flipped = false;
-    while (Date.now() < giveUpAt) {
-        if (before !== null) {
-            const seen = await readPreviewCanary(baseUrl);
-            if (seq !== _previewRefreshSeq) return; // superseded while polling
-            if (seen !== null && seen !== before) { flipped = true; break; }
-        }
-        await new Promise(r => setTimeout(r, Math.min(PREVIEW_CANARY_POLL_MS, Math.max(0, giveUpAt - Date.now()))));
-        if (seq !== _previewRefreshSeq) return; // superseded while waiting
-    }
-    log(flipped ? 'cleared, reloading' : 'no clear seen, reloading at the limit', (Date.now() - t0) + 'ms');
+    if (cleared === null) return; // superseded
 
     // Bail if a newer reload/refresh/chat-switch happened, or the live preview
     // URL changed under us — never reload the iframe to a now-stale target.
@@ -1031,6 +960,140 @@ async function runPreviewRefresh($frame, baseUrl, ownerChatId, seq) {
     // the chat that owns this refresh (not whatever is open later); refreshChatThumb
     // polls internally to ride out the regeneration delay + edge cache TTL.
     window.refreshChatThumb?.(ownerChatId);
+}
+
+// Get the live site serving the project's current files, up to the reload.
+// Resolves true once the canary shows the site-wide clear, false at the limit,
+// and null as soon as `live()` turns false, checked after every await.
+async function clearPreviewCache(baseUrl, dir, live) {
+    // Stamp cache-bust tokens onto the served HTML's local assets so the browser
+    // re-fetches changed CSS/JS/images, not just the page. SKIPPED when the live
+    // host already returns a no-store/no-cache policy: the browser then never
+    // serves stale sub-resources, so stamping is redundant — and skipping it
+    // removes the only background writer that races AI edits (see withFileLock).
+    // Best-effort; never blocks the reload. Must run before the canary
+    // below, so the clear it proves covers the stamped pages too.
+    // Make the app installable: generate/refresh its manifest.json, icons and
+    // the <head> block that links them (see js/manifest.js). Runs BEFORE the
+    // cache-bust pass, so the tags it writes get their tokens in the same sweep,
+    // and before the canary below, so the clear it proves covers the new files.
+    // Skips its own IO when nothing about the app's identity changed.
+    // Best-effort; never blocks the reload.
+    try {
+        await window.ensureAppManifest?.(dir, {
+            fallbackName: typeof generateChatTitle === 'function' ? generateChatTitle(chatHistory) : '',
+        });
+    } catch (e) { /* best effort */ }
+    if (!live()) return null; // superseded while generating
+
+    const skipStamp = await previewHostSkipsBrowserCache(baseUrl);
+    if (!live()) return null; // superseded while probing cache policy
+    if (!skipStamp) {
+        try { await window.applyPreviewCacheBust?.(dir); } catch (e) { /* best effort */ }
+        if (!live()) return null; // superseded while stamping
+    }
+
+    // The canary (see the top of this section). Every step comes after the
+    // project's writes above, so the clear it proves covers all of them.
+    // 1. Read it, so this page's copy holds the old value. A project without
+    //    one yet gets one first and reads that. With no old value at all (a
+    //    failed fetch or write) a later change proves nothing.
+    // 2. Write a new value.
+    // 3. Ask for the site-wide clear. hosting.update to the directory the
+    //    subdomain already serves changes nothing else.
+    // 4. Poll until this page's copy holds anything but the old value, then
+    //    reload. Any other value counts, so another tab's refresh on the same
+    //    project, whose own clear is just as good, can't hold this one up. If
+    //    it never changes, reload at the limit.
+    // Skipped for non-puter.site addresses, which only get the limit.
+    const sub = previewSubdomain(baseUrl);
+    const log = (...a) => {
+        try { if (localStorage.getItem('debugCache')) console.log('[preview-canary]', ...a); } catch (e) { /* no storage */ }
+    };
+    const canaryPath = dir + '/' + PREVIEW_CANARY;
+    const t0 = Date.now();
+    let before = null;
+    if (sub && dir && typeof fetch === 'function') {
+        before = await readPreviewCanary(baseUrl);
+        if (!live()) return null; // superseded while reading the canary
+        if (before === null) {
+            try {
+                await puter.fs.write(canaryPath, 'start', { createMissingParents: true });
+                before = await readPreviewCanary(baseUrl);
+            } catch (e) { /* no old value, so the limit */ }
+            if (!live()) return null; // superseded while creating the canary
+        }
+        log('old value', before === null ? '(none, will wait for the limit)' : before);
+        const next = Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+        try {
+            await puter.fs.write(canaryPath, next, { createMissingParents: true });
+            log('wrote', next);
+        } catch (e) { before = null; log('write failed', e); }
+        if (!live()) return null; // superseded while writing the canary
+        try {
+            await puter.hosting.update(sub, dir);
+            log('asked for the clear', (Date.now() - t0) + 'ms');
+        } catch (e) { before = null; log('hosting.update failed', e); }
+        if (!live()) return null; // superseded while asking for the clear
+    }
+    const giveUpAt = Date.now() + PREVIEW_CANARY_LIMIT_MS;
+    let flipped = false;
+    while (Date.now() < giveUpAt) {
+        if (before !== null) {
+            const seen = await readPreviewCanary(baseUrl);
+            if (!live()) return null; // superseded while polling
+            if (seen !== null && seen !== before) { flipped = true; break; }
+        }
+        await new Promise(r => setTimeout(r, Math.min(PREVIEW_CANARY_POLL_MS, Math.max(0, giveUpAt - Date.now()))));
+        if (!live()) return null; // superseded while waiting
+    }
+    log(flipped ? 'cleared' : 'no clear seen by the limit', (Date.now() - t0) + 'ms');
+    return flipped;
+}
+
+// ---- Clearing early -------------------------------------------------------
+// Puter lets Claude make one tool call per reply, so a whole model round, about
+// two seconds, sits between the AI's last file write and its update_preview
+// call. The clear needs only the writes, not that call, so the tool loop
+// (handleToolCalls) starts one as soon as a round that may have written files
+// ends, and the refresh update_preview kicks off takes it over instead of
+// starting its own.
+// The canary only proves a clear that came after its read, which covers the
+// files written before that read. So any tool that may write drops the early
+// clear before it runs, and its round starts a new one. Only a refresh during
+// a turn may take one over. Between turns the Code view, GitHub sync and
+// version restore write files without dropping it, which is also why a turn
+// drops the one before it as it starts (sendChatMessage).
+let _earlyPreviewClear = null;
+window.startEarlyPreviewClear = function () {
+    window.dropEarlyPreviewClear();
+    // Only when files changed and a refresh is still to come. A round whose
+    // write failed, or whose publish_site already started its own refresh
+    // (showAppPreview), leaves nothing for an early clear to cover.
+    if (!previewRefreshPending) return;
+    const baseUrl = window.currentPreviewUrl;
+    if (!baseUrl || !$('.preview-frame').length || !$('body').hasClass('preview-active')) return;
+    const run = { baseUrl, dir: publishedRootDir(), chatId: currentChatId, seq: _previewRefreshSeq, dropped: false };
+    // Superseded like a refresh, or dropped. The refresh that takes it over
+    // swaps in its own test.
+    run.live = () => !run.dropped && run.seq === _previewRefreshSeq;
+    run.cleared = clearPreviewCache(baseUrl, run.dir, () => run.live());
+    _earlyPreviewClear = run;
+};
+window.dropEarlyPreviewClear = function () {
+    if (_earlyPreviewClear) _earlyPreviewClear.dropped = true;
+    _earlyPreviewClear = null;
+};
+// The early clear a refresh of `baseUrl` for `chatId` may take over, or null.
+// Either way it is no longer waiting to be taken.
+function takeEarlyPreviewClear(baseUrl, chatId) {
+    const run = _earlyPreviewClear;
+    _earlyPreviewClear = null;
+    if (!run) return null;
+    if (run.live() && isProcessing && run.baseUrl === baseUrl && run.chatId === chatId
+        && run.dir === publishedRootDir()) return run;
+    run.dropped = true;
+    return null;
 }
 
 let previewRefreshPending = false;

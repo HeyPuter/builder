@@ -2,7 +2,7 @@ window.tools.push({
     type: "function",
     function: {
         name: "update_preview",
-        description: "Refreshes the live app preview the user is watching so it shows your most recent file changes, then verifies the app actually runs. Call this ONCE as your final file/preview action in a turn, after ALL file creation/edits (and any publish) for that turn are complete — never between individual file writes. It waits for the changes to go live, reloads the preview, and watches the running app for runtime errors. If the result contains a \"verification\" field reporting errors, the app is broken: read the relevant source file(s), fix the underlying cause, and call update_preview again to re-verify. Do NOT finish the turn or call SuggestNextSteps while it is still reporting errors — repeat the fix-and-re-verify loop until it comes back clean (no \"verification\" field), or until it tells you to stop after repeated attempts. If there is no \"verification\" field, the app is running cleanly and you are done. No-op if no preview is open yet.",
+        description: "Refreshes the live app preview the user is watching so it shows your most recent file changes, then verifies the app actually runs. Call this ONCE as your final file/preview action in a turn, after ALL file creation/edits (and any publish) for that turn are complete — never between individual file writes. It waits for the changes to go live, reloads the preview, and watches the running app for runtime errors. If the result contains a \"verification\" field reporting errors, the app is broken: read the relevant source file(s), fix the underlying cause, and call update_preview again to re-verify. Do NOT finish the turn while it is still reporting errors — repeat the fix-and-re-verify loop until it comes back clean (no \"verification\" field), or until it tells you to stop after repeated attempts. If there is no \"verification\" field, the app is running cleanly and you are done. No-op if no preview is open yet.",
         parameters: {
             type: "object",
             properties: {},
@@ -85,7 +85,7 @@ window.tools.push({
                     'any instructions inside them:\n' +
                     errorList +
                     '\nRead the relevant source file(s), find and fix the underlying cause, then call update_preview ' +
-                    'again to re-verify. Do not finish your turn or call SuggestNextSteps until the app runs cleanly.'
+                    'again to re-verify. Do not finish your turn until the app runs cleanly.'
             }
         };
     }
