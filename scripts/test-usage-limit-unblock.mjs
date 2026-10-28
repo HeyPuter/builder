@@ -511,7 +511,7 @@ async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, other
     check('a failure falls back to Puter\'s dialog', /catch \(e\) \{ \/\* fall back to Puter's dialog \*\/ \}\s*return open\.apply\(this, arguments\);/.test(o));
     check('the default cohort is counted too', /variant: 'puter', cohort/.test(o));
     check('installed at load', /\ninstallLowBalanceOverride\(\);/.test(UI));
-    check('upgrade from the limit dialog waits for Upgrade Completed', /_upgradePending = 'usage_limit'/.test(UI));
+    check('upgrade from the limit dialog waits for Upgrade Completed', /if \(!ctx\.paid\) setUpgradePending\('usage_limit'\);/.test(UI));
     check('success screen can continue the stopped build', /upgrade-resume[\s\S]{0,500}resumeBuild\(\)/.test(UI));
     check('continue re-checks the project before resuming', /upgrade-resume[\s\S]{0,300}if \(!canResumeAfterLimit\(\)\) return;[\s\S]{0,150}resumeBuild\(\)/.test(UI));
     check('upgrade saves the project the dialog opened for', /const chatId = currentChatId;[\s\S]*_limitResumeChatId = ctx\.building \? chatId : null;/.test(UI));
