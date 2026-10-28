@@ -15,12 +15,11 @@
     'use strict';
 
     // Where a user upgrades. Billing lives on puter.com, not in the builder.
-    const UPGRADE_URL = 'https://puter.com/#billing';
-
-    // The dashboard's upgrade page for a refusal, in the format puter.js
-    // builds for its own dialog (upgradeUrl in UsageLimitDialog.js): which
-    // upgrade (funds, subscription, storage), the app the call ran as, and the
-    // SDK call that was refused, as iface::method.
+    // The dashboard's upgrade page, in the format puter.js builds for its own
+    // dialog (upgradeUrl in UsageLimitDialog.js): which upgrade (funds,
+    // subscription, storage), the app the call ran as, and the SDK call that
+    // was refused, as iface::method. The page only opens its upgrade flow with
+    // a reason, so an upgrade the user chose still sends one.
     function upgradeUrl({ reason, appID, method } = {}) {
         const url = new URL('https://puter.com/dashboard/');
         if (reason) url.searchParams.set('upgrade', reason);
@@ -55,5 +54,5 @@
         return !!(user && !user.is_temp && user.subscribed === true);
     }
 
-    window.Branding = { UPGRADE_URL, upgradeUrl, hasRuntimeTag, stripRuntimeTags, isSubscribed };
+    window.Branding = { upgradeUrl, hasRuntimeTag, stripRuntimeTags, isSubscribed };
 })();

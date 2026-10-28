@@ -5058,7 +5058,7 @@ function openUpgradeModal(source, { justUpgraded = false } = {}) {
         '<ul class="upgrade-perks">' +
             perkList.map((p) => `<li>${check}<span>${p}</span></li>`).join('') +
         '</ul>';
-    const billing = htmlEscape(window.Branding.UPGRADE_URL);
+    const billing = htmlEscape(window.Branding.upgradeUrl({ reason: 'funds', appID: window.puter?.appID }));
     // A sketch of a published site, with and without the badge in its corner.
     const site = (badge) =>
         '<div class="upgrade-site">' +
@@ -5407,7 +5407,7 @@ async function refreshUserPlan() {
 }
 window.refreshUserPlan = refreshUserPlan;
 
-// Back from puter.com/#billing: fetch the user again, and if the plan is now
+// Back from Puter's upgrade page: fetch the user again, and if the plan is now
 // paid, swap the Upgrade offers for the paid state and show the success
 // dialog. Until then, keep checking each time the tab regains focus.
 // (Focus and visibilitychange usually fire together; one fetch serves both.)

@@ -54,7 +54,13 @@ check('isSubscribed: subscribed true', B.isSubscribed({ username: 'a', subscribe
 check('isSubscribed: false / missing / null', !B.isSubscribed({ subscribed: false }) && !B.isSubscribed({}) && !B.isSubscribed(null));
 check('isSubscribed: truthy non-boolean is not enough', !B.isSubscribed({ subscribed: 'yes' }));
 check('isSubscribed: temp user never counts', !B.isSubscribed({ is_temp: true, subscribed: true }));
-check('upgrade url is puter.com billing', B.UPGRADE_URL === 'https://puter.com/#billing');
+check('upgrade url for a refusal carries what was refused',
+    B.upgradeUrl({ reason: 'funds', appID: 'app-1', method: 'a::b' }) === 'https://puter.com/dashboard/?upgrade=funds&upgrade_app=app-1&upgrade_method=a%3A%3Ab#home');
+check('upgrade url leaves out what it is not given',
+    B.upgradeUrl({ reason: 'funds', appID: 'app-1' }) === 'https://puter.com/dashboard/?upgrade=funds&upgrade_app=app-1#home' &&
+    B.upgradeUrl() === 'https://puter.com/dashboard/#home');
+check('the Upgrade dialog opens the funds upgrade for this app, with no refused method',
+    uiSrc.includes("htmlEscape(window.Branding.upgradeUrl({ reason: 'funds', appID: window.puter?.appID }))"));
 
 // Wiring: the module is bundled, and staging a release strips only when a
 // subscriber ticked the box. Never automatically.
