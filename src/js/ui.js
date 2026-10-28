@@ -5034,60 +5034,84 @@ function openUpgradeModal(source, { justUpgraded = false } = {}) {
     source = source || 'unknown';
     if (!justUpgraded) window.track?.('Upgrade Opened', { source, plan });
     const check = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
-    // Opened from the Code view (or the AI's code-editing card): lead with the
-    // editor, and sketch it instead of the badge.
+    // Opened from the Code view (or the AI's code-editing card).
     const forCode = !!window.FEATURE_FLAGS?.codeEditor && (source === 'code_editor' || source === 'chat_code_editor');
-    const codePerk = 'Edit your app’s code in Builder';
-    const modelPerk = 'Choose the AI model that builds your app';
-    // GitHub sync is only there with its flags on (see github-sync.js).
-    const githubPerk = 'Save your projects to GitHub<span class="beta-badge">Beta</span>';
-    const perkList = [
-        'More credits for building apps',
-        ...(window.FEATURE_FLAGS?.codeEditor ? [codePerk] : []),
-        ...(window.FEATURE_FLAGS?.modelPicker ? [modelPerk] : []),
-        ...(window.GitHubSync ? [githubPerk] : []),
-        'Remove “Made with Puter” badge on your sites',
-        'Premium features we release in the future',
+
+    // Each benefit is a tile with a sketch of it on a paid plan, drawn in the
+    // same small browser frame.
+    const frame = (kind, inner) =>
+        `<div class="upgrade-site ${kind}">` +
+            '<div class="upgrade-site-bar"><i></i><i></i><i></i></div>' +
+            `<div class="upgrade-art-body">${inner}</div>` +
+        '</div>';
+    // The monthly allowance on each plan.
+    const creditsArt = frame('upgrade-credits',
+        '<span class="upgrade-credits-label">Credits each month</span>' +
+        '<span class="upgrade-credits-row"><em>Free</em><span><b></b></span></span>' +
+        '<span class="upgrade-credits-row is-paid"><em>Paid</em><span><b></b></span></span>');
+    // A file open in the Code view, with a caret and the Save button.
+    const codeArt = frame('upgrade-code',
+        '<b></b><b class="i1"></b><b class="i2"></b><b class="short"></b><span class="upgrade-code-tag">Save</span>');
+    // The model picker with one model from each family, and one past the
+    // default picked.
+    const modelArt = () => {
+        const core = window.ModelCore;
+        const families = new Set();
+        const ids = core.ids().filter((id) => !families.has(core.get(id).family) && families.add(core.get(id).family));
+        return frame('upgrade-model', ids.slice(0, 3).map((id, i) =>
+            `<span class="upgrade-model-row${i === 1 ? ' is-on' : ''}"><span>${htmlEscape(core.get(id).label)}</span>${i === 1 ? check : ''}</span>`).join(''));
+    };
+    // A branch's commits.
+    const githubArt = frame('upgrade-gh',
+        `<span class="upgrade-gh-head">${window.source_control_svg || ''}<span>main</span></span>` +
+        '<span class="upgrade-gh-commit"><i></i><b></b></span>' +
+        '<span class="upgrade-gh-commit"><i></i><b class="short"></b></span>' +
+        '<span class="upgrade-gh-commit"><i></i><b></b></span>');
+    // A published site with the badge in its corner struck out.
+    const badgeArt = frame('upgrade-badge',
+        '<b></b><span></span><span></span><span class="short"></span>' +
+        '<div class="upgrade-site-badge"><img src="/favicons/app-icon.png" alt="">Made with Puter</div>');
+    // An empty page for what comes next.
+    const futureArt = frame('upgrade-future',
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.14-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.14a.5.5 0 0 1 .96 0l1.58 6.14a2 2 0 0 0 1.44 1.44l6.14 1.58a.5.5 0 0 1 0 .96l-6.14 1.58a2 2 0 0 0-1.44 1.44l-1.58 6.14a.5.5 0 0 1-.96 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>');
+
+    const benefits = [
+        { id: 'credits', title: 'More credits', text: 'A bigger monthly allowance for building and changing your apps.', art: creditsArt },
+        { id: 'badge', title: 'Remove the badge', text: 'Publish your sites without the “Made with Puter” badge.', art: badgeArt },
+        ...(window.FEATURE_FLAGS?.modelPicker && window.ModelCore ? [{ id: 'model', title: 'Choose the AI model', text: 'Pick the model that builds each project, from Claude, GPT and Gemini.', art: modelArt() }] : []),
+        ...(window.FEATURE_FLAGS?.codeEditor ? [{ id: 'code', title: 'Edit the code yourself', text: 'Change any file in the Code view and save it. The free plan can only read it.', art: codeArt }] : []),
+        // GitHub sync is only there with its flags on (see github-sync.js).
+        ...(window.GitHubSync ? [{ id: 'github', title: 'Save to GitHub', beta: true, text: 'Every version becomes a commit in your repository, and changes made there come back.', art: githubArt }] : []),
     ];
-    // Lead with the perk the user came for.
-    const lead = forCode ? codePerk
-        : source === 'model_picker' && window.FEATURE_FLAGS?.modelPicker ? modelPerk
-            : source === 'github' && window.GitHubSync ? githubPerk : null;
-    if (lead) perkList.unshift(perkList.splice(perkList.indexOf(lead), 1)[0]);
-    const perks =
-        '<ul class="upgrade-perks">' +
-            perkList.map((p) => `<li>${check}<span>${p}</span></li>`).join('') +
+    // Lead with the benefit the user came for.
+    const lead = forCode ? 'code'
+        : source === 'model_picker' ? 'model'
+            : source === 'github' ? 'github'
+                : source === 'chat' || source === 'publish_panel' || source === 'publish_success' ? 'badge' : null;
+    const leadAt = benefits.findIndex((b) => b.id === lead);
+    if (leadAt > 0) benefits.unshift(benefits.splice(leadAt, 1)[0]);
+    benefits.push({ id: 'future', title: 'Future premium features', text: 'New paid features come to your plan as we release them.', art: futureArt });
+    // Three to a row, or two when three would leave a gap and two would not.
+    const cols = benefits.length % 3 && !(benefits.length % 2) ? 2 : 3;
+    const tiles =
+        `<ul class="upgrade-benefits cols-${cols}">` +
+            benefits.map((b) =>
+                '<li class="upgrade-benefit">' +
+                    `<div class="upgrade-benefit-art" aria-hidden="true">${b.art}</div>` +
+                    '<div class="upgrade-benefit-text">' +
+                        `<span class="upgrade-benefit-title">${paid ? check : ''}<span>${b.title}</span>${b.beta ? '<span class="beta-badge">Beta</span>' : ''}</span>` +
+                        `<span class="upgrade-benefit-desc">${b.text}</span>` +
+                    '</div>' +
+                '</li>').join('') +
         '</ul>';
     const billing = htmlEscape(window.Branding.upgradeUrl({ reason: 'funds', appID: window.puter?.appID }));
-    // A sketch of a published site, with and without the badge in its corner.
-    const site = (badge) =>
-        '<div class="upgrade-site">' +
-            '<div class="upgrade-site-bar"><i></i><i></i><i></i></div>' +
-            '<div class="upgrade-site-body"><b></b><span></span><span></span><span class="short"></span>' +
-                (badge ? '<div class="upgrade-site-badge"><img src="/favicons/app-icon.png" alt="">Made with Puter</div>' : '') +
-            '</div>' +
-        '</div>';
-
-    // A sketch of the Code view: read only on the free plan, editable on a paid one.
-    const code = (editable) =>
-        '<div class="upgrade-site upgrade-code' + (editable ? ' is-editable' : '') + '">' +
-            '<div class="upgrade-site-bar"><i></i><i></i><i></i></div>' +
-            '<div class="upgrade-code-body"><b></b><b class="i1"></b><b class="i2"></b><b class="short"></b>' +
-                (editable ? '<em class="upgrade-code-caret"></em><span class="upgrade-code-tag is-save">Save</span>'
-                    : '<span class="upgrade-code-tag">Read only</span>') +
-            '</div>' +
-        '</div>';
 
     let title, body, actions;
     if (!paid) {
         title = 'Upgrade your Puter plan';
         body =
-            '<div class="upgrade-compare" aria-hidden="true">' +
-                `<figure>${forCode ? code(false) : site(true)}<figcaption>Free</figcaption></figure>` +
-                `<figure>${forCode ? code(true) : site(false)}<figcaption>Paid</figcaption></figure>` +
-            '</div>' +
-            '<p class="upgrade-lead">A paid Puter subscription unlocks these in Builder:</p>' +
-            perks;
+            '<p class="upgrade-lead">A paid Puter subscription adds all of this to Builder.</p>' +
+            tiles;
         actions =
             '<button type="button" class="confirm-modal-btn confirm-modal-cancel upgrade-cancel">Not now</button>' +
             `<a class="confirm-modal-btn upgrade-go" href="${billing}" target="_blank" rel="noopener noreferrer">Upgrade</a>`;
@@ -5103,8 +5127,8 @@ function openUpgradeModal(source, { justUpgraded = false } = {}) {
         title = justUpgraded ? 'You’re subscribed' : 'Your Puter plan';
         body =
             (justUpgraded ? `<div class="upgrade-success-badge" aria-hidden="true">${check}</div>` : '') +
-            `<p class="upgrade-lead">${justUpgraded ? 'Thanks for upgrading. You now have these in Builder:' : 'You’re on a paid Puter plan. You have these in Builder:'}</p>` +
-            perks.replace('<ul class="upgrade-perks">', '<ul class="upgrade-perks is-active">') +
+            `<p class="upgrade-lead">${justUpgraded ? 'Thanks for upgrading. You now have all of this in Builder.' : 'You’re on a paid Puter plan. You have all of this in Builder.'}</p>` +
+            tiles +
             (republish ? '<p class="upgrade-note">To take the badge off your site, tick the badge option in Publish and publish again.</p>' : '') +
             '<div class="upgrade-more">' +
                 '<span>Need more credits? Move to a higher plan on Puter.</span>' +
