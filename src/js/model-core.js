@@ -20,7 +20,8 @@
 // - compactAt: the input size, in tokens, past which the model summarizes the
 //   older history into a compaction item (see fromLastCompaction). Gemini has
 //   none, since Puter only documents compaction for OpenAI and Anthropic.
-//   Anthropic won't compact below 50k.
+//   Anthropic won't compact below 50k. Only used while FEATURE_FLAGS.compaction
+//   is on.
 window.ModelCore = (function () {
     const DEFAULT_MODEL = 'claude-opus-5-5';
 
@@ -108,7 +109,7 @@ window.ModelCore = (function () {
             reasoning_effort: m.reasoningEffort,
             parallelToolCalls: false,
             provider: m.route,
-            ...(m.compactAt ? { compaction: { trigger_tokens: m.compactAt } } : {}),
+            ...(m.compactAt && compactionOn() ? { compaction: { trigger_tokens: m.compactAt } } : {}),
             signal,
         };
     }
@@ -123,6 +124,8 @@ window.ModelCore = (function () {
     // they're never copied or sent. The full history stays on disk for the
     // chat, Resume and the cost totals. Returns a new array and never changes
     // the messages it's given. An entry is usable when:
+    // - FEATURE_FLAGS.compaction is on. Off, no entry is, so the full history
+    //   goes, as it did before compaction.
     // - the target can read it. Same family, it goes as Puter documents it, as
     //   the first block of the assistant turn after it. A Claude summary is
     //   plain text in Puter, so another vendor gets it as a text message.
@@ -134,6 +137,9 @@ window.ModelCore = (function () {
     //   the error card or Resume's note.
     // Every other compaction entry is left out of the request.
     const SUMMARY_NOTE = '[A summary of the earlier conversation follows. The messages it covers were removed to save space. Read files again before relying on details from it.]\n\n';
+    function compactionOn() {
+        return !!(window.FEATURE_FLAGS && window.FEATURE_FLAGS.compaction);
+    }
     function isCompactionEntry(m) {
         return !!(m && m.compaction === true && m.role === 'assistant');
     }
@@ -151,7 +157,7 @@ window.ModelCore = (function () {
         const family = MODELS[idOrDefault(modelId)].family;
         let cut = -1;
         let followed = false;
-        for (let i = messages.length - 1; i >= 0; i--) {
+        for (let i = messages.length - 1; compactionOn() && i >= 0; i--) {
             const m = messages[i];
             if (!isCompactionEntry(m)) { followed = true; continue; }
             if (!followed || !compactionBlock(m) || !get(m.model)) continue;

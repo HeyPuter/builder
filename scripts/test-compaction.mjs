@@ -10,11 +10,14 @@ import vm from 'node:vm';
 // stores the item as its own assistant entry (handleMessageStream) and each
 // request starts from the last usable one (ModelCore.fromLastCompaction,
 // called by prepareHistoryForAI). This runs the REAL model-core.js,
-// prepareHistoryForAI and handleMessageStream.js.
+// prepareHistoryForAI and handleMessageStream.js. It all sits behind
+// FEATURE_FLAGS.compaction, so these run with the flag on, and the last
+// section checks it off.
 
 const read = (p) => fs.readFileSync(new URL(p, import.meta.url), 'utf8');
 
-const coreBox = { window: {} };
+const flags = { compaction: true };
+const coreBox = { window: { FEATURE_FLAGS: flags } };
 vm.createContext(coreBox);
 vm.runInContext(read('../src/js/model-core.js'), coreBox);
 const M = coreBox.window.ModelCore;
@@ -337,6 +340,22 @@ await check('context bands', () => {
     assert.equal(contextBand(480000), '200-500k');
     assert.equal(contextBand(999999), '500k-1M');
     assert.equal(contextBand(1000000), '1M+');
+});
+
+// ---- With the flag off -----------------------------------------------------
+
+await check('flag off: every summary is left out and the full history goes', () => {
+    flags.compaction = false;
+    try {
+        const h = [sys, user('a'), item('1'), reply('b'), user('c'), item('2', GPT), reply('d'), user('e')];
+        const full = ['system:common', 'user:a', 'assistant:b', 'user:c', 'assistant:d', 'user:e'];
+        for (const target of [OPUS, GPT, 'gemini-4-argon']) {
+            assert.deepEqual(texts(M.fromLastCompaction(h, target)), full, target);
+            assert.deepEqual(texts(prepareHistoryForAI(h, target)), full, target);
+        }
+    } finally {
+        flags.compaction = true;
+    }
 });
 
 if (failures) { console.error('\n' + failures + ' check(s) failed'); process.exit(1); }

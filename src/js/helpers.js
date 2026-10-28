@@ -85,6 +85,13 @@ window.FEATURE_FLAGS = {
     // js/github-core.js). It needs codeEditor, whose hidden note and
     // overwrite guard tell the AI about pulled files.
     githubSync: true,
+    // Context compaction. Once a request passes the model's threshold
+    // (compactAt in js/model-core.js), the model summarizes the older history
+    // and later requests start from that summary. Off while Build Completed's
+    // context_band shows how big builds get, so the threshold can be chosen
+    // from it. When false no request asks for compaction, and a chat that
+    // compacted while it was on sends its full history again.
+    compaction: false,
 };
 
 // Analytics. Fires a Plausible custom event for the handful of product actions
