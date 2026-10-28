@@ -122,7 +122,7 @@ check('a reloaded chat re-renders the upgrade card', read('../src/js/app.js').in
 check('toolbar shows Benefits on a paid plan', uiSrc.includes("paidPlan ? 'Benefits' : 'Upgrade'"));
 check('paid dialog points to a higher plan', uiSrc.includes('Need more credits? Move to a higher plan on Puter.'));
 check('a detected upgrade opens the success dialog', uiSrc.includes('openUpgradeModal(source, { justUpgraded: true })'));
-check('a paid user\'s See plans click never waits for an upgrade', uiSrc.includes('if (!paid) _upgradePending = source;'));
+check('a paid user\'s See plans click never waits for an upgrade', uiSrc.includes('if (!paid) setUpgradePending(source);'));
 
 if (failures) { console.error(`\n${failures} check(s) failed`); process.exit(1); }
 console.log('\nall branding checks passed');
