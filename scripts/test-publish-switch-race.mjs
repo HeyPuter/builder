@@ -313,6 +313,9 @@ check('switch/auto-name: the address is derived from A’s chat, not B’s',
         resolvePublishedDir: async (p) => p,
         previewSubdomain: (u) => (u.match(/^https?:\/\/([^.]+)\.puter\.site/) || [])[1] || null,
         absolutizeSocialImagesInRelease: async (...args) => { absolutized.push(args); },
+        // A release with no dynamic backend: nothing to confirm or move.
+        planSiteMove: async () => ({ moveApp: false, backends: [] }),
+        finishSiteMove: async () => {},
         console: { warn() {} },
     };
     vm.createContext(sandbox);

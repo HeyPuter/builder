@@ -141,10 +141,14 @@
     // except a worker, which is why those go first.
     async function discardFork(appDir, deployed, subdomain) {
         for (const w of deployed) {
+            // A dynamic backend goes with the directory below.
+            if (w.dynamic) continue;
             try { await puter.workers.delete(w.name); }
             catch (e) { console.warn('Template: could not remove the worker of a failed fork:', w.name, e); }
         }
         if (subdomain) {
+            try { await window.SiteBackends?.deleteApp(`https://${subdomain}.puter.site/`); }
+            catch (e) { console.warn('Template: could not remove the app of a failed fork\'s preview:', subdomain, e); }
             try { await puter.hosting.delete(subdomain); }
             catch (e) { console.warn('Template: could not remove the preview of a failed fork:', subdomain, e); }
         }
@@ -181,6 +185,21 @@
             //    files that don't call it upload meanwhile.
             const deployWorkers = async () => {
                 if (!template.workers.length) return;
+                // A dynamic backend is just its file, at the top of the
+                // folder the preview serves, and the pages call it on their
+                // own site (see site-backends.js). Nothing to deploy.
+                const SB = window.SiteBackends;
+                if (SB?.forNewProjects()) {
+                    for (const workerName of template.workers) {
+                        const name = workerName.toLowerCase();
+                        if (!SB.validName(name)) throw new Error(`the backend name ${workerName} can't be a dynamic backend's`);
+                        const filePath = `${appDir}/${SB.FOLDER}/${name}${SB.SUFFIX}`;
+                        const source = byPath.get(`workers/${workerName}.js`).text;
+                        await window.withFileLock(filePath, () => window.writeFileVerified(filePath, source));
+                        deployed.push({ templateName: workerName, name, url: SB.pathOf(name), dynamic: true });
+                    }
+                    return;
+                }
                 const existing = await puter.workers.list();
                 const taken = (Array.isArray(existing) ? existing : []).map(w => w && w.name).filter(Boolean);
                 for (const workerName of template.workers) {
@@ -235,10 +254,16 @@
         //    same call duplicateChat makes.
         let previewUrl = null;
         let siteLive = Promise.resolve();
+        const title = core().uniqueTitle(template.name, savedChats.map(c => c.title || ''));
         try {
             const site = await puter.hosting.create(window.makeDraftSubdomain(), appDir);
             subdomain = site.subdomain;
             previewUrl = `https://${site.subdomain}.puter.site/`;
+            // A fork with dynamic backends runs its preview as an app Builder
+            // registers now, before anything runs there (see site-backends.js).
+            if (window.SiteBackends?.forNewProjects()) {
+                await window.SiteBackends.registerApp(previewUrl, title, 'preview');
+            }
             // Checked while the project is saved below; awaited before return.
             siteLive = waitForSite(previewUrl);
         } catch (e) {
@@ -250,7 +275,9 @@
         //    leave alone (customTitle, see saveCurrentChat).
         const renamedFiles = template.files.map(p => {
             const w = template.workers.find(n => p === `workers/${n}.js`);
-            return w ? `workers/${deployed.find(d => d.templateName === w).name}.js` : p;
+            if (!w) return p;
+            const d = deployed.find(x => x.templateName === w);
+            return d.dynamic ? `${window.SiteBackends.FOLDER}/${d.name}${window.SiteBackends.SUFFIX}` : `workers/${d.name}.js`;
         });
         const note = core().buildTemplateNote({
             name: template.name,
@@ -272,8 +299,10 @@
             ],
             templateOrigin: { slug: template.slug, name: template.name, version: template.version },
         };
+        // The fork's backends were written as dynamic ones above exactly when
+        // a new project gets them (see site-backends.js).
+        window.SiteBackends?.markNewProject(systemMessage);
         const now = new Date().toISOString();
-        const title = core().uniqueTitle(template.name, savedChats.map(c => c.title || ''));
         const chatData = {
             id: newId,
             title,

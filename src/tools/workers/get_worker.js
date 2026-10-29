@@ -16,6 +16,11 @@ window.tools.push({
         },
         strict: false
     },
+    // What a project with dynamic backends is told instead (see
+    // SiteBackends.toolsFor).
+    dynamic: {
+        description: "Gets information about one of THIS project's backends, a file in __workers/ or an older worker made with create_worker. A worker that belongs to another project on the account is reported as not found.",
+    },
     exec: async function(args, state) {
         const name = String((args && args.name) || '').trim();
         if (!name) throw new Error('name must be a non-empty worker name.');
@@ -28,6 +33,22 @@ window.tools.push({
         // details then come from workers.get, which carries file_uid.
         const root = window.projectRootDir(state);
         if (!root) throw new Error('Cannot determine the project directory, so the worker operation was refused for safety.');
+        // A dynamic backend is a file in this project's own __workers folder
+        // (see js/site-backends.js), so it's this project's by being there.
+        const SB = window.SiteBackends;
+        const site = SB?.siteOf(state) || null;
+        if (site) {
+            const backend = (await SB.list(site.servedDir)).find(b => b.name === name);
+            if (backend) {
+                return {
+                    success: true,
+                    name: backend.name,
+                    file_path: backend.path,
+                    path: SB.pathOf(backend.name),
+                    preview_url: SB.urlOf(site.previewUrl, backend.name),
+                };
+            }
+        }
         const owned = window.WorkerOwnership.findByName(await puter.workers.list(), name);
         if (!owned || !window.WorkerOwnership.ownedWorkers([owned], root).length) {
             // Same shape as before for a miss, so the model handles it the same

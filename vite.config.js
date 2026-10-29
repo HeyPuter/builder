@@ -48,6 +48,9 @@ const SCRIPTS = [
   'js/social-images.js',
   'js/issues-core.js',
   'js/worker-ownership.js',
+  // A project's dynamic backends (__workers/<name>.worker.js), behind
+  // FEATURE_FLAGS.dynamicWorkers.
+  'js/site-backends.js',
   // A project's API keys, kept in each backend worker's own store (the
   // set_secret tool, publish, duplicate and delete use it).
   'js/worker-secrets.js',
