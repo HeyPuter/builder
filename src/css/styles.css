@@ -829,6 +829,84 @@ html.vv-sized .chat:not(.active) {
     cursor: not-allowed;
 }
 
+/* Messages queued while a turn runs (js/message-queue.js): the last thing in
+   the chat, drawn like the user's own messages, each with its actions under
+   it. */
+.message-queue {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-bottom: 20px;
+}
+.queued-message-bubble {
+    padding: 10px 15px;
+    border-radius: 15px;
+    background-color: #dee2e67a;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    word-wrap: break-word;
+}
+.queued-message-bubble p { margin: 0 0 10px 0; }
+.queued-message-bubble > :last-child,
+.queued-message-bubble p:last-child { margin-bottom: 0; }
+.queued-message-bubble .attached-images:last-child .message-image { margin-bottom: 0; }
+.queued-message.sending .queued-message-bubble { opacity: 0.6; }
+.queued-message-target {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 8px;
+    font-size: 12px;
+    color: #555;
+}
+.queued-message-target code {
+    font-family: inherit;
+    font-weight: 600;
+}
+.queued-message-bar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 2px;
+    margin-top: 4px;
+    font-size: 13px;
+    color: #757575;
+}
+.queued-message-state {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-right: auto;
+    padding-left: 4px;
+    font-size: 12px;
+}
+.queued-message-icon,
+.queued-message-send-now {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 28px;
+    padding: 0;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: #666;
+    font: inherit;
+    cursor: pointer;
+}
+.queued-message-icon { width: 28px; }
+.queued-message-send-now {
+    gap: 6px;
+    padding: 0 6px 0 8px;
+    margin-left: 4px;
+    color: #444;
+}
+.queued-message-icon:hover,
+.queued-message-send-now:hover {
+    background: #f0f0f0;
+    color: #111;
+}
+
 .attachment-button {
     padding: 7px 10px;
     background-color: transparent;
@@ -1608,13 +1686,6 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
 }
 
 /* Dark theme support */
-
-.send.processing {
-    background-color: #d64242 !important;
-}
-.send.processing:hover {
-    background-color: #b53535 !important;
-}
 
 /* Chat History Styles */
 
@@ -4725,6 +4796,8 @@ body.preview-active.chat-hidden .chat {
         width: 34px;
         height: 34px;
     }
+    .queued-message-icon { width: 36px; height: 36px; }
+    .queued-message-send-now { height: 36px; }
     .model-picker-btn {
         height: 34px;
         font-size: 13px;
@@ -5950,13 +6023,22 @@ html[data-theme="dark"] .chat-input-message::placeholder { color: var(--text-mut
    arrow): a light plate with a dark arrow. Its old #484d51 plate sat at 1.8:1
    against the dark composer — a grey square that barely read as a button. The
    arrow's fill is a presentation attribute on the SVG, so CSS wins over it.
-   The Stop (processing) state keeps its red plate + white glyph. */
+   The Stop (processing) state uses the same plate, with a square glyph. */
 html[data-theme="dark"] .send { background-color: var(--text); }
 html[data-theme="dark"] .send:hover { background-color: #fff; }
 html[data-theme="dark"] .send svg path { fill: var(--bg); }
 html[data-theme="dark"] .send:disabled { background-color: var(--border-strong); }
 html[data-theme="dark"] .send:disabled svg path { fill: var(--text-faint); }
-html[data-theme="dark"] .send.processing svg path { fill: #fff; }
+html[data-theme="dark"] .queued-message-bubble { background-color: var(--surface-hover); }
+html[data-theme="dark"] .queued-message-target,
+html[data-theme="dark"] .queued-message-bar,
+html[data-theme="dark"] .queued-message-icon { color: var(--text-muted); }
+html[data-theme="dark"] .queued-message-send-now { color: var(--text-secondary); }
+html[data-theme="dark"] .queued-message-icon:hover,
+html[data-theme="dark"] .queued-message-send-now:hover {
+    background: var(--surface-hover);
+    color: var(--text);
+}
 html[data-theme="dark"] .chat-input-message:focus-within,
 html[data-theme="dark"] .chat-input-message:focus { border-color: var(--border-strong); }
 

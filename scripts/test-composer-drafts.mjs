@@ -512,24 +512,30 @@ check('sendChatMessage clears the draft when the composer is consumed',
 // the Issues panel's batch) used to wipe the typed text, tombstone its draft,
 // ship the attachment tray along with the report, and spend the click-to-edit
 // target — all of which belong to the user's own next message.
-check('the main-path clear is gated on consumedComposer (Resume + programmatic sends leave the composer alone)',
-    /const consumedComposer = !isResume && userInput == null && chat_input_message == null;/.test(sendSrc) &&
+// A queued message (js/message-queue.js) is not a composer send either: by the
+// time it goes, the composer holds the user's next message.
+check('the main-path clear is gated on consumedComposer (Resume + programmatic + queued sends leave the composer alone)',
+    /const consumedComposer = !isResume && !queued && userInput == null && chat_input_message == null;/.test(sendSrc) &&
     /if \(consumedComposer\) \{[^}]*clearComposerDraft\(preAuthDraftContext\)/s.test(sendSrc));
-check('programmatic sends do not take or clear the attachment tray',
-    sendSrc.includes('const atts = consumedComposer ? preAuthAttachments : [];') &&
+check('programmatic sends do not take or clear the attachment tray (a queued one brings its own files)',
+    sendSrc.includes('const sendAttachments = consumedComposer ? preAuthAttachments : queued ? queued.attachments : [];') &&
+    sendSrc.includes('const atts = sendAttachments;') &&
     // (deferRevoke: the bubble just rendered from these blob URLs may still be
     // loading them — see clearAllAttachments.)
-    /if \(consumedComposer\) clearAllAttachments\(\{ deferRevoke: true \}\);/.test(sendSrc));
+    // (only: the files sent. Files attached during the send's uploads are
+    // for the next message.)
+    /if \(consumedComposer\) clearAllAttachments\(\{ deferRevoke: true, only: atts \}\);/.test(sendSrc));
 // The tray is snapshotted next to the composer text, before the sign-in gate:
 // a deep-link load inside ensureAuthenticated empties the tray, so reading it
 // afterwards dropped the files the user attached to the message being sent.
 check('send snapshots the attachment tray BEFORE ensureAuthenticated',
     sendSrc.indexOf('const preAuthAttachments = attachedImages.slice();') > 0 &&
     sendSrc.indexOf('const preAuthAttachments = attachedImages.slice();') < sendSrc.indexOf('await ensureAuthenticated();'));
-check('programmatic sends do not spend the click-to-edit target',
-    sendSrc.includes('if (consumedComposer && window.FEATURE_FLAGS?.clickToEdit && window._pendingEditTarget)'));
-check('an attachment-only composer send still goes through',
-    /if \(!isResume && !messageText && \(!consumedComposer \|\| preAuthAttachments\.length === 0\)\) \{[^}]*return; \}/.test(sendSrc));
+check('programmatic sends do not spend the click-to-edit target (a queued one carries its own)',
+    sendSrc.includes(': consumedComposer ? preAuthEditTarget : (queued && queued.editTarget);') &&
+    sendSrc.includes('if (consumedComposer && window._pendingEditTarget === preAuthEditTarget) window.clearEditTarget?.();'));
+check('an attachment-only composer or queued send still goes through',
+    /if \(!isResume && !messageText && sendAttachments\.length === 0\) \{[^}]*return; \}/.test(sendSrc));
 
 const deleteSrc = fnSlice(APP, 'async function deleteChat(');
 check('deleteChat DISCARDS the gone chat\'s draft (both layers, no tombstone litter)',

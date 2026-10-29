@@ -93,6 +93,11 @@ window.FEATURE_FLAGS = {
     // from it. When false no request asks for compaction, and a chat that
     // compacted while it was on keeps its summary, sent as text.
     compaction: false,
+    // The message queue (js/message-queue.js): the composer stays usable while
+    // a turn runs, and what the user sends from it waits above the composer
+    // and goes one message per turn once the turn finishes cleanly. When
+    // false the composer is locked for the whole turn, as before.
+    messageQueue: true,
 };
 
 // Analytics. Fires a Plausible custom event for the handful of product actions
@@ -446,7 +451,7 @@ function updateSendButtonState(processing) {
     const staged = (window.attachedImages && window.attachedImages.length) || 0;
     const empty = $('.chat-input-message').val().trim().length === 0 && staged === 0;
     sendButton
-        .html(processing ? pause_svg : send_svg)
+        .html(processing ? stop_svg : send_svg)
         .toggleClass('processing', processing)
         .attr({ title: label, 'aria-label': label })
         .prop('disabled', !processing && empty);
@@ -467,6 +472,24 @@ function updateSendButtonState(processing) {
     if (typeof window.pwaTurnChanged === 'function') {
         window.pwaTurnChanged(typeof isProcessing !== 'undefined' ? !!isProcessing : processing);
     }
+    // Mid-turn, Stop turns into the queue arrow while the composer holds
+    // something (js/message-queue.js).
+    window.MessageQueue?.syncButton?.();
+}
+
+// The composer while a turn runs. With the message queue on it stays usable,
+// and a send from it waits in the queue (js/message-queue.js). Otherwise it is
+// locked until the turn ends (resetUIState, resetUIForAbort).
+function lockComposerForTurn() {
+    if (window.MessageQueue?.enabled?.()) {
+        $('.chat-input').removeClass('disabled');
+        $('.chat-input-message').prop('disabled', false);
+        $('.attachment-button').prop('disabled', false);
+        return;
+    }
+    $('.chat-input').addClass('disabled');
+    $('.chat-input-message').prop('disabled', true);
+    $('.attachment-button').prop('disabled', true);
 }
 
 /**
