@@ -99,7 +99,10 @@ window.ModelCore = (function () {
     // the prompt cache is unaffected. Gemini has no such switch, which is why
     // handleMessageStream runs a whole reply's tool calls as one batch.
     // While compaction is on, it's asked for on every round, so a long build
-    // can compact again.
+    // can compact again. streamToolInput has Puter send a tool call's name the
+    // moment the model starts it, and its arguments as they're written, ahead
+    // of the usual complete call. It changes only what Puter sends back, not
+    // the request upstream, and handleMessageStream shows it beside the dots.
     function buildChatOptions(modelId, { tools, signal } = {}) {
         const id = idOrDefault(modelId);
         const m = MODELS[id];
@@ -107,6 +110,7 @@ window.ModelCore = (function () {
             model: id,
             tools,
             stream: true,
+            streamToolInput: true,
             reasoning_effort: m.reasoningEffort,
             parallelToolCalls: false,
             provider: m.route,

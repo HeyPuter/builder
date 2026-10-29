@@ -189,6 +189,20 @@ function hasToolResultFor(history, toolUseId) {
 }
 window.hasToolResultFor = hasToolResultFor;
 
+// The words beside the dots while the model works out its next step. Only a
+// preview check says what that is: after a clean one comes the closing line,
+// after one that found errors comes a fix, and after one still failing on its
+// last try the model explains. "Working" in the wait after any other call
+// read as going backwards after "Applying changes". '' otherwise, and the
+// dots say "Working" if the wait lasts (setSpinnerLabel in helpers.js).
+function nextStepLabel(toolCalls, history) {
+    const check = toolCalls.find(t => t && t.name === 'update_preview');
+    if (!check) return '';
+    let result = null;
+    try { result = JSON.parse(findToolResult(history, check.id).content.content); } catch (e) { /* not a check's result */ }
+    return result && result.verification && result.verification.status === 'errors_detected' ? 'Fixing a problem' : 'Finishing up';
+}
+
 async function handleToolCalls(completion, isTopLevel = false, c) {
     // Extract text content
     const textContent = completion.text;
@@ -357,6 +371,9 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
         return { error: 'Aborted', history: c.chatHistory };
     }
     spinner = showSpinner();
+    // The round's calls have run, so their status no longer applies while the
+    // model works out its next step (nextStepLabel).
+    window.setSpinnerLabel?.(nextStepLabel(toolCalls, c.chatHistory));
     // Only create a new AbortController if one doesn't already exist
     // (it's created in sendChatMessage for top-level calls, and we don't want to overwrite it)
     if (!c.abortController) {

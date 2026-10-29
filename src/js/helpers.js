@@ -597,6 +597,7 @@ function showSpinner() {
     const spinnerHTML = `
         <div class="floating-spinner">
             <div class="progress-spinner"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" role="img" aria-label="Working"><g fill="#595959"><g class="nc-loop-dots-3-16-icon-f"><circle cx="1.5" cy="8" fill="#595959" r="1.5"></circle><circle cx="8" cy="8" fill="#595959" r="1.5"></circle><circle cx="14.5" cy="8" fill="#595959" r="1.5"></circle></g><style>.nc-loop-dots-3-16-icon-f>*{--animation-duration:0.8s;transform-origin:50% 50%;animation:nc-loop-dots-3-anim var(--animation-duration) infinite}.nc-loop-dots-3-16-icon-f>:nth-child(2){animation-delay:.1s}.nc-loop-dots-3-16-icon-f>:nth-child(3){animation-delay:.2s}@keyframes nc-loop-dots-3-anim{0%,100%,60%{transform:translateY(0)}30%{transform:translateY(20%)}}</style></g></svg></div>
+            <span class="floating-spinner-label" aria-live="polite"></span>
         </div>
     `;
     
@@ -620,6 +621,8 @@ function showSpinner() {
         void spinner[0].offsetWidth;
         spinner.addClass('is-visible');
     }
+    // New dots have no words yet, so start the wait for "Working".
+    setSpinnerLabel('');
 
     if (window.shouldAutoScroll) {
         chatBox.scrollTop(chatBox[0].scrollHeight);
@@ -627,6 +630,34 @@ function showSpinner() {
 
     return spinner;
 }
+
+// What the model is doing, beside the thinking dots: the tool call it is
+// writing (see toolProgressLabel in handleMessageStream.js). '' clears it, and
+// if nothing new arrives within a second the dots say "Working", the word their
+// aria-label already uses. A quick hand-off between steps stays plain dots, so
+// the words don't flick back and forth, and a longer wait doesn't look
+// stalled. New words fade in rather than snap. A no-op while there are no dots
+// (a running checklist item stands in for them).
+const SPINNER_IDLE_LABEL = 'Working';
+const SPINNER_IDLE_MS = 1000;
+let _spinnerIdleTimer = null;
+function setSpinnerLabel(text) {
+    clearTimeout(_spinnerIdleTimer);
+    _spinnerIdleTimer = null;
+    const label = document.querySelector('.floating-spinner .floating-spinner-label');
+    if (!label) return;
+    const next = text || '';
+    if (label.textContent !== next) {
+        label.textContent = next;
+        if (next) {
+            label.classList.remove('is-changing');
+            void label.offsetWidth; // restart the fade
+            label.classList.add('is-changing');
+        }
+    }
+    if (!next) _spinnerIdleTimer = setTimeout(() => setSpinnerLabel(SPINNER_IDLE_LABEL), SPINNER_IDLE_MS);
+}
+window.setSpinnerLabel = setSpinnerLabel;
 
 // Fade the floating thinking-dots out, then remove them from the DOM. The node
 // loses its `.floating-spinner` identity immediately (renamed to
@@ -1154,6 +1185,8 @@ function prepareHistoryForAI(historyArray, modelId, opts) {
     // dropDuplicateToolResults) so a history corrupted that way still sends.
     // An older chat's SuggestNextSteps calls and prompt (see retireSuggestNextSteps).
     const deduped = retireSuggestNextSteps(dropDuplicateToolResults(copy));
+    // An older chat's optional opening line (see OPENING_LINE_NOTE).
+    if (Array.isArray(deduped)) noteOnOldPrompt(deduped, OPTIONAL_OPENING_RULE, OPENING_LINE_NOTE, OPENING_LINE_RULE);
     // No half characters on the wire (see wellFormedDeep).
     wellFormedDeep(deduped);
     // Apply cacheLast logic to the last message
@@ -1247,13 +1280,7 @@ const RETIRED_SUGGEST_TOOL = 'SuggestNextSteps';
 const RETIRED_SUGGEST_NOTE = '[The SuggestNextSteps tool no longer exists. Builder shows the "what next?" suggestions by itself once your turn ends, so end each turn with your short summary and never call SuggestNextSteps.]';
 function retireSuggestNextSteps(messages) {
     if (!Array.isArray(messages)) return messages;
-    const sys = messages[0] && messages[0].role === 'system' ? messages[0] : null;
-    if (sys && typeof sys.content === 'string' && sys.content.includes(RETIRED_SUGGEST_TOOL)) {
-        sys.content += '\n\n' + RETIRED_SUGGEST_NOTE;
-    } else if (sys && Array.isArray(sys.content)
-        && sys.content.some((p) => p && typeof p.text === 'string' && p.text.includes(RETIRED_SUGGEST_TOOL))) {
-        sys.content.push({ type: 'text', text: RETIRED_SUGGEST_NOTE });
-    }
+    noteOnOldPrompt(messages, RETIRED_SUGGEST_TOOL, RETIRED_SUGGEST_NOTE);
     // Only earlier turns' calls go. One made in this turn keeps its "Unknown
     // function" result, so the model sees that the call failed instead of
     // making it again, and a Resume of a turn cut off after one still ends on
@@ -1291,6 +1318,30 @@ function retireSuggestNextSteps(messages) {
     });
 }
 window.retireSuggestNextSteps = retireSuggestNextSteps;
+
+// The opening line became required. Older prompts made it optional ("may send
+// AT MOST one short opening message"), and models mostly skipped it, so the
+// first seconds of a turn showed only the thinking dots while the first tool
+// call was written. The line streams in as soon as the model starts, so the
+// user sees what is happening. Such a prompt gets the new rule as a note. A
+// current prompt still has the optional wording, with the rule as a paragraph
+// of its own (prompt.js), so one that already states the rule gets no note.
+const OPTIONAL_OPENING_RULE = 'you may send AT MOST one short opening message';
+const OPENING_LINE_RULE = 'start with exactly one short opening sentence';
+const OPENING_LINE_NOTE = '[In every turn that uses tools, start with exactly one short opening sentence, before your first tool call, that tells the user what you are about to do. It is required, not optional. Apart from it, the rules against narrating between tool calls still apply.]';
+
+// Add `note` to the end of an older chat's system prompt, on the request copy,
+// while that prompt still has `oldText` and doesn't yet have `newText`. A chat
+// keeps the prompt it started with, so this is how a changed rule reaches it.
+function noteOnOldPrompt(messages, oldText, note, newText) {
+    const sys = messages[0] && messages[0].role === 'system' ? messages[0] : null;
+    const texts = !sys ? [] : typeof sys.content === 'string' ? [sys.content]
+        : Array.isArray(sys.content) ? sys.content.map((p) => (p && typeof p.text === 'string' ? p.text : '')) : [];
+    const has = (t) => texts.some((x) => x.includes(t));
+    if (!has(oldText) || (newText && has(newText))) return;
+    if (typeof sys.content === 'string') sys.content += '\n\n' + note;
+    else sys.content.push({ type: 'text', text: note });
+}
 
 // Placeholder that replaces a retired PDF block. Tells the model what was
 // there and how to get it back, so it neither assumes the content is lost nor

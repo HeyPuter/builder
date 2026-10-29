@@ -1507,6 +1507,31 @@ a:hover {
 .floating-spinner.is-visible {
     opacity: 1;
 }
+/* What the model is doing (setSpinnerLabel), such as "Updating the main page". */
+.floating-spinner-label {
+    min-width: 0;
+    margin-left: 10px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 13px;
+    color: var(--text-secondary, #62616e);
+}
+.floating-spinner-label:empty {
+    display: none;
+}
+.floating-spinner-label.is-changing {
+    animation: floating-spinner-label-in 200ms ease-out;
+}
+@keyframes floating-spinner-label-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .floating-spinner-label.is-changing {
+        animation: none;
+    }
+}
 @media (prefers-reduced-motion: reduce) {
     .floating-spinner,
     .floating-spinner-leaving {

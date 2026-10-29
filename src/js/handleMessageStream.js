@@ -266,6 +266,88 @@ async function drainUsage(stream, context) {
     } catch (_) { /* best-effort: the turn's own error is what surfaces */ }
 }
 
+// What the model is doing while it writes a tool call, shown beside the
+// thinking dots. Puter sends a call's name the moment the model starts it, and
+// its arguments as they're written (streamToolInput, see
+// ModelCore.buildChatOptions), so a call that takes seconds to write, a whole
+// file for `write`, no longer sits behind bare dots. The wording is plain, like
+// the checklist's, and never names a file: the user doesn't know index.html.
+// `write` and `edit` say which part of the app is changing once the file's path
+// has streamed in (appPartLabel), and fall back to their plain wording only
+// when the path can't be read. A tool not listed leaves the dots bare: the
+// checklist and the clarifying-questions and upgrade cards show for themselves.
+const TOOL_PROGRESS = {
+    write: 'Working on your app',
+    edit: 'Updating your app',
+    multi_edit: 'Updating your app',
+    delete: 'Removing a file',
+    rename: 'Renaming a file',
+    copy: 'Copying a file',
+    move: 'Moving files',
+    mkdir: 'Creating a folder',
+    ReadTextFile: 'Reading a file',
+    ViewDocument: 'Reading a document',
+    ViewImage: 'Looking at an image',
+    ShowImage: 'Showing an image',
+    RenderSvg: 'Preparing an image for sharing',
+    readdir: 'Looking through the project',
+    stat: 'Looking through the project',
+    SearchFiles: 'Searching the project',
+    publish_site: 'Setting up the preview',
+    // The words the preview's own overlay uses (showPreviewUpdating).
+    update_preview: 'Applying changes',
+    // The model adds images and audio the app needs without being asked, so
+    // the status says what they're for.
+    GenerateImage: 'Creating an image for your app',
+    GenerateVideo: 'Generating a video',
+    GenerateSpeech: 'Creating audio for your app',
+    create_worker: 'Setting up the backend',
+    delete_worker: 'Removing a backend',
+    list_workers: 'Checking the backend',
+    get_worker: 'Checking the backend',
+    set_secret: 'Saving a key',
+    set_email_sender_name: 'Setting the email sender name',
+    FetchExternalResource: 'Reading a web page',
+};
+// The tools whose status names the part of the app, and whether they create
+// it (write) or change it.
+const TOOL_PART = { write: 'create', edit: 'change', multi_edit: 'change' };
+
+// The status for a tool call, or '' for none.
+function toolProgressLabel(name) {
+    if (TOOL_PROGRESS[name]) return TOOL_PROGRESS[name];
+    return typeof name === 'string' && name.startsWith('mcp_') ? 'Using a connected service' : '';
+}
+
+// The part of the app at `path` (within the project), in the checklist's
+// words, as [creating it, changing it].
+function appPartLabel(path) {
+    const name = path.split('/').pop().toLowerCase();
+    if (path === 'index.html') return ['Creating the main page', 'Updating the main page'];
+    // The icon the app installs with (see js/manifest.js), not a picture in it.
+    if (path === 'icon.svg') return ['Adding the app icon', 'Updating the app icon'];
+    if (/\.html?$/.test(name)) return ['Creating a page', 'Updating a page'];
+    if (/\.css$/.test(name)) return ['Adding the styling', 'Updating the styling'];
+    if (path.startsWith('workers/')) return ['Setting up the backend', 'Updating the backend'];
+    if (/\.(m?js|cjs)$/.test(name)) return ['Making it interactive', 'Updating how it works'];
+    if (/\.(png|jpe?g|gif|webp|svg|avif|ico)$/.test(name)) return ['Adding an image', 'Updating an image'];
+    if (/\.json$/.test(name)) return ["Adding the app's data", "Updating the app's data"];
+    return ['Working on your app', 'Working on your app'];
+}
+
+// The path a streaming call names, relative to the project when it's inside
+// it, else just its file name. null until the call's `path` has streamed in,
+// '' when it can't be read. Only the opening characters are searched, since a
+// `write` streams the whole file after it.
+function progressPath(json, appDir) {
+    const m = /"path"\s*:\s*"((?:[^"\\]|\\.)*)"/.exec(json.slice(0, 2000));
+    if (!m) return json.length > 2000 ? '' : null;
+    let path;
+    try { path = JSON.parse('"' + m[1] + '"'); } catch (e) { return ''; }
+    if (appDir && path.startsWith(appDir + '/')) return path.slice(appDir.length + 1);
+    return path.split('/').filter(Boolean).pop() || '';
+}
+
 /**
  *
  * @param {*} stream
@@ -304,6 +386,9 @@ async function handleMessageStream(stream, context) {
         thinkingPreview?.remove();
         thinkingPreview = null;
     };
+    // The tool call being written, for the status beside the dots
+    // (toolProgressLabel): { id, name, json, path }.
+    let progress = null;
     // This reply's tool calls, run together once the reply is complete: at its
     // usage line, which Puter writes last, or at the end of the stream. Running
     // each call the moment it arrived started the next model round before the
@@ -312,9 +397,8 @@ async function handleMessageStream(stream, context) {
     // reseller) ran calls 2..N after the turn had moved on: late, out of
     // order, over newer files. A reply that ends in an error or an abort drops
     // its calls unrun. They were never stored, so nothing is left dangling.
-    // No timer runs them early: a healthy reply can be silent for minutes while
-    // its next call is written (Puter sends each call only once complete), so
-    // silence never means the reply is done. A connection that dies mid-reply
+    // No timer runs them early: a healthy reply can go quiet for minutes while
+    // its next call is written, so silence never means the reply is done. A connection that dies mid-reply
     // is ended by Stop or the stall watchdog, and Resume continues the build.
     let pendingTools = [];
     const runPendingTools = async (stopReason) => {
@@ -363,6 +447,32 @@ async function handleMessageStream(stream, context) {
                 if (typeof completion.reasoning === 'string' && completion.reasoning.length) {
                     thinkingPreview ||= createThinkingPreview(context);
                     thinkingPreview.append(completion.reasoning);
+                }
+                continue;
+            }
+            // A tool call has started, then its arguments stream in. The
+            // complete call still comes as the usual tool_use chunk below, and
+            // that is what runs.
+            if (completion.type === 'tool_use_start') {
+                clearThinking();
+                startSpinnerStub();
+                progress = { id: completion.id, name: completion.name, json: '', path: null };
+                // `write` and `edit` wait for their path, which comes in the
+                // call's first pieces: showing "Working on your app" first
+                // only for it to be replaced a moment later read as a snap.
+                window.setSpinnerLabel?.(TOOL_PART[completion.name] ? '' : toolProgressLabel(completion.name));
+                continue;
+            }
+            if (completion.type === 'tool_input_delta') {
+                if (progress && progress.id === completion.id && progress.path === null && TOOL_PART[progress.name]) {
+                    progress.json += typeof completion.partialJson === 'string' ? completion.partialJson : '';
+                    progress.path = progressPath(progress.json, context.appDir);
+                    if (progress.path) {
+                        const [creating, changing] = appPartLabel(progress.path);
+                        window.setSpinnerLabel?.(TOOL_PART[progress.name] === 'create' ? creating : changing);
+                    } else if (progress.path === '') {
+                        window.setSpinnerLabel?.(toolProgressLabel(progress.name));
+                    }
                 }
                 continue;
             }
@@ -440,6 +550,8 @@ async function handleMessageStream(stream, context) {
                 // generation ends (recurser block below) and on abort/error/turn-reset,
                 // so they never linger past completion.
                 showSpinner();
+                // The model is writing to the user now, not a tool call.
+                window.setSpinnerLabel?.('');
 
                 autoScrollTrigger(context);
             }
