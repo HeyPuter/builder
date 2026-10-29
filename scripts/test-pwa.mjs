@@ -184,7 +184,7 @@ check('helpers.js reports turns to pwa.js', /window\.pwaTurnChanged\(processing\
 // so a visit after a deploy already runs the new bundles while the browser
 // installs the new worker beside them. Now a worker that ships what the page
 // runs is activated quietly, only a tab that is behind it gets the prompt
-// (held while a turn runs), and the install offer waits for a build turn.
+// (held while a turn runs), and the install offer waits for the first message.
 const ORIGIN = 'https://builder.puter.com';
 const NEW_SHELL = ['/', '/index.html', '/assets/app-new.js', '/assets/index-new.css'];
 const flush = () => new Promise((r) => setImmediate(r));
@@ -265,6 +265,7 @@ function boot({ bundles = ['app-new.js', 'index-new.css'], controller = fakeWork
         },
         takeOver: async (worker) => { sw.controller = worker; reg.waiting = null; fire(swListeners, 'controllerchange'); await flush(); },
         turn: (on) => win.pwaTurnChanged(on),
+        appInstalled: () => fire(winListeners, 'appinstalled'),
         runTimers: async () => { for (const t of timers) if (t.live) { t.live = false; t.fn(); } await flush(); },
         installPrompt: () => {
             const e = { prevented: false, preventDefault() { this.prevented = true; }, prompt() {}, userChoice: Promise.resolve({ outcome: 'accepted' }) };
@@ -351,7 +352,8 @@ const installToasts = (b) => b.toasts.filter((t) => t.opts.key === 'pwa-install'
     check('a second update replaces the first toast', updateToasts(b).length === 2 && updateToasts(b)[0].dismissed && !updateToasts(b)[1].dismissed);
 }
 
-// The install offer waits for a build turn.
+// The install offer waits for the first message, closes on its own, and comes
+// back at most weekly (30 days after its ×).
 {
     const b = boot();
     await b.load();
@@ -359,43 +361,43 @@ const installToasts = (b) => b.toasts.filter((t) => t.opts.key === 'pwa-install'
     check('install prompt event is taken over (no mini-infobar)', e.prevented);
     check('install offer does not show at load', installToasts(b).length === 0);
     b.turn(true);
-    check('install offer is not immediate when a turn starts', installToasts(b).length === 0);
-    await b.runTimers();
-    check('install offer shows a few seconds into a turn', installToasts(b).length === 1 && installToasts(b)[0].opts.action.label === 'Install');
+    check('install offer shows as soon as a message is sent', installToasts(b).length === 1 && installToasts(b)[0].opts.action.label === 'Install');
+    check('install offer closes on its own', installToasts(b)[0].opts.duration > 0);
     b.turn(false);
-    check('install offer leaves when the turn ends', installToasts(b)[0].dismissed);
-    check('leaving at turn end does not snooze it', !('pwaInstallDismissedAt' in b.store));
+    check('a turn ending does not close it early', !installToasts(b)[0].dismissed);
     b.turn(true);
-    await b.runTimers();
     check('install offer shows once per page load', installToasts(b).length === 1);
+    b.appInstalled();
+    check('installing another way dismisses the offer without snoozing it', installToasts(b)[0].dismissed && !('pwaInstallDismissedAt' in b.store));
+}
+const DAY = 24 * 60 * 60 * 1000;
+async function offeredWith(store) {
+    const b = boot({ store });
+    await b.load();
+    b.installPrompt();
+    b.turn(true);
+    return installToasts(b).length === 1;
 }
 {
     const b = boot();
     await b.load();
     b.installPrompt();
     b.turn(true);
-    b.turn(false); // answered before the delay
-    await b.runTimers();
-    check('a turn shorter than the delay shows no install offer', installToasts(b).length === 0);
-    b.turn(true);
-    await b.runTimers();
-    check('the next long enough turn shows it', installToasts(b).length === 1);
+    const ignored = await offeredWith({ ...b.store });
+    check('an ignored install offer stays hidden on the next visit', !ignored);
+    check('an ignored install offer comes back after a week', await offeredWith({ pwaInstallShownAt: String(Date.now() - 8 * DAY) }));
 }
 {
     const b = boot();
     await b.load();
     b.turn(true);
     b.installPrompt();
-    await b.runTimers();
-    check('an install event that arrives mid-turn is offered in that turn', installToasts(b).length === 1);
+    check('an install event that arrives mid-turn is offered right away', installToasts(b).length === 1);
     installToasts(b)[0].opts.onDismiss();
     check('the install offer\'s × snoozes it', 'pwaInstallDismissedAt' in b.store);
-    const again = boot({ store: b.store });
-    await again.load();
-    again.installPrompt();
-    again.turn(true);
-    await again.runTimers();
-    check('a snoozed install offer stays hidden on the next visit', installToasts(again).length === 0);
+    const stale = { pwaInstallShownAt: String(Date.now() - 8 * DAY) };
+    check('a dismissed install offer stays hidden past the week', !(await offeredWith({ ...stale, pwaInstallDismissedAt: String(Date.now() - 8 * DAY) })));
+    check('a dismissed install offer comes back after 30 days', await offeredWith({ ...stale, pwaInstallDismissedAt: String(Date.now() - 31 * DAY) }));
 }
 
 // --- Build wiring (vite.config) --------------------------------------------

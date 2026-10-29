@@ -48,16 +48,15 @@
 
   // ---- Build turns ---------------------------------------------------------
   // updateSendButtonState (helpers.js), the one place the composer flips
-  // between a running turn and idle, reports here. The install offer shows
-  // while a turn runs, when the user is waiting rather than typing, and an
-  // update prompt found mid-turn is held until it ends.
+  // between a running turn and idle, reports here. The install offer waits
+  // for a message to be sent, so it never lands while someone types their
+  // first prompt, and an update prompt found mid-turn is held until it ends.
   var turnRunning = false;
   window.pwaTurnChanged = function (processing) {
     processing = !!processing;
     if (processing === turnRunning) return;
     turnRunning = processing;
-    if (processing) { scheduleInstallOffer(); return; }
-    cancelInstallOffer();
+    if (processing) { offerInstall(); return; }
     if (heldUpdate) {
       var held = heldUpdate;
       heldUpdate = null;
@@ -213,22 +212,28 @@
 
   // ---- Install flow ------------------------------------------------------
   // Chrome fires beforeinstallprompt seconds after load, right when someone is
-  // about to type their first prompt. So the event is kept and the offer waits
-  // until a build turn has run for a few seconds, then leaves when the turn
-  // ends. It shows at most once per page load, and only its × snoozes it.
+  // about to type their first prompt. So the event is kept and the offer shows
+  // once they send a message. It closes on its own (a sticky one sat in the
+  // corner all session for everyone who ignored it), and it comes back at most
+  // once a week, or after 30 days once its × is clicked.
   var deferredPrompt = null;
+  var DAY_MS = 24 * 60 * 60 * 1000;
   var INSTALL_SNOOZE_KEY = 'pwaInstallDismissedAt';
-  var SNOOZE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
-  var INSTALL_DELAY_MS = 5000; // into the turn, so a quick answer never shows it
-  var installTimer = null;
-  var installOffered = false;
+  var SNOOZE_MS = 30 * DAY_MS; // after its ×
+  var INSTALL_SHOWN_KEY = 'pwaInstallShownAt';
+  var REPEAT_MS = 7 * DAY_MS; // after it shows at all
+  var INSTALL_TOAST_MS = 8000; // held while the pointer or focus is on it
+  var installOffered = false; // once per page load even if storage is blocked
   var installToast = null;
 
-  function snoozed() {
+  function within(key, ms) {
     try {
-      var at = parseInt(localStorage.getItem(INSTALL_SNOOZE_KEY) || '0', 10);
-      return at && (Date.now() - at) < SNOOZE_MS;
+      var at = parseInt(localStorage.getItem(key) || '0', 10);
+      return at && (Date.now() - at) < ms;
     } catch (e) { return false; }
+  }
+  function snoozed() {
+    return within(INSTALL_SNOOZE_KEY, SNOOZE_MS) || within(INSTALL_SHOWN_KEY, REPEAT_MS);
   }
 
   // Trigger the native install prompt. Exposed so any future UI (e.g. a menu
@@ -245,28 +250,14 @@
   };
   window.canInstallPWA = function () { return !!deferredPrompt; };
 
-  function scheduleInstallOffer() {
-    if (!turnRunning || installTimer || installOffered || !deferredPrompt) return;
-    installTimer = setTimeout(function () {
-      installTimer = null;
-      if (turnRunning) offerInstall();
-    }, INSTALL_DELAY_MS);
-  }
-
-  function cancelInstallOffer() {
-    clearTimeout(installTimer);
-    installTimer = null;
-    // Dismissed in code, so onDismiss (the snooze) doesn't run.
-    if (installToast) { installToast.dismiss(); installToast = null; }
-  }
-
   function offerInstall() {
-    if (!deferredPrompt || isStandalone() || snoozed() || !window.showToast) return;
+    if (!turnRunning || installOffered || !deferredPrompt || isStandalone() || snoozed() || !window.showToast) return;
     installOffered = true;
+    try { localStorage.setItem(INSTALL_SHOWN_KEY, String(Date.now())); } catch (e) {}
     installToast = window.showToast('Install AI Builder for a faster, app-like experience.', {
       type: 'info',
       key: 'pwa-install',
-      duration: 0,
+      duration: INSTALL_TOAST_MS,
       action: {
         label: 'Install',
         onClick: function () { window.promptPWAInstall(); },
@@ -281,12 +272,14 @@
   window.addEventListener('beforeinstallprompt', function (e) {
     e.preventDefault(); // keep the mini-infobar from appearing; we drive it
     deferredPrompt = e;
-    scheduleInstallOffer();
+    offerInstall(); // shows now only if a message is already being answered
   });
 
   window.addEventListener('appinstalled', function () {
     deferredPrompt = null;
-    cancelInstallOffer();
+    // Installed some other way (e.g. Chrome's own address-bar button).
+    // Dismissed in code, so onDismiss (the snooze) doesn't run.
+    if (installToast) installToast.dismiss();
     track('PWA Installed');
   });
 })();
