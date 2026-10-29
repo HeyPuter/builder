@@ -81,6 +81,9 @@ window.EditorCore = (function () {
     ]);
     // A deployed backend's source, as create_worker names it.
     const WORKER_SOURCE_RE = /^workers\/[A-Za-z0-9_-]{1,50}\.js$/;
+    // A dynamic backend, at the top of the folder the site serves (see
+    // site-backends.js).
+    const DYNAMIC_SOURCE_RE = /^__workers\/[a-z0-9_-]+\.worker\.js$/;
     // The icons manifest.js renders into <servedRoot>/icons/.
     const GENERATED_ICON_RE = /^icons\/(?:icon-192|icon-512|maskable-512|apple-touch-icon-180)\.png$/;
     // What the Code view never shows, files and folders: old deploy markers
@@ -111,7 +114,7 @@ window.EditorCore = (function () {
             kind,
             ext,
             language: kind === 'text' ? (LANGUAGE_BY_EXT[ext] || 'plain') : null,
-            backend: WORKER_SOURCE_RE.test(rel),
+            backend: WORKER_SOURCE_RE.test(rel) || DYNAMIC_SOURCE_RE.test(servedRel !== null ? servedRel : rel),
             generatedIcon: servedRel !== null && GENERATED_ICON_RE.test(servedRel),
             maybeGeneratedManifest: servedRel === 'manifest.json',
             hidden: isHidden(rel),

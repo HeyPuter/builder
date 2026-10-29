@@ -2265,6 +2265,124 @@ async function deployPublishedWorkers(chatId, appDir, releaseDir, srcPath = appD
     return renames;
 }
 
+// ----- dynamic backends -----------------------------------------------------
+//
+// A dynamic backend (__workers/<name>.worker.js, see site-backends.js) runs
+// from the files of the site that serves it, so a release carries its own and
+// the live site runs them as they were at publish, with nothing to deploy.
+// What doesn't travel with the files is the site's store, which belongs to the
+// site's address. The live site gets the preview's keys and sender name at
+// every publish, and a new live address gets the old one's.
+
+// Take the preview's save canary (see stampWorkerCanary) off the release's
+// backends, as a published worker's frozen copy never has it. Best effort,
+// since the canary only answers a route nobody calls.
+async function stripCanaryFromReleaseBackends(releaseDir) {
+    let backends = [];
+    try { backends = await window.SiteBackends.list(releaseDir); } catch (e) { return; }
+    for (const backend of backends) {
+        try {
+            const text = await puter.fs.read(backend.path).then(d => d.text());
+            const clean = window.stripWorkerCanary(text);
+            if (clean !== text) await puter.fs.write(backend.path, clean, { overwrite: true });
+        } catch (e) {
+            console.warn('Publish: could not remove the save canary from', backend.path, e);
+        }
+    }
+}
+
+// The names of the dynamic backends a site's files hold, [] when there are
+// none or the folder can't be read.
+async function siteBackendNames(dir) {
+    if (!window.SiteBackends || !dir) return [];
+    try { return (await window.SiteBackends.list(dir)).map(b => b.name); }
+    catch (e) { return []; }
+}
+
+// Give the backends of the site at `toUrl` the keys and sender name of the
+// one at `fromUrl` (see worker-secrets.js and worker-sender.js), warning when
+// one doesn't arrive. `what` names the destination in those warnings, and
+// opts.liveOnly carries live-only keys over as live-only. Resolves the key
+// copy's result, for WorkerSecrets.publishNote. Never throws.
+async function copySiteBackendStore(fromUrl, toUrl, backends, what, opts) {
+    const to = { site: toUrl, backends };
+    let keys = null;
+    try {
+        keys = await window.WorkerSecrets?.copy({ site: fromUrl }, to, opts);
+        if (keys && !keys.ok) {
+            window.showToast?.(keys.reason === 'declined'
+                ? `${what} didn’t get its keys, so the parts that need them won’t work until you allow it. Publish again to be asked again.`
+                : `${what} didn’t get its keys. Publish again in a moment.`,
+            { type: 'warning', key: 'publish-keys', throttleMs: 5000, duration: 10000 });
+        }
+    } catch (e) { /* copy reports its own failures */ }
+    try {
+        const sender = await window.WorkerSender?.copy({ site: fromUrl }, to);
+        if (sender && !sender.ok) {
+            window.showToast?.(sender.reason === 'forbidden'
+                ? `${what} still sends email under its old sender name. Builder can’t rename a site’s app, so set its title in the Dev Center.`
+                : `${what} still sends email under its old sender name. Publish again in a moment.`,
+            { type: 'warning', key: 'publish-sender', throttleMs: 5000, duration: 10000 });
+        }
+    } catch (e) { /* the warning above covers it */ }
+    return keys;
+}
+
+// Give the live site's dynamic backends the preview's keys, except the live
+// site's own, and its sender name. Runs once the live site serves the release
+// its backends run from. Resolves the reports for WorkerSecrets.publishNote,
+// [] for a release with no dynamic backend.
+async function publishSiteBackends(previewUrl, liveUrl, releaseDir) {
+    if (!previewUrl || !liveUrl) return [];
+    const backends = await siteBackendNames(releaseDir);
+    if (!backends.length) return [];
+    const keys = await copySiteBackendStore(previewUrl, liveUrl, backends, 'Your live site’s backend');
+    return [{ live: liveUrl, result: keys }];
+}
+
+// Before the live site moves from `oldUrl` to a new address. The app Builder
+// registered for it moves along with everything in it (finishSiteMove), so
+// there's nothing to ask. Without one, the dynamic backends' data stays in the
+// old address's store, so the user decides first. Resolves the plan for
+// finishSiteMove, or null when the user keeps the address.
+async function planSiteMove(oldUrl, releaseDir) {
+    const backends = await siteBackendNames(releaseDir);
+    if (await window.SiteBackends?.hasApp(oldUrl)) return { moveApp: true, backends };
+    if (!backends.length) return { moveApp: false, backends };
+    const go = await puterConfirm('Your live site’s backend keeps the data it saved under its current address. At the new address it starts with no saved data, though its keys come along. Change the address anyway?');
+    return go ? { moveApp: false, backends } : null;
+}
+
+// Right after the site at `newUrl` is created, before anything runs there.
+// The app Builder registered for the old address moves to it, data, keys and
+// sender name included. Without one, or when Puter refuses the move, the new
+// address gets an app of its own when it can, and the backends get their keys
+// copied over while their saved data stays behind.
+async function finishSiteMove(oldUrl, newUrl, plan, projectTitle) {
+    if (!plan) return;
+    if (plan.moveApp) {
+        if (await window.SiteBackends.moveApp(oldUrl, newUrl)) return;
+        await window.SiteBackends.registerApp(newUrl, projectTitle, 'live');
+        if (plan.backends.length) {
+            window.showToast?.('Your live site’s backend starts with no saved data at its new address, since its data couldn’t move with it. Its keys came along.',
+                { type: 'warning', key: 'publish-move', throttleMs: 5000, duration: 10000 });
+        }
+    }
+    await moveSiteBackends(oldUrl, newUrl, plan.backends);
+}
+
+// After the live site moved from `oldUrl` to `newUrl` without its app, give
+// its dynamic backends their keys and sender name there, and clear the keys
+// from the old address's store, which nothing serves anymore.
+async function moveSiteBackends(oldUrl, newUrl, backends) {
+    if (!backends || !backends.length) return;
+    const keys = await copySiteBackendStore(oldUrl, newUrl, backends, 'Your live site’s backend', { liveOnly: true });
+    // Only once the keys arrived, so a failed copy can be tried again.
+    if (keys && keys.ok) {
+        try { await window.WorkerSecrets?.clear({ site: oldUrl }); } catch (e) { /* best effort */ }
+    }
+}
+
 // Remove the runtime tag (and with it the "Made with Puter" badge) from every
 // HTML page of a staged release — see branding.js. The release is a private
 // copy nothing else writes to, so no file locks. assets/ holds the user's own
@@ -2470,6 +2588,7 @@ async function stagePublishRelease(chatId, appDir, srcPath, { removeBadge = fals
         const user = window.refreshUserPlan ? await window.refreshUserPlan() : window.user;
         const branding = removeBadge && window.Branding?.isSubscribed(user) ? 'removed' : 'kept';
         if (branding === 'removed') await stripBrandingFromRelease(releaseDir);
+        if (window.SiteBackends) await stripCanaryFromReleaseBackends(releaseDir);
 
         // Give the release its own backend and point it there, BEFORE the public
         // address starts serving it: the new frontend may need endpoints the old
@@ -2664,6 +2783,12 @@ async function doPublish() {
             // coded error for an invalid/taken explicit name (handled below).
             const sub = await createPublishSubdomain(releaseDir, desiredName, startHistory);
             url = `https://${sub}.puter.site/`;
+            // A project with dynamic backends runs its live site as an app
+            // Builder registers now, before anything runs there (see
+            // site-backends.js).
+            if (window.SiteBackends?.isDynamicProject(startHistory)) {
+                await window.SiteBackends.registerApp(url, window.SiteBackends.titleOf(chatId), 'live');
+            }
             await absolutizeSocialImagesInRelease(releaseDir, url, [startPreviewUrl]);
         } else {
             // Re-publish: re-point the existing public subdomain at the freshly
@@ -2685,6 +2810,9 @@ async function doPublish() {
         await retirePublishedReleases(pubRoot, releaseName);
         try { await retirePublishedWorkers(chatId, publishedWorkers.map(w => w.newName)); }
         catch (e) { console.warn('Publish: could not retire superseded backends:', e); }
+        // The release's dynamic backends run from it now, so they get their
+        // keys and sender name here.
+        const siteBackendKeys = await publishSiteBackends(startPreviewUrl, url, pubDir);
 
         // The published baseline (publishedVersionId) is what the "unpublished
         // changes" indicator compares the working dir against. If there are edits
@@ -2723,7 +2851,7 @@ async function doPublish() {
             // WorkerSecrets.publishNote). A project without keys gets no line.
             // No turn can be running here, since a turn waits for a publish.
             const keysNote = window.WorkerSecrets?.publishNote?.(
-                publishedWorkers.map(w => ({ live: w.newName, result: w.keys })));
+                publishedWorkers.map(w => ({ live: w.newName, result: w.keys })).concat(siteBackendKeys));
             if (keysNote && typeof chatHistory !== 'undefined' && Array.isArray(chatHistory)) {
                 const messageId = (typeof generateMessageId === 'function') ? generateMessageId() : null;
                 // versionNote: not a build reply (see countCompletedBuilds).
@@ -3208,10 +3336,17 @@ $(document).on('click', '.publish-address-save', async function () {
     $btn.prop('disabled', true);
     $input.prop('disabled', true);
     try {
+        // The site's app moves with it, or the user hears what stays behind.
+        const move = await planSiteMove(oldUrl, path);
+        if (!move) {
+            $input.prop('disabled', false).trigger('focus');
+            return;
+        }
         // Create the new subdomain first; only drop the old one once that
         // succeeds, so a failure (e.g. name taken) leaves the site reachable.
         await puter.hosting.create(newSub, path);
         const newUrl = `https://${newSub}.puter.site/`;
+        await finishSiteMove(oldUrl, newUrl, move, window.SiteBackends?.titleOf(chatId));
         // Social image URLs move to the new address before the old one goes.
         await absolutizeSocialImagesInRelease(path, newUrl, [oldUrl]);
         try { await puter.hosting.delete(oldSub); }
@@ -4765,9 +4900,18 @@ async function showChatProperties(chatId) {
                 renderPublishedCell();
                 return;
             }
+            // The site's app moves with it (see the toolbar's address
+            // editor).
+            const move = await planSiteMove(pub.url, path);
+            if (!move) {
+                $save.prop('disabled', false);
+                $input.prop('disabled', false).trigger('focus');
+                return;
+            }
             // Create the new subdomain first; only drop the old one once that
             // succeeds, so a failure leaves the site reachable.
             await puter.hosting.create(newSub, path);
+            await finishSiteMove(pub.url, `https://${newSub}.puter.site/`, move, window.SiteBackends?.titleOf(chatId));
             // Social image URLs move to the new address (see the toolbar's
             // address editor).
             await absolutizeSocialImagesInRelease(path, `https://${newSub}.puter.site/`, [pub.url]);

@@ -24,6 +24,12 @@
 // and Publish never copies over a live-only key. Keys never go the other way,
 // so a live key can't end up in the preview.
 //
+// A dynamic backend (site-backends.js) runs as its site's own app instead, so
+// its keys go into that app's store, shared by every backend of the site. Its
+// target here is { site, backends }, the site's address and the names of its
+// backends, and the preview and the live site are two addresses with a store
+// each. Everything else works the same.
+//
 // Builder also keeps the list of key names in the store itself
 // ("secret-names"), so copying and clearing never depend on listing another
 // app's store. Values never leave these functions: nothing here logs, tracks
@@ -45,10 +51,17 @@
 
     function validName(name) { return NAME_RE.test(String(name || '')); }
 
-    // The worker's own app, or null when it has none (a worker bound to no
-    // app can't hold keys of its own).
-    async function appOf(workerName) {
-        const info = await puter.workers.get(workerName);
+    // The app a target's keys live in, or null when it has none (a worker
+    // bound to no app can't hold keys of its own). A target is a worker's
+    // name, or { site, backends } for a site's dynamic backends. Puter makes a
+    // site's app the first time a backend there runs, so the backends are
+    // called first when it doesn't exist yet.
+    async function appOf(target) {
+        if (target && typeof target === 'object') {
+            const app = await window.SiteBackends.appOf(target.site, target.backends);
+            return (app && app.uid) || null;
+        }
+        const info = await puter.workers.get(target);
         return (info && info.app_uid) || null;
     }
 
@@ -87,16 +100,16 @@
         return 'other';
     }
 
-    // Save one key into one worker's store. opts.liveOnly also marks it as the
-    // live site's own key, which Publish never copies over. Resolves
+    // Save one key into one target's store. opts.liveOnly also marks it as
+    // the live site's own key, which Publish never copies over. Resolves
     // { ok: true } or { ok: false, reason } with reason 'bad-name', 'empty',
     // 'too-long', 'no-app', 'declined' or 'failed'.
-    async function set(workerName, name, value, opts) {
+    async function set(target, name, value, opts) {
         if (!validName(name)) return { ok: false, reason: 'bad-name' };
         if (typeof value !== 'string' || !value.trim()) return { ok: false, reason: 'empty' };
         if (value.length > MAX_VALUE) return { ok: false, reason: 'too-long' };
         let app;
-        try { app = await appOf(workerName); } catch (e) { return { ok: false, reason: 'failed' }; }
+        try { app = await appOf(target); } catch (e) { return { ok: false, reason: 'failed' }; }
         if (!app) return { ok: false, reason: 'no-app' };
         if (!(await allow(app))) return { ok: false, reason: 'declined' };
         try {
@@ -109,11 +122,11 @@
         }
     }
 
-    // The key names a worker holds (never the values). [] when Builder was
+    // The key names a target holds (never the values). [] when Builder was
     // never allowed into it, which means it holds none Builder put there.
-    async function names(workerName) {
+    async function names(target) {
         try {
-            const app = await appOf(workerName);
+            const app = await appOf(target);
             if (!app || !(await allowed(app))) return [];
             return await namesIn(app);
         } catch (e) {
@@ -121,20 +134,23 @@
         }
     }
 
-    // Copy every key from one worker to another (Publish: draft to live.
-    // Duplicate: original to copy), except the target's live-only keys. A
-    // worker with no keys copies nothing and never asks the user anything.
+    // Copy every key from one target to another (Publish: draft to live.
+    // Duplicate: original to copy. A new live address: old to new), except
+    // the target's live-only keys. A source with no keys copies nothing and
+    // never asks the user anything.
     // Resolves { ok, reason?, copied, keys: [{ name, kind, kept }] }, where
     // kept means the target kept its own live-only key. Never a value.
-    async function copy(fromWorker, toWorker) {
+    // opts.liveOnly carries the source's live-only marks over too, for a live
+    // site moving to a new address, whose live keys stay the live site's own.
+    async function copy(fromTarget, toTarget, opts) {
         let from, to;
-        try { from = await appOf(fromWorker); } catch (e) { return { ok: false, reason: 'failed', copied: 0, keys: [] }; }
+        try { from = await appOf(fromTarget); } catch (e) { return { ok: false, reason: 'failed', copied: 0, keys: [] }; }
         // Builder was never allowed into the source, so it put no keys there.
         if (!from || !(await allowed(from))) return { ok: true, copied: 0, keys: [] };
         let list;
         try { list = await namesIn(from); } catch (e) { return { ok: false, reason: 'failed', copied: 0, keys: [] }; }
         if (!list.length) return { ok: true, copied: 0, keys: [] };
-        try { to = await appOf(toWorker); } catch (e) { return { ok: false, reason: 'failed', copied: 0, keys: [] }; }
+        try { to = await appOf(toTarget); } catch (e) { return { ok: false, reason: 'failed', copied: 0, keys: [] }; }
         if (!to) return { ok: false, reason: 'no-app', copied: 0, keys: [] };
         if (to === from) return { ok: true, copied: 0, keys: [] };
         if (!(await allow(to))) return { ok: false, reason: 'declined', copied: 0, keys: [] };
@@ -156,6 +172,11 @@
             const there = await namesIn(to);
             const merged = there.concat(list.filter((n) => !there.includes(n)));
             await puter.kv.set(NAMES_KEY, merged, { appUuid: to });
+            if (opts && opts.liveOnly) {
+                for (const name of await listIn(from, LIVE_ONLY_KEY)) {
+                    if (keys.some((k) => k.name === name && !k.kept)) await addTo(to, LIVE_ONLY_KEY, name);
+                }
+            }
             return { ok: true, copied, keys };
         } catch (e) {
             return { ok: false, reason: 'failed', copied, keys };
@@ -204,12 +225,12 @@
         return '*' + parts.join(' ') + '*';
     }
 
-    // Remove every key Builder put into a worker, before the worker is deleted
-    // (a deleted project, a retired live backend). Never asks, since a worker
-    // Builder was never allowed into holds no keys of Builder's.
-    async function clear(workerName) {
+    // Remove every key Builder put into a target, before it goes (a deleted
+    // project, a retired live backend, a live address given up). Never asks,
+    // since a store Builder was never allowed into holds no keys of Builder's.
+    async function clear(target) {
         try {
-            const app = await appOf(workerName);
+            const app = await appOf(target);
             if (!app || !(await allowed(app))) return { ok: true, cleared: 0 };
             const list = await namesIn(app);
             for (const name of list) await puter.kv.del(PREFIX + name, { appUuid: app });
