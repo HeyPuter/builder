@@ -460,6 +460,13 @@ function updateSendButtonState(processing) {
     if (typeof window.refreshIssuesSendState === 'function') window.refreshIssuesSendState();
     // The model picker is part of the composer: locked for the whole turn.
     window.ModelPicker?.setBusy?.(processing);
+    // The PWA offers (js/pwa.js) key on the turn. The install toast shows
+    // when one starts, and an update prompt found mid-turn waits for its end.
+    // They get the real turn state, not the icon's, since the clarify card
+    // shows the Send icon while its turn is still running.
+    if (typeof window.pwaTurnChanged === 'function') {
+        window.pwaTurnChanged(typeof isProcessing !== 'undefined' ? !!isProcessing : processing);
+    }
 }
 
 /**

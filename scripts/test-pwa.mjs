@@ -173,38 +173,287 @@ check('pwa.js tears the worker down in local dev', /getRegistrations\(\)/.test(p
 // The critical guard: the first-install claim also fires controllerchange, so a
 // reload must only happen for a user-ACCEPTED update — never on first load.
 check('pwa.js only reloads on an accepted update', /updateAccepted/.test(pwa) && /!updateAccepted/.test(pwa) && /controllerchange/.test(pwa));
-check('pwa.js never auto-skips waiting without intent', /SKIP_WAITING/.test(pwa) && /updateAccepted\s*=\s*true/.test(pwa));
 check('pwa.js exposes a programmatic install trigger', /window\.promptPWAInstall\s*=/.test(pwa));
-// The update toast's Reload, run for real. In a second tab the version is
-// usually already active by the time it is clicked (the first tab's Reload
-// activated it, and clients.claim() took this tab over without reloading it):
-// posting SKIP_WAITING to the active worker changed nothing, and the tab kept
-// running the old code.
-{
-    const a = pwa.indexOf('var updateAccepted = false;');
-    const b = pwa.indexOf("window.addEventListener('load'", a);
-    let toast = null, reloads = 0;
-    const win = {
-        showToast: (msg, opts) => (toast = { msg, opts, dismiss() {} }),
-        location: { reload: () => { reloads++; } },
-    };
-    const promptUpdate = new Function('window', pwa.slice(a, b) + '\nreturn promptUpdate;')(win);
-    const worker = (name) => ({ name, posted: [], postMessage(m) { this.posted.push(m); } });
-    const w1 = worker('v2');
-    const reg = { waiting: w1 };
-    promptUpdate(reg, w1);
-    reg.waiting = null; // another tab accepted: v2 is active now
-    toast.opts.action.onClick();
-    check('update Reload with nothing left waiting reloads the tab', reloads === 1 && w1.posted.length === 0);
-    const w2 = worker('v3');
-    const reg2 = { waiting: w2 };
-    reloads = 0;
-    promptUpdate(reg2, w2);
-    toast.opts.action.onClick();
-    check('update Reload with a waiting worker activates it (the reload follows controllerchange)',
-        w2.posted.length === 1 && w2.posted[0].type === 'SKIP_WAITING' && reloads === 0);
-}
 check('pwa.js snoozes a dismissed install prompt', /pwaInstallDismissedAt/.test(pwa) && /onDismiss/.test(pwa));
+// The composer's icon isn't the turn. The clarify card draws the Send icon
+// (updateSendButtonState(false)) while its turn is still running, and that
+// released a held update prompt mid-turn, where Reload kills the turn.
+{
+    const helpers = read('src/js/helpers.js');
+    const a = helpers.indexOf('function updateSendButtonState(');
+    const b = helpers.indexOf('\n/**', a);
+    const chain = { html: () => chain, toggleClass: () => chain, attr: () => chain, prop: () => chain };
+    const $ = (sel) => (sel === '.send' ? chain : { val: () => '' });
+    const seen = [];
+    const win = { pwaTurnChanged: (p) => seen.push(p) };
+    const run = (isProcessing, processing) => new Function('$', 'window', 'pause_svg', 'send_svg', 'isProcessing',
+        helpers.slice(a, b) + '\nreturn updateSendButtonState;')($, win, '', '', isProcessing)(processing);
+    run(true, false); // the clarify card, mid-turn
+    run(false, false); // the turn ending
+    check('helpers.js reports the real turn state to pwa.js, not the icon', seen[0] === true && seen[1] === false);
+}
+
+// sw.js switches quietly only while one page is open. Activating drops the old
+// caches, and another tab still on the old bundles may yet need them.
+{
+    const src = renderServiceWorker(swSrc, { version: 't', precache: [] });
+    const listeners = {};
+    let skips = 0, pages = [], matchOpts = null;
+    const self = {
+        addEventListener: (t, fn) => { listeners[t] = fn; },
+        skipWaiting: () => { skips++; return Promise.resolve(); },
+        clients: { matchAll: (o) => { matchOpts = o; return Promise.resolve(pages); } },
+    };
+    new Function('self', src)(self);
+    const post = async (type, open) => {
+        pages = new Array(open).fill({});
+        let wait = null;
+        listeners.message({ data: { type }, waitUntil: (p) => { wait = p; } });
+        await wait;
+    };
+    await post('SKIP_WAITING_IF_ALONE', 1);
+    check('sw.js switches quietly when one page is open', skips === 1);
+    check('sw.js counts every open page, controlled or not', matchOpts && matchOpts.type === 'window' && matchOpts.includeUncontrolled === true);
+    await post('SKIP_WAITING_IF_ALONE', 2);
+    check('sw.js keeps waiting while another tab is open', skips === 1);
+    await post('SKIP_WAITING', 2);
+    check('sw.js still activates on an accepted update with tabs open', skips === 2);
+}
+
+// --- pwa.js run for real against a fake browser -----------------------------
+// Both toasts used to land seconds after load, right as people went to type.
+// The "new version" one was usually false too. Navigations are network-first,
+// so a visit after a deploy already runs the new bundles while the browser
+// installs the new worker beside them. Now the page compares its bundles with
+// the live site's. A current tab switches quietly, only a tab that is behind
+// gets the prompt (held while a turn runs), and the install offer waits for
+// the first message.
+const ORIGIN = 'https://builder.puter.com';
+const NEW = ['app-new.js', 'index-new.css'];
+const OLD = ['app-old.js', 'index-old.css'];
+const flush = () => new Promise((r) => setImmediate(r));
+
+function fakeWorker() {
+    return {
+        state: 'installing', posted: [], listeners: {},
+        postMessage(m) { this.posted.push(m); },
+        addEventListener(t, fn) { (this.listeners[t] = this.listeners[t] || []).push(fn); },
+        quiet() { return this.posted.some((m) => m.type === 'SKIP_WAITING_IF_ALONE'); },
+        accepted() { return this.posted.some((m) => m.type === 'SKIP_WAITING'); },
+    };
+}
+
+// The <script>/<link> tags of a page that loads `files` from /assets/.
+function tagsFor(files) {
+    const tag = (attr, value) => ({ getAttribute: (k) => (k === attr ? value : null) });
+    const tags = files.map((f) => (/\.css$/.test(f) ? tag('href', '/assets/' + f) : tag('src', ORIGIN + '/assets/' + f)));
+    tags.push(tag('src', 'https://js.puter.com/v2/')); // cross-origin, not one of ours
+    return tags;
+}
+
+// `live` is what the site serves now, or null when it can't be reached.
+function boot({ bundles = NEW, live = NEW, controller = fakeWorker(), waiting = null, store = {} } = {}) {
+    const winListeners = {}, swListeners = {}, toasts = [], fetches = [];
+    let reloads = 0;
+    const reg = {
+        waiting, installing: null, listeners: {},
+        addEventListener(t, fn) { (this.listeners[t] = this.listeners[t] || []).push(fn); },
+        update: () => Promise.resolve(),
+    };
+    const sw = {
+        controller,
+        register: () => Promise.resolve(reg),
+        addEventListener(t, fn) { (swListeners[t] = swListeners[t] || []).push(fn); },
+        getRegistrations: () => Promise.resolve([]),
+    };
+    const win = {
+        addEventListener(t, fn) { (winListeners[t] = winListeners[t] || []).push(fn); },
+        showToast(msg, opts) {
+            const t = { msg, opts, dismissed: false, dismiss() { this.dismissed = true; } };
+            toasts.push(t);
+            return t;
+        },
+        location: { reload: () => { reloads++; } },
+        matchMedia: () => ({ matches: false }),
+        navigator: {},
+    };
+    const fakeFetch = (url, opts) => {
+        fetches.push({ url, opts });
+        if (!live) return Promise.reject(new TypeError('offline'));
+        return Promise.resolve({ ok: true, text: () => Promise.resolve(JSON.stringify(live)) });
+    };
+    class FakeDOMParser {
+        parseFromString(html) { const tags = tagsFor(JSON.parse(html)); return { querySelectorAll: () => tags }; }
+    }
+    const pageTags = tagsFor(bundles);
+    new Function('window', 'navigator', 'location', 'document', 'localStorage', 'self',
+        'setInterval', 'fetch', 'DOMParser', pwa)(
+        win,
+        { serviceWorker: sw },
+        { hostname: 'builder.puter.com', search: '', href: ORIGIN + '/', origin: ORIGIN },
+        { querySelectorAll: () => pageTags },
+        { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); } },
+        {},
+        () => 0, fakeFetch, FakeDOMParser,
+    );
+    const fire = (map, t, arg) => (map[t] || []).forEach((fn) => fn(arg));
+    return {
+        win, reg, sw, toasts, store, fetches,
+        reloads: () => reloads,
+        load: async () => { fire(winListeners, 'load'); await flush(); },
+        // The browser installs `worker` as an update and it reaches "installed".
+        install: async (worker) => {
+            reg.installing = worker;
+            fire(reg.listeners, 'updatefound');
+            reg.installing = null;
+            reg.waiting = worker;
+            worker.state = 'installed';
+            fire(worker.listeners, 'statechange');
+            await flush();
+        },
+        takeOver: async (worker) => { sw.controller = worker; reg.waiting = null; fire(swListeners, 'controllerchange'); await flush(); },
+        turn: (on) => win.pwaTurnChanged(on),
+        appInstalled: () => fire(winListeners, 'appinstalled'),
+        installPrompt: () => {
+            const e = { prevented: false, preventDefault() { this.prevented = true; }, prompt() {}, userChoice: Promise.resolve({ outcome: 'accepted' }) };
+            fire(winListeners, 'beforeinstallprompt', e);
+            return e;
+        },
+    };
+}
+const updateToasts = (b) => b.toasts.filter((t) => t.opts.key === 'pwa-update');
+const installToasts = (b) => b.toasts.filter((t) => t.opts.key === 'pwa-install');
+
+// A visit after a deploy, where the page already runs the live bundles.
+{
+    const b = boot();
+    await b.load();
+    const w = fakeWorker();
+    await b.install(w);
+    check('a page on the live bundles shows no update toast', updateToasts(b).length === 0);
+    check('a page on the live bundles switches to the new worker quietly', w.quiet() && !w.accepted());
+    const f = b.fetches[0];
+    check('the live check loads / as a page, past the cache', f && f.url === '/' && f.opts.cache === 'no-cache' && f.opts.headers.Accept === 'text/html');
+    await b.takeOver(w);
+    check('quiet activation neither reloads nor prompts', b.reloads() === 0 && updateToasts(b).length === 0);
+}
+// A stale tab ignored the prompt for N, so N is still waiting, and this fresh
+// tab runs N+1. The worker is older than the page, which the live site shows.
+{
+    const w = fakeWorker();
+    const b = boot({ waiting: w });
+    await b.load();
+    check('an older worker left waiting gets no false prompt on a current page', updateToasts(b).length === 0);
+}
+{
+    const b = boot({ live: null });
+    await b.load();
+    const w = fakeWorker();
+    await b.install(w);
+    check('when the live site can\'t be reached, no prompt and no quiet switch', updateToasts(b).length === 0 && !w.quiet() && !w.accepted());
+}
+// A tab left open across a deploy.
+{
+    const b = boot({ bundles: OLD });
+    await b.load();
+    const w = fakeWorker();
+    await b.install(w);
+    check('a tab behind the live site gets the Reload prompt', updateToasts(b).length === 1 && !w.quiet());
+    updateToasts(b)[0].opts.action.onClick();
+    check('Reload activates the waiting worker', w.accepted() && b.reloads() === 0);
+    await b.takeOver(w);
+    check('the accepted takeover reloads once', b.reloads() === 1);
+}
+{
+    const b = boot({ bundles: OLD });
+    await b.load();
+    b.turn(true);
+    await b.install(fakeWorker());
+    check('an update found mid-turn is held', updateToasts(b).length === 0);
+    b.turn(false);
+    check('the held update prompts once the turn ends', updateToasts(b).length === 1);
+}
+// Another tab accepted an update. Its clients.claim() takes this tab over too,
+// with nothing left waiting to announce it.
+{
+    const b = boot({ bundles: OLD });
+    await b.load();
+    await b.takeOver(fakeWorker());
+    check('a takeover while this tab is behind prompts', updateToasts(b).length === 1 && b.reloads() === 0);
+    updateToasts(b)[0].opts.action.onClick();
+    check('its Reload, with nothing left waiting, reloads the tab', b.reloads() === 1);
+}
+{
+    const b = boot();
+    await b.load();
+    await b.takeOver(fakeWorker());
+    check('a takeover while this tab is current does nothing', updateToasts(b).length === 0 && b.reloads() === 0);
+}
+// First install. There is no controller, and the claim's controllerchange must not reload.
+{
+    const b = boot({ controller: null });
+    await b.load();
+    const w = fakeWorker();
+    await b.install(w);
+    await b.takeOver(w);
+    check('first install neither prompts nor reloads', updateToasts(b).length === 0 && b.reloads() === 0);
+}
+// Two deploys seen by one stale tab keep a single toast.
+{
+    const b = boot({ bundles: OLD });
+    await b.load();
+    await b.install(fakeWorker());
+    await b.install(fakeWorker());
+    check('a second update replaces the first toast', updateToasts(b).length === 2 && updateToasts(b)[0].dismissed && !updateToasts(b)[1].dismissed);
+}
+
+// The install offer waits for the first message, closes on its own, and comes
+// back at most weekly (30 days after its ×).
+{
+    const b = boot();
+    await b.load();
+    const e = b.installPrompt();
+    check('install prompt event is taken over (no mini-infobar)', e.prevented);
+    check('install offer does not show at load', installToasts(b).length === 0);
+    b.turn(true);
+    check('install offer shows as soon as a message is sent', installToasts(b).length === 1 && installToasts(b)[0].opts.action.label === 'Install');
+    check('install offer closes on its own', installToasts(b)[0].opts.duration > 0);
+    b.turn(false);
+    check('a turn ending does not close it early', !installToasts(b)[0].dismissed);
+    b.turn(true);
+    check('install offer shows once per page load', installToasts(b).length === 1);
+    b.appInstalled();
+    check('installing another way dismisses the offer without snoozing it', installToasts(b)[0].dismissed && !('pwaInstallDismissedAt' in b.store));
+}
+const DAY = 24 * 60 * 60 * 1000;
+async function offeredWith(store) {
+    const b = boot({ store });
+    await b.load();
+    b.installPrompt();
+    b.turn(true);
+    return installToasts(b).length === 1;
+}
+{
+    const b = boot();
+    await b.load();
+    b.installPrompt();
+    b.turn(true);
+    const ignored = await offeredWith({ ...b.store });
+    check('an ignored install offer stays hidden on the next visit', !ignored);
+    check('an ignored install offer comes back after a week', await offeredWith({ pwaInstallShownAt: String(Date.now() - 8 * DAY) }));
+}
+{
+    const b = boot();
+    await b.load();
+    b.turn(true);
+    b.installPrompt();
+    check('an install event that arrives mid-turn is offered right away', installToasts(b).length === 1);
+    installToasts(b)[0].opts.onDismiss();
+    check('the install offer\'s × snoozes it', 'pwaInstallDismissedAt' in b.store);
+    const stale = { pwaInstallShownAt: String(Date.now() - 8 * DAY) };
+    check('a dismissed install offer stays hidden past the week', !(await offeredWith({ ...stale, pwaInstallDismissedAt: String(Date.now() - 8 * DAY) })));
+    check('a dismissed install offer comes back after 30 days', await offeredWith({ ...stale, pwaInstallDismissedAt: String(Date.now() - 31 * DAY) }));
+}
 
 // --- Build wiring (vite.config) --------------------------------------------
 const vite = read('vite.config.js');
