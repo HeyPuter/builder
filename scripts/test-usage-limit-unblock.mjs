@@ -381,7 +381,7 @@ async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, other
     // How big the turn's requests were, and what it spent before the refusal.
     const big = { calls: 3, previewChecks: 0, cents: 120, lastInput: 240000, compactions: 1 };
     const pb = props(account, big, []);
-    check('turn props: the latest request, banded', pb.context_band === '200-500k');
+    check('turn props: the latest request, banded', pb.context_band === '200-300k');
     check('turn props: what the turn spent, banded like cost_band', pb.turn_cost_band === '$1-1.50');
     check('turn props: whether it compacted', pb.compacted === true && p0.compacted === false);
     const history = [
@@ -391,7 +391,7 @@ async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, other
         { role: 'assistant', content: 'x', tokenUsage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0 } },
     ];
     check('turn props: refused on its first call → the chat\'s last measured request',
-        props(account, stats(0, 0), history).context_band === '150-200k');
+        props(account, stats(0, 0), history).context_band === '100-200k');
     check('turn props: a measured request wins over the history',
         props(account, { ...big, lastInput: 60000 }, history).context_band === '50-100k');
     check('turn props: nothing measured anywhere → unknown',
