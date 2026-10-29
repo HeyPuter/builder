@@ -186,7 +186,7 @@ check('pwa.js snoozes a dismissed install prompt', /pwaInstallDismissedAt/.test(
     const $ = (sel) => (sel === '.send' ? chain : { val: () => '' });
     const seen = [];
     const win = { pwaTurnChanged: (p) => seen.push(p) };
-    const run = (isProcessing, processing) => new Function('$', 'window', 'pause_svg', 'send_svg', 'isProcessing',
+    const run = (isProcessing, processing) => new Function('$', 'window', 'stop_svg', 'send_svg', 'isProcessing',
         helpers.slice(a, b) + '\nreturn updateSendButtonState;')($, win, '', '', isProcessing)(processing);
     run(true, false); // the clarify card, mid-turn
     run(false, false); // the turn ending

@@ -38,10 +38,11 @@
     }
 
     // Restore the mid-turn "processing" composer: the model keeps working (builds)
-    // after the card resolves, so re-disable input and show the Pause control.
+    // after the card resolves, so show the Pause control and put the input back
+    // the way a turn has it (open for queueing, or locked; see lockComposerForTurn).
     function restoreProcessingComposer() {
-        $('.chat-input').addClass('disabled');
-        $('.chat-input-message').prop('disabled', true).attr('placeholder', 'Reply to Puter...');
+        lockComposerForTurn();
+        $('.chat-input-message').attr('placeholder', 'Reply to Puter...');
         updateSendButtonState(true);
     }
 

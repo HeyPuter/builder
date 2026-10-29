@@ -143,7 +143,9 @@ function renderSkeleton() {
                 if (window.FEATURE_FLAGS?.modelPicker) {
                     h += `<button type="button" class="model-picker-btn" aria-haspopup="dialog" aria-expanded="false" hidden><span class="model-picker-label">Opus 5.5</span><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg></button>`;
                 }
-                // The label flips to "Stop" while a turn runs (updateSendButtonState).
+                // The label flips to "Stop" while a turn runs (updateSendButtonState),
+                // and to "Queue message" while the composer holds something to
+                // queue meanwhile (js/message-queue.js).
                 h += `<button class="send" disabled title="Send message" aria-label="Send message">${send_svg}</button>`;
             h += `</div>`;
         h += `</div>`;
@@ -1450,8 +1452,11 @@ function editTargetLabel(d) {
     return html;
 }
 
-// Show the chip and arm the next send. Called when a selection arrives.
-window.setEditTarget = function(d) {
+// Show the chip and arm the next send. Called when a selection arrives, and
+// with quiet when a queued message brings its element back to the composer
+// (js/message-queue.js): no switch to the chat view and no focus then, since
+// the user did not just pick anything.
+window.setEditTarget = function(d, { quiet = false } = {}) {
     if (!window.FEATURE_FLAGS.clickToEdit || !d) return;
     window._pendingEditTarget = d;
     let $bar = $('.edit-target-bar');
@@ -1466,6 +1471,7 @@ window.setEditTarget = function(d) {
             '<button class="edit-target-cancel" title="Stop editing this element" aria-label="Stop editing this element">×</button>' +
         '</span>'
     );
+    if (quiet) return;
     // On a phone the preview is a full-screen layer over the chat: the chip
     // just rendered (and the composer it arms) is hidden behind it, and
     // focusing the composer popped the keyboard over the preview with no
@@ -3945,6 +3951,9 @@ window.resetPreviewErrorDedup = function () {
 })();
 
 $(document).on('click', '.send', async function(e) {
+    // Mid-turn the button is the queue arrow while the composer holds
+    // something (js/message-queue.js).
+    if (window.MessageQueue?.handleSendClick?.()) return;
     await sendChatMessage();
 });
 
@@ -5915,6 +5924,12 @@ $(document).on('keydown', '.chat-input-message', function(e) {
     if (window.isComposingKeyEvent(e)) return;
     if (e.which === 13 && (e.metaKey || e.ctrlKey || !e.shiftKey)) {
         e.preventDefault();
+        // While a turn runs the Send button is Stop, and Enter must never stop
+        // a build. It queues the message instead (js/message-queue.js).
+        if (window.MessageQueue?.takesComposerSend?.()) {
+            window.MessageQueue.enqueueFromComposer();
+            return;
+        }
         $('.send').click();
     }
 });
@@ -5934,6 +5949,8 @@ $(document).on('input keydown keyup keypress paste', '.chat-input-message', func
         const hasImages = attachedImages.length > 0;
         $('.send').prop('disabled', !hasText && !hasImages);
     }
+    // Mid-turn, the button is Stop or the queue arrow, following the input.
+    window.MessageQueue?.syncButton?.();
 });
 
 $(window).on('focus', function() {

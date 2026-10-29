@@ -38,7 +38,7 @@ function makeEnv(text, attachmentCount) {
         throw new Error('unexpected selector ' + sel);
     };
     const win = { attachedImages: new Array(attachmentCount).fill({}) };
-    const fn = new Function('$', 'window', 'pause_svg', 'send_svg',
+    const fn = new Function('$', 'window', 'stop_svg', 'send_svg',
         block + '\nreturn updateSendButtonState;')($, win, '', '');
     return { fn, button };
 }
@@ -67,7 +67,7 @@ check('missing attachedImages global is treated as empty', (() => {
     const chain = { html: () => chain, toggleClass: () => chain, attr: () => chain,
         prop: (k, v) => { if (k === 'disabled') button.disabled = v; return chain; } };
     const $ = (sel) => sel === '.send' ? chain : { val: () => '' };
-    const fn = new Function('$', 'window', 'pause_svg', 'send_svg',
+    const fn = new Function('$', 'window', 'stop_svg', 'send_svg',
         block + '\nreturn updateSendButtonState;')($, {}, '', '');
     fn(false);
     return button.disabled === true;

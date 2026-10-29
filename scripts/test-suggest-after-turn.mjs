@@ -165,7 +165,11 @@ check('update_preview never mentions it', !updatePreview.includes('SuggestNextSt
     check('…after the composer is unlocked', unlock > 0 && gen > unlock);
     check('…without waiting for it', !/await\s+generateContinueSuggestions/.test(send));
     check('…only for a finished turn in the open chat',
-        /if \(turnSucceeded && turnChatId === currentChatId && !isProcessing\) \{\s*generateContinueSuggestions\(turnSaveContext\);/.test(send));
+        /if \(turnSucceeded && turnChatId === currentChatId && !isProcessing && !sendingQueued\) \{\s*generateContinueSuggestions\(turnSaveContext\);/.test(send));
+    // A queued message is about to start the next turn, which would clear the
+    // chips at once. The suggestion model is not called for nothing.
+    check('…and not when a queued message is about to be sent',
+        send.indexOf('const sendingQueued =') > unlock && send.indexOf('const sendingQueued =') < gen);
     const genFn = slice(app, 'async function generateContinueSuggestions(', '// ---- Automatic project naming');
     check('the generator uses the small suggestion model', /model: SUGGESTION_MODEL/.test(genFn)
         && /const SUGGESTION_MODEL = 'anthropic\/claude-haiku-/.test(app));

@@ -2892,6 +2892,8 @@ function updateAttachmentDisplay() {
         const hasText = $('.chat-input-message').val().trim().length > 0;
         $('.send').prop('disabled', !hasText && attachedImages.length === 0);
     }
+    // A file alone can be queued mid-turn too.
+    window.MessageQueue?.syncButton?.();
 }
 
 window.updateAttachmentDisplay = updateAttachmentDisplay;
@@ -2917,14 +2919,38 @@ function removeAttachment(id) {
 // synchronously left a broken picture in the bubble (correct again only after
 // a reload, which renders the saved asset instead). Give the bubble a minute
 // to load first; a Clear from the tray still revokes immediately.
+// opts.only: clear just these entries. The send path passes the files it sent,
+// since the composer is usable during the send's uploads and files attached
+// meanwhile belong to the next message.
 function clearAllAttachments(opts) {
-    const cleared = attachedImages;
-    attachedImages = [];
+    const only = opts && opts.only ? new Set(opts.only) : null;
+    const cleared = only ? attachedImages.filter(a => only.has(a)) : attachedImages;
+    attachedImages = only ? attachedImages.filter(a => !only.has(a)) : [];
     window.attachedImages = attachedImages;
     updateAttachmentDisplay();
     if (opts && opts.deferRevoke) setTimeout(() => cleared.forEach(revokeAttachmentURL), 60000);
     else cleared.forEach(revokeAttachmentURL);
 }
+
+// A queued message takes the tray's files with it and gives them back if it
+// returns to the composer (js/message-queue.js). Their blob URLs stay valid
+// meanwhile. dragdrop.js adds to window.attachedImages, so both names keep
+// pointing at the same array.
+function takeAttachments() {
+    const taken = attachedImages;
+    attachedImages = [];
+    window.attachedImages = attachedImages;
+    updateAttachmentDisplay();
+    return taken;
+}
+function returnAttachments(list) {
+    if (!list || !list.length) return;
+    attachedImages = list.concat(attachedImages);
+    window.attachedImages = attachedImages;
+    updateAttachmentDisplay();
+}
+window.takeAttachments = takeAttachments;
+window.returnAttachments = returnAttachments;
 
 // Read a File as base64 (without the "data:...;base64," prefix)
 function fileToBase64(file) {
@@ -3195,6 +3221,26 @@ function terminateActiveTurn() {
     }
 }
 
+// Stop the in-flight turn and hand the composer back at once: the Stop button,
+// and a queued message sent now (js/message-queue.js). The turn itself may
+// take a while to unwind (a tool call already running finishes first).
+function stopActiveTurn() {
+    if (!isProcessing) return;
+    // Mark the turn as user-interrupted so its end-of-turn "what next?"
+    // suggestions are suppressed (set before resetUIForAbort, which clears
+    // shouldStop) — covers the case where Stop is clicked during turn setup,
+    // before abortController even exists.
+    activeTurnInterrupted = true;
+    // Also abort the current request if it exists
+    // Keep reference to abortController so we can still abort the hanging request
+    if (abortController) {
+        abortController.abort();
+    }
+    // Immediately reset UI to give instant feedback (but keep abortController for cleanup)
+    resetUIForAbort();
+}
+window.stopActiveTurn = stopActiveTurn;
+
 // Reset all transient, turn-owned state so a freshly opened/switched chat starts
 // clean and immediately usable — even while an aborted turn is still unwinding
 // in the background. The chat switch takes full ownership of this reset:
@@ -3239,6 +3285,10 @@ function resetChatUIForSwitch() {
     // Drop any pending click-to-edit selection so its chip + armed target can't
     // leak into the chat we're switching to (it targets the old preview).
     window.clearEditTarget?.();
+
+    // Empty the message queue. Its text is already in the leaving project's
+    // draft, so it comes back in that project's composer.
+    window.MessageQueue?.reset?.();
 
     // Close the Code view's files (the leave gate already dealt with unsaved
     // edits); the next project opens on its preview.
@@ -4245,11 +4295,12 @@ function composerDraftKey(contextKey, username) {
 
 // 'home' until the current chat is a real project: one with visible history
 // (covers mid-first-turn, e.g. a clarifying-questions reply typed before the
-// turn ends) or already in the sidebar (covers a loaded chat whose history is
-// still system-only).
+// turn ends), a turn running in it (covers text typed or queued during the
+// first turn's setup, before its message lands) or already in the sidebar
+// (covers a loaded chat whose history is still system-only).
 function composerDraftContext() {
     const isProject = currentChatId
-        && (chatHistory.some(m => m.role !== 'system') || savedChats.some(c => c.id === currentChatId));
+        && (isProcessing || chatHistory.some(m => m.role !== 'system') || savedChats.some(c => c.id === currentChatId));
     return isProject ? currentChatId : 'home';
 }
 
@@ -4340,7 +4391,10 @@ function cancelCloudDraftMirror(key) {
 function saveComposerDraft() {
     _draftSeq++;
     _composerRestoredFromKey = null;
-    const text = $('.chat-input-message').val() || '';
+    const typed = $('.chat-input-message').val() || '';
+    // Messages queued during a turn are part of the draft, ahead of the typed
+    // text (js/message-queue.js), so a reload brings them back too.
+    const text = window.MessageQueue ? window.MessageQueue.withQueuedText(typed) : typed;
     const key = composerDraftKey(composerDraftContext());
     // Empty text still writes (a tombstone): the user emptying the box is an
     // edit that must beat older copies on other devices.
@@ -4389,6 +4443,7 @@ function applyDraftToComposer(text) {
     if (!isProcessing) {
         $('.send').prop('disabled', text.trim().length === 0 && attachedImages.length === 0);
     }
+    window.MessageQueue?.syncButton?.();
 }
 
 // Refill the composer from the current context's stored draft. Replaces
@@ -4506,26 +4561,22 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         if (text) {
             $('.chat-input-message').val('');
             autoResizeTextarea($('.chat-input-message')[0]);
-            // The reply was consumed — drop its persisted draft.
-            clearComposerDraft();
+            // The reply was consumed — drop its persisted draft. Messages
+            // queued during the turn are part of the draft and stay in it
+            // (js/message-queue.js).
+            if (window.MessageQueue?.withQueuedText?.('')) saveComposerDraft();
+            else clearComposerDraft();
             window._activeClarification.submitDirectReply(text);
         }
         return;
     }
 
     if (isProcessing) {
-        // Mark the turn as user-interrupted so its end-of-turn "what next?"
-        // suggestions are suppressed (set before resetUIForAbort, which clears
-        // shouldStop) — covers the case where Stop is clicked during turn setup,
-        // before abortController even exists.
-        activeTurnInterrupted = true;
-        // Also abort the current request if it exists
-        // Keep reference to abortController so we can still abort the hanging request
-        if (abortController) {
-            abortController.abort();
-        }
-        // Immediately reset UI to give instant feedback (but keep abortController for cleanup)
-        resetUIForAbort();
+        stopActiveTurn();
+        // Stop overrides what Puter is doing: with messages queued during the
+        // turn, the next one goes now, and there is nothing to resume
+        // (js/message-queue.js).
+        if (window.MessageQueue?.sendNext?.()) return;
         // Offer to resume right away. We show the banner HERE (synchronously, on
         // the Stop click) rather than relying only on the interrupted turn's
         // end-of-turn path: aborting the stream doesn't always unwind that turn
@@ -4580,7 +4631,14 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     }
 
     // One send at a time through the setup below (see _sendSetupInFlight).
-    if (_sendSetupInFlight) return;
+    // While a queued message is in that setup, a send from the composer joins
+    // the queue behind it instead of being dropped.
+    if (_sendSetupInFlight) {
+        if (userInput == null && chat_input_message == null && !opts.resume && !opts.queued) {
+            window.MessageQueue?.enqueueFromComposer?.();
+        }
+        return;
+    }
     _sendSetupInFlight = true;
 
     // Capture the composer's text and its draft context BEFORE the sign-in
@@ -4597,6 +4655,10 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // without the screenshot the user attached to it (or, for a file-only
     // send, sent nothing at all).
     const preAuthAttachments = attachedImages.slice();
+    // And the element picked with click-to-edit. The composer is usable while
+    // this send uploads its files, so an element picked meanwhile is for the
+    // next message.
+    const preAuthEditTarget = window._pendingEditTarget || null;
 
     // Ensure the user is signed in before sending
     try {
@@ -4627,10 +4689,15 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // mid-sentence used to wipe their text (and tombstone its draft), send
     // their attached files along with the error report, and spend the element
     // they had just picked to edit.
-    const consumedComposer = !isResume && userInput == null && chat_input_message == null;
-    const messageText = isResume ? '' : (userInput ?? chat_input_message ?? preAuthComposerText);
+    // A queued message (js/message-queue.js) carries what the composer held
+    // when it was queued: its own text, files and picked element. It leaves
+    // the composer, which holds the user's next message by now, alone.
+    const queued = (!isResume && opts.queued) || null;
+    const consumedComposer = !isResume && !queued && userInput == null && chat_input_message == null;
+    const messageText = isResume ? '' : queued ? queued.text : (userInput ?? chat_input_message ?? preAuthComposerText);
+    const sendAttachments = consumedComposer ? preAuthAttachments : queued ? queued.attachments : [];
     chat_input_message = undefined;
-    if (!isResume && !messageText && (!consumedComposer || preAuthAttachments.length === 0)) { _sendSetupInFlight = false; return; }
+    if (!isResume && !messageText && sendAttachments.length === 0) { _sendSetupInFlight = false; return; }
 
     // The Code view, before the AI touches anything: unsaved hand edits are
     // saved, and saved ones become their own version, so this turn's snapshot
@@ -4645,8 +4712,12 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         if (lockComposer) $composer.prop('readonly', true);
         let ready = false;
         try {
+            // consumedComposer only words the Code view's toast ("Your message
+            // is still in the box"), which is true of a queued message too: a
+            // send called off here puts it back in the box.
             ready = await window.CodeEditor.beforeTurn({
-                chatId: currentChatId, appDir: currentAppDir, autoFix: !!opts.autoFix, resume: isResume, consumedComposer,
+                chatId: currentChatId, appDir: currentAppDir, autoFix: !!opts.autoFix, resume: isResume,
+                consumedComposer: consumedComposer || !!queued,
             });
         } finally {
             if (lockComposer) $composer.prop('readonly', false);
@@ -4718,6 +4789,13 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // a deep-link load during ensureAuthenticated moves the live context to
         // a project whose own stored draft was never consumed here.
         clearComposerDraft(preAuthDraftContext);
+    } else if (queued && !window.MessageQueue?.claim?.(queued)) {
+        // The queue no longer holds it: a switch to another project emptied
+        // the queue during the setup, and that project's draft keeps the text.
+        _sendSetupInFlight = false;
+        window.CodeEditor?.onTurnEnd?.(currentChatId);
+        window.refreshPublishButton?.();
+        return;
     }
     // Drop any "what next?" suggestion chips from the previous turn — a new turn
     // is starting, so they no longer apply (and would otherwise linger above the
@@ -4823,9 +4901,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // tombstoned) was gone, while Resume re-sent the repaired OLD history.
     let userMessageAppended = false;
     updateSendButtonState(true);
-    $('.chat-input').addClass('disabled');
-    $('.chat-input-message').prop('disabled', true);
-    $('.attachment-button').prop('disabled', true);
+    lockComposerForTurn();
     $('.chat-header').hide();
 
     let spinner = null;
@@ -4908,7 +4984,8 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             // on-demand reader the model is pointed at (see the note built below).
             // The tray belongs to the user's next composer send; a programmatic
             // send (auto-fix, Issues batch) leaves it — and the chip row — alone.
-            const atts = consumedComposer ? preAuthAttachments : [];
+            // A queued message brings the files it took from the tray.
+            const atts = sendAttachments;
             const kindOf = (a) => classifyAttachment(a);
             const messageId = generateMessageId();
             userBubbleMessageId = messageId;
@@ -4936,7 +5013,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             }
             const processedText = messageText ? nl_to_p(htmlEscape(messageText)) : '';
             appendMessageWithImages(processedText + imageHTML, true, messageId);
-            if (consumedComposer) clearAllAttachments({ deferRevoke: true });
+            if (consumedComposer) clearAllAttachments({ deferRevoke: true, only: atts });
 
             // Build the model-facing content. EVERY attachment is saved to assets/
             // and referenced by path — nothing is embedded inline. The model pulls
@@ -5082,9 +5159,12 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             // showing in the user's bubble — same channel as the image-refs note.
             // Cleared once folded in. Only a composer send may spend it: an
             // internal send (auto-fix, Issues batch) must neither carry nor
-            // consume the element the user picked for THEIR next message.
-            if (consumedComposer && window.FEATURE_FLAGS?.clickToEdit && window._pendingEditTarget) {
-                const t = window._pendingEditTarget;
+            // consume the element the user picked for THEIR next message. A
+            // queued message carries the element picked when it was queued.
+            const editTarget = !window.FEATURE_FLAGS?.clickToEdit ? null
+                : consumedComposer ? preAuthEditTarget : (queued && queued.editTarget);
+            if (editTarget) {
+                const t = editTarget;
                 // Everything below came out of the running app (untrusted): the
                 // free-text fields are fenced as data, the same way the preview
                 // error reports are, so a page cannot plant instructions in the
@@ -5101,7 +5181,8 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                 if (t.html) note += `Outer HTML:\n${fence(t.html)}\n`;
                 note += `The Outer HTML and visible text are the reliable locators; the CSS path is only a hint.]`;
                 contentParts.push({ type: 'text-hidden', text: note });
-                window.clearEditTarget?.();
+                // Its chip goes, unless another element was picked since.
+                if (consumedComposer && window._pendingEditTarget === preAuthEditTarget) window.clearEditTarget?.();
             }
 
             // Files the user edited by hand in the Code view since the AI's last
@@ -5119,7 +5200,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             // every build (first or follow-up) emits Build Started.
             isFirstBuildTurn = countUserMessages(turnSaveContext.chatHistory) === 0;
             if (isFirstBuildTurn) window.track?.('Project Created');
-            window.track?.('Build Started', { first_build: isFirstBuildTurn, has_attachments: atts.length > 0 });
+            window.track?.('Build Started', { first_build: isFirstBuildTurn, has_attachments: atts.length > 0, ...(queued && { queued: true }) });
 
             const messageContent = contentParts.length > 0 ? contentParts : messageText;
             turnSaveContext.chatHistory.push({ role: "user", content: messageContent, messageId });
@@ -5332,7 +5413,9 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             }
         }
     } catch (error) {
-        if(spinner)
+        // The dots are shared between turns (startSpinnerStub reuses them):
+        // a stopped turn unwinding late must not take down a newer one's.
+        if(spinner && turnSeq === _turnSeq)
             spinner.remove();
         // Only surface an error (and touch the UI/history) if we didn't manually
         // stop AND this turn is still the active chat's turn. If it errored only
@@ -5342,8 +5425,12 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // `!activeTurnInterrupted` also guards the case where aborting the stream
         // rejects with an AbortError: resetUIForAbort() has already cleared
         // shouldStop, so without this an intentional Stop would surface a spurious
-        // error card instead of the resume banner.
-        if (!shouldStop && !activeTurnInterrupted && turnChatId === currentChatId) {
+        // error card instead of the resume banner. And no newer turn may have
+        // started: Stop with messages queued starts the next one at once, which
+        // clears both flags, while this one may still throw its abort late (it
+        // was uploading attachments, or its request took a moment to give up).
+        // Its error card and history entry would land in the newer turn's chat.
+        if (!shouldStop && !activeTurnInterrupted && turnChatId === currentChatId && turnSeq === _turnSeq) {
             turnErrored = true;
             if(error.error?.delegate === "usage-limited-chat"){
                 trackLimitHit({ first_build: isFirstBuildTurn, model: turnModel, kind: 'tier', ...usageLimitHitProps(turnSaveContext.chatHistory, savedChats, turnChatId, window.currentPublishedUrl) });
@@ -5410,17 +5497,25 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // tombstoned, tray emptied. The bubble on screen was the only trace,
         // and a reload dropped it; Stop had also painted a Resume banner with
         // nothing of this turn to resume (Resume then re-sent the finished
-        // conversation). Hand the text back to the composer, drop the orphan
-        // bubble, and take the banner down — only while this is still the open
-        // chat and no newer turn has started.
-        if (!isResume && consumedComposer && !turnAppended && turnChatId === currentChatId && turnSeq === _turnSeq) {
+        // conversation). Hand the text back to the composer and drop the orphan
+        // bubble while this is still the open chat, even if a newer turn has
+        // started: Stop with messages queued starts the next one at once, and
+        // that turn often gets going before this one's uploads give up. The
+        // composer is usable during a turn, so it may hold text by now (typed
+        // meanwhile, or queued messages an error put back). This message goes
+        // ahead of it. A queued message gets its files and picked element back
+        // too. The Resume banner comes down only when no newer turn has
+        // started, since one shown by then is that turn's own.
+        let handedBack = false;
+        if (!isResume && (consumedComposer || queued) && !turnAppended && turnChatId === currentChatId) {
             if (userBubbleMessageId) $(`.message[data-message-id="${userBubbleMessageId}"]`).remove();
-            if (messageText && !$('.chat-input-message').val()) {
-                applyDraftToComposer(messageText);
-                saveComposerDraft();
-            }
-            clearResumeBanner();
+            window.MessageQueue?.returnToComposer?.([queued || { text: messageText }]);
+            handedBack = true;
+            if (turnSeq === _turnSeq) clearResumeBanner();
         }
+        // Otherwise a queued message's files are done with once its bubble has
+        // had the minute clearAllAttachments gives a composer send's.
+        if (queued && !handedBack) setTimeout(() => (queued.attachments || []).forEach(revokeAttachmentURL), 60000);
 
         // Snapshot the project for version history if this turn changed files —
         // on success, error, OR abort, so any state the files were left in has a
@@ -5536,6 +5631,15 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         showResumeBanner(gaveUpBannerText);
     }
 
+    // Messages queued during this turn (js/message-queue.js). A clean finish
+    // sends the next one as the next turn, so no "what next?" ideas are made
+    // for this one. An error card, or retries or credits running out, put them
+    // back in the composer instead. True also when this turn was stopped for a
+    // queued message (Stop, Send now), which is starting the next turn, so no
+    // Resume banner either.
+    const sendingQueued = turnChatId === currentChatId && !isProcessing
+        && !!window.MessageQueue?.afterTurn?.(turnSucceeded && !(context && context.usageLimited));
+
     // After a completed turn, offer up to 5 one-click "what next?" suggestions
     // above the input. They come from the small suggestion model, started here
     // and never awaited. The composer is already unlocked (resetUIState above),
@@ -5546,7 +5650,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // (When the issues review card is asking "did the fixes work?", the chips
     // produced here are cached but not painted — renderContinueSuggestions
     // defers them until the card leaves the chat.)
-    if (turnSucceeded && turnChatId === currentChatId && !isProcessing) {
+    if (turnSucceeded && turnChatId === currentChatId && !isProcessing && !sendingQueued) {
         generateContinueSuggestions(turnSaveContext);
     }
 
@@ -5554,7 +5658,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // resume the build right here, without needing a reload. Mutually exclusive
     // with the suggestions above (a succeeded turn is never interrupted). Guarded
     // to the still-open chat and only when no new turn has started.
-    if (turnSaveContext.interrupted && turnChatId === currentChatId && !isProcessing) {
+    if (turnSaveContext.interrupted && turnChatId === currentChatId && !isProcessing && !sendingQueued) {
         showResumeBanner();
     }
 }
