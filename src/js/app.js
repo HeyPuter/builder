@@ -3218,7 +3218,8 @@ window.isAborted = isAborted;
 // the model had shown anything yet or they left during the first wait.
 // Plausible's script sends with keepalive, so the event still goes out as the
 // page unloads. Errors and automatic retries that give up aren't counted, nor
-// is a turn Build Started didn't count, so the event divides by Build Started.
+// is a turn Build Started didn't count. Neither is a build Send now replaces
+// with a queued message: the user is still building, only something else.
 function trackBuildAbandoned(how) {
     const build = _activeBuild;
     if (!build || !isProcessing) return;
@@ -3249,6 +3250,10 @@ function terminateActiveTurn(how = 'switched') {
 // take a while to unwind (a tool call already running finishes first).
 function stopActiveTurn() {
     if (!isProcessing) return;
+    // Its build is over now, not once it has unwound. Otherwise a Stop or a
+    // closed tab while Send now's message is still being set up would report
+    // this build, with its wait time, as the one abandoned.
+    _activeBuild = null;
     // Mark the turn as user-interrupted so its end-of-turn "what next?"
     // suggestions are suppressed (set before resetUIForAbort, which clears
     // shouldStop) — covers the case where Stop is clicked during turn setup,

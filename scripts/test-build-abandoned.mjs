@@ -89,9 +89,11 @@ await check('a build is reported once, and nothing without a running build', asy
 await check('every way of giving up reports, as it happens', async () => {
     assert.match(app, /function terminateActiveTurn\(how = 'switched'\) \{\s*if \(!isProcessing\) return;\s*trackBuildAbandoned\(how\);/);
     assert.match(app, /if \(currentChatId === chatId\) terminateActiveTurn\('deleted'\);/);
-    // The Stop button. Send now on a queued message stops the build too, but
-    // to change course, not to give up, so it isn't counted.
+    // The Stop button. Send now shares stopActiveTurn, which drops the build
+    // without reporting it: the user is still building, only something else.
     assert.match(app, /if \(isProcessing\) \{\s*trackBuildAbandoned\('stopped'\);\s*stopActiveTurn\(\);/);
+    assert.match(app, /function stopActiveTurn\(\) \{\s*if \(!isProcessing\) return;[\s\S]{0,400}?_activeBuild = null;/);
+    assert.ok(!/trackBuildAbandoned/.test(read('../src/js/message-queue.js')), 'Send now reports nothing');
     assert.match(app, /window\.addEventListener\('pagehide', \(\) => trackBuildAbandoned\('left'\)\);/);
 });
 
