@@ -48,7 +48,8 @@
 
   // ---- Build turns ---------------------------------------------------------
   // updateSendButtonState (helpers.js), the one place the composer flips
-  // between a running turn and idle, reports here. The install offer waits
+  // between a running turn and idle, reports the turn state here (isProcessing,
+  // not the button icon it was asked to draw). The install offer waits
   // for a message to be sent, so it never lands while someone types their
   // first prompt, and an update prompt found mid-turn is held until it ends.
   var turnRunning = false;
@@ -69,12 +70,16 @@
   // network-first, so a visit after a deploy already runs the new bundles
   // while the browser installs the new worker beside them. Telling that user
   // "a new version is available" was false, and it landed right as they went
-  // to type. So a new worker is activated quietly when this page already runs
-  // what it ships, and only a tab still on older bundles (left open across a
-  // deploy, or booted from the cached shell while offline) is asked to reload.
+  // to type. So when another worker turns up, this page asks the live site
+  // which bundles it serves now. The worker itself can't say, since it may be
+  // older than this page (a stale tab left an old version waiting). A tab still
+  // on older bundles (left open across a deploy, or booted from the cached
+  // shell while offline) is asked to reload. A current one switches to the
+  // worker quietly, which sw.js only does while it is the only open page. When
+  // it can't tell, it does neither.
   // Only a user-accepted update reloads the page. Every other takeover also
   // fires 'controllerchange' (the first install's clients.claim, a quiet
-  // activation here or in another tab), and that must NOT reload.
+  // activation, another tab's accepted update), and that must NOT reload.
   var updateAccepted = false;
   function acceptUpdate(worker) {
     updateAccepted = true;
@@ -121,44 +126,47 @@
     promptUpdate(reg, worker);
   }
 
-  // The same-origin bundles this page booted with, read now (pwa.js runs at
-  // the end of the app bundle in <head>, after every one of them) so a chunk
-  // loaded later can't join the list.
-  var pageAssets = (function () {
+  // The same-origin bundles a document loads, as one comparable string.
+  function bundlesIn(doc) {
     var urls = [];
-    var nodes = document.querySelectorAll('script[src], link[rel="stylesheet"][href]');
+    var nodes = doc.querySelectorAll('script[src], link[rel="stylesheet"][href]');
     for (var i = 0; i < nodes.length; i++) {
       var u;
-      try { u = new URL(nodes[i].src || nodes[i].href, location.href); } catch (e) { continue; }
+      try { u = new URL(nodes[i].getAttribute('src') || nodes[i].getAttribute('href'), location.href); } catch (e) { continue; }
       if (u.origin === location.origin && /^\/assets\//.test(u.pathname)) urls.push(u.pathname);
     }
-    return urls;
-  })();
+    return urls.sort().join('\n');
+  }
+  // Read now (pwa.js runs at the end of the app bundle in <head>, after every
+  // one of them) so a chunk loaded later can't join the list.
+  var pageBundles = bundlesIn(document);
 
-  // Resolves true when `worker` precaches every bundle this page runs, false
-  // when it doesn't (this tab is behind it), null when it can't tell.
-  function pageRunsWorker(worker) {
-    return new Promise(function (resolve) {
-      if (!pageAssets.length || typeof MessageChannel === 'undefined') { resolve(null); return; }
-      var channel = new MessageChannel();
-      var timer = setTimeout(function () { resolve(null); }, 5000);
-      channel.port1.onmessage = function (e) {
-        clearTimeout(timer);
-        var shell = Array.isArray(e.data) ? e.data : null;
-        resolve(shell ? pageAssets.every(function (u) { return shell.indexOf(u) !== -1; }) : null);
-      };
-      try { worker.postMessage({ type: 'GET_PRECACHE' }, [channel.port2]); }
-      catch (e) { clearTimeout(timer); resolve(null); }
-    });
+  // Resolves true when the live site serves other bundles than this page runs
+  // (this tab is behind), false when it serves the same ones, null when it
+  // can't tell.
+  function pageIsBehind() {
+    if (!pageBundles || typeof DOMParser === 'undefined') return Promise.resolve(null);
+    // The Accept header makes every version of sw.js treat this as a page load,
+    // which goes to the network first. Without it '/' is a precached path and
+    // would come from the cache.
+    return fetch('/', { cache: 'no-cache', headers: { Accept: 'text/html' } })
+      .then(function (res) { return res.ok ? res.text() : null; })
+      .then(function (html) {
+        var live = html ? bundlesIn(new DOMParser().parseFromString(html, 'text/html')) : '';
+        return live ? live !== pageBundles : null;
+      })
+      .catch(function () { return null; });
   }
 
-  // Switch to a newly installed worker quietly unless this tab is behind it.
-  // Unsure counts as current, since a false prompt is what this replaced.
-  function handleNewWorker(reg, worker) {
+  // Another worker turned up, installed or taking over. Prompt a tab that is
+  // behind, switch a current one quietly, and leave it be when unsure.
+  function checkForUpdate(reg, worker) {
     if (!worker) return;
-    pageRunsWorker(worker).then(function (current) {
-      if (current === false) { offerUpdate(reg, worker); return; }
-      try { worker.postMessage({ type: 'SKIP_WAITING' }); } catch (e) {}
+    pageIsBehind().then(function (behind) {
+      if (behind === true) { offerUpdate(reg, worker); return; }
+      if (behind === false && worker !== navigator.serviceWorker.controller) {
+        try { worker.postMessage({ type: 'SKIP_WAITING_IF_ALONE' }); } catch (e) {}
+      }
     });
   }
 
@@ -168,7 +176,7 @@
       .then(function (reg) {
         registration = reg;
         // A worker already waiting from a previous visit.
-        if (reg.waiting && navigator.serviceWorker.controller) handleNewWorker(reg, reg.waiting);
+        if (reg.waiting && navigator.serviceWorker.controller) checkForUpdate(reg, reg.waiting);
 
         reg.addEventListener('updatefound', function () {
           var installing = reg.installing;
@@ -177,7 +185,7 @@
             // "installed" + an existing controller => this is an UPDATE, not the
             // first install. (First install has no controller and shouldn't nag.)
             if (installing.state === 'installed' && navigator.serviceWorker.controller) {
-              handleNewWorker(reg, reg.waiting || installing);
+              checkForUpdate(reg, reg.waiting || installing);
             }
           });
         });
@@ -189,17 +197,12 @@
 
     // When the worker the user ACCEPTED takes control, reload once to pick up
     // the new asset set. Guarded to fire at most once. Any other takeover may
-    // be another tab's quiet activation of a version this tab is behind, which
+    // be another tab's accepted update to a version this tab is behind, which
     // would leave it on old bundles with nothing left waiting to announce it.
     var refreshing = false;
     navigator.serviceWorker.addEventListener('controllerchange', function () {
       if (!updateAccepted) {
-        var active = navigator.serviceWorker.controller;
-        if (active) {
-          pageRunsWorker(active).then(function (current) {
-            if (current === false) offerUpdate(registration, active);
-          });
-        }
+        checkForUpdate(registration, navigator.serviceWorker.controller);
         return;
       }
       if (refreshing) return;

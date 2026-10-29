@@ -47,8 +47,9 @@ self.addEventListener('install', function (event) {
   // Intentionally NOT calling skipWaiting() here: a freshly installed worker
   // waits until the page tells it to activate (see the 'message' handler), so we
   // never swap the asset set out from under a live session. A page already on
-  // this worker's bundles activates it straight away. One still on older
-  // bundles surfaces an "update ready" prompt and only then requests activation.
+  // the live bundles activates it straight away when no other tab is open. One
+  // still on older bundles surfaces an "update ready" prompt and only then
+  // requests activation.
 });
 
 self.addEventListener('activate', function (event) {
@@ -66,14 +67,19 @@ self.addEventListener('activate', function (event) {
   })());
 });
 
-// The page posts SKIP_WAITING to activate this worker, either when the user
-// accepts an update or quietly when the page already runs the bundles this
-// worker ships. GET_PRECACHE is how it tells (see js/pwa.js), and the reply
-// goes to the MessageChannel port it sends.
+// The page posts SKIP_WAITING once the user accepts an available update.
+// SKIP_WAITING_IF_ALONE comes from a page that already runs the live bundles
+// (see js/pwa.js). Activating drops the old caches, and another open tab still
+// on the old bundles may yet load a lazy chunk from them (the Code view's
+// editor is only in the runtime cache), so that one waits for a lone page.
 self.addEventListener('message', function (event) {
   var type = event.data && event.data.type;
   if (type === 'SKIP_WAITING') self.skipWaiting();
-  else if (type === 'GET_PRECACHE' && event.ports && event.ports[0]) event.ports[0].postMessage(PRECACHE);
+  else if (type === 'SKIP_WAITING_IF_ALONE') {
+    event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (pages) {
+      if (pages.length <= 1) return self.skipWaiting();
+    }));
+  }
 });
 
 function isHtmlNavigation(request) {
