@@ -1395,11 +1395,13 @@ function costBand(cents) {
 }
 
 // A request's input size in tokens (uncached, cache read and cache written
-// together), banded for the analytics events like costBand. The edges sit
-// around the compaction threshold (ModelCore compactAt) so its effect shows.
+// together), banded for the analytics events like costBand. Bands are 100k
+// wide up to 1M, so the sizes builds reach show where to set the compaction
+// threshold (ModelCore compactAt). Below 100k it's split at 50k.
 const CONTEXT_BANDS = [
-    [50000, '<50k'], [100000, '50-100k'], [150000, '100-150k'], [200000, '150-200k'],
-    [500000, '200-500k'], [1000000, '500k-1M'],
+    [50000, '<50k'], [100000, '50-100k'], [200000, '100-200k'], [300000, '200-300k'],
+    [400000, '300-400k'], [500000, '400-500k'], [600000, '500-600k'], [700000, '600-700k'],
+    [800000, '700-800k'], [900000, '800-900k'], [1000000, '900k-1M'],
 ];
 function contextBand(tokens) {
     const v = Number(tokens) || 0;
