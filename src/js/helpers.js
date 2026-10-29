@@ -1491,6 +1491,16 @@ function contextBand(tokens) {
     return '1M+';
 }
 
+// How long a build ran before the user gave up on it (Build Abandoned), banded
+// like costBand. The first edges sit around the first wait, before the model
+// shows anything, which takes from a second up to several on a big first build.
+const WAIT_BANDS = [[5000, '<5s'], [10000, '5-10s'], [30000, '10-30s'], [60000, '30-60s'], [180000, '1-3m']];
+function waitBand(ms) {
+    const v = Number(ms) || 0;
+    for (const [below, label] of WAIT_BANDS) if (v < below) return label;
+    return '3m+';
+}
+
 /**
  * Format a token count compactly with unit suffixes — 1.2K, 3.4M, 1.5B — so the
  * project-info dialog shows readable magnitudes instead of long digit strings

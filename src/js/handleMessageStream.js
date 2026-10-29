@@ -445,6 +445,7 @@ async function handleMessageStream(stream, context) {
 
             if (completion.type === 'reasoning') {
                 if (typeof completion.reasoning === 'string' && completion.reasoning.length) {
+                    window.noteTurnProgress?.();
                     thinkingPreview ||= createThinkingPreview(context);
                     thinkingPreview.append(completion.reasoning);
                 }
@@ -455,6 +456,7 @@ async function handleMessageStream(stream, context) {
             // that is what runs.
             if (completion.type === 'tool_use_start') {
                 clearThinking();
+                window.noteTurnProgress?.();
                 startSpinnerStub();
                 progress = { id: completion.id, name: completion.name, json: '', path: null };
                 // `write` and `edit` wait for their path, which comes in the

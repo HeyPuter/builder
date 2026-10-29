@@ -28,8 +28,13 @@ let _sendSetupInFlight = false;
 // tell "I finished" from "a newer turn in this same chat has since begun" —
 // the chat-id guards can't, and a stale teardown would clobber the live turn.
 let _turnSeq = 0;
-// Set once the current turn streams text or a tool call (see noteTurnProgress).
+// Set once the current turn streams text, reasoning or a tool call (see
+// noteTurnProgress).
 let _turnProgressed = false;
+// The build this tab is running, for the Build Abandoned event: its turn, when
+// it was sent, and whether it is the project's first. Set with Build Started,
+// cleared once reported or when that turn ends (see trackBuildAbandoned).
+let _activeBuild = null;
 // The newest turn started in each chat (chatId -> its _turnSeq). A stopped turn
 // that only unwinds after a newer one has begun in the SAME chat must leave the
 // chat's persisted state to that newer turn (see the finally in sendChatMessage).
@@ -1415,7 +1420,7 @@ async function deleteChat(chatId) {
         // and a build still running in it is stopped BEFORE its files go, so no
         // tool write can land in — or recreate — the directory mid-delete.
         _deletedChatIds.add(chatId);
-        if (currentChatId === chatId) terminateActiveTurn();
+        if (currentChatId === chatId) terminateActiveTurn('deleted');
         // The Code view closes this project's open files and can never save
         // into it again. Its records go once the delete has worked (below).
         window.CodeEditor?.onProjectDeleting?.(chatId);
@@ -3207,13 +3212,31 @@ function isStaleTurn(context) {
 window.isStaleTurn = isStaleTurn;
 window.isAborted = isAborted;
 
+// The user gave up on a build before it finished: stopped it, opened another
+// project or a new one, deleted this one, or left the page. Sent the moment
+// they do, so `waited` is how long they waited, and saw_output says whether
+// the model had shown anything yet or they left during the first wait.
+// Plausible's script sends with keepalive, so the event still goes out as the
+// page unloads. Errors and automatic retries that give up aren't counted, nor
+// is a turn Build Started didn't count, so the event divides by Build Started.
+function trackBuildAbandoned(how) {
+    const build = _activeBuild;
+    if (!build || !isProcessing) return;
+    _activeBuild = null;
+    window.track?.('Build Abandoned', {
+        how, saw_output: _turnProgressed, waited: waitBand(Date.now() - build.startedAt), first_build: build.firstBuild,
+    });
+}
+window.addEventListener('pagehide', () => trackBuildAbandoned('left'));
+
 // Hard-stop the in-flight AI turn (if any). Called whenever the chat context
 // changes — starting a new chat or switching to another — so a request that's
 // still streaming can't append text or run further tool calls. Aborts the
 // network stream and sets shouldStop; the stale-turn guard above is the
 // belt-and-suspenders for the window before abortController is assigned.
-function terminateActiveTurn() {
+function terminateActiveTurn(how = 'switched') {
     if (!isProcessing) return;
+    trackBuildAbandoned(how);
     shouldStop = true;
     activeTurnInterrupted = true;
     if (abortController) {
@@ -4103,13 +4126,15 @@ function noteTurnActivity() {
 }
 window.noteTurnActivity = noteTurnActivity;
 
-// The model produced output this turn, text or a tool call. The out-of-credits
-// dialog reads it to tell a build that stopped partway from a request Puter
-// refused before anything happened.
+// The model produced output this turn: text, reasoning, or a tool call (from
+// the moment it starts). The out-of-credits dialog reads it to tell a build
+// that stopped partway from a request Puter refused before anything happened,
+// and Build Abandoned to tell leaving during the first wait from leaving later.
 function noteTurnProgress() {
     _turnProgressed = true;
 }
 window.noteTurnProgress = noteTurnProgress;
+
 
 // Bracket a tool's local execution (tools.js). While a tool runs the turn isn't
 // waiting on any socket — the next round's request only opens once the tool
@@ -4572,6 +4597,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     }
 
     if (isProcessing) {
+        trackBuildAbandoned('stopped');
         stopActiveTurn();
         // Stop overrides what Puter is doing: with messages queued during the
         // turn, the next one goes now, and there is nothing to resume
@@ -4820,6 +4846,8 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     acquireWakeLock();
     // This turn's id — see _turnSeq and the end-of-turn guard below.
     const turnSeq = ++_turnSeq;
+    // When the user sent it, for Build Abandoned's `waited`.
+    const turnStartedAt = Date.now();
     // Tell a caller that tracks its own turn (the Issues panel's batch) which
     // turn is carrying it.
     if (typeof opts.onTurnStart === 'function') {
@@ -5201,6 +5229,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             isFirstBuildTurn = countUserMessages(turnSaveContext.chatHistory) === 0;
             if (isFirstBuildTurn) window.track?.('Project Created');
             window.track?.('Build Started', { first_build: isFirstBuildTurn, has_attachments: atts.length > 0, ...(queued && { queued: true }) });
+            _activeBuild = { turnSeq, startedAt: turnStartedAt, firstBuild: isFirstBuildTurn };
 
             const messageContent = contentParts.length > 0 ? contentParts : messageText;
             turnSaveContext.chatHistory.push({ role: "user", content: messageContent, messageId });
@@ -5483,6 +5512,9 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // finished conversation. A resume turn keeps the flag: its history WAS
         // interrupted, whether or not this attempt got as far as a nudge.
         const turnAppended = userMessageAppended;
+        // The build is over, whichever way. Only this turn's: a newer one
+        // may already have started after a Stop.
+        if (_activeBuild && _activeBuild.turnSeq === turnSeq) _activeBuild = null;
         turnSaveContext.interrupted = !turnSucceeded && !turnErrored && (isResume || turnAppended);
 
         // Record the AI usage of rounds that ran before a Stop, an error or a

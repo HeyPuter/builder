@@ -441,7 +441,7 @@ function fnSlice(src, header) {
 {
     const send = fnSlice(APP, 'async function sendChatMessage(');
     check('Stop stops the turn, then sends the next queued message, or offers Resume when none is queued',
-        /if \(isProcessing\) \{\s*stopActiveTurn\(\);[\s\S]{0,300}?if \(window\.MessageQueue\?\.sendNext\?\.\(\)\) return;[\s\S]*?showResumeBanner\(\);\s*return;/.test(send));
+        /if \(isProcessing\) \{\s*(?:trackBuildAbandoned\('stopped'\);\s*)?stopActiveTurn\(\);[\s\S]{0,300}?if \(window\.MessageQueue\?\.sendNext\?\.\(\)\) return;[\s\S]*?showResumeBanner\(\);\s*return;/.test(send));
     const stop = fnSlice(APP, 'function stopActiveTurn(');
     check('stopActiveTurn marks, aborts and frees the composer, for Stop and Send now alike',
         /activeTurnInterrupted = true;[\s\S]*abortController\.abort\(\);[\s\S]*resetUIForAbort\(\);/.test(stop)
