@@ -336,9 +336,11 @@ await check('context bands', () => {
     assert.equal(contextBand(0), 'unknown');
     assert.equal(contextBand(undefined), 'unknown');
     assert.equal(contextBand(49999), '<50k');
-    assert.equal(contextBand(100000), '100-150k');
-    assert.equal(contextBand(480000), '200-500k');
-    assert.equal(contextBand(999999), '500k-1M');
+    assert.equal(contextBand(99999), '50-100k');
+    assert.equal(contextBand(100000), '100-200k');
+    assert.equal(contextBand(250000), '200-300k');
+    assert.equal(contextBand(480000), '400-500k');
+    assert.equal(contextBand(999999), '900k-1M');
     assert.equal(contextBand(1000000), '1M+');
 });
 
