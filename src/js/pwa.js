@@ -1,9 +1,11 @@
-// PWA runtime: registers the service worker, surfaces an "update ready" prompt
-// when a new version has installed, and offers an install affordance driven by
-// the beforeinstallprompt event. Everything here runs after `load` so it never
-// competes with the app's first paint. Classic global script (see vite.config.js
-// SCRIPTS) — no imports; depends only on window.showToast and (optionally)
-// window.plausible, both of which load earlier.
+// PWA runtime: registers the service worker, keeps it current, and offers an
+// install affordance driven by the beforeinstallprompt event. Both offers stay
+// out of the way of someone typing a prompt. The install toast waits for a
+// build turn, and the "new version" toast only reaches a tab that really is
+// behind. Everything here runs after `load` so it never competes with the
+// app's first paint. Classic global script (see vite.config.js SCRIPTS) — no
+// imports; depends only on window.showToast and (optionally) window.plausible,
+// both of which load earlier.
 (function () {
   if (!('serviceWorker' in navigator)) return;
 
@@ -44,12 +46,36 @@
            window.navigator.standalone === true;
   }
 
+  // ---- Build turns ---------------------------------------------------------
+  // updateSendButtonState (helpers.js), the one place the composer flips
+  // between a running turn and idle, reports here. The install offer shows
+  // while a turn runs, when the user is waiting rather than typing, and an
+  // update prompt found mid-turn is held until it ends.
+  var turnRunning = false;
+  window.pwaTurnChanged = function (processing) {
+    processing = !!processing;
+    if (processing === turnRunning) return;
+    turnRunning = processing;
+    if (processing) { scheduleInstallOffer(); return; }
+    cancelInstallOffer();
+    if (heldUpdate) {
+      var held = heldUpdate;
+      heldUpdate = null;
+      promptUpdate(held.reg, held.worker);
+    }
+  };
+
   // ---- Update flow -------------------------------------------------------
-  // A newly installed worker WAITS (sw.js never self-skips). We tell the user a
-  // new version is ready and only activate it — and reload — when they accept,
-  // so a live build session is never disrupted mid-turn.
-  // Only a user-accepted update should reload the page. The very first install
-  // also fires 'controllerchange' (via clients.claim), and that must NOT reload.
+  // A newly installed worker WAITS (sw.js never self-skips). Navigations are
+  // network-first, so a visit after a deploy already runs the new bundles
+  // while the browser installs the new worker beside them. Telling that user
+  // "a new version is available" was false, and it landed right as they went
+  // to type. So a new worker is activated quietly when this page already runs
+  // what it ships, and only a tab still on older bundles (left open across a
+  // deploy, or booted from the cached shell while offline) is asked to reload.
+  // Only a user-accepted update reloads the page. Every other takeover also
+  // fires 'controllerchange' (the first install's clients.claim, a quiet
+  // activation here or in another tab), and that must NOT reload.
   var updateAccepted = false;
   function acceptUpdate(worker) {
     updateAccepted = true;
@@ -79,8 +105,8 @@
         onClick: function () {
           var waiting = reg && reg.waiting;
           if (waiting) { acceptUpdate(waiting); return; }
-          // Nothing left waiting: another tab's Reload already activated this
-          // version (its clients.claim() took this tab over too, but only the
+          // Nothing left waiting: another tab already activated this version
+          // (its clients.claim() took this tab over too, but only the
           // accepting tab reloads). Messaging the now-active worker changed
           // nothing — no controllerchange, no reload, the toast just closed
           // and this tab kept running the old code. Load the new version.
@@ -89,12 +115,61 @@
       },
     });
   }
+  // A prompt that comes up while a turn runs waits for it to end.
+  var heldUpdate = null;
+  function offerUpdate(reg, worker) {
+    if (turnRunning) { heldUpdate = { reg: reg, worker: worker }; return; }
+    promptUpdate(reg, worker);
+  }
 
+  // The same-origin bundles this page booted with, read now (pwa.js runs at
+  // the end of the app bundle in <head>, after every one of them) so a chunk
+  // loaded later can't join the list.
+  var pageAssets = (function () {
+    var urls = [];
+    var nodes = document.querySelectorAll('script[src], link[rel="stylesheet"][href]');
+    for (var i = 0; i < nodes.length; i++) {
+      var u;
+      try { u = new URL(nodes[i].src || nodes[i].href, location.href); } catch (e) { continue; }
+      if (u.origin === location.origin && /^\/assets\//.test(u.pathname)) urls.push(u.pathname);
+    }
+    return urls;
+  })();
+
+  // Resolves true when `worker` precaches every bundle this page runs, false
+  // when it doesn't (this tab is behind it), null when it can't tell.
+  function pageRunsWorker(worker) {
+    return new Promise(function (resolve) {
+      if (!pageAssets.length || typeof MessageChannel === 'undefined') { resolve(null); return; }
+      var channel = new MessageChannel();
+      var timer = setTimeout(function () { resolve(null); }, 5000);
+      channel.port1.onmessage = function (e) {
+        clearTimeout(timer);
+        var shell = Array.isArray(e.data) ? e.data : null;
+        resolve(shell ? pageAssets.every(function (u) { return shell.indexOf(u) !== -1; }) : null);
+      };
+      try { worker.postMessage({ type: 'GET_PRECACHE' }, [channel.port2]); }
+      catch (e) { clearTimeout(timer); resolve(null); }
+    });
+  }
+
+  // Switch to a newly installed worker quietly unless this tab is behind it.
+  // Unsure counts as current, since a false prompt is what this replaced.
+  function handleNewWorker(reg, worker) {
+    if (!worker) return;
+    pageRunsWorker(worker).then(function (current) {
+      if (current === false) { offerUpdate(reg, worker); return; }
+      try { worker.postMessage({ type: 'SKIP_WAITING' }); } catch (e) {}
+    });
+  }
+
+  var registration = null;
   window.addEventListener('load', function () {
     navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
       .then(function (reg) {
+        registration = reg;
         // A worker already waiting from a previous visit.
-        if (reg.waiting && navigator.serviceWorker.controller) promptUpdate(reg, reg.waiting);
+        if (reg.waiting && navigator.serviceWorker.controller) handleNewWorker(reg, reg.waiting);
 
         reg.addEventListener('updatefound', function () {
           var installing = reg.installing;
@@ -103,7 +178,7 @@
             // "installed" + an existing controller => this is an UPDATE, not the
             // first install. (First install has no controller and shouldn't nag.)
             if (installing.state === 'installed' && navigator.serviceWorker.controller) {
-              promptUpdate(reg, reg.waiting || installing);
+              handleNewWorker(reg, reg.waiting || installing);
             }
           });
         });
@@ -114,12 +189,21 @@
       .catch(function () { /* registration failed; the app still works online */ });
 
     // When the worker the user ACCEPTED takes control, reload once to pick up
-    // the new asset set. The first-install claim also fires controllerchange —
-    // updateAccepted gates that out so first load never reloads. Guarded to fire
-    // at most once.
+    // the new asset set. Guarded to fire at most once. Any other takeover may
+    // be another tab's quiet activation of a version this tab is behind, which
+    // would leave it on old bundles with nothing left waiting to announce it.
     var refreshing = false;
     navigator.serviceWorker.addEventListener('controllerchange', function () {
-      if (refreshing || !updateAccepted) return;
+      if (!updateAccepted) {
+        var active = navigator.serviceWorker.controller;
+        if (active) {
+          pageRunsWorker(active).then(function (current) {
+            if (current === false) offerUpdate(registration, active);
+          });
+        }
+        return;
+      }
+      if (refreshing) return;
       refreshing = true;
       window.location.reload();
     });
@@ -128,9 +212,17 @@
   });
 
   // ---- Install flow ------------------------------------------------------
+  // Chrome fires beforeinstallprompt seconds after load, right when someone is
+  // about to type their first prompt. So the event is kept and the offer waits
+  // until a build turn has run for a few seconds, then leaves when the turn
+  // ends. It shows at most once per page load, and only its × snoozes it.
   var deferredPrompt = null;
   var INSTALL_SNOOZE_KEY = 'pwaInstallDismissedAt';
   var SNOOZE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+  var INSTALL_DELAY_MS = 5000; // into the turn, so a quick answer never shows it
+  var installTimer = null;
+  var installOffered = false;
+  var installToast = null;
 
   function snoozed() {
     try {
@@ -153,9 +245,25 @@
   };
   window.canInstallPWA = function () { return !!deferredPrompt; };
 
+  function scheduleInstallOffer() {
+    if (!turnRunning || installTimer || installOffered || !deferredPrompt) return;
+    installTimer = setTimeout(function () {
+      installTimer = null;
+      if (turnRunning) offerInstall();
+    }, INSTALL_DELAY_MS);
+  }
+
+  function cancelInstallOffer() {
+    clearTimeout(installTimer);
+    installTimer = null;
+    // Dismissed in code, so onDismiss (the snooze) doesn't run.
+    if (installToast) { installToast.dismiss(); installToast = null; }
+  }
+
   function offerInstall() {
     if (!deferredPrompt || isStandalone() || snoozed() || !window.showToast) return;
-    window.showToast('Install AI Builder for a faster, app-like experience.', {
+    installOffered = true;
+    installToast = window.showToast('Install AI Builder for a faster, app-like experience.', {
       type: 'info',
       key: 'pwa-install',
       duration: 0,
@@ -173,11 +281,12 @@
   window.addEventListener('beforeinstallprompt', function (e) {
     e.preventDefault(); // keep the mini-infobar from appearing; we drive it
     deferredPrompt = e;
-    offerInstall();
+    scheduleInstallOffer();
   });
 
   window.addEventListener('appinstalled', function () {
     deferredPrompt = null;
+    cancelInstallOffer();
     track('PWA Installed');
   });
 })();

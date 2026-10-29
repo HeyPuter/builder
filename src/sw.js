@@ -46,8 +46,9 @@ self.addEventListener('install', function (event) {
   })());
   // Intentionally NOT calling skipWaiting() here: a freshly installed worker
   // waits until the page tells it to activate (see the 'message' handler), so we
-  // never swap the asset set out from under a live session. The page surfaces an
-  // "update ready" prompt and only then requests activation.
+  // never swap the asset set out from under a live session. A page already on
+  // this worker's bundles activates it straight away. One still on older
+  // bundles surfaces an "update ready" prompt and only then requests activation.
 });
 
 self.addEventListener('activate', function (event) {
@@ -65,9 +66,14 @@ self.addEventListener('activate', function (event) {
   })());
 });
 
-// The page posts this once the user accepts an available update.
+// The page posts SKIP_WAITING to activate this worker, either when the user
+// accepts an update or quietly when the page already runs the bundles this
+// worker ships. GET_PRECACHE is how it tells (see js/pwa.js), and the reply
+// goes to the MessageChannel port it sends.
 self.addEventListener('message', function (event) {
-  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
+  var type = event.data && event.data.type;
+  if (type === 'SKIP_WAITING') self.skipWaiting();
+  else if (type === 'GET_PRECACHE' && event.ports && event.ports[0]) event.ports[0].postMessage(PRECACHE);
 });
 
 function isHtmlNavigation(request) {
