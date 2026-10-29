@@ -53,8 +53,9 @@ window.FEATURE_FLAGS = {
     // per-model request shaping in js/model-core.js). A paid Puter plan picks
     // the model a project builds with; free users see the list locked with an
     // upgrade offer. When false the button is gone and every project builds
-    // with the default model, whatever it was set to.
-    modelPicker: true,
+    // with the default model, whatever it was set to. Disabled for now;
+    // re-enable by setting true.
+    modelPicker: false,
     // The Code view: a Preview | Code toggle in the preview toolbar that shows
     // the project's files (js/code-editor.js, with the pure rules in
     // js/editor-core.js). Free users read, search and copy them, and a paid
