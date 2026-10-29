@@ -487,6 +487,45 @@ function fnSlice(src, header) {
     check('npm test runs this file', PKG.scripts.test.includes('scripts/test-message-queue.mjs'));
 }
 
+// --- A stopped turn unwinding under the next one -----------------------------
+// Stop with messages queued starts the next turn at once, while the stopped
+// one may still be uploading or giving up its request.
+{
+    const send = fnSlice(APP, 'async function sendChatMessage(');
+    check('a stopped turn that throws after a newer one started shows no error card in it',
+        send.includes('if (!shouldStop && !activeTurnInterrupted && turnChatId === currentChatId && turnSeq === _turnSeq) {'));
+    check('…and leaves the newer turn\'s dots alone', /if\(spinner && turnSeq === _turnSeq\)\s*spinner\.remove\(\);/.test(send));
+    check('its unsent message comes back even when a newer turn has started',
+        send.includes('if (!isResume && (consumedComposer || queued) && !turnAppended && turnChatId === currentChatId) {')
+        && send.includes('if (turnSeq === _turnSeq) clearResumeBanner();'));
+    check('a clarify reply keeps queued messages in the draft',
+        /if \(window\.MessageQueue\?\.withQueuedText\?\.\(''\)\) saveComposerDraft\(\);\s*else clearComposerDraft\(\);/.test(send));
+    const snap = send.indexOf('const preAuthEditTarget = window._pendingEditTarget || null;');
+    check('a send takes its picked element when it starts, like its text and files',
+        snap > 0 && snap < send.indexOf('await ensureAuthenticated();')
+        && send.includes('if (consumedComposer && window._pendingEditTarget === preAuthEditTarget) window.clearEditTarget?.();'));
+}
+{
+    // clearAllAttachments({ only }) leaves files attached during the send.
+    const a = APP.indexOf('function clearAllAttachments(opts) {');
+    const b = APP.indexOf('\n}\n', a) + 3;
+    const env = { attachedImages: [], window: {}, revoked: [], timers: 0 };
+    const fn = new Function('env', `with (env) {\n${APP.slice(a, b)}\nreturn clearAllAttachments;\n}`)(Object.assign(env, {
+        updateAttachmentDisplay() {},
+        revokeAttachmentURL: (x) => env.revoked.push(x.name),
+        setTimeout: (f) => { env.timers++; f(); },
+    }));
+    const sent = { name: 'sent.png' };
+    const later = { name: 'later.png' };
+    env.attachedImages = [sent, later];
+    fn({ deferRevoke: true, only: [sent] });
+    check('a send clears only the files it sent from the tray',
+        env.attachedImages.length === 1 && env.attachedImages[0] === later && env.window.attachedImages === env.attachedImages);
+    check('…revoking only theirs, after the delay', env.revoked.join() === 'sent.png' && env.timers === 1);
+    fn();
+    check('a plain Clear still empties the tray', env.attachedImages.length === 0 && env.revoked.join() === 'sent.png,later.png');
+}
+
 // --- Stop is a stop button ---------------------------------------------------
 check('the running-turn button shows a stop square, not pause',
     /window\.stop_svg = '<svg[^']*<path d="M5 1h14/.test(INDEX) && !INDEX.includes('pause_svg')

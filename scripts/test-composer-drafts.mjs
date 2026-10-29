@@ -522,7 +522,9 @@ check('programmatic sends do not take or clear the attachment tray (a queued one
     sendSrc.includes('const atts = sendAttachments;') &&
     // (deferRevoke: the bubble just rendered from these blob URLs may still be
     // loading them — see clearAllAttachments.)
-    /if \(consumedComposer\) clearAllAttachments\(\{ deferRevoke: true \}\);/.test(sendSrc));
+    // (only: the files sent. Files attached during the send's uploads are
+    // for the next message.)
+    /if \(consumedComposer\) clearAllAttachments\(\{ deferRevoke: true, only: atts \}\);/.test(sendSrc));
 // The tray is snapshotted next to the composer text, before the sign-in gate:
 // a deep-link load inside ensureAuthenticated empties the tray, so reading it
 // afterwards dropped the files the user attached to the message being sent.
@@ -530,8 +532,8 @@ check('send snapshots the attachment tray BEFORE ensureAuthenticated',
     sendSrc.indexOf('const preAuthAttachments = attachedImages.slice();') > 0 &&
     sendSrc.indexOf('const preAuthAttachments = attachedImages.slice();') < sendSrc.indexOf('await ensureAuthenticated();'));
 check('programmatic sends do not spend the click-to-edit target (a queued one carries its own)',
-    sendSrc.includes(': consumedComposer ? window._pendingEditTarget : (queued && queued.editTarget);') &&
-    sendSrc.includes('if (consumedComposer) window.clearEditTarget?.();'));
+    sendSrc.includes(': consumedComposer ? preAuthEditTarget : (queued && queued.editTarget);') &&
+    sendSrc.includes('if (consumedComposer && window._pendingEditTarget === preAuthEditTarget) window.clearEditTarget?.();'));
 check('an attachment-only composer or queued send still goes through',
     /if \(!isResume && !messageText && sendAttachments\.length === 0\) \{[^}]*return; \}/.test(sendSrc));
 
