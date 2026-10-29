@@ -546,6 +546,9 @@ function setup() {
             previewSubdomain: (u) => (String(u).match(/^https:\/\/([^.]+)\.puter\.site/) || [])[1] || null,
             resolvePublishedDir: async (p) => p,
             absolutizeSocialImagesInRelease: async () => {},
+            // A release with no dynamic backend: nothing to ask or move.
+            planSiteMove: async () => ({ moveApp: false, backends: [] }),
+            finishSiteMove: async () => {},
             saveCurrentChat: async () => log.push('save'),
             puter: { hosting: { create: async (sub) => log.push('create:' + sub), delete: async (sub) => log.push('delete:' + sub) } },
         };
@@ -594,6 +597,13 @@ function setup() {
     check('no published files: refused, nothing created or dropped', code === 'no-files'
         && !lost.log.some(l => l.startsWith('create') || l.startsWith('delete')), lost.log.join());
     check('…and the project isn\'t left marked as changing', lost.sb.isAddressChanging('p') === false);
+    // The user keeps the address at the backend question (planSiteMove).
+    const kept = make();
+    kept.sb.planSiteMove = async () => null;
+    const k = await kept.sb.changePublishedAddress('new');
+    check('the address kept at the backend question: cancelled, nothing created or dropped',
+        k.cancelled === true && k.changed === false && !kept.log.some(l => l.startsWith('create') || l.startsWith('delete')), kept.log.join());
+    check('…and the project isn\'t left marked as changing', kept.sb.isAddressChanging('p') === false);
     const bad = make();
     try { await bad.sb.changePublishedAddress('-bad-'); } catch (e) { code = e.code; }
     check('an invalid address is refused', code === 'invalid-name' && bad.log.length === 0);

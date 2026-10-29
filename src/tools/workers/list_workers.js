@@ -11,6 +11,11 @@ window.tools.push({
         },
         strict: false
     },
+    // What a project with dynamic backends is told instead (see
+    // SiteBackends.toolsFor).
+    dynamic: {
+        description: "Lists THIS project's backends: the files in __workers/ (in backends, with the path the pages call each one at and where it runs on the preview), and any older worker the project deployed with create_worker (in workers). Workers belonging to other projects on the account are not listed and cannot be used from here.",
+    },
     exec: async function(args, state) {
         // Deployed workers are ACCOUNT-level resources shared by every project
         // (and every other Puter app) on the account, so the raw list is not this
@@ -30,7 +35,7 @@ window.tools.push({
         const root = window.projectRootDir(state);
         if (!root) throw new Error('Cannot determine the project directory, so the worker operation was refused for safety.');
         const workers = window.WorkerOwnership.ownedWorkers(await puter.workers.list(), root);
-        return {
+        const out = {
             success: true,
             workers: workers.map(w => ({
                 name: w.name,
@@ -39,5 +44,18 @@ window.tools.push({
                 created_at: w.created_at
             }))
         };
+        // A dynamic backend is a file of this project, so its list is the
+        // project's own __workers folder (see js/site-backends.js).
+        const SB = window.SiteBackends;
+        const site = SB?.siteOf(state) || null;
+        if (site) {
+            out.backends = (await SB.list(site.servedDir)).map(b => ({
+                name: b.name,
+                file_path: b.path,
+                path: SB.pathOf(b.name),
+                preview_url: SB.urlOf(site.previewUrl, b.name),
+            }));
+        }
+        return out;
     }
 })
