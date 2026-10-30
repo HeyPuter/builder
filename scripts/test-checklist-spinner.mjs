@@ -53,7 +53,10 @@ function setup({ items = null, spinner = false } = {}) {
         if (typeof sel === 'string' && sel.includes('floating-spinner')) { state.created++; return node(1); }
         return node(sel === '.chat-box' ? 1 : 0);
     };
-    const env = { $, window: { shouldAutoScroll: false }, setTimeout() {} };
+    // New dots start the wait for their "Working" label (setSpinnerLabel),
+    // which finds no label here.
+    const env = { $, window: { shouldAutoScroll: false }, setTimeout() {}, clearTimeout() {},
+        document: { querySelector: () => null } };
     vm.createContext(env);
     vm.runInContext(source, env);
     return { env, state };
