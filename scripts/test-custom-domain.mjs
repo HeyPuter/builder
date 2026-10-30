@@ -1053,7 +1053,11 @@ check('the AI offers the chat\'s domain button, and says it needs a paid plan', 
 }
 const publish = ui.slice(ui.indexOf('async function doPublish('), ui.indexOf('async function loadPublishedSiteMeta('));
 check('a first publish with a reserved name points that name at the release, after filling in the address',
-    /if \(!existingSub && reserved\) \{[\s\S]*?const sub = await reserved;\s*url = `https:\/\/\$\{sub\}\.puter\.site\/`;\s*await absolutizeSocialImagesInRelease\(releaseDir, url, \[startPreviewUrl\]\);\s*await puter\.hosting\.update\(sub, releaseDir\);\s*_reservedPublishNames\.delete\(chatId\);\s*\} else if \(!existingSub\)/.test(publish));
+    /if \(!existingSub && reserved\) \{[\s\S]*?const sub = await reserved;\s*url = `https:\/\/\$\{sub\}\.puter\.site\/`;\s*await absolutizeSocialImagesInRelease\(releaseDir, url, \[startPreviewUrl\]\);[\s\S]*?await puter\.hosting\.update\(sub, releaseDir\);\s*_reservedPublishNames\.delete\(chatId\);\s*\} else if \(!existingSub\)/.test(publish));
+// Nothing has run at the reserved name, so a dynamic backend's app and keys
+// get there before the release does (see site-backends.js).
+check('…with its dynamic backends\' app and keys in place first',
+    /const sub = await reserved;[\s\S]*?registerApp\(url, [^;]*'live'\);\s*\}\s*siteBackendKeys = await publishSiteBackends\(startPreviewUrl, url, releaseDir\);\s*await puter\.hosting\.update\(sub, releaseDir\);/.test(publish));
 check('…and only a first publish uses one', /let reserved = isFirst \? \(ui\.reserved \|\| null\) : null;/.test(publish));
 check('the popover passes the reserved name to the shared publish', /async function doPublish\(\{ reserved = null \} = \{\}\) \{[\s\S]{0,400}return publishProject\(\{[\s\S]{0,200}\breserved,/.test(publish));
 check('a plain Publish (the popover\'s Enter, or the chat\'s card) waits while the own-domain route reserves the name',
