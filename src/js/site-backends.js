@@ -67,12 +67,14 @@ window.SiteBackends = (function () {
     // with dynamic backends gets no tool marked legacyOnly (create_worker),
     // and the wording in each tool's `dynamic` block, which can replace its
     // description and its parameters' descriptions. Any other project gets
-    // the tools as they always were.
+    // the tools as they always were. Neither mark goes out with the tools,
+    // since they're sent to the AI as they are.
     function toolsFor(tools, history) {
-        const list = Array.isArray(tools) ? tools : [];
-        if (!isDynamicProject(history)) return list;
-        return list.filter((t) => t && !t.legacyOnly).map((t) => {
-            if (!t.dynamic) return t;
+        const list = (Array.isArray(tools) ? tools : []).filter(Boolean);
+        const bare = ({ dynamic, legacyOnly, ...t }) => t;
+        if (!isDynamicProject(history)) return list.map((t) => (t.dynamic || 'legacyOnly' in t ? bare(t) : t));
+        return list.filter((t) => !t.legacyOnly).map((t) => {
+            if (!t.dynamic) return bare(t);
             const spec = t.function;
             const props = {};
             for (const [key, prop] of Object.entries((spec.parameters && spec.parameters.properties) || {})) {
@@ -80,7 +82,7 @@ window.SiteBackends = (function () {
                 props[key] = said ? { ...prop, description: said } : prop;
             }
             return {
-                ...t,
+                ...bare(t),
                 function: {
                     ...spec,
                     description: t.dynamic.description || spec.description,
@@ -228,16 +230,26 @@ window.SiteBackends = (function () {
         const origin = siteOrigin(siteUrl);
         if (!origin) return null;
         const title = defaultTitle(projectTitle, kind);
+        let app;
         try {
-            const app = await puter.apps.create({ name: origin.slice('https://'.length).split('.')[0], indexURL: origin, title, dedupeName: true });
-            if (!app || !app.name || !app.uid) return null;
-            await puter.kv.set(APP_KEY + origin, { name: app.name, kind, defaultTitle: title, senderName: null });
-            uids.set(origin, app.uid);
-            return app;
+            app = await puter.apps.create({ name: origin.slice('https://'.length).split('.')[0], indexURL: origin, title, dedupeName: true });
         } catch (e) {
             console.warn('Could not register an app for', origin, e);
             return null;
         }
+        if (!app || !app.name || !app.uid) return null;
+        try {
+            await puter.kv.set(APP_KEY + origin, { name: app.name, kind, defaultTitle: title, senderName: null });
+        } catch (e) {
+            // Without its record Builder could never find the app again, and
+            // the site would run as it anyway. So it goes, and the site runs
+            // as the app Puter makes.
+            console.warn('Could not record the app for', origin, e);
+            try { await puter.apps.delete(app.name); } catch (e2) { console.warn('Could not remove the unrecorded app', app.name, e2); }
+            return null;
+        }
+        uids.set(origin, app.uid);
+        return app;
     }
 
     // Change the record of a site's app. Resolves whether it was there.
@@ -256,8 +268,18 @@ window.SiteBackends = (function () {
     // Follow a project's new name on the app Builder registered for its
     // site, while it still has the name Builder gave it. A sender name
     // chosen in chat, or a title set by hand in the Dev Center, stays. Best
-    // effort.
-    async function retitle(siteUrl, projectTitle) {
+    // effort. Renames of one site run one at a time, so a quick second one
+    // reads the record the first one left and the two never cross.
+    const retitles = new Map();
+    function retitle(siteUrl, projectTitle) {
+        const key = siteOrigin(siteUrl);
+        if (!key) return Promise.resolve();
+        const run = (retitles.get(key) || Promise.resolve()).then(() => retitleNow(siteUrl, projectTitle));
+        retitles.set(key, run);
+        run.then(() => { if (retitles.get(key) === run) retitles.delete(key); });
+        return run;
+    }
+    async function retitleNow(siteUrl, projectTitle) {
         try {
             const r = await record(siteUrl);
             if (!r) return;
@@ -275,28 +297,40 @@ window.SiteBackends = (function () {
 
     // Point the app Builder registered for `oldUrl` at `newUrl`, a site just
     // created, so the new address runs as the same app and keeps its data and
-    // keys. Resolves whether it moved. False when Builder has no app for the
-    // old address, or Puter refused.
+    // keys. Resolves whether it moved, and when it didn't, nothing changed.
+    // The new address's record is written first and removed again if Puter
+    // refuses, and a leftover old record is harmless, since a record only
+    // counts while its app still has that address (builderAppOf).
     async function moveApp(oldUrl, newUrl) {
         const origin = siteOrigin(newUrl);
+        let r;
+        try { r = await record(oldUrl); } catch (e) { return false; }
+        if (!r || !origin) return false;
+        try { await puter.kv.set(APP_KEY + origin, r); } catch (e) { return false; }
+        let moved = false;
         try {
-            const r = await record(oldUrl);
-            if (!r || !origin) return false;
-            const app = await puter.apps.update(r.name, { indexURL: origin });
-            await puter.kv.set(APP_KEY + origin, r);
-            await puter.kv.del(appKey(oldUrl));
-            uids.delete(siteOrigin(oldUrl));
-            if (app && app.uid) uids.set(origin, app.uid);
-            return true;
+            await puter.apps.update(r.name, { indexURL: origin });
+            moved = true;
         } catch (e) {
-            console.warn('Could not move the app of', oldUrl, 'to', newUrl, e);
+            // An update that reached Puter but whose answer got lost still
+            // moved the app.
+            try { moved = siteOrigin((await puter.apps.get(r.name)).index_url) === origin; } catch (e2) { /* not moved */ }
+            if (!moved) console.warn('Could not move the app of', oldUrl, 'to', newUrl, e);
+        }
+        if (!moved) {
+            try { await puter.kv.del(APP_KEY + origin); } catch (e) { /* only ever read with its app's address */ }
             return false;
         }
+        try { await puter.kv.del(appKey(oldUrl)); } catch (e) { /* only ever read with its app's address */ }
+        uids.delete(siteOrigin(oldUrl));
+        uids.delete(origin);
+        return true;
     }
 
-    // Whether Builder registered the app a site runs as.
+    // Whether Builder registered the app a site runs as. Throws when that
+    // can't be read, since "no" would leave the app behind.
     async function hasApp(siteUrl) {
-        try { return !!(await builderAppOf(siteUrl)); } catch (e) { return false; }
+        return !!(await builderAppOf(siteUrl));
     }
 
     // Delete the app Builder registered for a site, with the site. Throws
