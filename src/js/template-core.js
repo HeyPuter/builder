@@ -18,7 +18,10 @@
 // A fork deploys each one under a fresh account-unique name of its own, and
 // the template's frontend refers to a worker only through a placeholder,
 // {{WORKER_URL:<name>}}, which the fork replaces with that deployment's URL.
-// Nothing a fork runs is shared with anyone else's copy.
+// Nothing a fork runs is shared with anyone else's copy. With dynamic workers
+// on (site-backends.js), a fork writes each one to __workers/<name>.worker.js
+// instead, and the placeholder becomes the path /__workers/<name>, which runs
+// it on the fork's own site.
 //
 // PURE by design: no I/O, no DOM, no reads of other window.* modules. The
 // I/O half (fetching, forking, the landing section and dialog) is
@@ -187,7 +190,12 @@ window.TemplateCore = (function () {
             lines.push(`The live preview is already open and serves ${appDir}. It updates automatically when files change, so do not call publish_site for this project.`);
         }
         const workers = opts.workers || [];
-        if (workers.length) {
+        if (workers.some(w => w.dynamic)) {
+            lines.push('The app has a backend, a dynamic worker that runs on whichever site serves the project:');
+            for (const w of workers) {
+                lines.push(`- Source ${appDir}/__workers/${w.name}.worker.js, which the pages call at ${String(w.url).replace(/\/+$/, '')}. To change it, edit that file.`);
+            }
+        } else if (workers.length) {
             lines.push('The app has a serverless backend that is already deployed:');
             for (const w of workers) {
                 lines.push(`- Source ${appDir}/workers/${w.name}.js, running at ${String(w.url).replace(/\/+$/, '')}. Its worker name is the file name without ".js"; to change it, call create_worker with that same name and the full updated code.`);

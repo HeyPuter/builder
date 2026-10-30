@@ -14,9 +14,12 @@ window.tools = [];
 
 // The tools for a turn on `modelId`: the builder's own, then the MCP tools
 // that model can take (see ModelCore.turnTools).
-window.getTurnTools = function(modelId) {
+// `history` is the project's, whose kind of backend decides how the worker
+// tools read (SiteBackends.toolsFor).
+window.getTurnTools = function(modelId, history) {
     const mcp = window.mcpManager?.getTools() || [];
-    return window.ModelCore ? window.ModelCore.turnTools(modelId, window.tools, mcp) : [...window.tools, ...mcp];
+    const builtin = window.SiteBackends ? window.SiteBackends.toolsFor(window.tools, history) : window.tools;
+    return window.ModelCore ? window.ModelCore.turnTools(modelId, builtin, mcp) : [...builtin, ...mcp];
 };
 // The MCP tools left out of a turn on `modelId` ({label, server}), which the
 // model is told about (ModelCore.unavailableToolsNote).
@@ -48,7 +51,8 @@ const CUT_OFF_TOOL_ERROR = 'This call was cut off at the output limit before its
 // stampWorkerCanary in helpers.js), and after the save waits until the worker
 // serves that token (workerSaveResult). So the AI's result tells it whether
 // its change is live, and it never resends the whole worker to create_worker
-// just to deploy an edit.
+// just to deploy an edit. A dynamic backend's save (__workers/<name>.worker.js)
+// gets the same check, against the copy the preview runs.
 // Puter documents up to 30 seconds for a deploy to reach every edge.
 window.workerCanaryTiming = { pollMs: 500, limitMs: 30000 };
 
@@ -58,6 +62,15 @@ window.workerCanaryTiming = { pollMs: 500, limitMs: 30000 };
 window.workerSaveTarget = async function(path, state) {
     const root = window.projectRootDir(state);
     if (!root || typeof path !== 'string' || path.indexOf(root + '/') !== 0) return null;
+    // A dynamic backend runs from the file itself, on the open project's
+    // preview (see site-backends.js). With no preview yet there is nothing
+    // running it to wait for.
+    const site = window.SiteBackends?.siteOf(state);
+    const name = site && path.indexOf(site.servedDir + '/') === 0 ? window.SiteBackends.nameOf(path.slice(site.servedDir.length + 1)) : null;
+    if (name) {
+        const url = window.SiteBackends.urlOf(site.previewUrl, name);
+        return url ? { name, url, path } : null;
+    }
     if (!window.EditorCore?.classify(path.slice(root.length + 1)).backend) return null;
     let owned;
     try { owned = window.WorkerOwnership.ownedWorkers(await puter.workers.list(), root); }

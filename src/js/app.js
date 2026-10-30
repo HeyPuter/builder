@@ -1450,6 +1450,28 @@ async function deleteChat(chatId) {
             const m = (u || '').match(/^https?:\/\/([^.]+)\.puter\.site/);
             if (m) subsToDelete.add(m[1]);
         }
+        // A site's app and its store outlive the site (see site-backends.js).
+        // The keys a dynamic backend kept there go first, best effort like a
+        // worker's below, then the app Builder registered for the site, so no
+        // later site at that address runs as it. A folder that can't be read
+        // counts as holding a backend, since clearing never asks anything.
+        const SB = window.SiteBackends;
+        if (SB) {
+            let hasSiteBackends = false;
+            try { hasSiteBackends = (await SB.list(`/${window.user.username}/AppData/${puter.appID}/${chatId}`)).length > 0; }
+            catch (e) { hasSiteBackends = true; }
+            for (const u of new Set([chat?.previewUrl, chat?.publishedUrl].filter(Boolean))) {
+                // A lookup that fails counts as unfinished, like a failed
+                // delete, so a retry still finds the app.
+                await cleanup(`the app of ${u.replace(/^https:\/\//, '').replace(/\/+$/, '')}`, async () => {
+                    const registered = await SB.hasApp(u);
+                    if (registered || hasSiteBackends) {
+                        try { await window.WorkerSecrets?.clear({ site: u }); } catch (e) { /* best effort */ }
+                    }
+                    if (registered) await SB.deleteApp(u);
+                });
+            }
+        }
         for (const sub of subsToDelete) {
             await cleanup(`the site ${sub}.puter.site`, () => puter.hosting.delete(sub));
         }
@@ -1842,6 +1864,12 @@ async function duplicateChat(chatId) {
             ? window.WorkerOwnership.rewriteHistory(clonedHistory, workerRenames)
             : clonedHistory;
 
+        // The copy's name: "X copy", then "X copy 2", "X copy 3"…
+        const baseTitle = source.title || savedChats.find(c => c.id === chatId)?.title || 'Untitled';
+        const taken = new Set(savedChats.map(c => c.title || ''));
+        let newTitle = `${baseTitle} copy`;
+        for (let n = 2; taken.has(newTitle); n++) newTitle = `${baseTitle} copy ${n}`;
+
         // --- Publish the copy to its OWN subdomain (if the source was live) -
         let newPreviewUrl = null, newPreviewPath = null;
         if (filesCopied && origPreviewUrl) {
@@ -1855,20 +1883,42 @@ async function duplicateChat(chatId) {
                 copySubdomain = site.subdomain;
                 newPreviewUrl = `https://${site.subdomain}.puter.site/`;
                 newPreviewPath = publishRoot;
+                // A project with dynamic backends runs its preview as an app
+                // Builder registers now, before anything runs there (see
+                // site-backends.js). The copy is that kind if the original is.
+                if (window.SiteBackends?.isDynamicProject(clonedHistory)) {
+                    await window.SiteBackends.registerApp(newPreviewUrl, newTitle, 'preview');
+                }
             } catch (e) {
                 // Publishing failed — keep the copy unpublished rather than
                 // aborting the whole duplication; the user can republish later.
                 console.warn('Duplicate: could not publish the copy:', e);
             }
         }
+        // The copy's dynamic backends run on its own new preview, whose store
+        // starts empty (see site-backends.js). They get the original's keys
+        // and sender name, and a copy without them still works except for the
+        // calls that need them, so this never fails the duplicate.
+        if (newPreviewUrl && origPreviewUrl && window.SiteBackends) {
+            let backends = [];
+            try { backends = (await window.SiteBackends.list(newPreviewPath)).map(b => b.name); }
+            catch (e) { /* no backends to set up */ }
+            if (backends.length) {
+                const to = { site: newPreviewUrl, backends };
+                try {
+                    const keys = await window.WorkerSecrets?.copy({ site: origPreviewUrl }, to);
+                    if (keys && !keys.ok) {
+                        window.showToast?.('The copy’s backend didn’t get the original’s keys. Ask the AI in the copy to set them up again.',
+                            { type: 'warning', key: 'duplicate-keys', throttleMs: 5000 });
+                    }
+                } catch (e) { /* the warning above covers it */ }
+                try { await window.WorkerSender?.copy({ site: origPreviewUrl }, to); }
+                catch (e) { /* the copy still sends, under the default name */ }
+            }
+        }
 
         // --- Persist the new chat -------------------------------------------
         const now = new Date().toISOString();
-        const baseTitle = source.title || savedChats.find(c => c.id === chatId)?.title || 'Untitled';
-        // Disambiguate repeated copies: "X copy", then "X copy 2", "X copy 3"…
-        const taken = new Set(savedChats.map(c => c.title || ''));
-        let newTitle = `${baseTitle} copy`;
-        for (let n = 2; taken.has(newTitle); n++) newTitle = `${baseTitle} copy ${n}`;
         // Flag the name as customTitle so neither the first-message title
         // generator nor the AI auto-namer overwrites it (the copy shares the
         // original's first user message): the copy keeps its "… copy" name until
@@ -1939,6 +1989,10 @@ async function duplicateChat(chatId) {
         // site limit, and every retry would leak another set. Take them back.
         if (!copySaved && newAppDir) {
             if (copySubdomain) {
+                // Its app first (see site-backends.js), while the site still
+                // says which one it is.
+                try { await window.SiteBackends?.deleteApp(`https://${copySubdomain}.puter.site/`); }
+                catch (e) { console.warn('Duplicate: could not remove the app of the copy’s site:', e); }
                 try { await puter.hosting.delete(copySubdomain); }
                 catch (e) { console.warn('Duplicate: could not remove the copy’s site:', e); }
             }
@@ -1960,6 +2014,15 @@ window.duplicateChat = duplicateChat;
 // synchronously (before the first await) so callers can render the new title
 // optimistically; the on-disk chat-list index and the per-chat file (the latter
 // is what list recovery rebuilds from) are then persisted in the background.
+// The apps of a project's sites follow its name (site-backends.js). The open
+// project's addresses are read live as well, since a preview made this turn
+// isn't in its list entry until the turn's save.
+function retitleProjectApps(chatId, entry, title) {
+    const urls = [entry && entry.previewUrl, entry && entry.publishedUrl];
+    if (chatId === currentChatId) urls.push(window.currentPreviewUrl, window.currentPublishedUrl);
+    for (const u of new Set(urls.filter(Boolean))) void window.SiteBackends?.retitle(u, title);
+}
+
 async function renameChat(chatId, newTitle) {
     // Clamp to a sensible length (defense-in-depth beyond the editor's maxlength,
     // since a programmatic caller or paste could exceed it); trim again after the
@@ -1975,6 +2038,7 @@ async function renameChat(chatId, newTitle) {
     savedChats[idx].customTitle = true;
     // Reflect the rename in the tab title too (optimistically, like the sidebar).
     if (chatId === currentChatId) updateDocumentTitle();
+    retitleProjectApps(chatId, savedChats[idx], title);
 
     // Mirror the title into the per-chat file so it survives a chat-list rebuild
     // (recoverChatListFromFiles reads titles from these files). Read-modify-write
@@ -2636,6 +2700,9 @@ async function initAuthenticatedState() {
             { type: "text", text: window.system_prompt_dynamic(currentAppDir) }
         ]
     };
+    // A project made now gets dynamic backends when the flag is on, and keeps
+    // them, like the instructions above (see site-backends.js).
+    window.SiteBackends?.markNewProject(system_prompt);
     chatHistory = [system_prompt];
     window.ModelPicker?.render?.();
 
@@ -3146,6 +3213,7 @@ function new_chat({ updateUrl = true } = {}) {
                 { type: "text", text: window.system_prompt_dynamic(currentAppDir) }
             ]
         };
+        window.SiteBackends?.markNewProject(system_prompt);
         chatHistory = [system_prompt];
         window._authInitDone = authReady;
     }
@@ -5259,7 +5327,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // partial bubble. See the MAX_TURN_RETRIES / isTransientTurnError block.
         // A plan that ended since the page loaded must not keep a paid model.
         if (window.ModelPicker) turnModel = await window.ModelPicker.allowedForTurn(chosenModel);
-        const turnTools = window.getTurnTools(turnModel);
+        const turnTools = window.getTurnTools(turnModel, turnSaveContext.chatHistory);
         const turnUnavailableTools = window.getUnavailableTools?.(turnModel) || [];
         turnAccountRead = readTurnAccount().then(a => { turnAccount = a; }, () => {});
         while (true) {
@@ -6219,6 +6287,7 @@ async function applyAiProjectTitle(chatId, title) {
         savedChats[idx].aiTitled = true;
         // Reflect the AI-generated name in the tab title for the open project.
         if (chatId === currentChatId) updateDocumentTitle();
+        retitleProjectApps(chatId, savedChats[idx], title);
     }
     // Mirror into the per-chat file so it survives a chat-list rebuild
     // (recoverChatListFromFiles reads titles from these files). Read-modify-write

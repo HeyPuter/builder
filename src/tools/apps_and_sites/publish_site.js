@@ -53,6 +53,14 @@ ABSOLUTELY VERY IMPORTANT: you only need to call this ONCE per app. The preview 
         if (!url) {
             const site = await puter.hosting.create(window.makeDraftSubdomain(), path);
             url = `https://${site.subdomain}.puter.site/`;
+            // A project with dynamic backends runs its preview as an app
+            // Builder registers now, before anything runs there (see
+            // js/site-backends.js). A draft that replaces one the project
+            // had takes that one's app along, with the keys saved in it.
+            if (window.SiteBackends?.isDynamicProject(state?.chatHistory)) {
+                const moved = existing && await window.SiteBackends.moveApp(`https://${existing}.puter.site/`, url);
+                if (!moved) await window.SiteBackends.registerApp(url, window.SiteBackends.titleOf(state?.currentChatId), 'preview');
+            }
         }
         // The hosting.create above is awaited, so the user may have navigated to
         // another project while it was in flight. If this turn is no longer the
