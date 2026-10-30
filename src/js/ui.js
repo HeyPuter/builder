@@ -2329,9 +2329,10 @@ async function copySiteBackendStore(fromUrl, toUrl, backends, what, opts) {
 }
 
 // Give the live site's dynamic backends the preview's keys, except the live
-// site's own, and its sender name. Runs once the live site serves the release
-// its backends run from. Resolves the reports for WorkerSecrets.publishNote,
-// [] for a release with no dynamic backend.
+// site's own, and its sender name. A republish runs it before the live site
+// switches to the release, a first publish right after creating the address.
+// Resolves the reports for WorkerSecrets.publishNote, [] for a release with
+// no dynamic backend.
 async function publishSiteBackends(previewUrl, liveUrl, releaseDir) {
     if (!previewUrl || !liveUrl) return [];
     const backends = await siteBackendNames(releaseDir);
@@ -2355,18 +2356,19 @@ async function planSiteMove(oldUrl, releaseDir) {
 
 // Right after the site at `newUrl` is created, before anything runs there.
 // The app Builder registered for the old address moves to it, data, keys and
-// sender name included. Without one, or when Puter refuses the move, the new
-// address gets an app of its own when it can, and the backends get their keys
-// copied over while their saved data stays behind.
-async function finishSiteMove(oldUrl, newUrl, plan, projectTitle) {
+// sender name included. When Puter refuses the move, the new address goes
+// again and this throws, so the address stays as it was, data and all,
+// instead of leaving the app on an address that's about to be given up.
+// Without Builder's app, the backends get their keys copied over while their
+// saved data stays behind (planSiteMove asked about that).
+async function finishSiteMove(oldUrl, newUrl, plan) {
     if (!plan) return;
     if (plan.moveApp) {
         if (await window.SiteBackends.moveApp(oldUrl, newUrl)) return;
-        await window.SiteBackends.registerApp(newUrl, projectTitle, 'live');
-        if (plan.backends.length) {
-            window.showToast?.('Your live site’s backend starts with no saved data at its new address, since its data couldn’t move with it. Its keys came along.',
-                { type: 'warning', key: 'publish-move', throttleMs: 5000, duration: 10000 });
-        }
+        const newSub = previewSubdomain(newUrl);
+        try { if (newSub) await puter.hosting.delete(newSub); }
+        catch (e) { console.warn('Could not remove the new address after its app failed to move:', e); }
+        throw new Error('Your live site’s data couldn’t move to the new address, so the address wasn’t changed. Try again in a moment.');
     }
     await moveSiteBackends(oldUrl, newUrl, plan.backends);
 }
@@ -2777,6 +2779,9 @@ async function doPublish() {
 
         let url = startUrl;
         const existingSub = previewSubdomain(url);
+        // What the live site's dynamic backends got, for the line added to the
+        // conversation below.
+        let siteBackendKeys = [];
         if (!existingSub) {
             // First publish: mint the public subdomain at the user-chosen address
             // (empty → a name is auto-derived). createPublishSubdomain throws a
@@ -2790,7 +2795,14 @@ async function doPublish() {
                 await window.SiteBackends.registerApp(url, window.SiteBackends.titleOf(chatId), 'live');
             }
             await absolutizeSocialImagesInRelease(releaseDir, url, [startPreviewUrl]);
+            // The release's dynamic backends get their keys and sender name,
+            // while the address is new to everyone.
+            siteBackendKeys = await publishSiteBackends(startPreviewUrl, url, releaseDir);
         } else {
+            // A new key reaches the live site's dynamic backends before the
+            // code that needs it does, so its first visitor isn't the one to
+            // find it missing.
+            siteBackendKeys = await publishSiteBackends(startPreviewUrl, url, releaseDir);
             // Re-publish: re-point the existing public subdomain at the freshly
             // copied release, once its pages carry the full address.
             await absolutizeSocialImagesInRelease(releaseDir, url, [startPreviewUrl]);
@@ -2810,9 +2822,6 @@ async function doPublish() {
         await retirePublishedReleases(pubRoot, releaseName);
         try { await retirePublishedWorkers(chatId, publishedWorkers.map(w => w.newName)); }
         catch (e) { console.warn('Publish: could not retire superseded backends:', e); }
-        // The release's dynamic backends run from it now, so they get their
-        // keys and sender name here.
-        const siteBackendKeys = await publishSiteBackends(startPreviewUrl, url, pubDir);
 
         // The published baseline (publishedVersionId) is what the "unpublished
         // changes" indicator compares the working dir against. If there are edits
@@ -3346,7 +3355,7 @@ $(document).on('click', '.publish-address-save', async function () {
         // succeeds, so a failure (e.g. name taken) leaves the site reachable.
         await puter.hosting.create(newSub, path);
         const newUrl = `https://${newSub}.puter.site/`;
-        await finishSiteMove(oldUrl, newUrl, move, window.SiteBackends?.titleOf(chatId));
+        await finishSiteMove(oldUrl, newUrl, move);
         // Social image URLs move to the new address before the old one goes.
         await absolutizeSocialImagesInRelease(path, newUrl, [oldUrl]);
         try { await puter.hosting.delete(oldSub); }
@@ -4911,7 +4920,7 @@ async function showChatProperties(chatId) {
             // Create the new subdomain first; only drop the old one once that
             // succeeds, so a failure leaves the site reachable.
             await puter.hosting.create(newSub, path);
-            await finishSiteMove(pub.url, `https://${newSub}.puter.site/`, move, window.SiteBackends?.titleOf(chatId));
+            await finishSiteMove(pub.url, `https://${newSub}.puter.site/`, move);
             // Social image URLs move to the new address (see the toolbar's
             // address editor).
             await absolutizeSocialImagesInRelease(path, `https://${newSub}.puter.site/`, [pub.url]);

@@ -1461,11 +1461,15 @@ async function deleteChat(chatId) {
             try { hasSiteBackends = (await SB.list(`/${window.user.username}/AppData/${puter.appID}/${chatId}`)).length > 0; }
             catch (e) { hasSiteBackends = true; }
             for (const u of new Set([chat?.previewUrl, chat?.publishedUrl].filter(Boolean))) {
-                const registered = await SB.hasApp(u);
-                if (registered || hasSiteBackends) {
-                    try { await window.WorkerSecrets?.clear({ site: u }); } catch (e) { /* best effort */ }
-                }
-                if (registered) await cleanup(`the app of ${u.replace(/^https:\/\//, '').replace(/\/+$/, '')}`, () => SB.deleteApp(u));
+                // A lookup that fails counts as unfinished, like a failed
+                // delete, so a retry still finds the app.
+                await cleanup(`the app of ${u.replace(/^https:\/\//, '').replace(/\/+$/, '')}`, async () => {
+                    const registered = await SB.hasApp(u);
+                    if (registered || hasSiteBackends) {
+                        try { await window.WorkerSecrets?.clear({ site: u }); } catch (e) { /* best effort */ }
+                    }
+                    if (registered) await SB.deleteApp(u);
+                });
             }
         }
         for (const sub of subsToDelete) {

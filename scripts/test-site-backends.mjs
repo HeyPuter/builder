@@ -40,7 +40,9 @@ const HELP = read('../src/js/helpers.js');
 const PATHS = slice(HELP, 'window.normalizePosixPath =', '// ---- Per-path file-write serialization', 'the path-sandbox helpers');
 const CANARY = slice(HELP, '// ---- Worker deploy canary', '// ---- Preview sub-resource cache-busting', 'the canary helpers');
 const TOOLS = slice(read('../src/js/tools.js'), '// Saving a deployed worker', 'window.findTool = function', 'the worker save helpers');
-const UI_BACKENDS = slice(read('../src/js/ui.js'), '// ----- dynamic backends', '// Remove the runtime tag', 'the dynamic backend helpers');
+const UI_SRC = read('../src/js/ui.js');
+const UI_BACKENDS = slice(UI_SRC, '// ----- dynamic backends', '// Remove the runtime tag', 'the dynamic backend helpers') +
+    slice(UI_SRC, 'function previewSubdomain(url) {', '\n}\n', 'previewSubdomain') + '\n}\n';
 const MODULES = ['worker-ownership', 'site-backends', 'worker-secrets', 'worker-sender', 'editor-core', 'template-core']
     .map((n) => read(`../src/js/${n}.js`)).join('\n');
 const TOOL_FILES = ['create_worker', 'delete_worker', 'list_workers', 'get_worker', 'set_secret', 'set_email_sender_name']
@@ -73,6 +75,7 @@ function makeEnv(o = {}) {
     const confirms = [];
     const fetched = { uid: 0, wake: [] };
     const writes = [];
+    const hostingDeleted = [];
     const uidFor = (origin) => 'app-' + origin.replace(/^https:\/\//, '').replace(/\./g, '-');
     const originOf = (url) => String(url || '').replace(/\/+$/, '');
     const byOrigin = (origin) => [...apps.values()].find((a) => originOf(a.index_url) === origin) || null;
@@ -131,6 +134,7 @@ function makeEnv(o = {}) {
             delete: async (name) => { if (!apps.delete(name)) throw { status: 404, message: 'Entity not found' }; return { success: true }; },
         },
         workers: { list: async () => [], get: async () => null },
+        hosting: { delete: async (sub) => { hostingDeleted.push(sub); } },
         perms: {
             check: async (res, d) => res === 'appData' && granted.has(d.app),
             request: async (res, d) => {
@@ -143,12 +147,12 @@ function makeEnv(o = {}) {
         },
         kv: {
             get: async (k, opt) => {
-                if (!opt || !opt.appUuid) return copyOf(builderKv.get(k));
+                if (!opt || !opt.appUuid) { if (o.recordReadFails) throw new Error('kv down'); return copyOf(builderKv.get(k)); }
                 if (!granted.has(opt.appUuid)) throw new Error('forbidden');
                 return copyOf(store(opt.appUuid).get(k));
             },
             set: async (k, v, opt) => {
-                if (!opt || !opt.appUuid) { builderKv.set(k, copyOf(v)); return true; }
+                if (!opt || !opt.appUuid) { if (o.recordWriteFails) throw new Error('kv down'); builderKv.set(k, copyOf(v)); return true; }
                 if (!granted.has(opt.appUuid)) throw new Error('forbidden');
                 store(opt.appUuid).set(k, copyOf(v));
                 return true;
@@ -204,7 +208,7 @@ function makeEnv(o = {}) {
         await win.SiteBackends.registerApp(PREVIEW, 'Shop', 'preview');
         await win.SiteBackends.registerApp(LIVE, 'Shop', 'live');
     };
-    return { win, puter, ui, tool, files, apps, stores, builderKv, granted, prompts, toasts, confirms, fetched, writes, uidFor, appAt, registerBoth };
+    return { win, puter, ui, tool, files, apps, stores, builderKv, granted, prompts, toasts, confirms, fetched, writes, hostingDeleted, uidFor, appAt, registerBoth };
 }
 
 const BACKEND = { [`${ROOT}/__workers/api.worker.js`]: "router.get('/x', () => 1);", [`${ROOT}/index.html`]: '<html></html>' };
@@ -293,7 +297,9 @@ const st = { appDir: ROOT, currentChatId: 'c1', chatHistory: [{ role: 'system', 
     const named = (list, n) => list.find((t) => t.function.name === n);
     check('tools: a dynamic project gets no create_worker', !named(dynTools, 'create_worker'));
     check('tools: an older project keeps it', !!named(oldTools, 'create_worker') && !!named(SB.toolsFor(on.win.tools, null), 'create_worker'));
-    check('tools: an older project gets the tools exactly as before', oldTools === on.win.tools);
+    check('tools: an older project gets the tools as before', oldTools.length === on.win.tools.length &&
+        oldTools.every((t, i) => t.function === on.win.tools[i].function && t.exec === on.win.tools[i].exec));
+    check('tools: neither kind sends the marks to the AI', dynTools.concat(oldTools).every((t) => !('dynamic' in t) && !('legacyOnly' in t)));
     check('tools: a dynamic project is told about __workers', /__workers/.test(named(dynTools, 'set_secret').function.description) &&
         /__workers/.test(named(dynTools, 'set_secret').function.parameters.properties.worker.description));
     check('tools: an older project is not', !/__workers/.test(named(oldTools, 'set_secret').function.description) &&
@@ -509,17 +515,62 @@ const st = { appDir: ROOT, currentChatId: 'c1', chatHistory: [{ role: 'system', 
     check('move: nothing was copied or warned about', env.toasts.length === 0 && !env.apps.has(NEW_LIVE_APP));
 }
 {
-    // Puter refusing the move falls back to a new app and copied keys.
+    // Puter refusing the move changes nothing.
     const env = makeEnv({ files: Object.assign({ [`${RELEASE}/__workers/api.worker.js`]: '' }, BACKEND), moveFails: true });
     await env.registerBoth();
-    await env.tool('set_secret').exec({ worker: 'api', name: 'STRIPE_SECRET_KEY', value: LIVE_KEY, live: true }, st);
+    const liveUid = env.appAt(LIVE).uid;
     const plan = await env.ui.planSiteMove(LIVE, RELEASE);
-    await env.ui.finishSiteMove(LIVE, NEW_LIVE, plan, 'Shop');
-    const fresh = env.appAt(NEW_LIVE);
-    check('move refused: the new address gets an app of its own', fresh && fresh.creator === 'builder' && fresh.title === 'Shop');
-    check('move refused: its keys are copied, still the live site\'s own', env.stores.get(fresh.uid).get('secret:STRIPE_SECRET_KEY') === LIVE_KEY &&
-        JSON.stringify(env.stores.get(fresh.uid).get('secret-live-only')) === '["STRIPE_SECRET_KEY"]');
-    check('move refused: the user hears the data stayed behind', env.toasts.some((t) => /starts with no saved data/.test(t)));
+    check('move refused: the address change fails', await rejects(env.ui.finishSiteMove(LIVE, NEW_LIVE, plan), 'the address wasn’t changed'));
+    check('move refused: the app stays on the old address with its record', env.appAt(LIVE) && env.appAt(LIVE).uid === liveUid &&
+        env.builderKv.has('site-app:https://shop.puter.site') && !env.builderKv.has('site-app:https://store.puter.site'));
+    check('move refused: the new address goes again, and nothing else is made', JSON.stringify(env.hostingDeleted) === '["store"]' && !env.appAt(NEW_LIVE));
+}
+{
+    // A move that reached Puter but whose answer got lost still counts.
+    const env = makeEnv({ files: BACKEND });
+    await env.registerBoth();
+    const update = env.puter.apps.update;
+    env.puter.apps.update = async (...args) => { await update(...args); throw new Error('connection reset'); };
+    check('move: an update whose answer got lost still moved', await env.win.SiteBackends.moveApp(LIVE, NEW_LIVE) &&
+        env.builderKv.has('site-app:https://store.puter.site') && !env.builderKv.has('site-app:https://shop.puter.site'));
+}
+{
+    // Builder's records can't be read or written.
+    const env = makeEnv({ files: BACKEND });
+    await env.registerBoth();
+    env.puter.kv.get = async (k, opt) => { if (!opt || !opt.appUuid) throw new Error('kv down'); return null; };
+    check('lookup: a record that can\'t be read is an error, not "no app"', await rejects(env.win.SiteBackends.hasApp(LIVE), 'kv down'));
+    check('lookup: so an address change stops before anything changes', await rejects(env.ui.planSiteMove(LIVE, RELEASE), 'kv down') && env.confirms.length === 0);
+    check('lookup: and a move reports it didn\'t happen', await env.win.SiteBackends.moveApp(LIVE, NEW_LIVE) === false && env.appAt(LIVE));
+    const failing = makeEnv({ files: BACKEND, recordWriteFails: true });
+    const app = await failing.win.SiteBackends.registerApp(PREVIEW, 'Shop', 'preview');
+    check('register: an app whose record can\'t be written is removed again', app === null && !failing.appAt(PREVIEW));
+}
+{
+    // Two renames close together, the first one's record write slow.
+    const env = makeEnv({ files: BACKEND });
+    await env.registerBoth();
+    const set = env.puter.kv.set;
+    let slowed = false;
+    env.puter.kv.set = async (k, v, opt) => {
+        if (!slowed && !(opt && opt.appUuid)) { slowed = true; await new Promise((r) => setTimeout(r, 30)); }
+        return set(k, v, opt);
+    };
+    await Promise.all([env.win.SiteBackends.retitle(PREVIEW, 'Bakery'), env.win.SiteBackends.retitle(PREVIEW, 'Cafe')]);
+    check('rename: two at once end on the last name, record included', env.appAt(PREVIEW).title === 'Cafe (preview)' &&
+        env.builderKv.get('site-app:https://preview-abc.puter.site').defaultTitle === 'Cafe (preview)');
+    await env.win.SiteBackends.retitle(PREVIEW, 'Diner');
+    check('rename: and later ones still apply', env.appAt(PREVIEW).title === 'Diner (preview)');
+}
+{
+    // Republishing gives the live site its keys before it switches to the
+    // new code, a first publish once the address exists.
+    const publish = UI_SRC.slice(UI_SRC.indexOf('async function doPublish('), UI_SRC.indexOf('async function loadPublishedSiteMeta('));
+    const republish = publish.slice(publish.indexOf('} else {', publish.indexOf('if (!existingSub) {')));
+    check('publish: a republish copies the keys before the address serves the release',
+        republish.indexOf('publishSiteBackends(') > 0 && republish.indexOf('publishSiteBackends(') < republish.indexOf('puter.hosting.update(existingSub'));
+    check('publish: a first publish copies them after the address exists',
+        publish.indexOf('registerApp(url') > 0 && publish.indexOf('publishSiteBackends(', publish.indexOf('registerApp(url')) < publish.indexOf('} else {', publish.indexOf('if (!existingSub) {')));
 }
 
 // --- the prompt ---

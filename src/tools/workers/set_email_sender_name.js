@@ -112,7 +112,7 @@ window.tools.push({
         const all = await puter.workers.list();
         const record = window.WorkerOwnership.findByName(all, worker);
         if (!record) {
-            throw new Error(site
+            throw new Error(SB?.isDynamicProject(state?.chatHistory)
                 ? `Backend '${worker}' not found. Write its file, __workers/${worker}.worker.js in the folder the preview serves, first, then set its sender name.`
                 : `Worker '${worker}' not found. Create it with create_worker first, then set its sender name.`);
         }
