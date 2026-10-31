@@ -68,7 +68,8 @@ function buildTodoListHTML(todos, animate) {
 }
 window.buildTodoListHTML = buildTodoListHTML;
 
-// The full text of a step cut off by its ellipsis shows in a tooltip on hover.
+// The full text of a step cut off by its ellipsis shows in a tooltip on hover,
+// and opens in place on tap or click.
 // The title is set only while the label is actually truncated: a title on
 // every step made short ones, already fully visible, pop a tooltip repeating
 // them. Checked on each hover rather than at render, since whether a label
@@ -78,8 +79,30 @@ if (typeof document !== 'undefined') {
     document.addEventListener('mouseover', (e) => {
         const text = e.target.closest?.('.todo-list .todo-text');
         if (!text) return;
-        if (text.scrollWidth > text.clientWidth) text.title = text.textContent;
+        const truncated = text.scrollWidth > text.clientWidth;
+        if (truncated) text.title = text.textContent;
         else text.removeAttribute('title');
+        // Pointer cursor: a cut-off step can be clicked open (below).
+        text.closest('li')?.classList.toggle('todo-truncated', truncated);
+    });
+
+    // Tap or click a cut-off step to show it in full; tap again to fold it
+    // back. Touch screens have no hover, so without this a long step on a
+    // phone (where the chat is narrowest) could never be read in full.
+    document.addEventListener('click', (e) => {
+        const li = e.target.closest?.('.todo-list li');
+        const text = li && li.querySelector('.todo-text');
+        if (!text) return;
+        // Drag-selecting part of a label ends in a click; leave the selection
+        // where it is instead of reflowing the text under it.
+        const sel = window.getSelection?.();
+        if (sel && !sel.isCollapsed && li.contains(sel.anchorNode)) return;
+        if (li.classList.contains('todo-expanded')) {
+            li.classList.remove('todo-expanded');
+        } else if (text.scrollWidth > text.clientWidth) {
+            li.classList.add('todo-expanded');
+            text.removeAttribute('title');
+        }
     });
 }
 
