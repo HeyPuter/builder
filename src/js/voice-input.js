@@ -262,13 +262,29 @@
         const before = ta.value.slice(0, start), after = ta.value.slice(end);
         const pre = before && !/\s$/.test(before) ? ' ' : '';
         const post = after && !/^\s/.test(after) ? ' ' : '';
-        ta.value = before + pre + text + post + after;
+        const insert = pre + text + post;
+        const expected = before + insert + after;
         const caret = (before + pre + text).length;
-        if (mayFocusComposer()) ta.focus();
+        // Inserted as a native edit where possible, so Ctrl/Cmd+Z takes the
+        // transcript back out. Assigning .value wiped the field's undo
+        // history: neither the dictation nor anything typed before it could be
+        // undone. execCommand needs the textarea focused (a disabled one, mid
+        // turn, can't be), and fires the same input event typing does.
+        let native = false;
+        if (mayFocusComposer()) {
+            ta.focus();
+            if (document.activeElement === ta) {
+                try {
+                    ta.setSelectionRange(start, end);
+                    native = document.execCommand('insertText', false, insert) && ta.value === expected;
+                } catch (e) { native = false; }
+            }
+        }
+        if (!native) ta.value = expected;
         try { ta.setSelectionRange(caret, caret); } catch (e) { /* ignore */ }
         if (typeof autoResizeTextarea === 'function') autoResizeTextarea(ta);
         // Same path as typing: the Send button state and the saved draft follow.
-        $(ta).trigger('input');
+        if (!native) $(ta).trigger('input');
     }
 
     $(document).on('click', '.voice-input-button', function (e) {
