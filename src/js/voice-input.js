@@ -164,6 +164,20 @@
         };
         rec = r;
         recorder.addEventListener('dataavailable', (e) => { if (e.data && e.data.size) r.chunks.push(e.data); });
+        // The microphone went away mid-recording (unplugged, permission
+        // revoked, taken by the OS for a call): the recorder stops by itself,
+        // but the bar kept showing a live recording with a ticking timer and
+        // a flat line until the user clicked Done — or for the full five
+        // minutes. Finish at once with what was captured.
+        const onLost = () => {
+            if (rec !== r || r.finishing || r.cancelled) return;
+            r.lost = true;
+            window.showToast?.('The microphone stopped.', { type: 'info', key: 'voice-input' });
+            finish(r);
+        };
+        recorder.addEventListener('stop', onLost);
+        recorder.addEventListener('error', onLost);
+        stream.getTracks().forEach((t) => t.addEventListener('ended', onLost));
         recorder.start(250);
 
         try {
@@ -218,7 +232,8 @@
         const blob = new Blob(r.chunks, { type: (r.mimeType || 'audio/webm').split(';')[0] });
         if (seconds < 0.6 || blob.size < 1500) {
             close(r);
-            window.showToast?.('That was too short — hold on a little longer while you speak.', { type: 'info', key: 'voice-input' });
+            // A lost microphone already said why it ended.
+            if (!r.lost) window.showToast?.('That was too short — hold on a little longer while you speak.', { type: 'info', key: 'voice-input' });
             return;
         }
         // Transcribing: keep the bar (Cancel still works), swap the waveform
