@@ -8382,3 +8382,118 @@ html[data-theme="dark"] .upgrade-code-tag { background: #eef2f7; color: #0b1118;
     html[data-theme="dark"] .code-files-btn { color: var(--text); }
     html[data-theme="dark"] .code-sheet-close { color: var(--text-muted); }
 }
+
+/* ===========================================================================
+   Composer dictation (js/voice-input.js)
+   =========================================================================== */
+.voice-input-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    margin-left: auto;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: #666;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+.voice-input-button[hidden] { display: none; }
+.voice-input-button:hover:not(:disabled) { background: #f0f0f0; color: #222; }
+.voice-input-button:disabled { opacity: 0.5; cursor: default; }
+/* The mic takes the push-right margin; Send sits just after it. */
+.voice-input-button:not([hidden]) + .send { margin-left: 6px; }
+html[data-theme="dark"] .voice-input-button { color: var(--text-muted); }
+html[data-theme="dark"] .voice-input-button:hover:not(:disabled) { background: var(--surface-hover); color: var(--text); }
+
+/* The recording bar covers the composer while it's open. */
+.voice-recorder {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 10px;
+    border-radius: inherit;
+    background: inherit;
+    animation: vr-in 0.18s ease-out;
+}
+.chat-input.recording { border-color: #999; }
+@keyframes vr-in { from { opacity: 0; transform: scale(0.985); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .voice-recorder { animation: none; } }
+
+.vr-btn {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background-color 0.15s ease, transform 0.1s ease;
+}
+.vr-btn:active:not(:disabled) { transform: scale(0.94); }
+.vr-cancel { background: transparent; color: #555; }
+.vr-cancel:hover { background: #f0f0f0; color: #222; }
+.vr-done { background: #484d51; color: #fff; }
+.vr-done:hover:not(:disabled) { background: #333; }
+.vr-done:disabled { cursor: default; opacity: 0.85; }
+
+.vr-middle {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.vr-dot {
+    flex: 0 0 auto;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #e5484d;
+    animation: vr-pulse 1.4s ease-in-out infinite;
+}
+@keyframes vr-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .vr-dot { animation: none; } }
+.vr-wave {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+    height: 28px;
+    color: #484d51; /* the bars' fill (read by the canvas) */
+}
+.vr-dot[hidden], .vr-wave[hidden], .vr-status[hidden] { display: none; }
+.vr-status { font-size: 14px; }
+.vr-time {
+    flex: 0 0 auto;
+    font-size: 13px;
+    color: #666;
+    font-variant-numeric: tabular-nums;
+    min-width: 34px;
+    text-align: right;
+}
+.chat-input.transcribing .vr-time { visibility: hidden; }
+@keyframes vr-spin { to { transform: rotate(360deg); } }
+.vr-spin { animation: vr-spin 0.9s linear infinite; }
+
+html[data-theme="dark"] .chat-input.recording { border-color: var(--border-strong); }
+html[data-theme="dark"] .vr-cancel { color: var(--text-secondary); }
+html[data-theme="dark"] .vr-cancel:hover { background: var(--surface-hover); color: var(--text); }
+html[data-theme="dark"] .vr-done { background: var(--text); color: var(--bg); }
+html[data-theme="dark"] .vr-done:hover:not(:disabled) { background: #fff; }
+html[data-theme="dark"] .vr-wave { color: var(--text-secondary); }
+html[data-theme="dark"] .vr-time { color: var(--text-muted); }
+
+@media (max-width: 900px) {
+    .voice-input-button { width: 34px; height: 34px; }
+    .vr-btn { width: 44px; height: 44px; }
+}

@@ -3154,7 +3154,7 @@ function new_chat({ updateUrl = true } = {}) {
 
     // Reset input and button state
     $('.chat-input-message').val('').prop('disabled', false);
-    $('.attachment-button').prop('disabled', false);
+    $('.attachment-button, .voice-input-button').prop('disabled', false);
     $('.send').prop('disabled', true);
 
     // (The attachment tray was already emptied by resetChatUIForSwitch above,
@@ -3330,6 +3330,12 @@ function resetChatUIForSwitch() {
     // and described to the model — on their next send.
     clearAllAttachments();
 
+    // A dictation belongs to the composer being left too. Left running, it kept
+    // the microphone on over the next chat, and on Done its (billed) transcript
+    // was silently dropped because the chat had changed. Cancel it — and a
+    // start still waiting on the permission prompt — before anything is billed.
+    window.VoiceInput?.cancel?.({ focusComposer: false });
+
     // Close the image viewer. It lives on <body>, outside .chat-box, so a
     // switch made while it was open (a phone's Back button, browser
     // Back/Forward) left the previous chat's picture open over the new chat,
@@ -3354,7 +3360,7 @@ function resetChatUIForSwitch() {
     updateSendButtonState(false);
     $('.chat-input').removeClass('disabled');
     $('.chat-input-message').prop('disabled', false);
-    $('.attachment-button').prop('disabled', false);
+    $('.attachment-button, .voice-input-button').prop('disabled', false);
 }
 
 // ---- Resume after interruption --------------------------------------------
