@@ -3980,7 +3980,10 @@ function isTransientTurnError(error) {
     // 'AI provider unavailable' or 'All AI providers failed', which the phrase
     // list below never matched, so these ended the turn on an error card.
     const code = String(error.code || error.errorCode || '');
-    if (['upstream_provider_unavailable', 'upstream_failed', 'upstream_timeout', 'upstream_rate_limited'].includes(code)) return true;
+    // 'network_error' is puter.js's code for a connection that dropped after the
+    // response began streaming ("Network request failed."). puter.js never
+    // replays a stream it has started, so this is the only retry it gets.
+    if (['upstream_provider_unavailable', 'upstream_failed', 'upstream_timeout', 'upstream_rate_limited', 'network_error'].includes(code)) return true;
     if (['upstream_bad_request', 'upstream_credits_exhausted', 'upstream_auth_failed', 'permission_denied', 'insufficient_funds'].includes(code)) return false;
 
     const text = extractErrorText(error).toLowerCase();
@@ -4005,6 +4008,9 @@ function isTransientTurnError(error) {
         'bad gateway', 'gateway timeout', 'service unavailable', 'internal server error',
         'timeout', 'timed out', 'etimedout',
         'failed to fetch', 'networkerror', 'network error', 'err_internet',
+        // puter.js: 'Network request failed.' (stream dropped mid-response) and
+        // 'Network request to <url> failed' (no response at all).
+        'network request',
         'econnreset', 'socket hang up', 'connection reset', 'connection closed',
     ];
     return TRANSIENT.some(k => text.includes(k));
