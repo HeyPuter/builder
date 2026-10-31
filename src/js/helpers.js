@@ -408,7 +408,7 @@ function friendlyErrorMessage(raw) {
     if (lower.includes('timeout') || lower.includes('timed out') || lower.includes('etimedout')) {
         return "The request timed out. Please try again.";
     }
-    if (lower.includes('failed to fetch') || lower.includes('networkerror') || lower.includes('network error') || lower.includes('err_internet')) {
+    if (lower.includes('failed to fetch') || lower.includes('networkerror') || lower.includes('network error') || lower.includes('network request') || lower.includes('err_internet')) {
         return "Couldn't reach the AI service. Check your internet connection and try again.";
     }
 

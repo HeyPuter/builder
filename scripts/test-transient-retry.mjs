@@ -68,6 +68,12 @@ const TRANSIENT = [
     'NetworkError when attempting to fetch resource',
     'socket hang up',
     'ECONNRESET',
+    // puter.js: the connection dropped after the stream began. Never replayed
+    // by puter.js itself, so the turn retry is the only recovery.
+    { message: 'Network request failed.', code: 'network_error' },
+    { code: 'network_error' },
+    // puter.js: no response at all (non-streamed request).
+    new TypeError('Network request to https://api.puter.com/drivers/call failed'),
     { error: { message: 'The upstream is overloaded' } },
     { message: '503 service unavailable' },
     // Wrapped '400 {json}' envelope whose inner message is transient → unwrapped.
