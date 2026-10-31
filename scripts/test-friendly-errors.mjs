@@ -35,6 +35,9 @@ check('a real 529 is "busy"', friendlyErrorMessage('Error 529: overloaded') === 
 check('a real 503 is "busy"', friendlyErrorMessage('upstream returned 503') === busy);
 check('a real 429 is "too quickly"', friendlyErrorMessage('HTTP 429') === quick);
 check('"rate limit" still classifies', friendlyErrorMessage('rate limit exceeded') === quick);
+const offline = "Couldn't reach the AI service. Check your internet connection and try again.";
+check('a dropped puter.js stream is explained, not shown raw', friendlyErrorMessage(extractErrorText({ message: 'Network request failed.', code: 'network_error' })) === offline);
+check('a failed puter.js request is explained, not shown raw', friendlyErrorMessage('Network request to https://api.puter.com/drivers/call failed') === offline);
 check('other context-window phrasings are caught too',
     /too long/.test(friendlyErrorMessage('context_length_exceeded')) && /too long/.test(friendlyErrorMessage('This model\'s maximum context length is 200000 tokens')));
 
