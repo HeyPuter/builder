@@ -143,6 +143,9 @@ function renderSkeleton() {
                 if (window.FEATURE_FLAGS?.modelPicker) {
                     h += `<button type="button" class="model-picker-btn" aria-haspopup="dialog" aria-expanded="false" hidden><span class="model-picker-label">Opus 5.5</span><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg></button>`;
                 }
+                // Dictation (js/voice-input.js) — hidden until it confirms the
+                // browser can record.
+                h += `<button type="button" class="voice-input-button" title="Dictate" aria-label="Dictate a message" hidden>${window.mic_svg || ''}</button>`;
                 // The label flips to "Stop" while a turn runs (updateSendButtonState),
                 // and to "Queue message" while the composer holds something to
                 // queue meanwhile (js/message-queue.js).
@@ -6052,7 +6055,7 @@ function resetUIForAbort() {
     updateSendButtonState(false);
     $('.chat-input').removeClass('disabled');
     $('.chat-input-message').prop('disabled', false);
-    $('.attachment-button').prop('disabled', false);
+    $('.attachment-button, .voice-input-button').prop('disabled', false);
     // Not on phones: a programmatic focus here pops the on-screen keyboard up
     // over the chat (or the full-screen app view) the moment a build stops,
     // with no user gesture behind it — the same rule every other autofocus in
@@ -6097,7 +6100,7 @@ function resetUIState(turnChatId) {
     updateSendButtonState(false);
     $('.chat-input').removeClass('disabled');
     $('.chat-input-message').prop('disabled', false);
-    $('.attachment-button').prop('disabled', false);
+    $('.attachment-button, .voice-input-button').prop('disabled', false);
     // Not on phones — see resetUIForAbort. At turn end the user is usually
     // looking at the freshly-reloaded app, and an unprompted keyboard would
     // cover it. And never while another field holds focus: a build that ended
