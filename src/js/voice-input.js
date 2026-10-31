@@ -113,7 +113,6 @@
         (r.inerted || []).forEach((el) => { el.inert = false; });
         r.$bar.remove();
         $('.chat-input').removeClass('recording transcribing');
-        $('.voice-input-button').attr('aria-expanded', 'false');
         if (focusComposer && mayFocusComposer()) $('.chat-input-message').trigger('focus');
     }
 
@@ -157,7 +156,6 @@
         // set elsewhere is left as it was.
         const inerted = $input.children().not($bar).toArray().filter((el) => !el.inert);
         inerted.forEach((el) => { el.inert = true; });
-        $('.voice-input-button').attr('aria-expanded', 'true');
         const r = {
             stream, recorder, $bar, inerted, chunks: [], started: Date.now(), stopped: false, cancelled: false,
             chatId: typeof currentChatId !== 'undefined' ? currentChatId : null, mimeType: recorder.mimeType || mimeType,
