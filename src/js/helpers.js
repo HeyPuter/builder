@@ -484,12 +484,12 @@ function lockComposerForTurn() {
     if (window.MessageQueue?.enabled?.()) {
         $('.chat-input').removeClass('disabled');
         $('.chat-input-message').prop('disabled', false);
-        $('.attachment-button').prop('disabled', false);
+        $('.attachment-button, .voice-input-button').prop('disabled', false);
         return;
     }
     $('.chat-input').addClass('disabled');
     $('.chat-input-message').prop('disabled', true);
-    $('.attachment-button').prop('disabled', true);
+    $('.attachment-button, .voice-input-button').prop('disabled', true);
 }
 
 /**
