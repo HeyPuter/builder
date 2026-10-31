@@ -1866,6 +1866,17 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
 .todo-list ul li svg {
     margin-bottom: 0;
     margin-right: 5px;
+    flex-shrink: 0;
+}
+
+/* Each step stays on one line; a label too long for the row ends in an
+   ellipsis (the full text is in its title). min-width: 0 lets the flex item
+   shrink below its text width so the ellipsis can kick in. */
+.todo-list .todo-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* Shimmer effect: a light highlight sweeps across the text. Applied to

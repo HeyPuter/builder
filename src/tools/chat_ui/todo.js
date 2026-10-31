@@ -55,7 +55,11 @@ function buildTodoListHTML(todos, animate) {
         // every chat restore), so interpolating it unescaped is a stored-XSS sink
         // that runs in this privileged app's context — mirror the .text()/htmlEscape
         // discipline used for the chat title and AI messages.
-        html += `<li class="todo-${htmlEscape(status)}">${icon} <span class="${textClass}">${htmlEscape(todo.content)}</span></li>`;
+        // One line per step: a long label is cut off with an ellipsis (see
+        // .todo-text in styles.css), so the title carries the full text for
+        // hover. Screen readers read the full text either way.
+        const label = htmlEscape(todo.content);
+        html += `<li class="todo-${htmlEscape(status)}">${icon} <span class="${textClass}" title="${label}">${label}</span></li>`;
     });
 
     html += '</ul></div></div>';
