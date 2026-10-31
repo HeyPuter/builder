@@ -1866,6 +1866,35 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
 .todo-list ul li svg {
     margin-bottom: 0;
     margin-right: 5px;
+    flex-shrink: 0;
+}
+
+/* Each step stays on one line; a label too long for the row ends in an
+   ellipsis (the full text is in its title). min-width: 0 lets the flex item
+   shrink below its text width so the ellipsis can kick in. */
+.todo-list .todo-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* A cut-off step can be tapped or clicked open to its full text (todo.js);
+   the checkbox then stays level with the first line instead of centring on
+   the wrapped block. */
+.todo-list li.todo-truncated,
+.todo-list li.todo-expanded {
+    cursor: pointer;
+}
+.todo-list li.todo-expanded {
+    align-items: flex-start;
+}
+.todo-list li.todo-expanded svg {
+    /* (line height - icon height) / 2 */
+    margin-top: calc((1.5em - 12px) / 2);
+}
+.todo-list li.todo-expanded .todo-text {
+    white-space: normal;
 }
 
 /* Shimmer effect: a light highlight sweeps across the text. Applied to
