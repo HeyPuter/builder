@@ -1879,6 +1879,24 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
     white-space: nowrap;
 }
 
+/* A cut-off step can be tapped or clicked open to its full text (todo.js);
+   the checkbox then stays level with the first line instead of centring on
+   the wrapped block. */
+.todo-list li.todo-truncated,
+.todo-list li.todo-expanded {
+    cursor: pointer;
+}
+.todo-list li.todo-expanded {
+    align-items: flex-start;
+}
+.todo-list li.todo-expanded svg {
+    /* (line height - icon height) / 2 */
+    margin-top: calc((1.5em - 12px) / 2);
+}
+.todo-list li.todo-expanded .todo-text {
+    white-space: normal;
+}
+
 /* Shimmer effect: a light highlight sweeps across the text. Applied to
    in-progress todo labels via the .shimmer utility class. */
 .shimmer {
