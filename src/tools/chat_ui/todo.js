@@ -56,10 +56,10 @@ function buildTodoListHTML(todos, animate) {
         // that runs in this privileged app's context — mirror the .text()/htmlEscape
         // discipline used for the chat title and AI messages.
         // One line per step: a long label is cut off with an ellipsis (see
-        // .todo-text in styles.css), so the title carries the full text for
-        // hover. Screen readers read the full text either way.
-        const label = htmlEscape(todo.content);
-        html += `<li class="todo-${htmlEscape(status)}">${icon} <span class="${textClass}" title="${label}">${label}</span></li>`;
+        // .todo-text in styles.css). Hovering a cut-off label shows its full
+        // text (see the mouseover handler below). Screen readers read the full
+        // text either way.
+        html += `<li class="todo-${htmlEscape(status)}">${icon} <span class="${textClass}">${htmlEscape(todo.content)}</span></li>`;
     });
 
     html += '</ul></div></div>';
@@ -67,6 +67,21 @@ function buildTodoListHTML(todos, animate) {
     return { html };
 }
 window.buildTodoListHTML = buildTodoListHTML;
+
+// The full text of a step cut off by its ellipsis shows in a tooltip on hover.
+// The title is set only while the label is actually truncated: a title on
+// every step made short ones, already fully visible, pop a tooltip repeating
+// them. Checked on each hover rather than at render, since whether a label
+// fits changes with the chat's width. (Guarded: the tool-registry tests load
+// this file without a DOM.)
+if (typeof document !== 'undefined') {
+    document.addEventListener('mouseover', (e) => {
+        const text = e.target.closest?.('.todo-list .todo-text');
+        if (!text) return;
+        if (text.scrollWidth > text.clientWidth) text.title = text.textContent;
+        else text.removeAttribute('title');
+    });
+}
 
 // Helper function to display todos.
 //
