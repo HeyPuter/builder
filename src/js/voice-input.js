@@ -245,7 +245,10 @@
         let text = '';
         try {
             const testMode = (() => { try { return !!localStorage.getItem('debugMediaTestMode'); } catch (e) { return false; } })();
-            const result = await puter.ai.speech2txt(blob, { response_format: 'text', ...(testMode && { test_mode: true }) });
+            // Test mode is speech2txt's third argument: puter.js passes a
+            // test_mode key in the options through as a plain driver argument
+            // and still sends the call with test_mode false, so it was billed.
+            const result = await puter.ai.speech2txt(blob, { response_format: 'text' }, testMode);
             text = String(typeof result === 'string' ? result : (result && result.text) || '').trim();
         } catch (e) {
             if (r.cancelled) return;
