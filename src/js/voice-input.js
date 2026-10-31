@@ -125,8 +125,29 @@
 
     async function begin(pending) {
         // Transcription needs a Puter account; ask before the mic, not after.
+        const signedIn = () => !!(window.user && !window.user.is_temp);
+        const wasSignedIn = signedIn();
+        let authFailed = false;
         try { if (typeof ensureAuthenticated === 'function') await ensureAuthenticated(); }
-        catch (e) { return; }
+        catch (e) { authFailed = true; }
+        // Signed in just now, from the mic: do what the Sign In button does.
+        // The toolbar kept showing "Sign In" instead of the profile circle,
+        // and the composer stayed keyed to the signed-out identity — the
+        // transcript then saved over the account's own stored draft.
+        if (!wasSignedIn && signedIn()) {
+            if (typeof updateUserMenu === 'function') updateUserMenu();
+            if (!authFailed) window.settleComposerDraftIdentity?.();
+        }
+        if (authFailed) {
+            // Signed in, but the one-time session setup failed (a connectivity
+            // blip): say so, as Send does, rather than doing nothing. Otherwise
+            // the user dismissed the sign-in dialog.
+            if (signedIn()) {
+                window.showToast?.("Couldn't connect to Puter — check your connection and try again.",
+                    { type: 'error', key: 'auth-init-failed', throttleMs: 5000 });
+            }
+            return;
+        }
         if (pending.cancelled) return;
         let stream;
         try {
