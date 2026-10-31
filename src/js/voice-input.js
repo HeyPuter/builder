@@ -95,13 +95,26 @@
         try { r.audioCtx && Promise.resolve(r.audioCtx.close()).catch(() => {}); } catch (e) { /* ignore */ }
     }
 
+    // Whether focus may go back to the composer, by the rule every other
+    // autofocus in the app follows. Not on phones: focusing the textarea pops
+    // the on-screen keyboard up over the chat after a Cancel tap, or seconds
+    // after Done when the transcript arrives. And not when the user has moved
+    // on to another field meanwhile (composerMayTakeFocus): a transcript that
+    // landed while they typed in the sidebar search pulled the cursor into the
+    // composer mid-word. Called once the bar is gone, so focus that was on it
+    // reads as <body>.
+    function mayFocusComposer() {
+        if (window.isMobileViewport?.()) return false;
+        return typeof composerMayTakeFocus !== 'function' || composerMayTakeFocus();
+    }
+
     function close(r, { focusComposer = true } = {}) {
         if (rec === r) rec = null;
         (r.inerted || []).forEach((el) => { el.inert = false; });
         r.$bar.remove();
         $('.chat-input').removeClass('recording transcribing');
         $('.voice-input-button').attr('aria-expanded', 'false');
-        if (focusComposer) $('.chat-input-message').trigger('focus');
+        if (focusComposer && mayFocusComposer()) $('.chat-input-message').trigger('focus');
     }
 
     async function start() {
@@ -234,7 +247,7 @@
         close(r, { focusComposer: false });
         if (!text) {
             window.showToast?.('No speech was detected.', { type: 'info', key: 'voice-input' });
-            $('.chat-input-message').trigger('focus');
+            if (mayFocusComposer()) $('.chat-input-message').trigger('focus');
             return;
         }
         insertAtCaret(text);
@@ -251,7 +264,7 @@
         const post = after && !/^\s/.test(after) ? ' ' : '';
         ta.value = before + pre + text + post + after;
         const caret = (before + pre + text).length;
-        ta.focus();
+        if (mayFocusComposer()) ta.focus();
         try { ta.setSelectionRange(caret, caret); } catch (e) { /* ignore */ }
         if (typeof autoResizeTextarea === 'function') autoResizeTextarea(ta);
         // Same path as typing: the Send button state and the saved draft follow.
