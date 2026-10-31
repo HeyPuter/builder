@@ -63,7 +63,8 @@ function setup() {
     const { $, fire, counts } = makeJQ();
     const streams = [], pendingMic = [], recorders = [];
     const navigator = { mediaDevices: { getUserMedia: () => new Promise((res) => pendingMic.push(() => {
-        const s = { stopped: 0, getTracks() { return [{ stop: () => { s.stopped++; } }]; } };
+        const track = { l: [], stop: () => { s.stopped++; }, addEventListener(ev, fn) { if (ev === 'ended') this.l.push(fn); }, end() { this.l.forEach((f) => f()); } };
+        const s = { stopped: 0, track, getTracks() { return [track]; } };
         streams.push(s); res(s);
     })) } };
     class MediaRecorder {
@@ -145,6 +146,24 @@ function setup() {
     check('the transcript lands in the composer', t.ta.value === 'hello there', JSON.stringify(t.ta.value));
     check('the microphone is released', t.streams[0].stopped > 0);
     check('the bar is removed', t.counts.removed >= 1 && !t.win.VoiceInput.isRecording());
+}
+
+// --- The microphone going away mid-recording finishes it -------------------
+// The recorder stops by itself when its track ends (unplugged, revoked); the
+// bar used to keep showing a live recording until Done or the 5-minute cap.
+{
+    const t = setup();
+    t.fire('click', '.voice-input-button');
+    await flush();
+    t.pendingMic.forEach((f) => f());
+    await flush();
+    t.clock.advance(2000);
+    t.streams[0].track.end();
+    t.recorders[0].stop();
+    await flush(20);
+    check('a lost microphone ends the recording', !t.win.VoiceInput.isRecording());
+    check('…and transcribes what was captured, once', t.stt.calls === 1, 'calls: ' + t.stt.calls);
+    check('…into the composer', t.ta.value === 'hello there', JSON.stringify(t.ta.value));
 }
 
 // --- Escape belongs to whatever is on top -----------------------------------
