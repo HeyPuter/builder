@@ -30,17 +30,17 @@ window.ModelCore = (function () {
     const MODELS = {
         'claude-opus-5-5': {
             label: 'Claude Opus 5.5', short: 'Opus 5.5', family: 'claude', route: 'claude',
-            reasoningEffort: 'medium', toolResultMedia: true, pdf: true, gif: true, compactAt: 100000,
+            reasoningEffort: 'medium', toolResultMedia: true, pdf: true, gif: true, compactAt: 250000,
             note: 'Default. Optimized for Puter AI Builder.',
         },
         'claude-sonnet-5-5': {
             label: 'Claude Sonnet 5.5', short: 'Sonnet 5.5', family: 'claude', route: 'claude',
-            reasoningEffort: 'high', toolResultMedia: true, pdf: true, gif: true, compactAt: 100000,
+            reasoningEffort: 'high', toolResultMedia: true, pdf: true, gif: true, compactAt: 250000,
             note: 'Fast and efficient for everyday builds.',
         },
         'gpt-6.1-sol': {
             label: 'GPT-6.1 Sol', short: 'GPT-6.1 Sol', family: 'openai', route: 'openai-responses',
-            reasoningEffort: 'medium', toolResultMedia: false, pdf: false, gif: true, compactAt: 100000,
+            reasoningEffort: 'medium', toolResultMedia: false, pdf: false, gif: true, compactAt: 250000,
             note: "OpenAI's flagship model, strong at reasoning.",
         },
         'gemini-4-argon': {

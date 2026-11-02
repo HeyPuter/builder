@@ -88,11 +88,10 @@ window.FEATURE_FLAGS = {
     githubSync: true,
     // Context compaction. Once a request passes the model's threshold
     // (compactAt in js/model-core.js), the model summarizes the older history
-    // and later requests start from that summary. Off while Build Completed's
-    // context_band shows how big builds get, so the threshold can be chosen
-    // from it. When false no request asks for compaction, and a chat that
-    // compacted while it was on keeps its summary, sent as text.
-    compaction: false,
+    // and later requests start from that summary. When false no request asks
+    // for compaction, and a chat that compacted while it was on keeps its
+    // summary, sent as text.
+    compaction: true,
     // The message queue (js/message-queue.js): the composer stays usable while
     // a turn runs, and what the user sends from it waits above the composer
     // and goes one message per turn once the turn finishes cleanly. When
