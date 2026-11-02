@@ -110,12 +110,12 @@ check('with the compaction flag off, no model asks for it', () => {
     for (const id of M.ids()) assert.ok(!('compaction' in M.buildChatOptions(id)), id);
 });
 
-check('with the flag on, Opus, Sonnet and GPT compact past 100k, Gemini never compacts', () => {
+check('with the flag on, Opus, Sonnet and GPT compact past 250k, Gemini never compacts', () => {
     flags.compaction = true;
     try {
-        assert.deepEqual(plain(M.buildChatOptions('claude-opus-5-5').compaction), { trigger_tokens: 100000 });
-        assert.deepEqual(plain(M.buildChatOptions('claude-sonnet-5-5').compaction), { trigger_tokens: 100000 });
-        assert.deepEqual(plain(M.buildChatOptions('gpt-6.1-sol').compaction), { trigger_tokens: 100000 });
+        assert.deepEqual(plain(M.buildChatOptions('claude-opus-5-5').compaction), { trigger_tokens: 250000 });
+        assert.deepEqual(plain(M.buildChatOptions('claude-sonnet-5-5').compaction), { trigger_tokens: 250000 });
+        assert.deepEqual(plain(M.buildChatOptions('gpt-6.1-sol').compaction), { trigger_tokens: 250000 });
         assert.ok(!('compaction' in M.buildChatOptions('gemini-4-argon')));
     } finally {
         flags.compaction = false;
