@@ -98,7 +98,19 @@ await check('an edit names the part of the app as soon as its path is in, with n
     // and a generic label replaced a moment later read as a snap. Then ''
     // once the edit has run and the next round starts, and '' again for that
     // round's text.
-    assert.deepEqual(h.labels, ['', 'Updating the main page', '', '']);
+    assert.deepEqual(h.labels, ['Updating the main page', '', '']);
+});
+
+await check('edits in a row to one part keep their words up between them', async () => {
+    const a = { path: APP + '/index.html', old_content: 'a', new_content: 'b' };
+    const b = { path: APP + '/index.html', old_content: 'c', new_content: 'd' };
+    const h = setup([]);
+    await h.env.handleMessageStream(chunks(
+        start('edit', 'e1'), ...pieces('e1', JSON.stringify(a)), tool('edit', 'e1', a),
+        start('edit', 'e2'), ...pieces('e2', JSON.stringify(b)), tool('edit', 'e2', b), usage(),
+    ), h.context);
+    // A clear between them blanked the words, then the same ones faded back.
+    assert.deepEqual(h.labels, ['Updating the main page', 'Updating the main page', '', '']);
 });
 
 await check('the complete call is still the one that runs', async () => {
@@ -114,11 +126,11 @@ await check('the part comes from the path within the project, never a file name'
     const inFolder = setup([]);
     await inFolder.env.handleMessageStream(chunks(start('write', 'w1'), ...pieces('w1', `{"path":"${APP}/js/app.js","data":"x"}`),
         tool('write', 'w1'), usage()), inFolder.context);
-    assert.equal(inFolder.labels[1], 'Making it interactive');
+    assert.equal(inFolder.labels[0], 'Making it interactive');
     const nested = setup([]);
     await nested.env.handleMessageStream(chunks(start('write', 'w1'), ...pieces('w1', `{"path":"${APP}/blog/index.html","data":"x"}`),
         tool('write', 'w1'), usage()), nested.context);
-    assert.equal(nested.labels[1], 'Creating a page', 'only the project\'s own index.html is the main page');
+    assert.equal(nested.labels[0], 'Creating a page', 'only the project\'s own index.html is the main page');
     assert.ok(![...inFolder.labels, ...nested.labels].some((l) => /\.(html|js)\b/.test(l)), 'no file names');
 });
 
@@ -143,14 +155,14 @@ await check('an escaped path is read as written', async () => {
     const h = setup([]);
     await h.env.handleMessageStream(chunks(start('write', 'w1'), ...pieces('w1', `{"path":"${APP}/my \\"best\\" page.html","data":"x"}`),
         tool('write', 'w1'), usage()), h.context);
-    assert.equal(h.labels[1], 'Creating a page');
+    assert.equal(h.labels[0], 'Creating a page');
 });
 
 await check('a long write stops being read once its path is in', async () => {
     const h = setup([]);
     const json = `{"path":"${APP}/index.html","data":"${'x'.repeat(20000)}"}`;
     await h.env.handleMessageStream(chunks(start('write', 'w1'), ...pieces('w1', json, 50), tool('write', 'w1'), usage()), h.context);
-    assert.deepEqual(h.labels.slice(0, 2), ['', 'Creating the main page']);
+    assert.equal(h.labels[0], 'Creating the main page');
     assert.equal(h.labels.filter((l) => l === 'Creating the main page').length, 1, 'set once, not on every piece');
 });
 
@@ -158,7 +170,7 @@ await check('a write whose path can\'t be read falls back to its plain wording',
     const h = setup([]);
     const json = `{"data":"${'x'.repeat(3000)}","path":"${APP}/index.html"}`;
     await h.env.handleMessageStream(chunks(start('write', 'w1'), ...pieces('w1', json, 100), tool('write', 'w1'), usage()), h.context);
-    assert.deepEqual(h.labels.slice(0, 2), ['', 'Working on your app']);
+    assert.equal(h.labels[0], 'Working on your app');
 });
 
 await check('tools with their own UI leave the dots bare, other tools get a plain status', async () => {
@@ -195,14 +207,18 @@ function labelHarness({ withLabel = true } = {}) {
     const timers = [];
     const classes = new Set();
     const fades = [];
-    const label = withLabel ? {
-        textContent: '',
-        get offsetWidth() { return 0; },
-        classList: {
-            add: (c) => { classes.add(c); if (c === 'is-changing') fades.push(label.textContent); },
-            remove: (c) => classes.delete(c),
-        },
-    } : null;
+    const makeLabel = () => {
+        const l = {
+            textContent: '',
+            get offsetWidth() { return 0; },
+            classList: {
+                add: (c) => { classes.add(c); if (c === 'is-changing') fades.push(l.textContent); },
+                remove: (c) => classes.delete(c),
+            },
+        };
+        return l;
+    };
+    let label = withLabel ? makeLabel() : null;
     const env = {
         document: { querySelector: () => label },
         setTimeout: (fn, ms) => { const t = { at: now + ms, fn }; timers.push(t); return t; },
@@ -223,7 +239,9 @@ function labelHarness({ withLabel = true } = {}) {
         }
         now = until;
     };
-    return { set, advance, label, fades, timers };
+    // The dots go and fresh ones come, with an empty label of their own.
+    const newDots = () => { label = makeLabel(); };
+    return { set, advance, get label() { return label; }, fades, timers, newDots, classes };
 }
 
 await check('a cleared label says Working after a second, not before', async () => {
@@ -249,9 +267,94 @@ await check('a new step within that second cancels it, so quick hand-offs stay p
 await check('new words fade in, the same words don\'t restart it', async () => {
     const h = labelHarness();
     h.set('Creating the main page');
+    h.advance(1000);
     h.set('Creating the main page');
     h.set('Applying changes');
     assert.deepEqual(h.fades, ['Creating the main page', 'Applying changes']);
+});
+
+await check('the fade class comes off once the fade is done', async () => {
+    // Moving the dots re-inserts them, which replays any animation still set,
+    // so unchanged words faded in again on every tool call.
+    const h = labelHarness();
+    h.set('Updating the main page');
+    assert.ok(h.classes.has('is-changing'));
+    h.label.onanimationend();
+    assert.ok(!h.classes.has('is-changing'));
+});
+
+// ---- Words stay up for a second -------------------------------------------------
+// Quick steps used to flash their words past too fast to read.
+
+await check('words stay up for a second before the next ones replace them', async () => {
+    const h = labelHarness();
+    h.set('Reading index.html');
+    h.advance(200);
+    h.set('Reading style.css');
+    h.advance(799);
+    assert.equal(h.label.textContent, 'Reading index.html');
+    h.advance(1);
+    assert.equal(h.label.textContent, 'Reading style.css');
+});
+
+await check('only the latest words wait, the ones in between are skipped', async () => {
+    const h = labelHarness();
+    h.set('Reading index.html');
+    h.set('Reading style.css');
+    h.set('Reading app.js');
+    h.set('Updating the main page');
+    h.advance(1000);
+    assert.deepEqual(h.fades, ['Reading index.html', 'Updating the main page']);
+    h.advance(5000);
+    assert.equal(h.label.textContent, 'Updating the main page');
+    assert.equal(h.timers.length, 0);
+});
+
+await check('a clear waits out the second too, then Working follows a second later', async () => {
+    const h = labelHarness();
+    h.set('Applying changes');
+    h.advance(100);
+    h.set('');
+    h.advance(899);
+    assert.equal(h.label.textContent, 'Applying changes');
+    h.advance(1);
+    assert.equal(h.label.textContent, '');
+    h.advance(999);
+    assert.equal(h.label.textContent, '');
+    h.advance(1);
+    assert.equal(h.label.textContent, 'Working');
+});
+
+await check('Working is held for a second like any other words', async () => {
+    const h = labelHarness();
+    h.set('');
+    h.advance(1000);
+    assert.equal(h.label.textContent, 'Working');
+    h.advance(100);
+    h.set('Updating the main page');
+    h.advance(899);
+    assert.equal(h.label.textContent, 'Working');
+    h.advance(1);
+    assert.equal(h.label.textContent, 'Updating the main page');
+});
+
+await check('words that come back before the second is up are not shown twice', async () => {
+    const h = labelHarness();
+    h.set('Finishing up');
+    h.set('Reading files');
+    h.set('Finishing up');
+    h.advance(5000);
+    assert.deepEqual(h.fades, ['Finishing up']);
+    assert.equal(h.timers.length, 0);
+});
+
+await check('fresh dots show their words at once, not after the old dots\' second', async () => {
+    const h = labelHarness();
+    h.set('Applying changes');
+    h.advance(100);
+    h.newDots();
+    h.set('Creating the main page');
+    assert.equal(h.label.textContent, 'Creating the main page');
 });
 
 await check('with no dots on screen nothing waits or loops', async () => {

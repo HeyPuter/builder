@@ -462,7 +462,9 @@ async function handleMessageStream(stream, context) {
                 // `write` and `edit` wait for their path, which comes in the
                 // call's first pieces: showing "Working on your app" first
                 // only for it to be replaced a moment later read as a snap.
-                window.setSpinnerLabel?.(TOOL_PART[completion.name] ? '' : toolProgressLabel(completion.name));
+                // The words already up stay until then, since clearing them
+                // made a run of edits to one part blink off and back on.
+                if (!TOOL_PART[completion.name]) window.setSpinnerLabel?.(toolProgressLabel(completion.name));
                 continue;
             }
             if (completion.type === 'tool_input_delta') {

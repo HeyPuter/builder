@@ -6005,8 +6005,11 @@ function startSpinnerStub() {
         // item is shimmering in progress.
         if (hasRunningTodo()) { fadeOutSpinner(); return null; }
         const lastMessage = $('.chat-box .message').last();
-        if (lastMessage.length) lastMessage.after(existing);
-        else $('.chat-box').append(existing);
+        // Only when something has landed below them. Re-inserting a node
+        // restarts its animations, so the dots hitched on every tool call.
+        if (lastMessage.length) {
+            if (lastMessage.next()[0] !== existing[0]) lastMessage.after(existing);
+        } else $('.chat-box').append(existing);
         if (window.shouldAutoScroll) {
             const $cb = $('.chat-box');
             if ($cb.length) $cb.scrollTop($cb[0].scrollHeight);
