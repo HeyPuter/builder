@@ -46,6 +46,8 @@ const SCRIPTS = [
   'js/branding.js',
   // Pure: full URLs for a published page's og:image/twitter:image (ui.js).
   'js/social-images.js',
+  // Pure: the user's own domains on a published site (the publish popover).
+  'js/custom-domain.js',
   'js/issues-core.js',
   'js/worker-ownership.js',
   // A project's API keys, kept in each backend worker's own store (the

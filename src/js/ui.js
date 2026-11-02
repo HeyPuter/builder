@@ -1247,6 +1247,7 @@ window.hideAppPreview = function() {
     window.currentPublishedPath = null;
     window.currentPublishedVersionId = null;
     window.currentPublishedAt = null;
+    window.currentPublishedDomains = [];
     previewRefreshPending = false;
     showPreviewUpdating(false);
     // Drop any pending click-to-edit selection (chip + armed target) — its target
@@ -1992,7 +1993,8 @@ function renderPublishPanel() {
         if (!_suggestedPublishName) _suggestedPublishName = puter.randName('-');
         const suggested = htmlEscape(_suggestedPublishName);
         body =
-            '<p class="publish-blurb">Pick a public address, then publish. You can change it later — and you\'ll keep editing here, with changes staying in your draft until you publish.</p>' +
+            '<p class="publish-blurb">Pick a public address, then publish. You can change it later, and you\'ll keep editing here, with changes staying in your draft until you publish.</p>' +
+            publishAddressHeadHtml() +
             '<div class="publish-name-row">' +
                 '<span class="publish-address-fix">https://</span>' +
                 `<input type="text" class="publish-name-input" value="${suggested}" placeholder="your-app" aria-label="Site address (before .puter.site)" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off">` +
@@ -2004,17 +2006,23 @@ function renderPublishPanel() {
                 : `<button class="publish-action" data-action="publish">${globe}<span>Publish</span></button>`);
     } else {
         title = 'Your site';
-        const host = htmlEscape((url || '').replace(/^https?:\/\//, '').replace(/\/+$/, ''));
-        const safeUrl = htmlEscape(url || '');
+        // A connected domain is the site's address: the row shows it, and the
+        // puter.site address moves to the quiet line under it.
+        const primary = publishedShareUrl(url) || url;
+        const host = htmlEscape((primary || '').replace(/^https?:\/\//, '').replace(/\/+$/, ''));
+        const safeUrl = htmlEscape(primary || '');
         const ago = formatPublishedAgo(window.currentPublishedAt);
         body =
             `<div class="publish-live ${st.dirty ? 'is-stale' : ''}"><span class="publish-live-dot"></span>${st.dirty ? 'Live — changes not yet published' : 'Live'}</div>` +
+            publishAddressHeadHtml() +
             '<div class="publish-url-row">' +
                 `<a class="publish-url-display" href="${safeUrl}" target="_blank" rel="noopener noreferrer" title="${safeUrl}">${host}</a>` +
                 `<button class="publish-icon-btn publish-copy" title="Copy link">${copySvg}</button>` +
                 `<a class="publish-icon-btn publish-open" href="${safeUrl}" target="_blank" rel="noopener noreferrer" title="Open site in new tab">${window.external_link_svg}</a>` +
             '</div>' +
-            '<button class="publish-change-address" data-action="change-address">Change address</button>' +
+            (primary !== url
+                ? publishAlsoAtHtml(primary, url)
+                : '<button class="publish-change-address" data-action="change-address">Change address</button>') +
             '<div class="publish-address-edit">' +
                 '<span class="publish-address-fix">https://</span>' +
                 '<input type="text" class="publish-address-input" aria-label="Site address (before .puter.site)" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off">' +
@@ -2022,6 +2030,7 @@ function renderPublishPanel() {
                 `<button class="publish-address-save" title="Save address">${window.check_svg}</button>` +
                 `<button class="publish-address-cancel" title="Cancel">${window.x_svg}</button>` +
             '</div>' +
+            publishDomainsHtml() +
             publishBadgeToggleHtml() +
             (st.dirty || badgeChangePending(currentChatId, window.currentPublishedPath)
                 ? (blocked
@@ -2053,7 +2062,9 @@ function keepPublishPanelFocus($panel) {
     const selector = cls ? '.' + cls + (action ? `[data-action="${action}"]` : '') : null;
     return () => {
         const el = selector ? $panel.find(selector).filter(':visible')[0] : null;
-        if (!el) { $panel.trigger('focus'); return; }
+        // A control that came back disabled (a domain's Check now while it
+        // checks) can't take focus, which would leave it on <body>.
+        if (!el || el.disabled) { $panel.trigger('focus'); return; }
         el.focus({ preventScroll: true });
         if (el.classList.contains('publish-name-input')) {
             const n = el.value.length;
@@ -2095,6 +2106,8 @@ function openPublishPanel() {
     // The badge box is locked or not by plan. Ask Puter again: the user may
     // have upgraded in another tab. A changed plan re-renders the popover.
     refreshUserPlan();
+    // A domain still waiting for its DNS records may be working by now.
+    watchCustomDomains();
 }
 
 function closePublishPanel() {
@@ -2104,6 +2117,7 @@ function closePublishPanel() {
     // the form. (A publish still in flight re-shows progress via publishBusyHere.)
     _publishPanelView = 'form';
     _publishSuccessData = null;
+    stopWatchingCustomDomains();
     $('.preview-publish-btn').attr('aria-expanded', 'false');
     $('.preview-publish-panel').remove();
 }
@@ -2515,7 +2529,9 @@ async function retirePublishedWorkers(chatId, keepNames) {
 
 // The core action: push the current working dir to the public subdomain
 // (creating it on first publish), then record + persist the new baseline.
-async function doPublish() {
+// `reserved` is a first publish's puter.site name the own-domain route has
+// already made the project's (a promise, see publishWithDomain).
+async function doPublish({ reserved = null } = {}) {
     // Normally unreachable — the action renders as a disabled "finishing…" row
     // while a turn/restore runs (see renderPublishPanel). This is the race guard
     // for the narrow window where work starts between render and click: no
@@ -2605,6 +2621,8 @@ async function doPublish() {
     // popover while the publish runs (the progress note invites them to), and
     // reading the field later would silently publish under a random name.
     const desiredName = ($('.preview-publish-panel .publish-name-input').val() || '').trim().toLowerCase();
+    // The own-domain route only ever reserves a name for a first publish.
+    if (!isFirst) reserved = null;
     // The badge box, for the same reason: the live release it falls back to
     // is this project's only while it is still open.
     const removeBadgePromise = removeBadgeWanted(chatId, window.currentPublishedPath);
@@ -2615,6 +2633,7 @@ async function doPublish() {
     // just clicked inside the panel and the swap discards the clicked button,
     // so re-focus the panel to keep Escape-to-close working.
     _publishViewIsFirst = isFirst;
+    _publishViaDomain = !!reserved;
     _publishSuccessData = null;
     _publishPanelView = 'progress';
     renderPublishPanel();
@@ -2653,7 +2672,16 @@ async function doPublish() {
 
         let url = startUrl;
         const existingSub = previewSubdomain(url);
-        if (!existingSub) {
+        if (!existingSub && reserved) {
+            // First publish by the own-domain route: the name is already the
+            // project's, serving an empty folder, so point it at the release
+            // once its pages carry the full address.
+            const sub = await reserved;
+            url = `https://${sub}.puter.site/`;
+            await absolutizeSocialImagesInRelease(releaseDir, url, [startPreviewUrl]);
+            await puter.hosting.update(sub, releaseDir);
+            _reservedPublishNames.delete(chatId);
+        } else if (!existingSub) {
             // First publish: mint the public subdomain at the user-chosen address
             // (empty → a name is auto-derived). createPublishSubdomain throws a
             // coded error for an invalid/taken explicit name (handled below).
@@ -2729,18 +2757,28 @@ async function doPublish() {
                 try { await saveCurrentChat({ currentChatId: chatId, chatHistory: chatHistory }); }
                 catch (e) { /* save surfaces its own toast on failure */ }
             }
+            // The link to share is the user's own domain once one serves the
+            // site (see publishedShareUrl).
+            const shareUrl = window.publishedShareUrl?.(url) || url;
             const publishToastOptions = {
                 type: 'success',
                 action: {
                     label: 'Open site',
-                    onClick: () => window.open(url, '_blank', 'noopener,noreferrer'),
+                    onClick: () => window.open(shareUrl, '_blank', 'noopener,noreferrer'),
                 },
             };
+            // The own-domain route lands on the site's view instead of the
+            // share view: that is where the domain shows the DNS records it
+            // still needs, and the puter.site link isn't the one to share.
             // Swap the popover to its share view, waiting briefly for the site
             // meta (usually already loaded — the read ran alongside the publish).
             // If the popover was closed mid-publish, fall back to the toast so
             // success is never silent.
-            if (_publishPanelOpen) {
+            if (_publishPanelOpen && reserved) {
+                _publishPanelView = 'form';
+                renderPublishPanel();
+                window.announce?.('Your website is live.');
+            } else if (_publishPanelOpen) {
                 let meta = { title: '', description: '', icon: '' };
                 try {
                     const raced = await Promise.race([
@@ -2753,7 +2791,7 @@ async function doPublish() {
                 // chat switched) while the meta was still loading.
                 if (_publishPanelOpen && currentChatId === chatId) {
                     _publishViewIsFirst = isFirst;
-                    _publishSuccessData = { url, meta };
+                    _publishSuccessData = { url: shareUrl, meta };
                     _publishPanelView = 'success';
                     renderPublishPanel();
                     window.announce?.(isFirst ? 'Your website is live.' : 'Your website was updated.');
@@ -2867,6 +2905,7 @@ $(document).on('click', '.preview-publish-panel .publish-action', function (e) {
     doPublish();
 });
 
+
 // The Upgrade buttons beside the locked badge box and under the share view.
 // stopPropagation for the same reason as .publish-action above.
 $(document).on('click', '.preview-publish-panel .publish-branding-btn', function (e) {
@@ -2909,7 +2948,8 @@ $(document).on('input', '.publish-name-input', function () {
 // Copy the public link — swap the icon to a checkmark on success, then restore.
 $(document).on('click', '.preview-publish-panel .publish-copy', async function (e) {
     e.preventDefault();
-    const url = window.currentPublishedUrl;
+    // The address the row shows: a connected domain, else the puter.site one.
+    const url = publishedShareUrl(window.currentPublishedUrl);
     if (!url) return;
     const $btn = $(this);
     if ($btn.hasClass('copied')) return; // already flashing — ignore rapid re-clicks
@@ -2977,6 +3017,7 @@ $(document).on('click', function (e) {
 // view instead of snapping back to the form mid-publish.
 let _publishPanelView = 'form'; // 'form' | 'progress' | 'success'
 let _publishViewIsFirst = false; // first publish vs update — picks the wording
+let _publishViaDomain = false; // a first publish by the own-domain route
 let _publishSuccessData = null; // { url, meta } backing the share view
 
 // Best-effort read of the published site's own metadata — the same fields a
@@ -3007,7 +3048,9 @@ function publishProgressHtml() {
     return '<div class="publish-result-progress">' +
         '<span class="publish-result-spinner" aria-hidden="true"></span>' +
         `<div class="publish-result-title">${_publishViewIsFirst ? 'Publishing your site' : 'Updating your site'}</div>` +
-        '<p class="publish-result-sub">This usually takes a few seconds. You can close this and keep building.</p>' +
+        (_publishViaDomain
+            ? '<p class="publish-result-sub">Pick or add your domain in Puter’s window. Your site goes live here in a few seconds.</p>'
+            : '<p class="publish-result-sub">This usually takes a few seconds. You can close this and keep building.</p>') +
     '</div>';
 }
 
@@ -3183,6 +3226,11 @@ $(document).on('click', '.publish-address-save', async function () {
         $input.trigger('focus');
         return;
     }
+    // The user's own domains stay with the old address (see custom-domain.js).
+    if (await window.confirmAddressChangeKeepsDomains?.(window.currentPublishedDomains, oldSub) === false) {
+        $input.trigger('focus');
+        return;
+    }
     // Only ever the frozen published copy — never publishedRootDir(), which is
     // the live working directory the AI edits. A record with a URL but no path
     // (a save that fell back to the list entry) used to re-point the new public
@@ -3238,6 +3286,482 @@ $(document).on('click', '.publish-address-save', async function () {
     } finally {
         $btn.prop('disabled', false);
     }
+});
+
+// ---- The user's own domain (inside the popover) ----------------------------
+// A published site can also answer at a domain the user owns, on a paid plan.
+// Puter connects it in its own dialog (puter.hosting.attach), where the user
+// picks one of their domains or adds one, sees the price, and gets the DNS
+// records to set. The dialog resolves to the chosen domain, which goes on the
+// project's record (window.currentPublishedDomains, saved as
+// publishedDomains). A new domain starts out pending until its records are in
+// place, and the builder can't ask Puter when that happens, so it asks the
+// domain. While the popover is open it fetches each waiting domain every
+// DOMAIN_CHECK_MS and marks it connected once it serves this site (see
+// custom-domain.js).
+//
+// A site that isn't published yet can start with its domain straight away
+// (publishWithDomain): the publish puts it on the name in the address field,
+// with Puter's window open over it.
+const DOMAIN_CHECK_MS = 15000;
+// Projects whose connect dialog is open, so their button waits for it.
+const _domainConnectBusy = new Set();
+// The checks in flight by hostname, the ones the user pressed Check now for,
+// and the ones that press found not working yet (the note under them).
+const _domainChecks = new Map();
+const _domainManualChecks = new Set();
+const _domainNotYet = new Set();
+let _domainWatchTimer = null;
+
+// The address to share for the open project: a connected domain that serves
+// the site, else its puter.site address.
+function publishedShareUrl(url) {
+    return window.CustomDomain.liveUrl(window.currentPublishedDomains, previewSubdomain(url), url);
+}
+window.publishedShareUrl = publishedShareUrl;
+
+// Re-render the open popover for a domain change, unless the address is
+// being edited (a render would drop what the user typed).
+function rerenderPublishPanelForDomains() {
+    if (_publishPanelOpen && !$('.preview-publish-panel').hasClass('editing-address')) renderPublishPanel();
+}
+
+// The "Site address" heading over the address, on the first publish and
+// the live site, with the way to the user's own domain on its right: Use
+// custom domain, or Change domain once one is connected. Everyone who publishes
+// sees it where they pick their address. A paid plan starts right away, and
+// on the free plan the press opens the upgrade dialog (useOwnDomain), so it
+// counts as an upgrade prompt there.
+function publishAddressHeadHtml() {
+    const sub = previewSubdomain(window.currentPublishedUrl);
+    const change = !!sub && window.CustomDomain.list(window.currentPublishedDomains).length > 0;
+    if (!window.Branding.isSubscribed(window.user)) trackUpgradePromptShown('custom_domain');
+    const busy = _domainConnectBusy.has(currentChatId);
+    return '<div class="publish-address-head">' +
+        '<span class="publish-address-label">Site address</span>' +
+        `<button type="button" class="publish-domain-action" data-action="${change ? 'change-domain' : 'use-domain'}"${busy ? ' disabled' : ''}>` +
+            (busy ? 'Connecting…' : change ? 'Change domain' : 'Use custom domain') +
+        '</button>' +
+    '</div>';
+}
+
+const _domainCopySvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+
+// The domains part of the live popover: the connected ones that still need
+// something. Connecting or changing one is the heading's button
+// (publishAddressHeadHtml), and one that works is the site's address.
+function publishDomainsHtml() {
+    const sub = previewSubdomain(window.currentPublishedUrl);
+    if (!sub) return '';
+    const domains = window.CustomDomain.list(window.currentPublishedDomains);
+    if (!domains.length) return '';
+    // A connected domain is shown as the site's address (publishAlsoAtHtml),
+    // so cards are only for the ones that still need something, such as a
+    // new pick from Change domain waiting for its DNS records.
+    const cards = domains.filter((d) => window.CustomDomain.view(d, sub)?.kind !== 'active');
+    // Next to a domain that already is the site's address, a waiting one is
+    // the new pick.
+    if (!cards.length) return '';
+    const fresh = cards.length < domains.length;
+    const label = (fresh ? 'New domain' : 'Your domain') + (cards.length === 1 ? '' : 's');
+    return '<div class="publish-domains">' +
+        `<div class="publish-domains-label">${label}</div>` +
+        cards.map((d) => publishDomainCardHtml(d, sub)).join('') +
+    '</div>';
+}
+
+// The quiet line under the URL row once a connected domain is the site's
+// address: the site's other addresses, its puter.site one last. The puter.site
+// address has no Change here: renaming it only disconnects the domains, and
+// Settings still renames it, behind the same warning.
+function publishAlsoAtHtml(primaryUrl, siteUrl) {
+    const sub = previewSubdomain(siteUrl);
+    const others = window.CustomDomain.list(window.currentPublishedDomains)
+        .map((d) => window.CustomDomain.view(d, sub))
+        .filter((v) => v && v.kind === 'active' && v.url !== primaryUrl)
+        .map((v) => v.url)
+        .concat([siteUrl]);
+    const links = others.map((u) => {
+        const safe = htmlEscape(u);
+        return `<a href="${safe}" target="_blank" rel="noopener noreferrer">${htmlEscape(u.replace(/^https?:\/\//, '').replace(/\/+$/, ''))}</a>`;
+    }).join(', ');
+    return `<div class="publish-also">Also at ${links}</div>`;
+}
+
+function publishDomainCardHtml(domain, sub) {
+    const v = window.CustomDomain.view(domain, sub);
+    if (!v) return '';
+    const host = htmlEscape(v.hostname);
+    const url = htmlEscape(v.url);
+    if (v.kind === 'active') {
+        return `<div class="publish-domain is-active">` +
+            '<div class="publish-url-row">' +
+                `<a class="publish-url-display" href="${url}" target="_blank" rel="noopener noreferrer" title="${url}">${host}</a>` +
+                `<button type="button" class="publish-icon-btn publish-domain-copy" data-copy="${url}" title="Copy link" aria-label="Copy link to ${host}">${_domainCopySvg}</button>` +
+                `<a class="publish-icon-btn" href="${url}" target="_blank" rel="noopener noreferrer" title="Open ${host} in a new tab">${window.external_link_svg}</a>` +
+            '</div>' +
+        '</div>';
+    }
+    if (v.kind === 'moved') {
+        const busy = _domainConnectBusy.has(currentChatId);
+        return '<div class="publish-domain is-moved">' +
+            '<div class="publish-domain-head">' +
+                '<span class="publish-domain-dot" aria-hidden="true"></span>' +
+                `<span class="publish-domain-host">${host}</span>` +
+                '<span class="publish-domain-state">Not connected</span>' +
+            '</div>' +
+            `<p class="publish-domain-note">It was connected to ${htmlEscape(v.domain.site)}.puter.site, this site’s address before you changed it. Connect it again to use it here.</p>` +
+            `<button type="button" class="publish-domain-btn publish-domain-connect" data-action="reconnect-domain"${busy ? ' disabled' : ''}>${busy ? 'Connecting…' : 'Connect again'}</button>` +
+        '</div>';
+    }
+    const failed = v.kind === 'failed';
+    const checking = _domainManualChecks.has(v.hostname);
+    const records = v.domain.records.map(publishDomainRecordHtml).join('');
+    const apex = v.domain.isApex
+        ? `<p class="publish-domain-note">${host} is a root domain, so your DNS provider needs to support CNAME flattening, ALIAS or ANAME records for it. If it doesn’t, connect www.${host} instead and forward ${host} to it.</p>`
+        : '';
+    return `<div class="publish-domain is-${failed ? 'failed' : 'pending'}">` +
+        '<div class="publish-domain-head">' +
+            '<span class="publish-domain-dot" aria-hidden="true"></span>' +
+            `<span class="publish-domain-host">${host}</span>` +
+            `<span class="publish-domain-state">${failed ? 'Couldn’t be verified' : 'Waiting for DNS'}</span>` +
+        '</div>' +
+        (failed && v.domain.statusDetail ? `<p class="publish-domain-note">${htmlEscape(v.domain.statusDetail)}</p>` : '') +
+        (records
+            ? '<p class="publish-domain-note">Add these records where you manage your domain’s DNS. It starts working a few minutes after they’re in place.</p>' +
+              `<div class="publish-domain-records">${records}</div>`
+            : '<p class="publish-domain-note">Add the DNS records Puter listed for it where you manage your domain’s DNS. It starts working a few minutes after they’re in place.</p>') +
+        apex +
+        (_domainNotYet.has(v.hostname) && !checking
+            ? '<p class="publish-domain-note is-not-yet">Not working yet. DNS changes can take a while to reach everyone, so check again in a few minutes.</p>'
+            : '') +
+        `<button type="button" class="publish-domain-btn publish-domain-check" data-action="check-domain" data-host="${host}"${checking ? ' disabled' : ''}>` +
+            (checking ? '<span class="publish-spinner" aria-hidden="true"></span><span>Checking…</span>' : '<span>Check now</span>') +
+        '</button>' +
+    '</div>';
+}
+
+// One DNS record: its type on the left, then its name and value, each with a
+// copy button (the values are long and pasted as they are).
+function publishDomainRecordHtml(record) {
+    const type = htmlEscape(record.type);
+    const name = htmlEscape(record.name);
+    const value = htmlEscape(record.value);
+    return '<div class="publish-domain-record">' +
+        `<span class="publish-domain-record-type">${type}${record.required ? '' : '<small>Optional</small>'}</span>` +
+        '<span class="publish-domain-record-key">Name</span>' +
+        `<code class="publish-domain-record-val">${name}</code>` +
+        `<button type="button" class="publish-icon-btn publish-domain-copy" data-copy="${name}" title="Copy name" aria-label="Copy the ${type} record’s name">${_domainCopySvg}</button>` +
+        '<span class="publish-domain-record-key">Value</span>' +
+        `<code class="publish-domain-record-val">${value}</code>` +
+        `<button type="button" class="publish-icon-btn publish-domain-copy" data-copy="${value}" title="Copy value" aria-label="Copy the ${type} record’s value">${_domainCopySvg}</button>` +
+    '</div>';
+}
+
+// Change a project's domains with `change` (old list → new list) and save
+// them: on the open chat's globals and record while it is still on screen,
+// else straight into its record.
+async function updatePublishedDomains(chatId, change) {
+    if (currentChatId === chatId) {
+        window.currentPublishedDomains = change(window.currentPublishedDomains);
+        if (typeof saveCurrentChat === 'function') {
+            try { await saveCurrentChat({ currentChatId: chatId, chatHistory: chatHistory }); }
+            catch (e) { /* save surfaces its own toast on failure */ }
+        }
+        return;
+    }
+    let saved;
+    try { saved = JSON.parse(await puter.fs.read(`chat-history/${chatId}.json`).then(d => d.text())).publishedDomains; }
+    catch (e) { return; }
+    await window.savePublishedFields?.(chatId, { publishedDomains: change(saved) });
+}
+
+// Open Puter's domain dialog for the site at `sub` (the published one unless
+// a first publish passes the name it reserved) and keep the domain the user
+// chose. Runs straight from the click, before any await: on a website the
+// dialog is a puter.com popup, which a browser opens only from a click. On
+// the free plan the click opens the upgrade dialog instead.
+function connectCustomDomain(sub = previewSubdomain(window.currentPublishedUrl), { from = 'popover' } = {}) {
+    const chatId = currentChatId;
+    if (!chatId || !sub || _domainConnectBusy.has(chatId)) return;
+    if (!window.Branding.isSubscribed(window.user)) {
+        openUpgradeModal('custom_domain');
+        return;
+    }
+    let attaching;
+    try { attaching = Promise.resolve(puter.hosting.attach(sub)); }
+    catch (e) { attaching = Promise.reject(e); }
+    _domainConnectBusy.add(chatId);
+    window.track?.('Custom Domain Dialog Opened', { from });
+    rerenderPublishPanelForDomains();
+    attaching.then(async (raw) => {
+        // The dialog was closed without choosing a domain.
+        if (!raw) return;
+        // The site the domain serves, in case Puter left it out: it's the one
+        // the dialog was opened for.
+        const domain = window.CustomDomain.normalize({ ...raw, site: raw.site || sub });
+        if (!domain) return;
+        _domainNotYet.delete(domain.hostname);
+        await updatePublishedDomains(chatId, (list) => window.CustomDomain.upsert(list, domain));
+        window.track?.('Custom Domain Connected', { status: domain.status, apex: domain.isApex });
+        if (currentChatId === chatId) {
+            window.announce?.(domain.status === 'active'
+                ? `${domain.hostname} is connected.`
+                : `${domain.hostname} was added. Set its DNS records to finish connecting it.`);
+        }
+    }).catch(async (e) => {
+        if (e && e.code === 'not_supported') {
+            await puter.ui.alert(`This Puter desktop can’t connect a domain yet. Open ${location.host} in a browser tab to connect one.`);
+        } else {
+            const msg = window.puterErrInfo(e).message;
+            await puter.ui.alert('Couldn’t open the domain settings. Please try again.' + (msg ? '\n\n' + msg : ''));
+        }
+    }).finally(() => {
+        _domainConnectBusy.delete(chatId);
+        if (currentChatId !== chatId) return;
+        rerenderPublishPanelForDomains();
+        watchCustomDomains();
+    });
+}
+
+// The folder a name reserved for an own-domain publish serves until its
+// release is ready: empty, inside the project's published container, named
+// to sort before every real release (RELEASE_DIR_RE), and removed with the
+// replaced releases once the publish lands (retirePublishedReleases).
+const RESERVED_RELEASE_NAME = 'r_0_reserved';
+// The puter.site name each project reserved for an own-domain publish, kept
+// until that publish lands, so a retry after a failed one reuses the name the
+// domain was connected to.
+const _reservedPublishNames = new Map();
+
+// Make `name` this project's site, serving the empty placeholder folder.
+// Puter's dialog can only connect a domain to a site the user already owns,
+// and this takes a moment, where the publish itself takes many seconds.
+async function reservePublishSubdomain(chatId, name) {
+    if (_reservedPublishNames.get(chatId) === name) return name;
+    const dir = publishedDirForChat(chatId) + '/' + RESERVED_RELEASE_NAME;
+    await puter.fs.mkdir(dir, { recursive: true });
+    try {
+        await puter.hosting.create(name, dir);
+    } catch (e) {
+        if (window.isSubdomainLimitErr(e)) { const err = new Error('subdomain limit reached'); err.code = 'subdomain-limit'; throw err; }
+        if (window.isSubdomainTakenErr(e)) { const err = new Error('address taken'); err.code = 'name-taken'; throw err; }
+        if (e && !e.code) e.code = 'create-failed';
+        throw e;
+    }
+    _reservedPublishNames.set(chatId, name);
+    return name;
+}
+
+// The puter.site name an own-domain publish gets when the address field is
+// empty: the project's title with a short random tail, so it reads well and
+// is almost surely free.
+function ownDomainSubdomainName(history) {
+    const slug = slugifyTitle(typeof generateChatTitle === 'function' ? generateChatTitle(history || chatHistory) : '');
+    return slug ? `${slug}-${shortRand()}` : puter.randName('-');
+}
+
+// The heading's Use custom domain / Change domain (publishAddressHeadHtml).
+// The free plan gets the upgrade dialog. A paid plan starts at once: Puter's
+// window for the live site, or, before a first publish, the publish with the
+// window over it (publishWithDomain).
+function useOwnDomain(action) {
+    if (!window.Branding.isSubscribed(window.user)) {
+        openUpgradeModal('custom_domain');
+        return;
+    }
+    if (previewSubdomain(window.currentPublishedUrl)) connectCustomDomain(undefined, { from: action === 'change-domain' ? 'change' : 'popover' });
+    else publishWithDomain();
+}
+
+// A first publish that starts with the user's own domain, on a paid plan.
+// The site gets the name in the address field, made the project's at once
+// (reservePublishSubdomain), so a taken name is reported here rather than in
+// Puter's window, which only works with a site the user owns. The window then
+// opens for that name, and the publish runs behind it. The reservation takes
+// about a second, inside the time a click lets a page open a popup, and
+// puter.js asks the user to continue when a browser has run out of it.
+async function publishWithDomain() {
+    const chatId = currentChatId;
+    if (!chatId || previewSubdomain(window.currentPublishedUrl) || _domainConnectBusy.has(chatId)) return;
+    if (!window.Branding.isSubscribed(window.user)) {
+        openUpgradeModal('custom_domain');
+        return;
+    }
+    // Whatever would stop the publish stops it before anything is reserved,
+    // and doPublish says why.
+    if (publishBlockedReason() || publishBusyHere() || _publishStarting.has(chatId) || !publishedRootDir()) {
+        doPublish();
+        return;
+    }
+    // A name reserved by an earlier try that didn't publish comes first: the
+    // domain may already be connected to it.
+    const typed = String($('.preview-publish-panel .publish-name-input').val() || '').trim().toLowerCase();
+    const name = _reservedPublishNames.get(chatId) || typed || ownDomainSubdomainName(chatHistory);
+    if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(name)) {
+        await puter.ui.alert('Please enter a valid address: lowercase letters, numbers, and hyphens only (it can’t start or end with a hyphen).');
+        $('.preview-publish-panel .publish-name-input').trigger('focus');
+        return;
+    }
+    _suggestedPublishName = name;
+    _domainConnectBusy.add(chatId);
+    rerenderPublishPanelForDomains();
+    try {
+        await reservePublishSubdomain(chatId, name);
+    } catch (e) {
+        _domainConnectBusy.delete(chatId);
+        if (currentChatId !== chatId) return;
+        rerenderPublishPanelForDomains();
+        if (e && e.code === 'name-taken') {
+            await puter.ui.alert('That address is already taken. Please choose another.');
+        } else if (e && e.code === 'subdomain-limit') {
+            await puter.ui.alert('You’ve reached the maximum number of published sites for your account. Delete a site you no longer need, then try publishing again.');
+        } else {
+            const msg = window.puterErrInfo(e).message;
+            await puter.ui.alert('Could not publish your site. Please try again.' + (msg ? '\n\n' + msg : ''));
+        }
+        $('.preview-publish-panel .publish-name-input').trigger('focus');
+        return;
+    }
+    _domainConnectBusy.delete(chatId);
+    // Another project opened meanwhile: the name stays reserved for a retry.
+    if (currentChatId !== chatId) return;
+    connectCustomDomain(name, { from: 'first_publish' });
+    doPublish({ reserved: Promise.resolve(name) });
+}
+
+$(document).on('click', '.preview-publish-panel .publish-domain-action', function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    useOwnDomain($(this).attr('data-action'));
+});
+
+// Whether `hostname` serves the site at `siteUrl` yet: the two home pages,
+// fetched side by side, match (CustomDomain.sameSite). Puter's hosting sends
+// Access-Control-Allow-Origin: *, so the builder can read both. A domain
+// whose records aren't in place fails the fetch (no DNS yet, or no HTTPS
+// certificate yet) or answers with some other site.
+async function customDomainServesSite(hostname, siteUrl) {
+    if (!hostname || !siteUrl) return false;
+    const read = async (url) => {
+        try {
+            const resp = await fetch(bustedUrl(url), { cache: 'no-store', signal: _probeAbortSignal(8000) });
+            if (!resp.ok) return null;
+            return { body: await resp.text(), lastModified: resp.headers.get('last-modified') || '' };
+        } catch (e) { return null; }
+    };
+    const [domain, site] = await Promise.all([read(`https://${hostname}/`), read(siteUrl)]);
+    return window.CustomDomain.sameSite(domain, site);
+}
+
+// Check one of a project's domains, and mark it connected once it serves the
+// site. A check already running for it is shared, not repeated.
+function checkCustomDomain(chatId, hostname, siteUrl) {
+    if (_domainChecks.has(hostname)) return _domainChecks.get(hostname);
+    const check = customDomainServesSite(hostname, siteUrl).then(async (live) => {
+        if (!live) return false;
+        _domainNotYet.delete(hostname);
+        await updatePublishedDomains(chatId, (list) => window.CustomDomain.markActive(list, hostname, Date.now()));
+        window.track?.('Custom Domain Active');
+        if (currentChatId === chatId) window.announce?.(`${hostname} is connected.`);
+        return true;
+    }).finally(() => { _domainChecks.delete(hostname); });
+    _domainChecks.set(hostname, check);
+    return check;
+}
+
+// Check the open project's waiting domains now, and again every
+// DOMAIN_CHECK_MS while the popover stays open and one is still waiting.
+function watchCustomDomains() {
+    clearTimeout(_domainWatchTimer);
+    _domainWatchTimer = null;
+    if (!_publishPanelOpen) return;
+    const chatId = currentChatId;
+    const siteUrl = window.currentPublishedUrl;
+    const waiting = window.CustomDomain.waiting(window.currentPublishedDomains, previewSubdomain(siteUrl));
+    if (!chatId || !waiting.length) return;
+    Promise.all(waiting.map((d) => checkCustomDomain(chatId, d.hostname, siteUrl))).then((results) => {
+        if (currentChatId !== chatId) return;
+        if (results.some(Boolean)) rerenderPublishPanelForDomains();
+        if (!_publishPanelOpen || _domainWatchTimer) return;
+        if (!window.CustomDomain.waiting(window.currentPublishedDomains, previewSubdomain(window.currentPublishedUrl)).length) return;
+        _domainWatchTimer = setTimeout(watchCustomDomains, DOMAIN_CHECK_MS);
+    });
+}
+
+function stopWatchingCustomDomains() {
+    clearTimeout(_domainWatchTimer);
+    _domainWatchTimer = null;
+    _domainNotYet.clear();
+}
+
+// Before an address change. A domain serves the site by its puter.site name,
+// which the change deletes, so say which domains stop working and let the
+// user back out. Resolves true to go ahead.
+async function confirmAddressChangeKeepsDomains(domains, oldSub) {
+    const hosts = window.CustomDomain.list(domains)
+        .filter((d) => window.CustomDomain.view(d, oldSub)?.kind !== 'moved')
+        .map((d) => d.hostname);
+    if (!hosts.length) return true;
+    const one = hosts.length === 1;
+    const names = one ? hosts[0] : hosts.slice(0, -1).join(', ') + ' and ' + hosts[hosts.length - 1];
+    const choice = await puter.ui.alert(
+        `${names} ${one ? 'shows' : 'show'} your site through its current address, so ${one ? 'it stops' : 'they stop'} working when the address changes. You can connect ${one ? 'it' : 'them'} again afterwards, from Publish.`,
+        [
+            { label: 'Change address', value: 'change', type: 'primary' },
+            { label: 'Cancel', value: 'cancel', type: 'secondary' },
+        ]);
+    return choice === 'change';
+}
+window.confirmAddressChangeKeepsDomains = confirmAddressChangeKeepsDomains;
+
+// A moved domain's Connect again. Like the heading's button (useOwnDomain),
+// it opens Puter's window for the site, and the domain picked there becomes
+// its address once it works (CustomDomain.upsert). Puter gives apps no way to
+// remove a domain, so after a change the old one keeps serving the site and
+// stays under "Also at" until it's removed in Puter. stopPropagation for the
+// same reason as .publish-action: the busy render detaches the button.
+$(document).on('click', '.preview-publish-panel .publish-domain-connect', function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    connectCustomDomain(undefined, { from: 'reconnect' });
+});
+
+$(document).on('click', '.preview-publish-panel .publish-domain-check', async function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const host = $(this).attr('data-host');
+    if (!host || _domainManualChecks.has(host)) return;
+    const chatId = currentChatId;
+    _domainManualChecks.add(host);
+    _domainNotYet.delete(host);
+    rerenderPublishPanelForDomains();
+    let live = false;
+    try { live = await checkCustomDomain(chatId, host, window.currentPublishedUrl); }
+    catch (err) { live = false; }
+    finally { _domainManualChecks.delete(host); }
+    if (currentChatId !== chatId) return;
+    if (!live) {
+        _domainNotYet.add(host);
+        window.announce?.(`${host} isn’t working yet.`);
+    }
+    rerenderPublishPanelForDomains();
+});
+
+// Copy a domain's link or one of its DNS record fields, with the same check
+// flash as the site's own copy button.
+$(document).on('click', '.preview-publish-panel .publish-domain-copy', async function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const $btn = $(this);
+    const text = $btn.attr('data-copy');
+    if (!text || $btn.hasClass('copied')) return;
+    try { await navigator.clipboard.writeText(text); }
+    catch (err) { return; } // clipboard blocked — the text is still selectable
+    const originalHTML = $btn.html();
+    const title = $btn.attr('title');
+    $btn.addClass('copied').attr('title', 'Copied!').html(window.check_svg);
+    setTimeout(() => { $btn.removeClass('copied').attr('title', title).html(originalHTML); }, 1500);
 });
 
 // ---- Share the draft link (toolbar popover) --------------------------------
@@ -4757,6 +5281,14 @@ async function showChatProperties(chatId) {
             $input.trigger('focus');
             return;
         }
+        // The user's own domains stay with the old address (see
+        // custom-domain.js). Asked only when the name really changes.
+        const domains = chatId === currentChatId ? window.currentPublishedDomains : saved.publishedDomains;
+        const fromSub = previewSubdomain(pub.url);
+        if (newSub !== fromSub && await window.confirmAddressChangeKeepsDomains?.(domains, fromSub) === false) {
+            $input.trigger('focus');
+            return;
+        }
         $save.prop('disabled', true);
         $input.prop('disabled', true);
         setPublishBusy(true, chatId);
@@ -5146,6 +5678,10 @@ function openUpgradeModal(source, { justUpgraded = false } = {}) {
     const badgeArt = frame('upgrade-badge',
         '<b></b><span></span><span></span><span class="short"></span>' +
         '<div class="upgrade-site-badge"><img src="/favicons/app-icon.png" alt="">Made with Puter</div>');
+    // A site at its own address.
+    const domainArt = frame('upgrade-domain',
+        '<span class="upgrade-domain-url"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>yourname.com</span>' +
+        '<b></b><span></span><span class="short"></span>');
     // An empty page for what comes next.
     const futureArt = frame('upgrade-future',
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.14-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.14a.5.5 0 0 1 .96 0l1.58 6.14a2 2 0 0 0 1.44 1.44l6.14 1.58a.5.5 0 0 1 0 .96l-6.14 1.58a2 2 0 0 0-1.44 1.44l-1.58 6.14a.5.5 0 0 1-.96 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>');
@@ -5153,6 +5689,7 @@ function openUpgradeModal(source, { justUpgraded = false } = {}) {
     const benefits = [
         { id: 'credits', title: 'More credits', text: 'A bigger monthly allowance for building and changing your apps.', art: creditsArt },
         { id: 'badge', title: 'Remove the badge', text: 'Publish your sites without the “Made with Puter” badge.', art: badgeArt },
+        { id: 'domain', title: 'Use your own domain', text: 'Put your sites on a domain you own, like yourname.com.', art: domainArt },
         ...(window.FEATURE_FLAGS?.modelPicker && window.ModelCore ? [{ id: 'model', title: 'Choose the AI model', text: 'Pick the model that builds each project, from Claude, GPT and Gemini.', art: modelArt() }] : []),
         ...(window.FEATURE_FLAGS?.codeEditor ? [{ id: 'code', title: 'Edit the code yourself', text: 'Change any file in the Code view and save it. The free plan can only read it.', art: codeArt }] : []),
         // GitHub sync is only there with its flags on (see github-sync.js).
@@ -5162,7 +5699,8 @@ function openUpgradeModal(source, { justUpgraded = false } = {}) {
     const lead = forCode ? 'code'
         : source === 'model_picker' ? 'model'
             : source === 'github' ? 'github'
-                : source === 'chat' || source === 'publish_panel' || source === 'publish_success' ? 'badge' : null;
+                : source === 'custom_domain' ? 'domain'
+                    : source === 'chat' || source === 'publish_panel' || source === 'publish_success' ? 'badge' : null;
     const leadAt = benefits.findIndex((b) => b.id === lead);
     if (leadAt > 0) benefits.unshift(benefits.splice(leadAt, 1)[0]);
     benefits.push({ id: 'future', title: 'Future premium features', text: 'New paid features come to your plan as we release them.', art: futureArt });
