@@ -32,7 +32,8 @@ let _turnSeq = 0;
 // noteTurnProgress).
 let _turnProgressed = false;
 // The build this tab is running, for the Build Abandoned event: its turn, when
-// it was sent, and whether it is the project's first. Set with Build Started,
+// it was sent, whether it is the project's first, and the template the project
+// was copied from (a slug, or undefined). Set with Build Started,
 // cleared once reported or when that turn ends (see trackBuildAbandoned).
 let _activeBuild = null;
 // The newest turn started in each chat (chatId -> its _turnSeq). A stopped turn
@@ -3226,6 +3227,7 @@ function trackBuildAbandoned(how) {
     _activeBuild = null;
     window.track?.('Build Abandoned', {
         how, saw_output: _turnProgressed, waited: waitBand(Date.now() - build.startedAt), first_build: build.firstBuild,
+        ...(build.template && { template: build.template }),
     });
 }
 window.addEventListener('pagehide', () => trackBuildAbandoned('left'));
@@ -3573,12 +3575,14 @@ function limitHitKey() {
     return id ? LIMIT_HIT_PREFIX + id : null;
 }
 
-function recordUsageLimitHit(kind) {
+// `template` is the slug of the template the project was copied from, if any,
+// passed on to Upgrade After Limit.
+function recordUsageLimitHit(kind, template) {
     try {
         const key = limitHitKey();
         if (key) localStorage.setItem(key, JSON.stringify({ at: Date.now(), kind }));
     } catch (e) {}
-    recordPlanAtLimit(kind);
+    recordPlanAtLimit(kind, template);
 }
 
 // ---- Upgrade After Limit ---------------------------------------------------
@@ -3636,7 +3640,7 @@ function planChange(before, after) {
     return change ? { change, bought_credits: bought } : null;
 }
 
-async function recordPlanAtLimit(kind) {
+async function recordPlanAtLimit(kind, template) {
     try {
         const id = window.user && window.user.uuid;
         if (!id) return;
@@ -3649,7 +3653,7 @@ async function recordPlanAtLimit(kind) {
         const user = await puter.auth.getUser();
         if (!user || user.uuid !== id) return;
         const plan = await readPlanSnapshot(user);
-        localStorage.setItem(LIMIT_PAY_PREFIX + id, JSON.stringify({ at, kind, plan, cohort: limitDialogCohort() }));
+        localStorage.setItem(LIMIT_PAY_PREFIX + id, JSON.stringify({ at, kind, plan, cohort: limitDialogCohort(), template }));
     } catch (e) {}
 }
 
@@ -3708,6 +3712,7 @@ async function consumePaidAfterLimit(key) {
             kind: hit.kind,
             cohort: hit.cohort || 'unknown',
             since_limit: mins < 10 ? '<10m' : mins < 60 ? '10-60m' : '1-24h',
+            ...(typeof hit.template === 'string' && hit.template && { template: hit.template }),
         });
     } catch (e) { /* analytics must never break the app */ }
 }
@@ -3801,6 +3806,7 @@ function usageLimitHitProps(history, chats, chatId, publishedUrl) {
         builds_completed: cap(countCompletedBuilds(history)),
         projects: cap(others.length + 1),
         cohort: limitDialogCohort(),
+        ...templateProp(history),
     };
 }
 
@@ -4911,6 +4917,10 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // resume. The end-of-turn save in `finally` flips this to false once the turn
     // has finished cleanly (or surfaced an error card).
     const turnSaveContext = { chatHistory, currentChatId: turnChatId, appDir: turnAppDir, interrupted: true };
+    // The template the project was copied from, for this turn's analytics
+    // events (see templateProp). The system message that records it never
+    // changes, so it is read once.
+    const turnTemplate = templateProp(turnSaveContext.chatHistory);
     // The model the project is set to, claimed before this turn's message joins
     // the history (a new project keeps the model it started on). The turn's
     // model is settled from it, with a plan check, just before the first
@@ -5244,9 +5254,12 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             // events: the first build of a project emits Project Created, and
             // every build (first or follow-up) emits Build Started.
             isFirstBuildTurn = countUserMessages(turnSaveContext.chatHistory) === 0;
-            if (isFirstBuildTurn) window.track?.('Project Created');
-            window.track?.('Build Started', { first_build: isFirstBuildTurn, has_attachments: atts.length > 0, ...(queued && { queued: true }) });
-            _activeBuild = { turnSeq, startedAt: turnStartedAt, firstBuild: isFirstBuildTurn };
+            // In a project copied from a template, the first message is the
+            // first change to it, so Project Created with a template counts
+            // the copies people went on to change.
+            if (isFirstBuildTurn) window.track?.('Project Created', turnTemplate);
+            window.track?.('Build Started', { first_build: isFirstBuildTurn, has_attachments: atts.length > 0, ...(queued && { queued: true }), ...turnTemplate });
+            _activeBuild = { turnSeq, startedAt: turnStartedAt, firstBuild: isFirstBuildTurn, template: turnTemplate.template };
 
             const messageContent = contentParts.length > 0 ? contentParts : messageText;
             turnSaveContext.chatHistory.push({ role: "user", content: messageContent, messageId });
@@ -5444,7 +5457,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                 'Build Completed',
                 { first_build: isFirstBuildTurn, model: turnModel, cost_cents: Number(costCents.toFixed(4)),
                     cost_band: costBand(costCents), plan: turnAccount.plan, credits_at_start: turnAccount.credits,
-                    context_band: contextBand(turnStats.lastInput), compacted: turnStats.compactions > 0 },
+                    context_band: contextBand(turnStats.lastInput), compacted: turnStats.compactions > 0, ...turnTemplate },
                 costCents > 0 ? { currency: 'USD', amount: -(costCents / 100) } : undefined,
             );
             if (attempt > 0) window.track?.('Build Recovered', { attempts: attempt });
@@ -5453,7 +5466,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             // for it, so count the limit hit, and don't take it as an unblock.
             if (context && context.usageLimited) {
                 trackLimitHit({ first_build: isFirstBuildTurn, model: turnModel, kind: 'credits', ...usageLimitHitProps(turnSaveContext.chatHistory, savedChats, turnChatId, window.currentPublishedUrl) });
-                recordUsageLimitHit('credits');
+                recordUsageLimitHit('credits', turnTemplate.template);
             } else {
                 reportUnblockAfterLimit();
             }
@@ -5480,7 +5493,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             turnErrored = true;
             if(error.error?.delegate === "usage-limited-chat"){
                 trackLimitHit({ first_build: isFirstBuildTurn, model: turnModel, kind: 'tier', ...usageLimitHitProps(turnSaveContext.chatHistory, savedChats, turnChatId, window.currentPublishedUrl) });
-                recordUsageLimitHit('tier');
+                recordUsageLimitHit('tier', turnTemplate.template);
                 appendMessage('You have reached the current tier\'s usage limit. Please upgrade your Puter account to continue. <button class="upgrade-button">Upgrade</button>', false, false, false, true);
                 window.announce?.('You have reached the current tier\'s usage limit. Upgrade your Puter account to continue.', { assertive: true });
             }else{
@@ -5494,7 +5507,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                 // would show its Low Balance prompt for it.
                 if (isLowBalanceRefusal(error)) {
                     trackLimitHit({ first_build: isFirstBuildTurn, model: turnModel, kind: 'credits', ...usageLimitHitProps(turnSaveContext.chatHistory, savedChats, turnChatId, window.currentPublishedUrl) });
-                    recordUsageLimitHit('credits');
+                    recordUsageLimitHit('credits', turnTemplate.template);
                 }
                 const friendlyError = friendlyErrorMessage(errorText);
                 appendErrorMessage(friendlyError);
@@ -6010,6 +6023,9 @@ function renderContinueSuggestions(suggestions) {
         $chip.text(s.label);
         $chip.attr('data-prompt', s.prompt);
         $chip.attr('title', s.prompt);
+        // The chips a template ships (createFork in templates.js), told apart
+        // from the model's for the Suggestion Clicked event.
+        if (s.from === 'template') $chip.attr('data-from', 'template');
         $row.append($chip);
     });
     // Record what we're showing so a later regeneration can be told to avoid it.

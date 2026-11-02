@@ -2800,6 +2800,7 @@ async function doPublish() {
                 cost_cents: Math.round(costCents),
                 cost_band: costBand(costCents),
                 branding,
+                ...templateProp(startHistory),
             });
         } catch (e) {
             window.track?.('Project Published', { type: isFirst ? 'first' : 'republish', first_publish: isFirst, branding });
@@ -3404,8 +3405,10 @@ $(document).on('click', '.preview-download', async function() {
     const minSpin = new Promise(resolve => setTimeout(resolve, 1000));
     try {
         const title = generateChatTitle(chatHistory).replace(/[^a-zA-Z0-9_-]/g, '_');
+        // Read before the wait, while chatHistory is still this project's.
+        const template = templateProp(chatHistory);
         await downloadProject(currentAppDir, title || 'project');
-        window.track?.('Project Downloaded');
+        window.track?.('Project Downloaded', template);
     } catch (e) {
         console.error('Download failed:', e);
         puter.ui.alert('Download failed: ' + (e.message || e));
@@ -4000,8 +4003,16 @@ function applyChipPromptToComposer(prompt) {
 // it does NOT auto-send — so the user can review, edit, or send it. The full
 // prompt lives in data-prompt (the chip's visible text is just a short label).
 // The other chips stay visible so the user can pick a different one; we just
-// mark the active choice.
+// mark the active choice. Suggestion Clicked says whether the chip came with
+// the template the project was copied from or from the model; clicking the
+// chip already chosen again is not counted.
 $(document).on('click', '.chat-suggestion-chip', function() {
+    if (!$(this).hasClass('selected')) {
+        window.track?.('Suggestion Clicked', {
+            from: $(this).attr('data-from') === 'template' ? 'template' : 'ai',
+            ...templateProp(chatHistory),
+        });
+    }
     const prompt = $(this).attr('data-prompt') || $(this).text();
     applyChipPromptToComposer(prompt);
     $('.chat-suggestion-chip').removeClass('selected');

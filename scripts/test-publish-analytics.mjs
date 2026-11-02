@@ -58,7 +58,9 @@ const USAGE_CODE = [
     extract(helpersSource, 'function tokenBand(n) {'),
     helpersSource.slice(helpersSource.indexOf('const COST_BANDS = ['), helpersSource.indexOf('function costBand(cents) {')),
     extract(helpersSource, 'function costBand(cents) {'),
+    extract(helpersSource, 'function templateProp(history) {'),
 ].join('\n\n');
+const CORE_SOURCE = fs.readFileSync(new URL('../src/js/template-core.js', import.meta.url), 'utf8');
 
 const ROOT = '/alice/AppData/builder';
 const WORK = ROOT + '/project-a';
@@ -121,6 +123,7 @@ async function run({ published, history, withUsageHelpers = true }) {
             },
         },
     };
+    new Function('window', CORE_SOURCE)(sandbox.window);
     vm.createContext(sandbox);
     vm.runInContext(PUBLISH_CODE + (withUsageHelpers ? '\n\n' + USAGE_CODE : ''), sandbox, { filename: 'src/js/ui.js' });
     await sandbox.doPublish();
@@ -152,6 +155,16 @@ const HISTORY = [
     check('first publish: tokens_band from the total', p && p.tokens_band === '100K-500K', JSON.stringify(p));
     check('first publish: cost_cents summed and rounded to whole cents', p && p.cost_cents === 16, JSON.stringify(p));
     check('first publish: cost_band from the unrounded cost', p && p.cost_band === '<$0.25', JSON.stringify(p));
+}
+
+// ---- The template a project was copied from ---------------------------------
+{
+    const p0 = (await run({ published: false, history: HISTORY })).events[0].props;
+    check('a project from scratch: no template prop', p0 && !('template' in p0), JSON.stringify(p0));
+    const fork = [{ ...HISTORY[0], templateOrigin: { slug: 'feedback-board', name: 'Feedback board', version: 'abcdef12' } }, ...HISTORY.slice(1)];
+    const p = (await run({ published: false, history: fork })).events[0].props;
+    check('a fork: the template it came from, alongside the totals',
+        p && p.template === 'feedback-board' && p.tokens_total === 300000, JSON.stringify(p));
 }
 
 // ---- Republish: same totals, flagged as not first ---------------------------

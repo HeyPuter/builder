@@ -1538,6 +1538,17 @@ function countUserMessages(history) {
 }
 
 /**
+ * The `template` prop of a project's analytics events, to spread into their
+ * props: the slug of the template the project was copied from
+ * (TemplateCore.originSlug). A project started from scratch gets none, which
+ * Plausible lists as (none).
+ */
+function templateProp(history) {
+    const slug = window.TemplateCore ? window.TemplateCore.originSlug(history) : '';
+    return slug ? { template: slug } : {};
+}
+
+/**
  * Generate a unique message ID for matching DOM elements to chatHistory messages
  */
 function generateMessageId() {

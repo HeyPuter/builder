@@ -41,7 +41,7 @@ function harness() {
         ${slice(app, 'function trackBuildAbandoned(how) {', "window.addEventListener('pagehide'")}
         return {
             abandon: trackBuildAbandoned, waitBand,
-            start: (firstBuild) => { _activeBuild = { turnSeq: 1, startedAt: Date.now(), firstBuild }; isProcessing = true; _turnProgressed = false; },
+            start: (firstBuild, template) => { _activeBuild = { turnSeq: 1, startedAt: Date.now(), firstBuild, template }; isProcessing = true; _turnProgressed = false; },
             progressed: () => { _turnProgressed = true; },
             idle: () => { isProcessing = false; },
         };`)({ track: (e, p) => events.push([e, p]) }, { now: () => now });
@@ -72,6 +72,14 @@ await check('leaving later says the model had shown something', async () => {
     assert.deepEqual(h.events[0][1], { how: 'left', saw_output: true, waited: '30-60s', first_build: false });
 });
 
+await check('a build in a project copied from a template names the template', async () => {
+    const h = harness();
+    h.start(false, 'feedback-board');
+    h.wait(12000);
+    h.abandon('stopped');
+    assert.deepEqual(h.events[0][1], { how: 'stopped', saw_output: false, waited: '10-30s', first_build: false, template: 'feedback-board' });
+});
+
 await check('a build is reported once, and nothing without a running build', async () => {
     const h = harness();
     h.abandon('left');
@@ -98,7 +106,7 @@ await check('every way of giving up reports, as it happens', async () => {
 });
 
 await check('only builds Build Started counted, and only until that turn ends', async () => {
-    assert.match(app, /window\.track\?\.\('Build Started', [^\n]*\n\s*_activeBuild = \{ turnSeq, startedAt: turnStartedAt, firstBuild: isFirstBuildTurn \};/);
+    assert.match(app, /window\.track\?\.\('Build Started', [^\n]*\n\s*_activeBuild = \{ turnSeq, startedAt: turnStartedAt, firstBuild: isFirstBuildTurn, template: turnTemplate\.template \};/);
     assert.match(app, /if \(_activeBuild && _activeBuild\.turnSeq === turnSeq\) _activeBuild = null;/);
 });
 

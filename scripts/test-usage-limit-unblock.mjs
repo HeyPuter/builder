@@ -25,10 +25,15 @@ const bandSrc = HELPERS.slice(HELPERS.indexOf('const COST_BANDS = ['));
 const costBand = new Function(bandSrc.slice(0, bandSrc.indexOf('\n}\n', bandSrc.indexOf('function costBand(')) + 3) + 'return costBand;')();
 const ctxSrc = HELPERS.slice(HELPERS.indexOf('const CONTEXT_BANDS = ['));
 const contextBand = new Function(ctxSrc.slice(0, ctxSrc.indexOf('\n}\n', ctxSrc.indexOf('function contextBand(')) + 3) + 'return contextBand;')();
+// The real templateProp, from helpers.js, over the real TemplateCore.
+const tplSrc = HELPERS.slice(HELPERS.indexOf('function templateProp(history) {'));
+const coreWin = {};
+new Function('window', fs.readFileSync(new URL('../src/js/template-core.js', import.meta.url), 'utf8'))(coreWin);
+const templateProp = new Function('window', tplSrc.slice(0, tplSrc.indexOf('\n}\n') + 3) + 'return templateProp;')(coreWin);
 const a = APP.indexOf('// ===== usage-limit-unblock (start) =====');
 const b = APP.indexOf('// ===== usage-limit-unblock (end) =====');
 if (a < 0 || b < 0) throw new Error('could not extract usage-limit-unblock block');
-const make = new Function('window', 'localStorage', 'Date', 'puter', 'navigator', 'costBand', 'contextBand',
+const make = new Function('window', 'localStorage', 'Date', 'puter', 'navigator', 'costBand', 'contextBand', 'templateProp',
     APP.slice(a, b) + '\nreturn { recordUsageLimitHit, reportUnblockAfterLimit, LIMIT_HIT_PREFIX, countCompletedBuilds, usageLimitHitProps, isLowBalanceRefusal, planChange, recordPlanAtLimit, checkPaidAfterLimit, LIMIT_PAY_PREFIX, creditsAtStart, readTurnAccount, limitHitTurnProps, afterAccountRead, limitDialogCohort, projectDisplayName, limitDialogCopy };');
 
 const HOUR = 36e5;
@@ -53,7 +58,7 @@ function harness({ storage = memStorage(), uuid = 'user-a', puter = null, naviga
     }
     const win = { user: uuid ? { uuid } : null, _calls: [] };
     win.track = (event, props) => { win._calls.push([event, props]); };
-    const api = make(win, storage, FakeDate, puter, navigator, costBand, contextBand);
+    const api = make(win, storage, FakeDate, puter, navigator, costBand, contextBand, templateProp);
     return { ...api, win, storage, setNow: t => { now = t; } };
 }
 
@@ -209,6 +214,9 @@ for (const bad of ['not json', 'null', '{}', '{"at":"yesterday"}']) {
     check('props: published current project', q.published === true && q.any_published === true);
     const many = Array.from({ length: 12 }, (_, i) => ({ id: 'c' + i }));
     check('props: project count capped', props(history, many, 'c0', null).projects === '10+');
+    check('props: a project from scratch has no template', !('template' in p));
+    const fork = [{ ...sys, templateOrigin: { slug: 'feedback-board', name: 'Feedback board', version: 'abcdef12' } }, user('a')];
+    check('props: a fork names the template it came from', props(fork, [], 'c1', null).template === 'feedback-board');
 }
 
 // Low Balance refusals, matching the 'funds' case of puter.js's classifyUpgradeRefusal
@@ -291,10 +299,10 @@ function tab(box, storage, navigator) {
     h.win.user = { uuid: 'user-a', subscribed: c.subscribed, paid_storage: c.paid_storage };
     return h;
 }
-async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, otherAccountLater = false, failUserAtHit = false } = {}) {
+async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, otherAccountLater = false, failUserAtHit = false, template } = {}) {
     const box = { state: before, cached, failUser: failUserAtHit };
     const h = tab(box, memStorage(), { locks: lockManager() });
-    await h.recordPlanAtLimit('credits');
+    await h.recordPlanAtLimit('credits', template);
     box.state = after;
     box.failUser = false;
     if (otherAccountLater) box.uuid = 'user-b';
@@ -312,6 +320,7 @@ async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, other
     check('paid after limit → one event', c.length === 1);
     check('paid after limit → props', c[0] && c[0][1].change === 'started_paying' && c[0][1].kind === 'credits' && c[0][1].since_limit === '<10m' && c[0][1].bought_credits === false);
     check('paid after limit → record cleared', !h.storage._m.has(h.LIMIT_PAY_PREFIX + 'user-a'));
+    check('paid after a limit hit outside a fork → no template', c[0] && !('template' in c[0][1]));
     await h.checkPaidAfterLimit();
     check('paid after limit → reported once', paidCalls(h).length === 1);
 
@@ -320,6 +329,10 @@ async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, other
         c = paidCalls(h);
         check(`${mins}m → since_limit ${bucket}`, c.length === 1 && c[0][1].since_limit === bucket && c[0][1].change === 'bought_credits');
     }
+
+    h = await paidHarness({ before: free, after: paid, template: 'feedback-board' });
+    c = paidCalls(h);
+    check('paid after a limit hit in a fork → the template it came from', c.length === 1 && c[0][1].template === 'feedback-board');
 
     h = await paidHarness({ before: free, after: free });
     check('no payment → no event, record kept', paidCalls(h).length === 0 && h.storage._m.has(h.LIMIT_PAY_PREFIX + 'user-a'));
@@ -526,9 +539,9 @@ async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, other
 {
     const send = APP.slice(APP.indexOf('async function sendChatMessage('));
     check('tier branch records the limit hit',
-        /trackLimitHit\([^\n]*kind: 'tier'[^\n]*\n\s*recordUsageLimitHit\('tier'\);/.test(send));
+        /trackLimitHit\([^\n]*kind: 'tier'[^\n]*\n\s*recordUsageLimitHit\('tier', turnTemplate\.template\);/.test(send));
     check('credits branch records the limit hit',
-        /trackLimitHit\([^\n]*kind: 'credits'[^\n]*\n\s*recordUsageLimitHit\('credits'\);/.test(send));
+        /trackLimitHit\([^\n]*kind: 'credits'[^\n]*\n\s*recordUsageLimitHit\('credits', turnTemplate\.template\);/.test(send));
     check('every limit branch sends the extra props',
         (send.match(/trackLimitHit\([^\n]*\.\.\.usageLimitHitProps\(turnSaveContext\.chatHistory, savedChats, turnChatId, window\.currentPublishedUrl\)/g) || []).length === 3);
     check('the limit hit waits for the account read, then adds the turn props',
@@ -545,8 +558,8 @@ async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, other
     check('error branch counts only Low Balance refusals',
         /if \(isLowBalanceRefusal\(error\)\) \{\s*trackLimitHit\(/.test(send));
     check('a stream cut short for credits records the hit instead of an unblock',
-        /'Build Completed',[\s\S]{0,800}if \(context && context\.usageLimited\) \{\s*trackLimitHit\([^\n]*kind: 'credits'[^\n]*\n\s*recordUsageLimitHit\('credits'\);\s*\} else \{\s*reportUnblockAfterLimit\(\);/.test(send));
-    check('the limit hit also saves the plan', /function recordUsageLimitHit\(kind\) \{[\s\S]{0,300}recordPlanAtLimit\(kind\);/.test(APP));
+        /'Build Completed',[\s\S]{0,900}if \(context && context\.usageLimited\) \{\s*trackLimitHit\([^\n]*kind: 'credits'[^\n]*\n\s*recordUsageLimitHit\('credits', turnTemplate\.template\);\s*\} else \{\s*reportUnblockAfterLimit\(\);/.test(send));
+    check('the limit hit also saves the plan', /function recordUsageLimitHit\(kind, template\) \{[\s\S]{0,300}recordPlanAtLimit\(kind, template\);/.test(APP));
     check('paid check runs on focus, on return to the tab and on load',
         /addEventListener\('focus', \(\) => \{ checkPaidAfterLimit\(\); \}\)/.test(APP) &&
         /visibilitychange[\s\S]{0,120}checkPaidAfterLimit\(\)/.test(APP) &&
