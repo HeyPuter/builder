@@ -253,6 +253,11 @@ check('control: a backend on its default sender name renames nothing', ok.rename
         last.role === 'assistant' && last.versionNote === true && last.content[0].type === 'text-hidden'
         && /copy isn't published/.test(last.content[0].text) && last.content[0].text.includes('https://notes.puter.site/'),
         JSON.stringify(last));
+    const offer = h.find(m => m.content && m.content.type === 'tool_result' && m.content.content.includes('__publish_offer'));
+    const offerResult = offer && JSON.parse(offer.content.content);
+    check('published source: the copy\'s card isn\'t filled in with the original\'s (taken) address',
+        offerResult && offerResult.__publish_offer === true && offerResult.address === '' && offerResult.offer === 'offer-1',
+        JSON.stringify(offerResult));
     const plain = await run();
     check('unpublished source: no note added', plain.copyChat.history.length === 1, JSON.stringify(plain.copyChat.history));
 }

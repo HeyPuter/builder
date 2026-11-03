@@ -1758,10 +1758,23 @@ const _duplicatingChats = new Set(); // source chatIds with a duplication in fli
 // address (it then gave that out as the copy's), and a Publish card records
 // the publish made from it (it read "Published" in the copy). The records go,
 // so those cards are hidden, and a note tells the AI whose address it is.
+// The newest card is drawn from the copy's own state, a Publish form, filled
+// in with the address the AI suggested for the original: taken by now, so
+// its Publish could only fail. The copied cards' addresses go too, and a
+// publish from an empty field names the site as the popover's does.
 function unpublishCopiedHistory(history, originalUrl) {
     if (!Array.isArray(history)) return;
     for (const m of history) if (m && 'publishCardUrl' in m) delete m.publishCardUrl;
-    if (originalUrl && typeof pushAiNote === 'function' && typeof copiedProjectNoteMessage === 'function') {
+    if (!originalUrl) return;
+    for (const m of history) {
+        const c = m && m.content;
+        if (!c || c.type !== 'tool_result' || typeof c.content !== 'string' || !c.content.includes('__publish_offer')) continue;
+        try {
+            const r = JSON.parse(c.content);
+            if (r && r.__publish_offer && r.address) { r.address = ''; c.content = JSON.stringify(r); }
+        } catch (e) { /* not a card's result */ }
+    }
+    if (typeof pushAiNote === 'function' && typeof copiedProjectNoteMessage === 'function') {
         pushAiNote(history, copiedProjectNoteMessage(originalUrl));
     }
 }
