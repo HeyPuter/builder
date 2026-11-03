@@ -3576,11 +3576,11 @@ function limitHitKey() {
 }
 
 // `template` is the slug of the template the project was copied from, if any,
-// passed on to Upgrade After Limit.
+// passed on to Unblocked After Limit and Upgrade After Limit.
 function recordUsageLimitHit(kind, template) {
     try {
         const key = limitHitKey();
-        if (key) localStorage.setItem(key, JSON.stringify({ at: Date.now(), kind }));
+        if (key) localStorage.setItem(key, JSON.stringify({ at: Date.now(), kind, template }));
     } catch (e) {}
     recordPlanAtLimit(kind, template);
 }
@@ -3751,6 +3751,7 @@ function reportUnblockAfterLimit() {
             kind: hit.kind,
             since_limit: since,
             same_month: then.getUTCFullYear() === now.getUTCFullYear() && then.getUTCMonth() === now.getUTCMonth(),
+            ...(typeof hit.template === 'string' && hit.template && { template: hit.template }),
         });
     } catch (e) { /* analytics must never break the app */ }
 }

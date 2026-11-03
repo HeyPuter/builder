@@ -50,6 +50,7 @@ const PUBLISH_CODE = [
     extract(source, 'function publishBlockedReason() {'),
     extract(source, 'async function createPublishSubdomain(path, desired'),
     extract(helpersSource, 'function generateChatTitle(history) {'),
+    extract(helpersSource, 'function templateProp(history) {'),
     extract(source, 'async function doPublish() {'),
 ].join('\n\n');
 const USAGE_CODE = [
@@ -58,7 +59,6 @@ const USAGE_CODE = [
     extract(helpersSource, 'function tokenBand(n) {'),
     helpersSource.slice(helpersSource.indexOf('const COST_BANDS = ['), helpersSource.indexOf('function costBand(cents) {')),
     extract(helpersSource, 'function costBand(cents) {'),
-    extract(helpersSource, 'function templateProp(history) {'),
 ].join('\n\n');
 const CORE_SOURCE = fs.readFileSync(new URL('../src/js/template-core.js', import.meta.url), 'utf8');
 
@@ -192,6 +192,9 @@ const HISTORY = [
     check('fallback: minimal event still sent',
         events.length === 1 && p.type === 'first' && p.first_publish === true && !('tokens_total' in p),
         JSON.stringify(events));
+    const fork = [{ ...HISTORY[0], templateOrigin: { slug: 'feedback-board', name: 'Feedback board', version: 'abcdef12' } }, ...HISTORY.slice(1)];
+    const f = (await run({ published: false, history: fork, withUsageHelpers: false })).events[0];
+    check('fallback: a fork still names the template', f && f.props.template === 'feedback-board', JSON.stringify(f));
 }
 
 // ---- tokenBand / costBand boundaries -----------------------------------------

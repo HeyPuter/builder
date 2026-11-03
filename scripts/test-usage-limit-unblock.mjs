@@ -72,7 +72,17 @@ function harness({ storage = memStorage(), uuid = 'user-a', puter = null, naviga
     check('reports exactly once', h.win._calls.length === 1);
     check('event name', h.win._calls[0][0] === 'Unblocked After Limit');
     check('kind carried through', h.win._calls[0][1].kind === 'credits');
+    check('outside a fork: no template', !('template' in h.win._calls[0][1]));
     check('storage cleared after report', h.storage._m.size === 0);
+}
+
+// A limit hit in a fork: Unblocked After Limit names the template
+{
+    const h = harness();
+    h.recordUsageLimitHit('credits', 'feedback-board');
+    h.setNow(T0 + 10 * 60 * 1000);
+    h.reportUnblockAfterLimit();
+    check('in a fork: the template it came from', h.win._calls.length === 1 && h.win._calls[0][1].template === 'feedback-board');
 }
 
 // No limit hit → nothing reported

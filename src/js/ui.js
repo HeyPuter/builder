@@ -2803,7 +2803,7 @@ async function doPublish() {
                 ...templateProp(startHistory),
             });
         } catch (e) {
-            window.track?.('Project Published', { type: isFirst ? 'first' : 'republish', first_publish: isFirst, branding });
+            window.track?.('Project Published', { type: isFirst ? 'first' : 'republish', first_publish: isFirst, branding, ...templateProp(startHistory) });
         }
     } catch (e) {
         // The release never went live, so remove whatever of it landed. The

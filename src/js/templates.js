@@ -257,6 +257,7 @@
         //    the template's own follow-up chips (marked as the template's, for
         //    the Suggestion Clicked event), and a title the auto-namers leave
         //    alone (customTitle, see saveCurrentChat).
+        progress.stage = 'save';
         const renamedFiles = template.files.map(p => {
             const w = template.workers.find(n => p === `workers/${n}.js`);
             return w ? `workers/${deployed.find(d => d.templateName === w).name}.js` : p;
@@ -302,7 +303,6 @@
             pinned: false,
         };
         const chatJson = JSON.stringify(chatData);
-        progress.stage = 'save';
         try {
             await puter.fs.write(`chat-history/${newId}.json`, chatJson);
         } catch (e) {
@@ -578,12 +578,13 @@
             try { record = await window.BuilderHandoff?.take(link.handoffId); }
             catch (e) { console.warn('Could not read the template handoff:', e); }
         }
+        const clicked = !!(record && record.template === link.slug);
         const template = await findTemplate(link.slug);
         if (!template) {
+            window.track?.('Template Use Failed', { template: link.slug, source: clicked ? 'page' : 'link', stage: 'unavailable' });
             window.showToast?.("That template isn't available right now. Try again in a moment.", { type: 'error' });
             return;
         }
-        const clicked = !!(record && record.template === link.slug);
         if (clicked && window.user && !window.user.is_temp) {
             await forkTemplate(link.slug, { source: 'page' });
             return;

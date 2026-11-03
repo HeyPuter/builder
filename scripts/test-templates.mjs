@@ -557,6 +557,12 @@ if (built) {
         check('a project that cannot be saved: reported at the save step', JSON.stringify(failedAt(env)) === JSON.stringify(['feedback-board/app/save']));
     }
     {
+        const env = makeEnv();
+        env.ctx.system_prompt_common = () => { throw new Error('prompt failed'); };
+        await env.ctx.forkTemplate('feedback-board');
+        check('a project that fails while being put together: reported at the save step', JSON.stringify(failedAt(env)) === JSON.stringify(['feedback-board/app/save']));
+    }
+    {
         const bad = {
             entry: { slug: 'sneaky', name: 'Sneaky', version: 'bbbbbbbb2222', description: 'd', files: ['index.html'], workers: [], suggestions: [] },
             files: { 'index.html': "fetch('{{WORKER_URL:api}}')" },
@@ -671,7 +677,16 @@ if (built) {
         const env = makeEnv({ search: '?template=gone-now' });
         env.ctx.captureTemplateDeepLink();
         await env.ctx.consumeTemplateDeepLink();
-        check('deep link: a template that no longer exists gets a toast', env.log.toasts.length === 1 && env.log.tracked.length === 0);
+        check('deep link: a template that no longer exists gets a toast', env.log.toasts.length === 1 && env.files.size === 0);
+        check('deep link: a template that no longer exists is reported as unavailable',
+            JSON.stringify(failedAt(env)) === JSON.stringify(['gone-now/link/unavailable']) && env.log.tracked.length === 1);
+    }
+    {
+        const env = makeEnv({ search: `?template=gone-now&handoff=${HID}`, handoff: { [HID]: { template: 'gone-now', prompt: '', files: [] } } });
+        env.ctx.captureTemplateDeepLink();
+        await env.ctx.consumeTemplateDeepLink();
+        check('deep link: a hand-over for a template that no longer exists is reported from the page',
+            JSON.stringify(failedAt(env)) === JSON.stringify(['gone-now/page/unavailable']));
     }
     {
         const env = makeEnv({ search: '?template=feedback-board', flagOff: true });
