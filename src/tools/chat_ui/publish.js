@@ -49,7 +49,7 @@
             currentVersionId: window.getCurrentVersionId?.(),
             dirtySinceSnapshot: window._projectDirtySinceSnapshot,
         });
-        const renaming = !!window.isAddressChanging?.();
+        const renaming = !!window.isAddressChanging?.(currentChatId);
         const working = !!publishBlockedReason() || !!window.isPublishStarting?.(currentChatId);
         if (url && $card && $card.attr('data-kind') === 'address' && !$card.attr('data-published-url')) {
             return { state: 'address', url, busy: renaming, blocked: working || publishBusyHere() };
