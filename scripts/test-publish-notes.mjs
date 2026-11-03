@@ -196,5 +196,30 @@ const isResultFor = (m, id) => m && m.role === 'user' && m.content && m.content.
         h.length === 4 && isResultFor(h[2], 't1') && noteText(h[3]) === '[moved]', JSON.stringify(h));
 }
 
+// ---- An older chat's prompt learns about the Publish button ------------------
+// A chat keeps the system prompt it started with. One from before the chat's
+// Publish button sends the user to the preview's Publish button and names
+// neither OfferPublish nor OfferAddressChange, so the projects most ready to
+// publish had only the tools' descriptions to go on.
+{
+    const helpers = fs.readFileSync(new URL('../src/js/helpers.js', import.meta.url), 'utf8');
+    const promptSrc = fs.readFileSync(new URL('../src/js/prompt.js', import.meta.url), 'utf8');
+    const a = helpers.indexOf('function prepareHistoryForAI(');
+    const b = helpers.indexOf('/**\n * Sum the AI-reported cost', a);
+    const { prepareHistoryForAI } = new Function('window', helpers.slice(a, b) + '\nreturn { prepareHistoryForAI };')({});
+    const user = { role: 'user', content: [{ type: 'text', text: 'publish it' }] };
+    const OLD = 'The user decides if and when to make the app public themselves, using the Publish button in the preview. You never make the app public, and you must NOT tell the user the app is "live".';
+    const out = prepareHistoryForAI([{ role: 'system', content: OLD }, user]);
+    check('an older prompt gets a note naming OfferPublish and OfferAddressChange',
+        out[0].content.startsWith(OLD) && /call the OfferPublish tool/.test(out[0].content) && /OfferAddressChange/.test(out[0].content),
+        out[0].content);
+    const blocks = prepareHistoryForAI([{ role: 'system', content: [{ type: 'text', text: OLD, cache_control: { type: 'ephemeral' } }] }, user]);
+    check('…as a block of its own, leaving the cached block untouched',
+        blocks[0].content.length === 2 && blocks[0].content[0].text === OLD && /OfferPublish/.test(blocks[0].content[1].text));
+    check('the current prompt has the rule itself', promptSrc.includes('call the OfferPublish tool'));
+    const current = prepareHistoryForAI([{ role: 'system', content: OLD + ' When the user asks you to publish it, call the OfferPublish tool.' }, user]);
+    check('…so a chat on it gets no note', !current[0].content.includes('[When the user asks you to publish the app'), current[0].content);
+}
+
 if (failures) { console.error(failures + ' failure(s)'); process.exit(1); }
 console.log('all publish-notes checks passed');
