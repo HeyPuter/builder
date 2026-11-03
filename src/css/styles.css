@@ -2264,6 +2264,16 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
 .publish-card-btn:hover { background: #0858c2; }
 .publish-card-btn:disabled { background: #9bbfe6; cursor: default; }
 .publish-card-btn svg { display: block; flex: 0 0 auto; }
+.publish-card.is-superseded { display: none; }
+.publish-card-done {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13px;
+    color: #6b6b6b;
+}
+.publish-card-done svg { display: block; color: #2e9e5b; }
 .publish-card-error {
     margin-top: 6px;
     font-size: 12.5px;
@@ -6645,6 +6655,7 @@ html[data-theme="dark"] .publish-card-btn { background: var(--accent); color: #0
 html[data-theme="dark"] .publish-card-btn:hover { background: #8cc2ff; }
 html[data-theme="dark"] .publish-card-btn:disabled { background: rgba(108, 176, 245, 0.4); }
 html[data-theme="dark"] .publish-card-error { color: var(--danger); }
+html[data-theme="dark"] .publish-card-done { color: var(--text-secondary); }
 html[data-theme="dark"] .upgrade-card-btn,
 html[data-theme="dark"] .model-panel-upgrade,
 html[data-theme="dark"] .publish-branding-btn,

@@ -2599,6 +2599,18 @@ async function doPublish() {
     });
 }
 
+// The note a publish leaves in the conversation for the AI. Its text is
+// text-hidden, so the chat doesn't show it (loadChat draws nothing for an
+// assistant message without text) and the model reads it as text
+// (prepareHistoryForAI). versionNote: not a build reply (countCompletedBuilds).
+function publishedNoteMessage(url, isFirst) {
+    const text = isFirst
+        ? `[The user published the app. It is now public at ${url}. Later changes reach that address only when they publish again.]`
+        : `[The user published their latest changes. The site at ${url} now serves the app as it is now. Later changes reach it only when they publish again.]`;
+    const messageId = (typeof generateMessageId === 'function') ? generateMessageId() : null;
+    return { role: 'assistant', content: [{ type: 'text-hidden', text }], messageId, versionNote: true };
+}
+
 // The core action: push the current working dir to the public subdomain
 // (creating it on first publish), then record + persist the new baseline.
 // `ui` is the surface the user published from (doPublish's popover, or the
@@ -2806,6 +2818,12 @@ async function publishProject(ui) {
             window.currentPublishedPath = pubDir;
             window.currentPublishedVersionId = versionId;
             window.currentPublishedAt = now;
+            // The AI isn't told when the user publishes, and the last it heard
+            // may be an OfferPublish result saying nothing is public yet. A
+            // hidden note tells it on the next message that the site is live.
+            if (typeof chatHistory !== 'undefined' && Array.isArray(chatHistory)) {
+                chatHistory.push(publishedNoteMessage(url, isFirst));
+            }
             // What the live site's backend got goes into the conversation, so
             // the AI knows it on the next message and the user sees it too.
             // That's which keys, and whether one is still a test key (see

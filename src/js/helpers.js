@@ -1165,6 +1165,11 @@ function prepareHistoryForAI(historyArray, modelId, opts) {
         if (msg.versionNote) {
             delete msg.versionNote;
         }
+        // Where the user published from a Publish card (tools/chat_ui/publish.js),
+        // kept on its tool result to draw the card again; never sent.
+        if ('publishCardUrl' in msg) {
+            delete msg.publishCardUrl;
+        }
         // Where a project forked from a template came from (on its system
         // message, see createFork in templates.js). Read by loadChat for the
         // "Started from" note; never sent to the chat endpoint.

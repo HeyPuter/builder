@@ -1241,9 +1241,14 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
                             // the code editor carry no feature and are the badge.
                             if (!toolResponse.subscribed && !window.Branding?.isSubscribed(window.user)) window.renderUpgradeCard?.({ feature: toolResponse.feature });
                         } else if (toolResponse.__publish_offer) {
-                            // A past Publish card: shown again, drawn from the
-                            // project's publish state now.
-                            window.renderPublishCard?.({ address: toolResponse.address });
+                            // A past Publish card: shown again. The newest is
+                            // drawn from the project's publish state now; an
+                            // older one shows the publish made from it, if any.
+                            window.renderPublishCard?.({
+                                address: toolResponse.address,
+                                offer: toolResponse.offer,
+                                publishedUrl: message.publishCardUrl,
+                            });
                         } else if (toolResponse.success && toolResponse.filename && (toolResponse.path
                             || (Array.isArray(toolResponse.items) && toolResponse.items.some(it => it && it.path)))) {
                             // A generated image, video or audio clip (see
