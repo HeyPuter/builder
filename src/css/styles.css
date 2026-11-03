@@ -2217,7 +2217,15 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
     border-radius: 8px;
     cursor: text;
 }
-.publish-card-address:focus-within { border-color: #0a6ae0; }
+/* The field's focus indicator: the border and a soft ring around the whole
+   address, suffix included. The global input:focus-visible ring (which text
+   inputs match on any focus) drew a second box around the bare input inside
+   it. */
+.publish-card-address:focus-within {
+    border-color: #0a6ae0;
+    box-shadow: 0 0 0 3px rgba(10, 106, 224, 0.18);
+}
+.publish-card-input:focus-visible { outline: none; }
 .publish-card-input {
     flex: 1 1 auto;
     min-width: 40px;
@@ -6683,7 +6691,7 @@ html[data-theme="dark"] .publish-badge-toggle.is-locked label { color: var(--tex
 html[data-theme="dark"] .upgrade-card-inner { background: var(--surface); border-color: var(--border); color: var(--text); }
 html[data-theme="dark"] .publish-card-inner { background: var(--surface); border-color: var(--border); color: var(--text); }
 html[data-theme="dark"] .publish-card-address { background: var(--surface-subtle); border-color: var(--border); }
-html[data-theme="dark"] .publish-card-address:focus-within { border-color: var(--accent); }
+html[data-theme="dark"] .publish-card-address:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(108, 176, 245, 0.25); }
 html[data-theme="dark"] .publish-card-input { color: var(--text); }
 html[data-theme="dark"] .publish-card-input:disabled { color: var(--text-muted); }
 html[data-theme="dark"] .publish-card-link { color: var(--accent); }
