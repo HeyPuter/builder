@@ -288,7 +288,7 @@ check('switch/auto-name: the address is derived from A’s chat, not B’s',
     const a = source.indexOf(marker);
     const b = source.indexOf('\n});\n', a);
     const handlerSrc = source.slice(a + marker.length, b + 2);
-    const fnStart = source.indexOf('let _addressChanging = false;');
+    const fnStart = source.indexOf('const _addressChangingChats = new Set();');
     const changeSrc = source.slice(fnStart, source.indexOf('\n}\n', source.indexOf('async function changePublishedAddress(typed) {')) + 2);
     const saved = [];
     const absolutized = [];

@@ -3252,11 +3252,14 @@ $(document).on('keydown', '.publish-address-input', function (e) {
 // there's nothing to change, or { changed: true, url, oldUrl, open } where
 // `open` says the project was still on screen at the end. Throws an error
 // with a code (invalid-name, busy, no-files) or the hosting error.
-let _addressChanging = false;
-// The project whose address is moving. A send waits for it in that project
-// only (see sendChatMessage); with no id, the question is whether any is.
-let _addressChangingChat = null;
-window.isAddressChanging = (chatId) => _addressChanging && (chatId === undefined || chatId === _addressChangingChat);
+// The projects whose address is moving. A change keeps running when the
+// user opens another project, which can change its own meanwhile. A send, a
+// publish and the cards wait for their own project's (see sendChatMessage);
+// with no id, the question is whether any is.
+const _addressChangingChats = new Set();
+window.isAddressChanging = (chatId) => (chatId === undefined
+    ? _addressChangingChats.size > 0
+    : _addressChangingChats.has(chatId));
 async function changePublishedAddress(typed) {
     const oldUrl = window.currentPublishedUrl;
     const oldSub = previewSubdomain(oldUrl);
@@ -3267,7 +3270,7 @@ async function changePublishedAddress(typed) {
     // Not during a turn: the note for the AI below would land in the middle
     // of it. Not during a publish, which updates the address being moved,
     // including one still saving the Code view's edits before it starts.
-    if (_addressChanging || publishBlockedReason() || publishBusyHere()
+    if (_addressChangingChats.has(currentChatId) || publishBlockedReason() || publishBusyHere()
         || window.isPublishStarting?.(currentChatId)) throw fail('busy');
     // Only ever the frozen published copy — never publishedRootDir(), which is
     // the live working directory the AI edits. A record with a URL but no path
@@ -3281,8 +3284,7 @@ async function changePublishedAddress(typed) {
     const chatId = currentChatId;
     const publishedVersionId = window.currentPublishedVersionId || null;
     const publishedAt = window.currentPublishedAt || null;
-    _addressChanging = true;
-    _addressChangingChat = chatId;
+    _addressChangingChats.add(chatId);
     window.refreshPublishCards?.();
     try {
         const path = await resolvePublishedDir(window.currentPublishedPath, chatId);
@@ -3313,8 +3315,7 @@ async function changePublishedAddress(typed) {
         }
         return { changed: true, url: newUrl, oldUrl, open: true };
     } finally {
-        _addressChanging = false;
-        _addressChangingChat = null;
+        _addressChangingChats.delete(chatId);
         // The toolbar and the cards show the new address (or the old one, on
         // a failure) at once.
         window.refreshPublishButton?.();
