@@ -4950,6 +4950,7 @@ body.preview-active.chat-hidden .chat {
     .chat-search-input,
     .publish-name-input,
     .publish-address-input,
+    .publish-card-input,
     .chat-title-input,
     .clarify-custom-input {
         font-size: 16px;
