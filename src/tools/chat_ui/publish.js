@@ -158,7 +158,14 @@
             const key = [view.state, view.url || '', view.busy].join('|');
             const $inner = $card.find('.publish-card-inner');
             if ($card.attr('data-key') === key) {
-                $inner.find('.publish-card-btn').prop('disabled', view.busy || view.blocked);
+                const $btn = $inner.find('.publish-card-btn');
+                const btn = $btn[0];
+                const off = view.busy || view.blocked;
+                // Disabling the focused button drops focus to the page (a
+                // publish first saving the Code view's edits does that to a
+                // keyboard user's Publish): the card holds it instead.
+                if (btn && off && !btn.disabled && document.activeElement === btn) holdCardFocus($inner);
+                $btn.prop('disabled', off);
                 return;
             }
             const active = document.activeElement;
@@ -197,7 +204,9 @@
         const el = (btn && !btn.disabled ? btn : null) || $card.find('.publish-card-link')[0];
         if (el) { el.focus({ preventScroll: true }); return; }
         if (focusAddress($card)) return;
-        const $inner = $card.find('.publish-card-inner');
+        holdCardFocus($card.find('.publish-card-inner'));
+    }
+    function holdCardFocus($inner) {
         $inner.attr('tabindex', '-1');
         $inner[0]?.focus({ preventScroll: true });
     }
