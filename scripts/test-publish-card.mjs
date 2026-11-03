@@ -688,6 +688,59 @@ function setup() {
         events.some(e => e.event === 'Site Address Changed' && e.props.source === 'chat'), JSON.stringify(events));
 }
 
+// ---- …and recorded on its card, in its own project ---------------------------
+// The card's outcome is saved on its tool result (publishCardUrl), so it reads
+// as used after a reload. Once another project was open, it was dropped: back
+// in the project, an unused-looking Change address card offered to move the
+// site to the address it already had.
+{
+    const { env, tool, addressTool, cards, q, calls, dom } = setup();
+    const files = new Map();
+    const locks = [];
+    env.chatFilePath = (id) => `chat-history/${id}.json`;
+    env.withChatFileLock = (id, fn) => { locks.push(id); return fn(); };
+    env.puter.fs = {
+        read: async (p) => ({ text: async () => files.get(p) }),
+        write: async (p, d) => { files.set(p, d); },
+    };
+    const toolResult = (r) => ({ role: 'user', content: { type: 'tool_result', tool_use_id: 't', content: JSON.stringify(r) } });
+    const saved = (offer) => JSON.parse(files.get('chat-history/project-a.json')).history
+        .find(m => m.content && m.content.content && m.content.content.includes(offer));
+
+    env.currentPublishedUrl = 'https://shop.puter.site/';
+    const r = await addressTool.exec({ address: 'shop-2' }, {});
+    files.set('chat-history/project-a.json', JSON.stringify({ id: 'project-a', history: [toolResult(r)] }));
+    env.renameResult = { changed: true, url: 'https://shop-2.puter.site/', oldUrl: 'https://shop.puter.site/', open: false };
+    dom.dispatch(q(cards()[0], '.publish-card-btn'), 'click');
+    env.currentChatId = 'project-b'; // opened while it ran
+    env.chatHistory = [];
+    for (let i = 0; i < 5; i++) await new Promise(setImmediate);
+    check('an address change that ends in another project: recorded in its own saved conversation',
+        saved(r.offer)?.publishCardUrl === 'https://shop-2.puter.site/' && locks.includes('project-a'),
+        files.get('chat-history/project-a.json'));
+    check('…and the open project\'s conversation is left alone', env.chatHistory.length === 0);
+
+    // A publish from a card that went live once another project was open.
+    env.currentChatId = 'project-a';
+    env.currentPublishedUrl = null;
+    const p = await tool.exec({ address: 'cafe' }, {});
+    files.set('chat-history/project-a.json', JSON.stringify({ id: 'project-a', history: [toolResult(p)] }));
+    dom.dispatch(q(cards()[cards().length - 1], '.publish-card-btn'), 'click');
+    env.currentChatId = 'project-b';
+    await calls.at(-1).away({ chatId: 'project-a', url: 'https://cafe.puter.site/', isFirst: true });
+    check('a card publish that ends in another project: recorded the same way',
+        saved(p.offer)?.publishCardUrl === 'https://cafe.puter.site/');
+
+    // Live while the project was open, but it was left while that was saved.
+    env.currentChatId = 'project-a';
+    const p2 = await tool.exec({}, {});
+    files.set('chat-history/project-a.json', JSON.stringify({ id: 'project-a', history: [toolResult(p2)] }));
+    dom.dispatch(q(cards()[cards().length - 1], '.publish-card-btn'), 'click');
+    env.currentChatId = 'project-b';
+    await calls.at(-1).success({ url: 'https://cafe.puter.site/', isFirst: false });
+    check('…and one left during its last save too', saved(p2.offer)?.publishCardUrl === 'https://cafe.puter.site/');
+}
+
 // ---- The field's error and note are tied to it ------------------------------
 {
     const { env, tool, addressTool, cards, q, calls, dom } = setup();
