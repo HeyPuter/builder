@@ -4771,13 +4771,15 @@ async function showChatProperties(chatId) {
     // Persist the new published fields — to the live globals + open chat when this
     // IS the open project (mirrors doPublish), otherwise straight to the chat's
     // on-disk record. Keeps the sidebar entry and (if open) the toolbar button in
-    // sync without reopening anything.
-    async function persistPublished(fields) {
+    // sync without reopening anything. `note` is a message for the AI, added to
+    // the conversation either way.
+    async function persistPublished(fields, note) {
         if (chatId === currentChatId) {
             window.currentPublishedUrl = fields.publishedUrl ?? null;
             window.currentPublishedPath = fields.publishedPath ?? null;
             if ('publishedVersionId' in fields) window.currentPublishedVersionId = fields.publishedVersionId ?? null;
             if ('publishedAt' in fields) window.currentPublishedAt = fields.publishedAt ?? null;
+            if (note && typeof chatHistory !== 'undefined' && Array.isArray(chatHistory)) chatHistory.push(note);
             if (typeof saveCurrentChat === 'function') {
                 try { await saveCurrentChat({ currentChatId: chatId, chatHistory: chatHistory }); }
                 catch (e) { /* save surfaces its own toast on failure */ }
@@ -4790,7 +4792,7 @@ async function showChatProperties(chatId) {
                 publishedPath: fields.publishedPath ?? null,
                 publishedVersionId: fields.publishedVersionId ?? saved.publishedVersionId ?? null,
                 publishedAt: fields.publishedAt ?? saved.publishedAt ?? null,
-            });
+            }, note);
         }
         // Keep the in-memory list entry's URL current for this modal's lifetime.
         if (listEntry) listEntry.publishedUrl = fields.publishedUrl ?? null;
@@ -4882,6 +4884,19 @@ async function showChatProperties(chatId) {
             $input.trigger('focus');
             return;
         }
+        // Nor during the open project's turn or restore, as the toolbar's and
+        // the chat's address change wait: the note it leaves for the AI would
+        // land in the middle of the turn. (Another project has no turn
+        // running: opening one stops its build.)
+        const blocked = chatId === currentChatId ? publishBlockedReason() : null;
+        if (blocked) {
+            window.showToast?.(blocked === 'restore'
+                ? 'Finishing the restore — you can change the address the moment it’s done.'
+                : 'Finishing the current task — you can change the address the moment it’s done.',
+            { type: 'info', key: 'publish-blocked', throttleMs: 3000 });
+            $input.trigger('focus');
+            return;
+        }
         $save.prop('disabled', true);
         $input.prop('disabled', true);
         setPublishBusy(true, chatId);
@@ -4906,9 +4921,14 @@ async function showChatProperties(chatId) {
                 try { await puter.hosting.delete(oldSub); }
                 catch (e) { console.warn('Failed to remove old published subdomain:', e); }
             }
+            const oldUrl = pub.url;
             pub.url = `https://${newSub}.puter.site/`;
             pub.path = path;
-            await persistPublished({ publishedUrl: pub.url, publishedPath: path });
+            // The AI is told, as after the toolbar's and the chat's address
+            // change: what it last heard names the old address, which no
+            // longer works.
+            await persistPublished({ publishedUrl: pub.url, publishedPath: path },
+                oldUrl ? addressChangedNoteMessage(oldUrl, pub.url) : null);
             renderPublishedCell();
         } catch (e) {
             if (window.isSubdomainLimitErr(e)) {

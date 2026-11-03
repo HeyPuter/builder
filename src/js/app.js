@@ -549,7 +549,9 @@ async function saveCurrentChatUnlocked(context) {
 // read-modify-write that chat's file directly and patch its in-memory list entry.
 // Best-effort and non-blocking — a failure only means the URL must be re-derived
 // on next open; it never disrupts the chat that's currently on screen.
-window.savePublishedFields = async function (chatId, fields) {
+// `note`, when given, is a message for the AI (a hidden note saying the site
+// was published or moved) added to that chat's conversation in the same write.
+window.savePublishedFields = async function (chatId, fields, note) {
     if (!chatId || !fields) return;
     try {
         const merged = await withChatFileLock(chatId, async () => {
@@ -563,6 +565,7 @@ window.savePublishedFields = async function (chatId, fields) {
             chatData.publishedPath = fields.publishedPath || null;
             chatData.publishedVersionId = fields.publishedVersionId || null;
             chatData.publishedAt = fields.publishedAt || null;
+            if (note && Array.isArray(chatData.history)) chatData.history.push(note);
             await puter.fs.write(chatFilePath(chatId), JSON.stringify(chatData));
             return true;
         });
