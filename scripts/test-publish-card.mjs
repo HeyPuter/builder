@@ -338,6 +338,9 @@ function setup() {
     const gone = q(older, '.publish-card-gone');
     check('older card: a moved address stays, as plain text',
         !q(older, '.publish-card-link') && gone && gone.textContent === 'first-try.puter.site' && /Published/.test(older.textContent));
+    check('…and a screen reader hears that it no longer works',
+        gone && q(gone.parentNode, '.sr-only') && /no longer works/.test(q(gone.parentNode, '.sr-only').textContent),
+        older.textContent);
 }
 
 // ---- Changing the address from the chat --------------------------------------
