@@ -309,6 +309,7 @@ check('switch/auto-name: the address is derived from A’s chat, not B’s',
     const fnStart = source.indexOf('const _addressChangingChats = new Set();');
     const changeSrc = source.slice(fnStart, source.indexOf('\n}\n', source.indexOf('async function changePublishedAddress(typed) {')) + 2);
     const saved = [];
+    const tracked = [];
     const absolutized = [];
     let releaseCreate;
     const input = { val: () => 'new-name', prop() { return input; }, trigger() { return input; } };
@@ -324,7 +325,7 @@ check('switch/auto-name: the address is derived from A’s chat, not B’s',
             savePublishedFields: (id, fields, note) => saved.push([id, fields, note]),
             isSubdomainLimitErr: () => false,
             puterErrInfo: () => ({ message: '' }),
-            track() {},
+            track: (event, props) => tracked.push([event, props]),
         },
         publishBlockedReason: () => null,
         publishBusyHere: () => false,
@@ -362,6 +363,9 @@ check('switch/auto-name: the address is derived from A’s chat, not B’s',
         note && /old-name\.puter\.site/.test(noteText(note)) && /new-name\.puter\.site/.test(noteText(note)),
         JSON.stringify(note));
     check('change address: the open project\'s conversation is left alone', sandbox.chatHistory.length === 0);
+    check('change address: counted, as from the toolbar',
+        tracked.length === 1 && tracked[0][0] === 'Site Address Changed' && tracked[0][1].source === 'toolbar',
+        JSON.stringify(tracked));
     check('change address: that project keeps its own published version and date',
         fields && fields.publishedVersionId === 'v-a-7' && fields.publishedAt === '2026-09-01T00:00:00.000Z',
         JSON.stringify(fields));

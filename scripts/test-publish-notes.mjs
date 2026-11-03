@@ -71,6 +71,8 @@ function setup({ open = true, processing = false, history = null, typed = 'new-n
         isAddressChanging: () => false,
         showToast: (text) => env.toasts.push(text),
         refreshPublishButton() {},
+        tracked: [],
+        track: (event, props) => env.tracked.push([event, props]),
         savePublishedFields: async (id, fields, note) => { env.fieldSaves.push({ id, fields, note }); },
         isSubdomainLimitErr: () => false,
         isSubdomainTakenErr: () => false,
@@ -107,6 +109,9 @@ const noteText = (m) => m && Array.isArray(m.content) && m.content[0] && m.conte
         && /old-name\.puter\.site/.test(noteText(note)) && /new-name\.puter\.site/.test(noteText(note)),
         JSON.stringify(note));
     check('…saved along with the new address', env.saves.length === 1 && env.saves[0].length === 2);
+    check('…and counted, as from Settings',
+        env.tracked.length === 1 && env.tracked[0][0] === 'Site Address Changed' && env.tracked[0][1].source === 'settings',
+        JSON.stringify(env.tracked));
 }
 
 {

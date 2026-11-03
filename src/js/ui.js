@@ -3358,7 +3358,9 @@ $(document).on('click', '.publish-address-save', async function () {
     try {
         const r = await changePublishedAddress($input.val());
         if (!r.changed) { endPublishAddressEdit($panel); return; }
-        window.track?.('Site Address Changed', {});
+        // Each place the address changes says which it was: the chat's card
+        // sends 'chat', and Settings 'settings'.
+        window.track?.('Site Address Changed', { source: 'toolbar' });
         // Another project is open now: this popover shows that one.
         if (r.open) {
             renderPublishPanel();
@@ -4964,6 +4966,9 @@ async function showChatProperties(chatId) {
             await persistPublished({ publishedUrl: pub.url, publishedPath: path },
                 oldUrl ? addressChangedNoteMessage(oldUrl, pub.url) : null);
             renderPublishedCell();
+            // Counted as the toolbar's and the chat's are; uncounted, the
+            // event fell short of the address changes made.
+            window.track?.('Site Address Changed', { source: 'settings' });
         } catch (e) {
             if (window.isSubdomainLimitErr(e)) {
                 await puter.ui.alert('You’ve reached the maximum number of published sites for your account. Delete a site you no longer need, then try again.');
