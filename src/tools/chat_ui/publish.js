@@ -78,11 +78,19 @@
 
     function cardHtml(view, $card) {
         const error = $card.attr('data-error') || '';
-        const errorHtml = error ? `<div class="publish-card-error">${htmlEscape(error)}</div>` : '';
-        const field = (label) => '<label class="publish-card-address">' +
-                `<input type="text" class="publish-card-input" value="${htmlEscape($card.attr('data-address') || '')}" placeholder="your-app" aria-label="${label}" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off"${view.busy ? ' disabled' : ''}>` +
+        // The field's error and note are tied to it, so a screen reader reads
+        // them out on the field, not only when the error first appears.
+        const uid = 'publish-card-' + $card.attr('data-uid');
+        const errorHtml = error ? `<div class="publish-card-error" id="${uid}-error">${htmlEscape(error)}</div>` : '';
+        const field = (label, noted) => {
+            const describedBy = [noted ? uid + '-note' : '', error ? uid + '-error' : ''].filter(Boolean).join(' ');
+            return '<label class="publish-card-address">' +
+                `<input type="text" class="publish-card-input" value="${htmlEscape($card.attr('data-address') || '')}" placeholder="your-app" aria-label="${label}"` +
+                    (describedBy ? ` aria-describedby="${describedBy}"` : '') + (error ? ' aria-invalid="true"' : '') +
+                    ` spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off"${view.busy ? ' disabled' : ''}>` +
                 '<span class="publish-address-fix">.puter.site</span>' +
             '</label>';
+        };
         if (view.state === 'form') {
             return '<div class="publish-card-row has-field">' +
                     field('Site address (before .puter.site)') +
@@ -91,10 +99,10 @@
         }
         if (view.state === 'address') {
             return '<div class="publish-card-row has-field">' +
-                    field('New site address (before .puter.site)') +
+                    field('New site address (before .puter.site)', true) +
                     buttonHtml(view, 'Change address', 'Changing…') +
                 '</div>' +
-                `<div class="publish-card-note">Moves your site from ${htmlEscape(hostOf(view.url))}. Links to the old address will stop working.</div>` +
+                `<div class="publish-card-note" id="${uid}-note">Moves your site from ${htmlEscape(hostOf(view.url))}. Links to the old address will stop working.</div>` +
                 errorHtml;
         }
         const safeUrl = htmlEscape(view.url || '');
@@ -189,12 +197,15 @@
         $inner[0]?.focus({ preventScroll: true });
     }
 
+    // Numbers the cards, for the ids inside them.
+    let cardCount = 0;
     function renderPublishCard({ address = '', offer = '', publishedUrl = '', kind = '' } = {}) {
         bindCardEvents();
         const $node = $(
             '<div class="publish-card message ai-message"><div class="message-content">' +
                 '<div class="publish-card-inner"></div>' +
             '</div></div>');
+        $node.attr('data-uid', String(++cardCount));
         $node.attr('data-address', address || '');
         if (offer) $node.attr('data-offer', offer);
         if (kind === 'address') $node.attr('data-kind', 'address');
@@ -362,6 +373,7 @@
             if ($card.attr('data-error')) {
                 $card.removeAttr('data-error');
                 $card.find('.publish-card-error').remove();
+                $(this).removeAttr('aria-invalid');
             }
         });
     }

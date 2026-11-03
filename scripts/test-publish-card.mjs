@@ -592,6 +592,31 @@ function setup() {
         events.some(e => e.event === 'Site Address Changed' && e.props.source === 'chat'), JSON.stringify(events));
 }
 
+// ---- The field's error and note are tied to it ------------------------------
+{
+    const { env, tool, addressTool, cards, q, calls, dom } = setup();
+    await tool.exec({ address: 'shop' }, {});
+    const card = cards()[0];
+    check('no error: the field isn\'t marked invalid or described',
+        !q(card, '.publish-card-input').hasAttribute('aria-invalid') && !q(card, '.publish-card-input').hasAttribute('aria-describedby'));
+    dom.dispatch(q(card, '.publish-card-btn'), 'click');
+    calls[0].fail(Object.assign(new Error('taken'), { code: 'name-taken' }));
+    const input = q(card, '.publish-card-input');
+    const errEl = q(card, '.publish-card-error');
+    check('an error: the field is invalid, and described by the error',
+        input.getAttribute('aria-invalid') === 'true' && errEl.getAttribute('id') && input.getAttribute('aria-describedby') === errEl.getAttribute('id'));
+    input.value = 'shop-2';
+    dom.dispatch(input, 'input');
+    check('typing a fix: no longer invalid', !input.hasAttribute('aria-invalid'));
+    env.currentPublishedUrl = 'https://shop.puter.site/';
+    await addressTool.exec({ address: 'shop-3' }, {});
+    const addr = cards()[1];
+    const note = q(addr, '.publish-card-note');
+    check('the address change\'s field is described by its warning, with its own id',
+        note.getAttribute('id') && note.getAttribute('id') !== errEl.getAttribute('id')
+        && q(addr, '.publish-card-input').getAttribute('aria-describedby') === note.getAttribute('id'));
+}
+
 // ---- Wiring --------------------------------------------------------------------
 {
     const vite = read('../vite.config.js');
