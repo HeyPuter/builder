@@ -300,11 +300,12 @@
             return;
         }
         if (!r.changed) { showCardError($card, 'That’s already your site’s address.'); return; }
+        // Counted wherever the user is now, as the popover's is.
+        window.track?.('Site Address Changed', { source: 'chat' });
         // Another project is open now: its own cards aren't this one.
         if (!r.open) return;
         (cardNow(chatId, $card) || $card).attr('data-published-url', r.url).removeAttr('data-key');
         refreshPublishCards();
-        window.track?.('Site Address Changed', { source: 'chat' });
         window.announce?.(`Your site is now at ${hostOf(r.url)}.`);
         await recordCardPublish($card.attr('data-offer'), r.url);
     }
