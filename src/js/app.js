@@ -1753,6 +1753,19 @@ async function discardCopyAttempt(newAppDir, renames) {
 // (sibling .issues/<chatId>.json, see issues.js) is left behind for the same
 // reason: it's a punch list against the original's live preview.
 const _duplicatingChats = new Set(); // source chatIds with a duplication in flight
+// A copy starts unpublished (see duplicateChat), but the conversation it
+// inherits says otherwise: the notes for the AI name the original's public
+// address (it then gave that out as the copy's), and a Publish card records
+// the publish made from it (it read "Published" in the copy). The records go,
+// so those cards are hidden, and a note tells the AI whose address it is.
+function unpublishCopiedHistory(history, originalUrl) {
+    if (!Array.isArray(history)) return;
+    for (const m of history) if (m && 'publishCardUrl' in m) delete m.publishCardUrl;
+    if (originalUrl && typeof pushAiNote === 'function' && typeof copiedProjectNoteMessage === 'function') {
+        pushAiNote(history, copiedProjectNoteMessage(originalUrl));
+    }
+}
+
 async function duplicateChat(chatId) {
     if (!chatId || _duplicatingChats.has(chatId)) return;
     _duplicatingChats.add(chatId);
@@ -1789,10 +1802,12 @@ async function duplicateChat(chatId) {
         let sourceHistory = Array.isArray(source.history) ? source.history : [];
         let origPreviewUrl = source.previewUrl || null;
         let origPreviewPath = source.previewPath || null;
+        let origPublishedUrl = source.publishedUrl || null;
         if (chatId === currentChatId) {
             if (Array.isArray(chatHistory)) sourceHistory = chatHistory;
             origPreviewUrl = window.currentPreviewUrl || origPreviewUrl;
             origPreviewPath = window.currentPreviewPath || origPreviewPath;
+            origPublishedUrl = window.currentPublishedUrl || origPublishedUrl;
         }
 
         // --- Clone the conversation, rewriting app-dir references -----------
@@ -1859,6 +1874,9 @@ async function duplicateChat(chatId) {
         const finalHistory = workerRenames.length
             ? window.WorkerOwnership.rewriteHistory(clonedHistory, workerRenames)
             : clonedHistory;
+        // The copy starts unpublished (below), so the original's publishes
+        // aren't its own.
+        unpublishCopiedHistory(finalHistory, origPublishedUrl);
 
         // --- Publish the copy to its OWN subdomain (if the source was live) -
         let newPreviewUrl = null, newPreviewPath = null;
