@@ -2274,6 +2274,22 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
     color: #6b6b6b;
 }
 .publish-card-done svg { display: block; color: #2e9e5b; }
+/* An address an older card published to, since moved: no longer a link. */
+.publish-card-gone {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    color: #8a8a8a;
+    text-decoration: line-through;
+}
+.publish-card-note {
+    margin-top: 6px;
+    font-size: 12.5px;
+    color: #6b6b6b;
+}
 .publish-card-error {
     margin-top: 6px;
     font-size: 12.5px;
@@ -6656,6 +6672,8 @@ html[data-theme="dark"] .publish-card-btn:hover { background: #8cc2ff; }
 html[data-theme="dark"] .publish-card-btn:disabled { background: rgba(108, 176, 245, 0.4); }
 html[data-theme="dark"] .publish-card-error { color: var(--danger); }
 html[data-theme="dark"] .publish-card-done { color: var(--text-secondary); }
+html[data-theme="dark"] .publish-card-gone,
+html[data-theme="dark"] .publish-card-note { color: var(--text-muted); }
 html[data-theme="dark"] .upgrade-card-btn,
 html[data-theme="dark"] .model-panel-upgrade,
 html[data-theme="dark"] .publish-branding-btn,

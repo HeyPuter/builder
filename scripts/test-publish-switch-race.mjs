@@ -278,7 +278,8 @@ check('switch/auto-name: the address is derived from A’s chat, not B’s',
     JSON.stringify(raceAutoName.hostingCalls));
 
 // ---- Change address: a switch mid-rename keeps this project's baseline ------
-// The toolbar's address editor read the published version id and date from
+// The address change (changePublishedAddress, behind the toolbar's address
+// editor and the chat's Change address card) read the published version id and date from
 // the globals AFTER awaiting hosting.create/delete; a project opened in the
 // meantime had repointed them, so its values (or nulls) were saved onto this
 // project — which then read "Publish changes" with a wrong "last published".
@@ -287,6 +288,8 @@ check('switch/auto-name: the address is derived from A’s chat, not B’s',
     const a = source.indexOf(marker);
     const b = source.indexOf('\n});\n', a);
     const handlerSrc = source.slice(a + marker.length, b + 2);
+    const fnStart = source.indexOf('let _addressChanging = false;');
+    const changeSrc = source.slice(fnStart, source.indexOf('\n}\n', source.indexOf('async function changePublishedAddress(typed) {')) + 2);
     const saved = [];
     const absolutized = [];
     let releaseCreate;
@@ -303,7 +306,10 @@ check('switch/auto-name: the address is derived from A’s chat, not B’s',
             savePublishedFields: (id, fields) => saved.push([id, fields]),
             isSubdomainLimitErr: () => false,
             puterErrInfo: () => ({ message: '' }),
+            track() {},
         },
+        publishBlockedReason: () => null,
+        publishBusyHere: () => false,
         $: (x) => (x && x.closest ? x : { closest: () => panel, prop() { return this; } }),
         puter: {
             ui: { alert: async () => {} },
@@ -318,6 +324,7 @@ check('switch/auto-name: the address is derived from A’s chat, not B’s',
         console: { warn() {} },
     };
     vm.createContext(sandbox);
+    vm.runInContext(changeSrc, sandbox);
     const handler = vm.runInContext('(' + handlerSrc + ')', sandbox);
     const done = handler.call({ closest: () => panel, prop() { return this; } });
     for (let i = 0; i < 20 && !releaseCreate; i++) await new Promise(setImmediate);

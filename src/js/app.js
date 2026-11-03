@@ -1248,6 +1248,7 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
                                 address: toolResponse.address,
                                 offer: toolResponse.offer,
                                 publishedUrl: message.publishCardUrl,
+                                kind: toolResponse.kind,
                             });
                         } else if (toolResponse.success && toolResponse.filename && (toolResponse.path
                             || (Array.isArray(toolResponse.items) && toolResponse.items.some(it => it && it.path)))) {

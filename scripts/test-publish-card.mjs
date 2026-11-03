@@ -22,6 +22,7 @@ function check(name, cond, detail) {
 
 const read = (p) => fs.readFileSync(new URL(p, import.meta.url), 'utf8');
 const cardSource = read('../src/tools/chat_ui/publish.js');
+const addressSource = read('../src/tools/chat_ui/address.js');
 const uiSource = read('../src/js/ui.js');
 const helpersSource = read('../src/js/helpers.js');
 const stateSource = read('../src/js/publish-state.js');
@@ -67,6 +68,15 @@ function setup() {
         isAborted: () => false,
         isStaleTurn: () => false,
         isPublishStarting: () => false,
+        isAddressChanging: () => false,
+        isSubdomainTakenErr: (e) => !!(e && e.taken),
+        renames: [],
+        renameResult: null,
+        changePublishedAddress: (typed) => {
+            env.renames.push(typed);
+            const r = env.renameResult;
+            return r instanceof Error ? Promise.reject(r) : Promise.resolve(r);
+        },
         announce: (t) => announced.push(t),
         track: (event, props) => events.push({ event, props }),
     });
@@ -77,10 +87,12 @@ function setup() {
         extract(uiSource, 'function slugifyTitle(t) {'),
     ].join('\n\n'), env);
     vm.runInContext(cardSource, env);
+    vm.runInContext(addressSource, env);
     const tool = env.tools.find(t => t.function.name === 'OfferPublish');
+    const addressTool = env.tools.find(t => t.function.name === 'OfferAddressChange');
     const cards = () => chatBox.querySelectorAll('.publish-card');
     const q = (el, sel) => el.querySelector(sel);
-    return { env, dom, chatBox, tool, cards, q, calls, events, announced };
+    return { env, dom, chatBox, tool, addressTool, cards, q, calls, events, announced };
 }
 
 // ---- The tool --------------------------------------------------------------
@@ -234,10 +246,150 @@ function setup() {
     check('older card: no button, no Live', !q(older, '.publish-card-btn') && !/Live/.test(older.textContent));
     check('newest card: Publish changes', /Publish changes/.test(newest.textContent));
 
-    // The address changes later: the record keeps where that publish went.
+    // The address changes later: the record keeps where that publish went,
+    // but that address no longer works, so it is no longer a link.
     env.currentPublishedUrl = 'https://renamed.puter.site/';
     env.refreshPublishCards();
-    check('older card: unchanged by later state', q(older, '.publish-card-link').getAttribute('href') === 'https://first-try.puter.site/');
+    const gone = q(older, '.publish-card-gone');
+    check('older card: a moved address stays, as plain text',
+        !q(older, '.publish-card-link') && gone && gone.textContent === 'first-try.puter.site' && /Published/.test(older.textContent));
+}
+
+// ---- Changing the address from the chat --------------------------------------
+{
+    const { addressTool, cards } = setup();
+    check('OfferAddressChange is registered, with a required address',
+        addressTool && addressTool.function.parameters.required.includes('address') && addressTool.function.strict === false);
+    check('its description says only when the user asks, that the user clicks, and that the old address breaks',
+        /only when the user asks/.test(addressTool.function.description) && /the user clicks/.test(addressTool.function.description)
+        && /old address stops working/.test(addressTool.function.description));
+    const r = await addressTool.exec({ address: 'new-name' }, {});
+    check('not published: an error pointing at OfferPublish, and no card', r.error && /OfferPublish/.test(r.error) && cards().length === 0);
+}
+{
+    const t = setup();
+    const { env, addressTool, cards, q, dom } = t;
+    env.currentPublishedUrl = 'https://old-name.puter.site/';
+    env.currentPublishedVersionId = 'v2';
+    env._projectDirtySinceSnapshot = false;
+    const same = await addressTool.exec({ address: 'old-name' }, {});
+    check('already at that address: no card', !same.__publish_offer && /already at/.test(same.instruction) && cards().length === 0);
+
+    env.blocked = 'task';
+    const r = await addressTool.exec({ address: 'Bakery Orders' }, {});
+    check('result: a card for reload, of the address kind, with the cleaned address',
+        r.__publish_offer === true && r.kind === 'address' && r.address === 'bakery-orders' && /^offer-/.test(r.offer), JSON.stringify(r));
+    check('result: tells the model nothing moves until the click, and the old address stops working',
+        /https:\/\/old-name\.puter\.site\//.test(r.instruction) && /bakery-orders\.puter\.site/.test(r.instruction)
+        && /Nothing moves until they click/.test(r.instruction) && /old address stops working/.test(r.instruction));
+    const card = cards()[0];
+    const btn = q(card, '.publish-card-btn');
+    check('card: the new address in a field, and Change address', q(card, '.publish-card-input').value === 'bakery-orders' && btn.textContent === 'Change address');
+    check('card: says where the site moves from, and that old links break',
+        /old-name\.puter\.site/.test(q(card, '.publish-card-note').textContent) && /stop working/.test(q(card, '.publish-card-note').textContent));
+    check('card: waits while the turn runs', btn.disabled === true);
+    dom.dispatch(btn, 'click');
+    check('a waiting button ignores clicks', env.renames.length === 0);
+    check('shown in analytics as an address card', t.events.some(e => e.event === 'Publish Card Shown' && e.props.state === 'address'));
+
+    env.blocked = null;
+    env.refreshPublishCards();
+    const input = q(card, '.publish-card-input');
+    input.value = 'bakery';
+    dom.dispatch(input, 'input');
+
+    // Taken.
+    env.renameResult = Object.assign(new Error('taken'), { taken: true });
+    dom.dispatch(q(card, '.publish-card-btn'), 'click');
+    await new Promise(setImmediate);
+    check('click: runs the address change with the typed address', env.renames[0] === 'bakery');
+    check('taken: a short error beside the field', q(card, '.publish-card-error')?.textContent === 'That address is taken. Try another.');
+    check('taken: the typed address is kept', q(card, '.publish-card-input').value === 'bakery');
+
+    // In flight.
+    env.isAddressChanging = () => true;
+    env.refreshPublishCards();
+    check('changing: the button says so and is disabled', q(card, '.publish-card-btn').textContent === 'Changing…' && q(card, '.publish-card-btn').disabled);
+    env.isAddressChanging = () => false;
+    env.refreshPublishCards();
+
+    // Works: Enter in the field.
+    env.chatHistory.push({ role: 'user', content: { type: 'tool_result', tool_use_id: 't1', content: JSON.stringify(r) } });
+    env.renameResult = { changed: true, url: 'https://bakery.puter.site/', oldUrl: 'https://old-name.puter.site/', open: true };
+    env.currentPublishedUrl = 'https://bakery.puter.site/';
+    dom.dispatch(q(card, '.publish-card-input'), 'keydown', { key: 'Enter' });
+    await new Promise(setImmediate); await new Promise(setImmediate);
+    check('done: the card reads like any other, Live at the new address',
+        /Live/.test(card.textContent) && q(card, '.publish-card-link').getAttribute('href') === 'https://bakery.puter.site/' && !q(card, '.publish-card-input'));
+    check('done: read out, tracked from the chat, and saved on the tool result',
+        t.announced.includes('Your site is now at bakery.puter.site.')
+        && t.events.some(e => e.event === 'Site Address Changed' && e.props.source === 'chat')
+        && env.chatHistory[0].publishCardUrl === 'https://bakery.puter.site/');
+
+    // A newer card: this one freezes as "Address changed".
+    await t.tool.exec({}, {});
+    const older = cards()[0];
+    check('older address card: Address changed, with the address it moved to',
+        /Address changed/.test(older.textContent) && q(older, '.publish-card-link').getAttribute('href') === 'https://bakery.puter.site/');
+}
+{
+    // While an address change runs, Publish waits too.
+    const { env, tool, cards, q } = setup();
+    env.currentPublishedUrl = 'https://a.puter.site/';
+    env.currentPublishedVersionId = 'v1';
+    env.isAddressChanging = () => true;
+    await tool.exec({}, {});
+    check('a Publish card waits while the address changes', q(cards()[0], '.publish-card-btn').disabled === true);
+}
+
+// ---- The address change itself (ui.js) ----------------------------------------
+{
+    const start = uiSource.indexOf('let _addressChanging = false;');
+    const end = uiSource.indexOf('\n}\n', uiSource.indexOf('async function changePublishedAddress(typed) {')) + 2;
+    function make({ blocked = null, busy = false } = {}) {
+        const log = [];
+        const sb = {
+            console: { warn() {} },
+            currentChatId: 'p',
+            chatHistory: [],
+            publishBlockedReason: () => blocked,
+            publishBusyHere: () => busy,
+            previewSubdomain: (u) => (String(u).match(/^https:\/\/([^.]+)\.puter\.site/) || [])[1] || null,
+            resolvePublishedDir: async (p) => p,
+            absolutizeSocialImagesInRelease: async () => {},
+            saveCurrentChat: async () => log.push('save'),
+            puter: { hosting: { create: async (sub) => log.push('create:' + sub), delete: async (sub) => log.push('delete:' + sub) } },
+        };
+        sb.window = Object.assign(sb, {
+            currentPublishedUrl: 'https://old.puter.site/',
+            currentPublishedPath: '/pub/p/r1',
+            refreshPublishButton: () => log.push('refresh'),
+            refreshPublishCards: () => {},
+        });
+        vm.createContext(sb);
+        vm.runInContext(extract(uiSource, 'function addressChangedNoteMessage(oldUrl, newUrl) {') + '\n' + uiSource.slice(start, end), sb);
+        return { sb, log };
+    }
+    const ok = make();
+    const r = await ok.sb.changePublishedAddress(' New ');
+    const note = ok.sb.chatHistory[0];
+    check('change: the new address is created before the old one goes, and the project points at it',
+        r.changed && r.open && r.url === 'https://new.puter.site/' && ok.log.join() === 'create:new,delete:old,save,refresh'
+        && ok.sb.currentPublishedUrl === 'https://new.puter.site/', ok.log.join());
+    check('change: a hidden note tells the AI the old address no longer works',
+        note && note.versionNote && note.content[0].type === 'text-hidden'
+        && note.content[0].text.includes('https://old.puter.site/') && note.content[0].text.includes('https://new.puter.site/'));
+    const turn = make({ blocked: 'task' });
+    let code = null;
+    try { await turn.sb.changePublishedAddress('new'); } catch (e) { code = e.code; }
+    check('during a turn: refused, nothing created', code === 'busy' && turn.log.length === 0);
+    const bad = make();
+    try { await bad.sb.changePublishedAddress('-bad-'); } catch (e) { code = e.code; }
+    check('an invalid address is refused', code === 'invalid-name' && bad.log.length === 0);
+    const same = make();
+    const s2 = await same.sb.changePublishedAddress('old');
+    check('the same address: nothing to change', s2.changed === false && same.log.length === 0);
+    check('the flag clears afterwards', ok.sb.isAddressChanging() === false);
 }
 
 // ---- A turn that is gone shows nothing --------------------------------------
@@ -253,30 +405,35 @@ function setup() {
     const { env, cards, q } = setup();
     env.renderPublishCard({ address: 'saved-name' });
     check('reload: the card is drawn from its saved address', q(cards()[0], '.publish-card-input').value === 'saved-name');
+    env.currentPublishedUrl = 'https://used.puter.site/';
     env.renderPublishCard({ address: 'used', offer: 'offer-1', publishedUrl: 'https://used.puter.site/' });
     env.renderPublishCard({ address: 'latest', offer: 'offer-2' });
     const [unused, used, latest] = cards();
     check('reload: an older unused card is hidden', unused.classList.contains('is-superseded'));
     check('reload: an older card published from reads Published', /Published/.test(used.textContent) && q(used, '.publish-card-link'));
-    check('reload: the newest is the control', q(latest, '.publish-card-input').value === 'latest');
+    check('reload: the newest is the control, drawn from the state', q(latest, '.publish-card-btn').textContent === 'Publish changes');
     const app = read('../src/js/app.js');
     check('loadChat shows a saved card again, with its id and its publish',
         /toolResponse\.__publish_offer\)[\s\S]{0,400}renderPublishCard\?\.\(\{\s*address: toolResponse\.address,\s*offer: toolResponse\.offer,\s*publishedUrl: message\.publishCardUrl,/.test(app));
     check('the saved publish never reaches the model', /delete msg\.publishCardUrl/.test(helpersSource));
+    check('loadChat passes the card\'s kind', /publishedUrl: message\.publishCardUrl,\s*kind: toolResponse\.kind,/.test(app));
 }
 
 // ---- Wiring --------------------------------------------------------------------
 {
     const vite = read('../vite.config.js');
     check('bundled after ui.js', vite.indexOf("'tools/chat_ui/publish.js'") > vite.indexOf("'js/ui.js'"));
+    check('the address tool is bundled after the card', vite.indexOf("'tools/chat_ui/address.js'") > vite.indexOf("'tools/chat_ui/publish.js'"));
     const refresh = extract(uiSource, 'window.refreshPublishButton = function () {');
     check('the toolbar refresh redraws the cards first, before any early return',
         refresh.indexOf('refreshPublishCards') > 0 && refresh.indexOf('refreshPublishCards') < refresh.indexOf('return'));
     check('the busy state redraws the cards', /function setPublishBusy[\s\S]*?refreshPublishCards[\s\S]*?\n}\n/.test(uiSource));
     const tools = read('../src/js/tools.js');
     check('OfferPublish writes no files (no preview clear)', /PREVIEW_SAFE_TOOLS = new Set\(\[[\s\S]*'OfferPublish'[\s\S]*?\]\)/.test(tools));
+    check('nor does OfferAddressChange', /PREVIEW_SAFE_TOOLS = new Set\(\[[\s\S]*'OfferAddressChange'[\s\S]*?\]\)/.test(tools));
     const prompt = read('../src/js/prompt.js');
     check('the prompt points a publish request at OfferPublish', /When the user asks you to publish it, call the OfferPublish tool/.test(prompt));
+    check('and an address change at OfferAddressChange', /change the published site's address, call OfferAddressChange/.test(prompt));
     const doPublish = extract(uiSource, 'async function doPublish() {');
     check('the popover publishes through publishProject too', /return publishProject\(\{/.test(doPublish));
 }
