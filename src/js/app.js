@@ -1240,6 +1240,10 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
                             // the user has a paid plan by now. Offers from before
                             // the code editor carry no feature and are the badge.
                             if (!toolResponse.subscribed && !window.Branding?.isSubscribed(window.user)) window.renderUpgradeCard?.({ feature: toolResponse.feature });
+                        } else if (toolResponse.__publish_offer) {
+                            // A past Publish card: shown again, drawn from the
+                            // project's publish state now.
+                            window.renderPublishCard?.({ address: toolResponse.address });
                         } else if (toolResponse.success && toolResponse.filename && (toolResponse.path
                             || (Array.isArray(toolResponse.items) && toolResponse.items.some(it => it && it.path)))) {
                             // A generated image, video or audio clip (see

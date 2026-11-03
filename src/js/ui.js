@@ -1835,6 +1835,8 @@ let _publishPanelOpen = false;
 let _suggestedPublishName = null;
 
 window.refreshPublishButton = function () {
+    // The Publish cards in the chat follow the same state as this button.
+    window.refreshPublishCards?.();
     const $btn = $('.preview-publish-btn');
     if (!$btn.length) return;
     window.syncPreviewBadge?.();
@@ -1895,6 +1897,7 @@ function setPublishBusy(busy, chatId) {
         if (!busy) _publishActionHTML = null;
         return;
     }
+    window.refreshPublishCards?.();
     const $btn = $('.preview-publish-btn');
     $btn.prop('disabled', busy);
     if (busy) $btn.find('.preview-publish-label').text('Publishing…');
@@ -2513,17 +2516,113 @@ async function retirePublishedWorkers(chatId, keepNames) {
     }
 }
 
+// The Publish popover's publish (its Publish / Publish changes button). The
+// address field names a first publish, and the popover shows the progress,
+// the share view or the error. The Publish card the AI can put in the chat
+// (tools/chat_ui/publish.js) is the other caller of publishProject.
+async function doPublish() {
+    return publishProject({
+        render: renderPublishPanel,
+        desiredName: () => $('.preview-publish-panel .publish-name-input').val(),
+        // Swap the popover body to the progress note for the duration. The user
+        // just clicked inside the panel and the swap discards the clicked button,
+        // so re-focus the panel to keep Escape-to-close working.
+        start(isFirst) {
+            _publishViewIsFirst = isFirst;
+            _publishSuccessData = null;
+            _publishPanelView = 'progress';
+            renderPublishPanel();
+            $('.preview-publish-panel').trigger('focus');
+        },
+        async success({ chatId, url, isFirst, siteMetaPromise }) {
+            const publishToastOptions = {
+                type: 'success',
+                action: {
+                    label: 'Open site',
+                    onClick: () => window.open(url, '_blank', 'noopener,noreferrer'),
+                },
+            };
+            // Swap the popover to its share view, waiting briefly for the site
+            // meta (usually already loaded — the read ran alongside the publish).
+            // If the popover was closed mid-publish, fall back to the toast so
+            // success is never silent.
+            if (_publishPanelOpen) {
+                let meta = { title: '', description: '', icon: '' };
+                try {
+                    const raced = await Promise.race([
+                        siteMetaPromise,
+                        new Promise((res) => setTimeout(res, 1500)),
+                    ]);
+                    if (raced) meta = raced;
+                } catch (e) { /* best-effort */ }
+                // Re-check after the await: the popover may have closed (or the
+                // chat switched) while the meta was still loading.
+                if (_publishPanelOpen && currentChatId === chatId) {
+                    _publishViewIsFirst = isFirst;
+                    _publishSuccessData = { url, meta };
+                    _publishPanelView = 'success';
+                    renderPublishPanel();
+                    window.announce?.(isFirst ? 'Your website is live.' : 'Your website was updated.');
+                } else if (currentChatId === chatId) {
+                    window.showToast?.(isFirst ? 'Your site is live.' : 'Your changes are now live.', publishToastOptions);
+                }
+            } else {
+                window.showToast?.(isFirst ? 'Your site is live.' : 'Your changes are now live.', publishToastOptions);
+            }
+        },
+        async fail(e) {
+            // Return the popover to the form BEFORE any alert: the typed address is
+            // preserved (renderPublishPanel re-reads _suggestedPublishName, which
+            // mirrors the field), and the focus nudge below needs the field to
+            // exist. Busy is already clear, or the render would re-draw the
+            // progress note.
+            _publishPanelView = 'form';
+            _publishSuccessData = null;
+            renderPublishPanel();
+            if (e && e.code === 'invalid-name') {
+                await puter.ui.alert('Please enter a valid address: lowercase letters, numbers, and hyphens only (it can’t start or end with a hyphen).');
+            } else if ((e && e.code === 'subdomain-limit') || window.isSubdomainLimitErr(e)) {
+                // Account cap on published subdomains — NOT a name conflict. Tell the
+                // user what actually happened and how to proceed.
+                await puter.ui.alert('You’ve reached the maximum number of published sites for your account. Delete a site you no longer need, then try publishing again.');
+            } else if (e && e.code === 'name-taken') {
+                await puter.ui.alert('That address is already taken — please choose another.');
+            } else {
+                const msg = window.puterErrInfo(e).message;
+                await puter.ui.alert('Could not publish your site. Please try again.\n\n' + msg);
+            }
+            // Keep the popover open and the user's typed address intact so they can
+            // adjust it and retry; nudge focus back to the field on first publish.
+            const $nameInput = $('.preview-publish-panel .publish-name-input');
+            if ($nameInput.length) { $nameInput.trigger('focus'); $nameInput[0].select(); }
+        },
+    });
+}
+
 // The core action: push the current working dir to the public subdomain
 // (creating it on first publish), then record + persist the new baseline.
-async function doPublish() {
+// `ui` is the surface the user published from (doPublish's popover, or the
+// Publish card in the chat):
+//   render()                          draw the surface again (a publish that
+//                                     can't start yet shows why)
+//   desiredName()                     the address typed for a first publish
+//   start(isFirst)                    the publish is starting
+//   success({ chatId, url, isFirst, siteMetaPromise })
+//                                     it is live; only called while that
+//                                     project is still open
+//   fail(error)                       it failed, and the busy state is clear
+//   source                            optional, the analytics source
+// The guards, the busy state, the files, hosting, the records and analytics
+// are the same for both.
+async function publishProject(ui) {
     // Normally unreachable — the action renders as a disabled "finishing…" row
     // while a turn/restore runs (see renderPublishPanel). This is the race guard
     // for the narrow window where work starts between render and click: no
-    // blocking alert, just re-render the panel to its waiting state and nudge
+    // blocking alert, just re-render the surface to its waiting state and nudge
     // with a non-blocking toast.
     const blocked = publishBlockedReason();
     if (blocked) {
-        renderPublishPanel();
+        ui.render();
         window.showToast?.(
             blocked === 'restore'
                 ? 'Finishing the restore — you can publish the moment it’s done.'
@@ -2544,6 +2643,7 @@ async function doPublish() {
         _publishStarting.add(savingFor);
         window.CodeEditor?.onStartingChange?.();
         $('.preview-publish-panel .publish-action').prop('disabled', true);
+        window.refreshPublishCards?.();
         let settled;
         try {
             settled = await window.CodeEditor.prepareForPublish(savingFor);
@@ -2551,6 +2651,7 @@ async function doPublish() {
             _publishStarting.delete(savingFor);
             window.CodeEditor?.onStartingChange?.();
             $('.preview-publish-panel .publish-action').prop('disabled', false);
+            window.refreshPublishCards?.();
         }
         if (settled === 'failed') {
             // Files saved before the one that failed scheduled a preview
@@ -2564,7 +2665,7 @@ async function doPublish() {
         // check at the top does, instead of silently not publishing.
         const blockedNow = publishBlockedReason();
         if (blockedNow || publishBusyHere()) {
-            renderPublishPanel();
+            ui.render();
             window.showToast?.(blockedNow === 'restore'
                 ? 'Finishing the restore — you can publish the moment it’s done.'
                 : 'Finishing the current task — you can publish the moment it’s done.',
@@ -2604,21 +2705,14 @@ async function doPublish() {
     // Read the chosen address NOW, not mid-flight: the user may close the
     // popover while the publish runs (the progress note invites them to), and
     // reading the field later would silently publish under a random name.
-    const desiredName = ($('.preview-publish-panel .publish-name-input').val() || '').trim().toLowerCase();
+    const desiredName = (ui.desiredName() || '').trim().toLowerCase();
     // The badge box, for the same reason: the live release it falls back to
     // is this project's only while it is still open.
     const removeBadgePromise = removeBadgeWanted(chatId, window.currentPublishedPath);
     // Site metadata for the success card, read in parallel with the publish so
     // the card is ready the moment the site is. Never rejects.
     const siteMetaPromise = loadPublishedSiteMeta(path);
-    // Swap the popover body to the progress note for the duration. The user
-    // just clicked inside the panel and the swap discards the clicked button,
-    // so re-focus the panel to keep Escape-to-close working.
-    _publishViewIsFirst = isFirst;
-    _publishSuccessData = null;
-    _publishPanelView = 'progress';
-    renderPublishPanel();
-    $('.preview-publish-panel').trigger('focus');
+    ui.start(isFirst);
     window.announce?.(isFirst ? 'Publishing your site…' : 'Updating your site…');
     setPublishBusy(true, chatId);
     let ok = false;
@@ -2729,40 +2823,7 @@ async function doPublish() {
                 try { await saveCurrentChat({ currentChatId: chatId, chatHistory: chatHistory }); }
                 catch (e) { /* save surfaces its own toast on failure */ }
             }
-            const publishToastOptions = {
-                type: 'success',
-                action: {
-                    label: 'Open site',
-                    onClick: () => window.open(url, '_blank', 'noopener,noreferrer'),
-                },
-            };
-            // Swap the popover to its share view, waiting briefly for the site
-            // meta (usually already loaded — the read ran alongside the publish).
-            // If the popover was closed mid-publish, fall back to the toast so
-            // success is never silent.
-            if (_publishPanelOpen) {
-                let meta = { title: '', description: '', icon: '' };
-                try {
-                    const raced = await Promise.race([
-                        siteMetaPromise,
-                        new Promise((res) => setTimeout(res, 1500)),
-                    ]);
-                    if (raced) meta = raced;
-                } catch (e) { /* best-effort */ }
-                // Re-check after the await: the popover may have closed (or the
-                // chat switched) while the meta was still loading.
-                if (_publishPanelOpen && currentChatId === chatId) {
-                    _publishViewIsFirst = isFirst;
-                    _publishSuccessData = { url, meta };
-                    _publishPanelView = 'success';
-                    renderPublishPanel();
-                    window.announce?.(isFirst ? 'Your website is live.' : 'Your website was updated.');
-                } else if (currentChatId === chatId) {
-                    window.showToast?.(isFirst ? 'Your site is live.' : 'Your changes are now live.', publishToastOptions);
-                }
-            } else {
-                window.showToast?.(isFirst ? 'Your site is live.' : 'Your changes are now live.', publishToastOptions);
-            }
+            await ui.success({ chatId, url, isFirst, siteMetaPromise });
         } else {
             window.savePublishedFields?.(chatId, fields);
         }
@@ -2793,9 +2854,10 @@ async function doPublish() {
                 cost_band: costBand(costCents),
                 branding,
                 ...templateProp(startHistory),
+                ...(ui.source ? { source: ui.source } : {}),
             });
         } catch (e) {
-            window.track?.('Project Published', { type: isFirst ? 'first' : 'republish', first_publish: isFirst, branding, ...templateProp(startHistory) });
+            window.track?.('Project Published', { type: isFirst ? 'first' : 'republish', first_publish: isFirst, branding, ...templateProp(startHistory), ...(ui.source ? { source: ui.source } : {}) });
         }
     } catch (e) {
         // The release never went live, so remove whatever of it landed. The
@@ -2805,31 +2867,11 @@ async function doPublish() {
             try { await puter.fs.delete(stagedDir, { recursive: true }); }
             catch (e2) { /* best effort — an unserved leftover is harmless */ }
         }
-        // Return the popover to the form BEFORE any alert: the typed address is
-        // preserved (renderPublishPanel re-reads _suggestedPublishName, which
-        // mirrors the field), and the focus nudge below needs the field to
-        // exist. Busy must clear first or the render re-draws the progress note
-        // (the finally's setPublishBusy(false, …) is a harmless repeat).
+        // Busy must clear before the surface shows the failure, or a re-render
+        // draws the progress note again (the finally's setPublishBusy(false, …)
+        // is a harmless repeat).
         setPublishBusy(false, chatId);
-        _publishPanelView = 'form';
-        _publishSuccessData = null;
-        renderPublishPanel();
-        if (e && e.code === 'invalid-name') {
-            await puter.ui.alert('Please enter a valid address: lowercase letters, numbers, and hyphens only (it can’t start or end with a hyphen).');
-        } else if ((e && e.code === 'subdomain-limit') || window.isSubdomainLimitErr(e)) {
-            // Account cap on published subdomains — NOT a name conflict. Tell the
-            // user what actually happened and how to proceed.
-            await puter.ui.alert('You’ve reached the maximum number of published sites for your account. Delete a site you no longer need, then try publishing again.');
-        } else if (e && e.code === 'name-taken') {
-            await puter.ui.alert('That address is already taken — please choose another.');
-        } else {
-            const msg = window.puterErrInfo(e).message;
-            await puter.ui.alert('Could not publish your site. Please try again.\n\n' + msg);
-        }
-        // Keep the popover open and the user's typed address intact so they can
-        // adjust it and retry; nudge focus back to the field on first publish.
-        const $nameInput = $('.preview-publish-panel .publish-name-input');
-        if ($nameInput.length) { $nameInput.trigger('focus'); $nameInput[0].select(); }
+        await ui.fail(e);
     } finally {
         setPublishBusy(false, chatId);
         // Code saved just before this publish: its preview refresh waited for
@@ -2881,6 +2923,7 @@ $(document).on('change', '.preview-publish-panel .publish-remove-badge', functio
     e.stopPropagation();
     _removeBadgeChoice.set(currentChatId, this.checked);
     renderPublishPanel();
+    window.refreshPublishCards?.();
 });
 
 // First-publish address field: Enter publishes, Escape closes. stopPropagation
