@@ -738,16 +738,18 @@ if (built) {
 // Analytics: a project's events carry the template it was copied from.
 {
     const a = HELPERS.indexOf('function templateProp(history) {');
-    const fn = (win) => new Function('window', HELPERS.slice(a, HELPERS.indexOf('\n}\n', a) + 2) + '\nreturn templateProp;')(win);
+    const b = HELPERS.indexOf('\n}\n', HELPERS.indexOf('function templatePropFor(slug) {'));
+    const fn = (win) => new Function('window', HELPERS.slice(a, b + 2) + '\nreturn templateProp;')(win);
     const win = {};
     new Function('window', CORE_SRC)(win);
     const fork = [{ role: 'system', content: 'x', templateOrigin: { slug: 'feedback-board', name: 'Feedback board', version: 'abcdef12' } }];
     check('templateProp: a fork\'s events name its template',
-        JSON.stringify(fn(win)(fork)) === JSON.stringify({ template: 'feedback-board' }));
-    check('templateProp: a project from scratch adds nothing',
-        JSON.stringify(fn(win)([{ role: 'system', content: 'x' }])) === '{}' && JSON.stringify(fn(win)(null)) === '{}');
-    check('templateProp: without TemplateCore it adds nothing rather than throwing',
-        JSON.stringify(fn({})(fork)) === '{}');
+        JSON.stringify(fn(win)(fork)) === JSON.stringify({ from_template: true, template: 'feedback-board' }));
+    const scratch = JSON.stringify({ from_template: false });
+    check('templateProp: a project from scratch says so, with no template',
+        JSON.stringify(fn(win)([{ role: 'system', content: 'x' }])) === scratch && JSON.stringify(fn(win)(null)) === scratch);
+    check('templateProp: without TemplateCore it says from scratch rather than throwing',
+        JSON.stringify(fn({})(fork)) === scratch);
 
     const send = APP.slice(APP.indexOf('async function sendChatMessage('));
     check('a turn reads its project\'s template once, from the history it saves to',

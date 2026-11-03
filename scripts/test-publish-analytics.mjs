@@ -51,6 +51,7 @@ const PUBLISH_CODE = [
     extract(source, 'async function createPublishSubdomain(path, desired'),
     extract(helpersSource, 'function generateChatTitle(history) {'),
     extract(helpersSource, 'function templateProp(history) {'),
+    extract(helpersSource, 'function templatePropFor(slug) {'),
     extract(source, 'async function doPublish() {'),
 ].join('\n\n');
 const USAGE_CODE = [
@@ -160,11 +161,11 @@ const HISTORY = [
 // ---- The template a project was copied from ---------------------------------
 {
     const p0 = (await run({ published: false, history: HISTORY })).events[0].props;
-    check('a project from scratch: no template prop', p0 && !('template' in p0), JSON.stringify(p0));
+    check('a project from scratch: from_template false, no template prop', p0 && p0.from_template === false && !('template' in p0), JSON.stringify(p0));
     const fork = [{ ...HISTORY[0], templateOrigin: { slug: 'feedback-board', name: 'Feedback board', version: 'abcdef12' } }, ...HISTORY.slice(1)];
     const p = (await run({ published: false, history: fork })).events[0].props;
     check('a fork: the template it came from, alongside the totals',
-        p && p.template === 'feedback-board' && p.tokens_total === 300000, JSON.stringify(p));
+        p && p.from_template === true && p.template === 'feedback-board' && p.tokens_total === 300000, JSON.stringify(p));
 }
 
 // ---- Republish: same totals, flagged as not first ---------------------------
@@ -194,7 +195,7 @@ const HISTORY = [
         JSON.stringify(events));
     const fork = [{ ...HISTORY[0], templateOrigin: { slug: 'feedback-board', name: 'Feedback board', version: 'abcdef12' } }, ...HISTORY.slice(1)];
     const f = (await run({ published: false, history: fork, withUsageHelpers: false })).events[0];
-    check('fallback: a fork still names the template', f && f.props.template === 'feedback-board', JSON.stringify(f));
+    check('fallback: a fork still names the template', f && f.props.from_template === true && f.props.template === 'feedback-board', JSON.stringify(f));
 }
 
 // ---- tokenBand / costBand boundaries -----------------------------------------

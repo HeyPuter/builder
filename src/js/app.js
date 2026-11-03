@@ -3227,7 +3227,7 @@ function trackBuildAbandoned(how) {
     _activeBuild = null;
     window.track?.('Build Abandoned', {
         how, saw_output: _turnProgressed, waited: waitBand(Date.now() - build.startedAt), first_build: build.firstBuild,
-        ...(build.template && { template: build.template }),
+        ...templatePropFor(build.template),
     });
 }
 window.addEventListener('pagehide', () => trackBuildAbandoned('left'));
@@ -3576,8 +3576,11 @@ function limitHitKey() {
 }
 
 // `template` is the slug of the template the project was copied from, if any,
-// passed on to Unblocked After Limit and Upgrade After Limit.
+// passed on to Unblocked After Limit and Upgrade After Limit. Saved as '' for a
+// project from scratch, so a record from before it was saved (no template at
+// all) reports neither from_template nor template.
 function recordUsageLimitHit(kind, template) {
+    template = template || '';
     try {
         const key = limitHitKey();
         if (key) localStorage.setItem(key, JSON.stringify({ at: Date.now(), kind, template }));
@@ -3712,7 +3715,7 @@ async function consumePaidAfterLimit(key) {
             kind: hit.kind,
             cohort: hit.cohort || 'unknown',
             since_limit: mins < 10 ? '<10m' : mins < 60 ? '10-60m' : '1-24h',
-            ...(typeof hit.template === 'string' && hit.template && { template: hit.template }),
+            ...(typeof hit.template === 'string' && templatePropFor(hit.template)),
         });
     } catch (e) { /* analytics must never break the app */ }
 }
@@ -3751,7 +3754,7 @@ function reportUnblockAfterLimit() {
             kind: hit.kind,
             since_limit: since,
             same_month: then.getUTCFullYear() === now.getUTCFullYear() && then.getUTCMonth() === now.getUTCMonth(),
-            ...(typeof hit.template === 'string' && hit.template && { template: hit.template }),
+            ...(typeof hit.template === 'string' && templatePropFor(hit.template)),
         });
     } catch (e) { /* analytics must never break the app */ }
 }

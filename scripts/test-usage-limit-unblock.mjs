@@ -25,15 +25,16 @@ const bandSrc = HELPERS.slice(HELPERS.indexOf('const COST_BANDS = ['));
 const costBand = new Function(bandSrc.slice(0, bandSrc.indexOf('\n}\n', bandSrc.indexOf('function costBand(')) + 3) + 'return costBand;')();
 const ctxSrc = HELPERS.slice(HELPERS.indexOf('const CONTEXT_BANDS = ['));
 const contextBand = new Function(ctxSrc.slice(0, ctxSrc.indexOf('\n}\n', ctxSrc.indexOf('function contextBand(')) + 3) + 'return contextBand;')();
-// The real templateProp, from helpers.js, over the real TemplateCore.
+// The real templateProp and templatePropFor, from helpers.js, over the real TemplateCore.
 const tplSrc = HELPERS.slice(HELPERS.indexOf('function templateProp(history) {'));
 const coreWin = {};
 new Function('window', fs.readFileSync(new URL('../src/js/template-core.js', import.meta.url), 'utf8'))(coreWin);
-const templateProp = new Function('window', tplSrc.slice(0, tplSrc.indexOf('\n}\n') + 3) + 'return templateProp;')(coreWin);
+const { templateProp, templatePropFor } = new Function('window',
+    tplSrc.slice(0, tplSrc.indexOf('\n}\n', tplSrc.indexOf('function templatePropFor(slug) {')) + 3) + 'return { templateProp, templatePropFor };')(coreWin);
 const a = APP.indexOf('// ===== usage-limit-unblock (start) =====');
 const b = APP.indexOf('// ===== usage-limit-unblock (end) =====');
 if (a < 0 || b < 0) throw new Error('could not extract usage-limit-unblock block');
-const make = new Function('window', 'localStorage', 'Date', 'puter', 'navigator', 'costBand', 'contextBand', 'templateProp',
+const make = new Function('window', 'localStorage', 'Date', 'puter', 'navigator', 'costBand', 'contextBand', 'templateProp', 'templatePropFor',
     APP.slice(a, b) + '\nreturn { recordUsageLimitHit, reportUnblockAfterLimit, LIMIT_HIT_PREFIX, countCompletedBuilds, usageLimitHitProps, isLowBalanceRefusal, planChange, recordPlanAtLimit, checkPaidAfterLimit, LIMIT_PAY_PREFIX, creditsAtStart, readTurnAccount, limitHitTurnProps, afterAccountRead, limitDialogCohort, projectDisplayName, limitDialogCopy };');
 
 const HOUR = 36e5;
@@ -58,7 +59,7 @@ function harness({ storage = memStorage(), uuid = 'user-a', puter = null, naviga
     }
     const win = { user: uuid ? { uuid } : null, _calls: [] };
     win.track = (event, props) => { win._calls.push([event, props]); };
-    const api = make(win, storage, FakeDate, puter, navigator, costBand, contextBand, templateProp);
+    const api = make(win, storage, FakeDate, puter, navigator, costBand, contextBand, templateProp, templatePropFor);
     return { ...api, win, storage, setNow: t => { now = t; } };
 }
 
@@ -72,7 +73,7 @@ function harness({ storage = memStorage(), uuid = 'user-a', puter = null, naviga
     check('reports exactly once', h.win._calls.length === 1);
     check('event name', h.win._calls[0][0] === 'Unblocked After Limit');
     check('kind carried through', h.win._calls[0][1].kind === 'credits');
-    check('outside a fork: no template', !('template' in h.win._calls[0][1]));
+    check('outside a fork: from_template false, no template', h.win._calls[0][1].from_template === false && !('template' in h.win._calls[0][1]));
     check('storage cleared after report', h.storage._m.size === 0);
 }
 
@@ -82,7 +83,16 @@ function harness({ storage = memStorage(), uuid = 'user-a', puter = null, naviga
     h.recordUsageLimitHit('credits', 'feedback-board');
     h.setNow(T0 + 10 * 60 * 1000);
     h.reportUnblockAfterLimit();
-    check('in a fork: the template it came from', h.win._calls.length === 1 && h.win._calls[0][1].template === 'feedback-board');
+    check('in a fork: the template it came from', h.win._calls.length === 1 && h.win._calls[0][1].from_template === true && h.win._calls[0][1].template === 'feedback-board');
+}
+
+// A record saved before the template was: neither prop, rather than a wrong false
+{
+    const h = harness();
+    h.storage.setItem(h.LIMIT_HIT_PREFIX + 'user-a', JSON.stringify({ at: T0, kind: 'credits' }));
+    h.setNow(T0 + 10 * 60 * 1000);
+    h.reportUnblockAfterLimit();
+    check('an older record: no from_template', h.win._calls.length === 1 && !('from_template' in h.win._calls[0][1]) && !('template' in h.win._calls[0][1]));
 }
 
 // No limit hit → nothing reported
@@ -224,9 +234,9 @@ for (const bad of ['not json', 'null', '{}', '{"at":"yesterday"}']) {
     check('props: published current project', q.published === true && q.any_published === true);
     const many = Array.from({ length: 12 }, (_, i) => ({ id: 'c' + i }));
     check('props: project count capped', props(history, many, 'c0', null).projects === '10+');
-    check('props: a project from scratch has no template', !('template' in p));
+    check('props: a project from scratch has from_template false and no template', p.from_template === false && !('template' in p));
     const fork = [{ ...sys, templateOrigin: { slug: 'feedback-board', name: 'Feedback board', version: 'abcdef12' } }, user('a')];
-    check('props: a fork names the template it came from', props(fork, [], 'c1', null).template === 'feedback-board');
+    check('props: a fork names the template it came from', props(fork, [], 'c1', null).from_template === true && props(fork, [], 'c1', null).template === 'feedback-board');
 }
 
 // Low Balance refusals, matching the 'funds' case of puter.js's classifyUpgradeRefusal
@@ -309,7 +319,7 @@ function tab(box, storage, navigator) {
     h.win.user = { uuid: 'user-a', subscribed: c.subscribed, paid_storage: c.paid_storage };
     return h;
 }
-async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, otherAccountLater = false, failUserAtHit = false, template } = {}) {
+async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, otherAccountLater = false, failUserAtHit = false, template = '' } = {}) {
     const box = { state: before, cached, failUser: failUserAtHit };
     const h = tab(box, memStorage(), { locks: lockManager() });
     await h.recordPlanAtLimit('credits', template);
@@ -330,7 +340,7 @@ async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, other
     check('paid after limit → one event', c.length === 1);
     check('paid after limit → props', c[0] && c[0][1].change === 'started_paying' && c[0][1].kind === 'credits' && c[0][1].since_limit === '<10m' && c[0][1].bought_credits === false);
     check('paid after limit → record cleared', !h.storage._m.has(h.LIMIT_PAY_PREFIX + 'user-a'));
-    check('paid after a limit hit outside a fork → no template', c[0] && !('template' in c[0][1]));
+    check('paid after a limit hit outside a fork → from_template false, no template', c[0] && c[0][1].from_template === false && !('template' in c[0][1]));
     await h.checkPaidAfterLimit();
     check('paid after limit → reported once', paidCalls(h).length === 1);
 
@@ -342,7 +352,7 @@ async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, other
 
     h = await paidHarness({ before: free, after: paid, template: 'feedback-board' });
     c = paidCalls(h);
-    check('paid after a limit hit in a fork → the template it came from', c.length === 1 && c[0][1].template === 'feedback-board');
+    check('paid after a limit hit in a fork → the template it came from', c.length === 1 && c[0][1].from_template === true && c[0][1].template === 'feedback-board');
 
     h = await paidHarness({ before: free, after: free });
     check('no payment → no event, record kept', paidCalls(h).length === 0 && h.storage._m.has(h.LIMIT_PAY_PREFIX + 'user-a'));

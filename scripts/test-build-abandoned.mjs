@@ -38,6 +38,7 @@ function harness() {
     const api = new Function('window', 'Date', `
         let _activeBuild = null, isProcessing = true, _turnProgressed = false;
         ${slice(helpers, 'const WAIT_BANDS', '/**\n * Format a token count')}
+        ${slice(helpers, 'function templatePropFor(slug) {', '/**')}
         ${slice(app, 'function trackBuildAbandoned(how) {', "window.addEventListener('pagehide'")}
         return {
             abandon: trackBuildAbandoned, waitBand,
@@ -60,7 +61,7 @@ await check('leaving during the first wait says nothing had appeared, and how lo
     h.start(true);
     h.wait(7000);
     h.abandon('stopped');
-    assert.deepEqual(h.events, [['Build Abandoned', { how: 'stopped', saw_output: false, waited: '5-10s', first_build: true }]]);
+    assert.deepEqual(h.events, [['Build Abandoned', { how: 'stopped', saw_output: false, waited: '5-10s', first_build: true, from_template: false }]]);
 });
 
 await check('leaving later says the model had shown something', async () => {
@@ -69,7 +70,7 @@ await check('leaving later says the model had shown something', async () => {
     h.progressed();
     h.wait(45000);
     h.abandon('left');
-    assert.deepEqual(h.events[0][1], { how: 'left', saw_output: true, waited: '30-60s', first_build: false });
+    assert.deepEqual(h.events[0][1], { how: 'left', saw_output: true, waited: '30-60s', first_build: false, from_template: false });
 });
 
 await check('a build in a project copied from a template names the template', async () => {
@@ -77,7 +78,7 @@ await check('a build in a project copied from a template names the template', as
     h.start(false, 'feedback-board');
     h.wait(12000);
     h.abandon('stopped');
-    assert.deepEqual(h.events[0][1], { how: 'stopped', saw_output: false, waited: '10-30s', first_build: false, template: 'feedback-board' });
+    assert.deepEqual(h.events[0][1], { how: 'stopped', saw_output: false, waited: '10-30s', first_build: false, from_template: true, template: 'feedback-board' });
 });
 
 await check('a build is reported once, and nothing without a running build', async () => {

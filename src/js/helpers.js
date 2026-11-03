@@ -1538,14 +1538,19 @@ function countUserMessages(history) {
 }
 
 /**
- * The `template` prop of a project's analytics events, to spread into their
- * props: the slug of the template the project was copied from
- * (TemplateCore.originSlug). A project started from scratch gets none, which
- * Plausible lists as (none).
+ * The template props of a project's analytics events, to spread into their
+ * props: from_template, true or false, which Plausible can filter on, and
+ * `template`, the slug of the template the project was copied from
+ * (TemplateCore.originSlug), only when true.
  */
 function templateProp(history) {
     const slug = window.TemplateCore ? window.TemplateCore.originSlug(history) : '';
-    return slug ? { template: slug } : {};
+    return templatePropFor(slug);
+}
+
+// The same props from a slug saved earlier ('' for a project from scratch).
+function templatePropFor(slug) {
+    return slug ? { from_template: true, template: slug } : { from_template: false };
 }
 
 /**
