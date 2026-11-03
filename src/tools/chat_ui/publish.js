@@ -382,10 +382,29 @@
         }
     }
 
-    // A waiting button is disabled, and Enter in the field follows it.
+    // Why a card's button waits, in the words of the app's other waits. The
+    // field is disabled while the card's own publish or change runs, so a
+    // waiting button under an enabled field waits for something else.
+    function waitText($card) {
+        const what = $card.attr('data-mode') === 'address' ? 'change the address' : 'publish';
+        const reason = publishBlockedReason();
+        const doing = reason === 'restore' ? 'the restore'
+            : reason ? 'the current task'
+                : window.isAddressChanging?.(currentChatId) ? 'the address change'
+                    : 'publishing';
+        return `Finishing ${doing} — you can ${what} the moment it’s done.`;
+    }
+
+    // A waiting button is disabled, and Enter in the field follows it. Enter
+    // then says why, as the popover's waiting row does: a dimmed button is
+    // all a keyboard or screen reader user had to go on.
     function publishIfReady($card) {
         const btn = $card.find('.publish-card-btn')[0];
-        if (!btn || btn.disabled) return;
+        if (!btn) return;
+        if (btn.disabled) {
+            window.showToast?.(waitText($card), { type: 'info', key: 'publish-blocked', throttleMs: 3000 });
+            return;
+        }
         if ($card.attr('data-mode') === 'address') changeAddressFromCard($card);
         else publishFromCard($card);
     }
