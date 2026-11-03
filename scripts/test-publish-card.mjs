@@ -346,7 +346,7 @@ function setup() {
 {
     const start = uiSource.indexOf('let _addressChanging = false;');
     const end = uiSource.indexOf('\n}\n', uiSource.indexOf('async function changePublishedAddress(typed) {')) + 2;
-    function make({ blocked = null, busy = false } = {}) {
+    function make({ blocked = null, busy = false, starting = false } = {}) {
         const log = [];
         const sb = {
             console: { warn() {} },
@@ -365,6 +365,7 @@ function setup() {
             currentPublishedPath: '/pub/p/r1',
             refreshPublishButton: () => log.push('refresh'),
             refreshPublishCards: () => {},
+            isPublishStarting: (id) => starting && id === 'p',
         });
         vm.createContext(sb);
         vm.runInContext(extract(uiSource, 'function addressChangedNoteMessage(oldUrl, newUrl) {') + '\n' + uiSource.slice(start, end), sb);
@@ -383,6 +384,13 @@ function setup() {
     let code = null;
     try { await turn.sb.changePublishedAddress('new'); } catch (e) { code = e.code; }
     check('during a turn: refused, nothing created', code === 'busy' && turn.log.length === 0);
+    // A publish saving the Code view's edits first is a publish: it goes on
+    // to update the address being moved, and could retire the release the
+    // new address was just pointed at.
+    const saving = make({ starting: true });
+    code = null;
+    try { await saving.sb.changePublishedAddress('new'); } catch (e) { code = e.code; }
+    check('while a publish saves code first: refused, nothing created', code === 'busy' && saving.log.length === 0, saving.log.join());
     const bad = make();
     try { await bad.sb.changePublishedAddress('-bad-'); } catch (e) { code = e.code; }
     check('an invalid address is refused', code === 'invalid-name' && bad.log.length === 0);
