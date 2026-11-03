@@ -4872,6 +4872,15 @@ async function showChatProperties(chatId) {
             $input.trigger('focus');
             return;
         }
+        // Nor while the toolbar or the chat is moving its address
+        // (changePublishedAddress): each would create a new address and drop
+        // the old one, leaving one of the two new ones behind, unused.
+        if (window.isAddressChanging?.(chatId)) {
+            window.showToast?.('This project’s address is already changing — one moment.',
+                { type: 'info', key: 'publish-blocked', throttleMs: 3000 });
+            $input.trigger('focus');
+            return;
+        }
         $save.prop('disabled', true);
         $input.prop('disabled', true);
         setPublishBusy(true, chatId);
