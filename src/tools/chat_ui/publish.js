@@ -136,7 +136,9 @@
         const host = htmlEscape(hostOf(url));
         const address = current
             ? `<a class="publish-card-link" href="${htmlEscape(url)}" target="_blank" rel="noopener noreferrer">${host}</a>`
-            : `<span class="publish-card-gone">${host}</span>`;
+            // The line-through is all that says it's gone, which a screen
+            // reader doesn't read: "Published x.puter.site" sounded live.
+            : `<span class="publish-card-gone">${host}</span><span class="sr-only"> (no longer works)</span>`;
         $inner.html('<div class="publish-card-row publish-card-record">' +
                 `<span class="publish-card-done">${check}${done}</span>${address}` +
             '</div>');
