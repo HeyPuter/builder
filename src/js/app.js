@@ -565,7 +565,11 @@ window.savePublishedFields = async function (chatId, fields, note) {
             chatData.publishedPath = fields.publishedPath || null;
             chatData.publishedVersionId = fields.publishedVersionId || null;
             chatData.publishedAt = fields.publishedAt || null;
-            if (note && Array.isArray(chatData.history)) chatData.history.push(note);
+            if (note && Array.isArray(chatData.history)) {
+                // Its missing tool results first, as pushAiNote (ui.js) does.
+                repairDanglingToolUses(chatData.history);
+                chatData.history.push(note);
+            }
             await puter.fs.write(chatFilePath(chatId), JSON.stringify(chatData));
             return true;
         });

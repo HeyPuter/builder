@@ -42,11 +42,11 @@ function makeSettings(chatId, pub, saved, listEntry) {
     return submitAddress;
 }`;
 
-function setup({ open = true, processing = false } = {}) {
+function setup({ open = true, processing = false, history = null } = {}) {
     const env = {
         console: { warn() {}, error() {} },
         currentChatId: open ? 'chat-a' : 'chat-b',
-        chatHistory: [{ role: 'user', content: 'hi' }],
+        chatHistory: history || [{ role: 'user', content: 'hi' }],
         isProcessing: processing,
         _sendSetupInFlight: false,
         _publishPanelOpen: false,
@@ -82,6 +82,8 @@ function setup({ open = true, processing = false } = {}) {
         extract(uiSource, 'function publishBlockedReason() {'),
         extract(uiSource, 'function previewSubdomain(url) {'),
         extract(uiSource, 'function addressChangedNoteMessage(oldUrl, newUrl) {'),
+        extract(uiSource, 'function pushAiNote(history, note) {'),
+        extract(appSource, 'function repairDanglingToolUses(history) {'),
         SETTINGS,
     ].join('\n\n'), env);
     const submit = env.makeSettings('chat-a',
@@ -126,6 +128,24 @@ const noteText = (m) => m && Array.isArray(m.content) && m.content[0] && m.conte
     check('…and the open project\'s conversation is left alone', env.chatHistory.length === 1);
 }
 
+// ---- A stopped turn's tool call keeps its result next to it -------------------
+// Stop between a reply's tool calls leaves a call with no result; the next send
+// fills it in at the end (repairDanglingToolUses). With a note added after the
+// call, the result landed after the note, splitting the call from its result:
+// a request the model API rejects, every send after it too.
+const dangling = () => [
+    { role: 'user', content: 'build it' },
+    { role: 'assistant', content: { type: 'tool_use', id: 't1', name: 'write', input: {} } },
+];
+const isResultFor = (m, id) => m && m.role === 'user' && m.content && m.content.type === 'tool_result' && m.content.tool_use_id === id;
+{
+    const { env, run } = setup({ open: true, history: dangling() });
+    await run();
+    const h = env.chatHistory;
+    check('a stopped turn\'s call gets its result before the note, right after the call',
+        h.length === 4 && isResultFor(h[2], 't1') && h[3].versionNote === true, JSON.stringify(h.map(m => m.role + ':' + (m.content.type || m.content))));
+}
+
 // ---- savePublishedFields adds the note to that chat's file --------------------
 {
     const files = new Map([['chat-history/chat-b.json', JSON.stringify({ id: 'chat-b', history: [{ role: 'user', content: 'hi' }] })]]);
@@ -146,6 +166,7 @@ const noteText = (m) => m && Array.isArray(m.content) && m.content[0] && m.conte
     vm.runInContext([
         extract(appSource, 'function chatFilePath(chatId) {'),
         extract(appSource, 'function withChatFileLock(chatId, fn) {'),
+        extract(appSource, 'function repairDanglingToolUses(history) {'),
         extract(appSource, 'window.savePublishedFields = async function (chatId, fields', '\n};\n'),
     ].join('\n\n'), env);
     const note = { role: 'assistant', content: [{ type: 'text-hidden', text: '[moved]' }], versionNote: true };
@@ -157,6 +178,11 @@ const noteText = (m) => m && Array.isArray(m.content) && m.content[0] && m.conte
     await env.savePublishedFields('chat-b', { publishedUrl: 'https://y.puter.site/' });
     check('…and without one, the conversation is unchanged',
         JSON.parse(files.get('chat-history/chat-b.json')).history.length === 2);
+    files.set('chat-history/chat-b.json', JSON.stringify({ id: 'chat-b', history: dangling() }));
+    await env.savePublishedFields('chat-b', { publishedUrl: 'https://z.puter.site/' }, note);
+    const h = JSON.parse(files.get('chat-history/chat-b.json')).history;
+    check('…a stopped turn\'s call there gets its result before the note, too',
+        h.length === 4 && isResultFor(h[2], 't1') && noteText(h[3]) === '[moved]', JSON.stringify(h));
 }
 
 if (failures) { console.error(failures + ' failure(s)'); process.exit(1); }

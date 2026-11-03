@@ -2618,6 +2618,18 @@ function addressChangedNoteMessage(oldUrl, newUrl) {
     return { role: 'assistant', content: [{ type: 'text-hidden', text }], messageId, versionNote: true };
 }
 
+// Add one of those notes to the end of a conversation. A turn the user
+// stopped can leave a tool call there with no result, which the next send
+// fills in at the end (repairDanglingToolUses in app.js): after the note,
+// which then split the call from its result, a request the model API
+// rejects. So the missing results are filled in first. No turn is running
+// here (a publish and an address change wait for one).
+function pushAiNote(history, note) {
+    if (!note || !Array.isArray(history)) return;
+    if (typeof repairDanglingToolUses === 'function') repairDanglingToolUses(history);
+    history.push(note);
+}
+
 // The core action: push the current working dir to the public subdomain
 // (creating it on first publish), then record + persist the new baseline.
 // `ui` is the surface the user published from (doPublish's popover, or the
@@ -2839,7 +2851,7 @@ async function publishProject(ui) {
             // may be an OfferPublish result saying nothing is public yet. A
             // hidden note tells it on the next message that the site is live.
             if (typeof chatHistory !== 'undefined' && Array.isArray(chatHistory)) {
-                chatHistory.push(publishedNoteMessage(url, isFirst));
+                pushAiNote(chatHistory, publishedNoteMessage(url, isFirst));
             }
             // What the live site's backend got goes into the conversation, so
             // the AI knows it on the next message and the user sees it too.
@@ -3313,7 +3325,7 @@ async function changePublishedAddress(typed) {
         window.currentPublishedPath = path;
         // The AI's notes name the old address, which no longer works.
         if (typeof chatHistory !== 'undefined' && Array.isArray(chatHistory)) {
-            chatHistory.push(addressChangedNoteMessage(oldUrl, newUrl));
+            pushAiNote(chatHistory, addressChangedNoteMessage(oldUrl, newUrl));
         }
         if (typeof saveCurrentChat === 'function') {
             try { await saveCurrentChat({ currentChatId: chatId, chatHistory: chatHistory }); }
@@ -4785,7 +4797,7 @@ async function showChatProperties(chatId) {
             window.currentPublishedPath = fields.publishedPath ?? null;
             if ('publishedVersionId' in fields) window.currentPublishedVersionId = fields.publishedVersionId ?? null;
             if ('publishedAt' in fields) window.currentPublishedAt = fields.publishedAt ?? null;
-            if (note && typeof chatHistory !== 'undefined' && Array.isArray(chatHistory)) chatHistory.push(note);
+            if (typeof chatHistory !== 'undefined') pushAiNote(chatHistory, note);
             if (typeof saveCurrentChat === 'function') {
                 try { await saveCurrentChat({ currentChatId: chatId, chatHistory: chatHistory }); }
                 catch (e) { /* save surfaces its own toast on failure */ }
