@@ -53,6 +53,7 @@ const PUBLISH_CODE = [
     extract(helpersSource, 'function templateProp(history) {'),
     extract(helpersSource, 'function templatePropFor(slug) {'),
     extract(source, 'async function doPublish() {'),
+    extract(source, 'function publishedNoteMessage(url, isFirst) {'),
     extract(source, 'async function publishProject(ui) {'),
 ].join('\n\n');
 const USAGE_CODE = [
@@ -197,6 +198,26 @@ const HISTORY = [
     const fork = [{ ...HISTORY[0], templateOrigin: { slug: 'feedback-board', name: 'Feedback board', version: 'abcdef12' } }, ...HISTORY.slice(1)];
     const f = (await run({ published: false, history: fork, withUsageHelpers: false })).events[0];
     check('fallback: a fork still names the template', f && f.props.from_template === true && f.props.template === 'feedback-board', JSON.stringify(f));
+}
+
+// ---- The AI hears about the publish -----------------------------------------
+// The user publishes outside any turn, so a hidden note tells the AI on its
+// next message that the site is live (and where), whichever surface it came from.
+{
+    const first = structuredClone(HISTORY);
+    await run({ published: false, history: first });
+    const note = first[first.length - 1];
+    const text = note && Array.isArray(note.content) && note.content[0] && note.content[0].text;
+    check('first publish: a hidden note for the AI with the address',
+        note.role === 'assistant' && note.versionNote === true && note.content.length === 1
+        && note.content[0].type === 'text-hidden' && /published the app/.test(text) && /https:\/\/[a-z0-9-]+\.puter\.site\//.test(text),
+        JSON.stringify(note));
+    const again = structuredClone(HISTORY);
+    await run({ published: true, history: again });
+    const n2 = again[again.length - 1];
+    check('republish: the note says the latest changes are live',
+        n2.content[0].type === 'text-hidden' && /latest changes/.test(n2.content[0].text) && n2.content[0].text.includes('https://ay-site.puter.site/'),
+        JSON.stringify(n2));
 }
 
 // ---- Published from the chat's Publish card ----------------------------------

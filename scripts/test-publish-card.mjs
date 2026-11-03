@@ -6,10 +6,11 @@ import { makeDom } from './lib/mini-dom.mjs';
 // When the user asks the AI to publish, it calls OfferPublish and a Publish
 // card appears in the chat (src/tools/chat_ui/publish.js). The user publishes
 // by clicking it, through the same publishProject as the toolbar's popover.
-// The card draws the project's publish state, so it reads like the toolbar:
-// an address and Publish before the first publish, Publish changes when the
-// live site is behind, Live once it's up to date. Its button waits while a
-// turn runs. Runs the REAL card code (mini DOM) with publishProject stubbed;
+// The newest card draws the project's publish state, so it reads like the
+// toolbar: an address and Publish before the first publish, Publish changes
+// when the live site is behind, Live once it's up to date. Its button waits
+// while a turn runs. An older card is frozen: a "Published" line if the user
+// published from it, otherwise hidden. Runs the REAL card code (mini DOM) with publishProject stubbed;
 // the real publishProject is driven with a card's hooks in
 // test-publish-analytics.mjs.
 
@@ -49,6 +50,9 @@ function setup() {
         badgeChangePending: () => false,
         publishProject: (ui) => { calls.push(ui); return Promise.resolve(); },
         puter: { randName: () => 'random-name' },
+        chatHistory: [],
+        saves: 0,
+        saveCurrentChat: async () => { env.saves++; },
     };
     env.window = Object.assign(env, {
         tools: [],
@@ -107,6 +111,8 @@ function setup() {
     const r = await tool.exec({ address: 'Bakery Orders!' }, {});
     check('result: marked for reload, with the cleaned address',
         r.__publish_offer === true && r.address === 'bakery-orders', JSON.stringify(r));
+    check('result: an id for the card, on the card too',
+        /^offer-/.test(r.offer) && cards()[0].getAttribute('data-offer') === r.offer, JSON.stringify(r));
     check('result: tells the model nothing is public until the click',
         /bakery-orders\.puter\.site/.test(r.instruction) && /Nothing is public until they click Publish/.test(r.instruction));
     check('card shown once', cards().length === 1);
@@ -162,7 +168,8 @@ function setup() {
     env.currentPublishedUrl = 'https://bakery-2.puter.site/';
     env.currentPublishedVersionId = 'v2';
     env._projectDirtySinceSnapshot = false;
-    calls[1].success({ isFirst: true });
+    env.chatHistory.push({ role: 'user', content: { type: 'tool_result', tool_use_id: 't1', content: JSON.stringify(r) } });
+    await calls[1].success({ url: 'https://bakery-2.puter.site/', isFirst: true });
     env.refreshPublishCards();
     check('success: read out', t.announced.includes('Your website is live.'));
     const link = q(card, '.publish-card-link');
@@ -170,6 +177,8 @@ function setup() {
         /Live/.test(card.textContent) && link && link.getAttribute('href') === 'https://bakery-2.puter.site/'
         && link.textContent === 'bakery-2.puter.site' && link.getAttribute('target') === '_blank');
     check('success: no button left', !q(card, '.publish-card-btn'));
+    check('success: the publish is saved on the card\'s tool result, and the chat saved',
+        env.chatHistory[0].publishCardUrl === 'https://bakery-2.puter.site/' && env.saves === 1);
 
     // A disabled button does nothing.
     env._projectDirtySinceSnapshot = true;
@@ -193,7 +202,42 @@ function setup() {
     env._projectDirtySinceSnapshot = false;
     const clean = await tool.exec({ address: 'whatever' }, {});
     check('up to date: the model is told there is nothing new', /already live/.test(clean.instruction) && /nothing new to publish/.test(clean.instruction));
-    check('every card shows the same state', cards().length === 2 && cards().every(c => /Live/.test(c.textContent) && !q(c, '.publish-card-btn')));
+    const [older, newest] = cards();
+    check('only the newest card is drawn from the state', /Live/.test(newest.textContent) && !q(newest, '.publish-card-btn'));
+    check('an older card nobody published from is hidden',
+        older.classList.contains('is-superseded') && !q(older, '.publish-card-btn') && !q(older, '.publish-card-link'));
+    env._projectDirtySinceSnapshot = true;
+    env.refreshPublishCards();
+    check('a hidden card stays hidden when the state changes',
+        older.classList.contains('is-superseded') && /Publish changes/.test(newest.textContent));
+}
+
+// ---- An older card keeps the publish made from it ---------------------------
+{
+    const { env, tool, cards, q, calls, dom } = setup();
+    const r = await tool.exec({ address: 'first-try' }, {});
+    env.chatHistory.push({ role: 'user', content: { type: 'tool_result', tool_use_id: 't1', content: JSON.stringify(r) } });
+    const first = cards()[0];
+    dom.dispatch(q(first, '.publish-card-btn'), 'click');
+    env.currentPublishedUrl = 'https://first-try.puter.site/';
+    env.currentPublishedVersionId = 'v2';
+    await calls[0].success({ url: 'https://first-try.puter.site/', isFirst: true });
+
+    // Changes since, and the user asks again.
+    env._projectDirtySinceSnapshot = true;
+    await tool.exec({}, {});
+    const [older, newest] = cards();
+    const record = q(older, '.publish-card-record');
+    check('older card: a Published line with the address it went to',
+        record && /Published/.test(older.textContent) && q(older, '.publish-card-link').getAttribute('href') === 'https://first-try.puter.site/'
+        && !older.classList.contains('is-superseded'));
+    check('older card: no button, no Live', !q(older, '.publish-card-btn') && !/Live/.test(older.textContent));
+    check('newest card: Publish changes', /Publish changes/.test(newest.textContent));
+
+    // The address changes later: the record keeps where that publish went.
+    env.currentPublishedUrl = 'https://renamed.puter.site/';
+    env.refreshPublishCards();
+    check('older card: unchanged by later state', q(older, '.publish-card-link').getAttribute('href') === 'https://first-try.puter.site/');
 }
 
 // ---- A turn that is gone shows nothing --------------------------------------
@@ -209,8 +253,16 @@ function setup() {
     const { env, cards, q } = setup();
     env.renderPublishCard({ address: 'saved-name' });
     check('reload: the card is drawn from its saved address', q(cards()[0], '.publish-card-input').value === 'saved-name');
+    env.renderPublishCard({ address: 'used', offer: 'offer-1', publishedUrl: 'https://used.puter.site/' });
+    env.renderPublishCard({ address: 'latest', offer: 'offer-2' });
+    const [unused, used, latest] = cards();
+    check('reload: an older unused card is hidden', unused.classList.contains('is-superseded'));
+    check('reload: an older card published from reads Published', /Published/.test(used.textContent) && q(used, '.publish-card-link'));
+    check('reload: the newest is the control', q(latest, '.publish-card-input').value === 'latest');
     const app = read('../src/js/app.js');
-    check('loadChat shows a saved card again', /toolResponse\.__publish_offer\)[\s\S]{0,200}renderPublishCard\?\.\(\{ address: toolResponse\.address \}\)/.test(app));
+    check('loadChat shows a saved card again, with its id and its publish',
+        /toolResponse\.__publish_offer\)[\s\S]{0,400}renderPublishCard\?\.\(\{\s*address: toolResponse\.address,\s*offer: toolResponse\.offer,\s*publishedUrl: message\.publishCardUrl,/.test(app));
+    check('the saved publish never reaches the model', /delete msg\.publishCardUrl/.test(helpersSource));
 }
 
 // ---- Wiring --------------------------------------------------------------------
