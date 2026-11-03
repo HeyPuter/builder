@@ -2858,7 +2858,8 @@ async function publishProject(ui) {
             }
             await ui.success({ chatId, url, isFirst, siteMetaPromise });
         } else {
-            window.savePublishedFields?.(chatId, fields);
+            // Its note goes into its saved conversation instead.
+            window.savePublishedFields?.(chatId, fields, publishedNoteMessage(url, isFirst));
         }
         ok = true;
         // Report what the project cost to build up to this publish: the AI usage
@@ -3300,7 +3301,8 @@ async function changePublishedAddress(typed) {
 
         const fields = { publishedUrl: newUrl, publishedPath: path, publishedVersionId, publishedAt };
         if (currentChatId !== chatId) {
-            window.savePublishedFields?.(chatId, fields);
+            // Its note goes into its saved conversation instead.
+            window.savePublishedFields?.(chatId, fields, addressChangedNoteMessage(oldUrl, newUrl));
             return { changed: true, url: newUrl, oldUrl, open: false };
         }
         window.currentPublishedUrl = newUrl;

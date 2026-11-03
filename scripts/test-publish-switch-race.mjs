@@ -125,7 +125,7 @@ async function run({ switchTo = null, aPublished = true, typedName = '' } = {}) 
                 versions[chatId] = versions[chatId] + '-snap';
                 sandbox.window._projectDirtySinceSnapshot = false;
             },
-            savePublishedFields: async (id, fields) => { saved.push({ id, ...fields }); },
+            savePublishedFields: async (id, fields, note) => { saved.push({ id, ...fields, note }); },
             showToast: msg => toasts.push(String(msg)),
             isSubdomainLimitErr: () => false,
             isSubdomainTakenErr: () => false,
@@ -250,6 +250,16 @@ check('switch/republish: A keeps its own version baseline, not B’s',
     'versionId=' + (raceRepublish.record && raceRepublish.record.publishedVersionId));
 check('switch/republish: no snapshot taken for the project that left the screen',
     raceRepublish.snapshots.length === 0, JSON.stringify(raceRepublish.snapshots));
+// The AI is told on the next message (publishedNoteMessage). A publish that
+// finished in another project left its conversation without the note, so its
+// AI still said nothing was public, or named the changes as unpublished.
+const noteText = (n) => (n && Array.isArray(n.content) && n.content[0] && n.content[0].text) || '';
+check('switch/republish: A\'s saved conversation gets the note for its AI',
+    raceRepublish.record && raceRepublish.record.note && raceRepublish.record.note.content[0].type === 'text-hidden'
+    && /published their latest changes/.test(noteText(raceRepublish.record.note))
+    && /ay-site\.puter\.site/.test(noteText(raceRepublish.record.note)),
+    JSON.stringify(raceRepublish.record && raceRepublish.record.note));
+check('control/republish: the open conversation gets it instead', republish.record && !republish.record.note);
 
 const raceFirst = await run({ aPublished: false, switchTo: 'published', typedName: 'alpha-notes' });
 check('switch/first publish: creates A’s address rather than updating B’s',
@@ -261,6 +271,9 @@ check('switch/first publish: B’s live site is untouched', raceFirst.bSiteServe
 check('switch/first publish: A records its new URL', raceFirst.record
     && raceFirst.record.publishedUrl === 'https://alpha-notes.puter.site/',
     JSON.stringify(raceFirst.record));
+check('switch/first publish: …and its AI hears that the site is now public there',
+    /published the app\. It is now public at https:\/\/alpha-notes\.puter\.site\//.test(noteText(raceFirst.record && raceFirst.record.note)),
+    JSON.stringify(raceFirst.record && raceFirst.record.note));
 
 // ---- The reverse: switching to a NEVER-PUBLISHED project mid-copy ------------
 const raceUnpublished = await run({ aPublished: true, switchTo: 'unpublished' });
@@ -303,7 +316,7 @@ check('switch/auto-name: the address is derived from A’s chat, not B’s',
             currentPublishedPath: '/alice/AppData/builder/.published/chat-a/r1',
             currentPublishedVersionId: 'v-a-7',
             currentPublishedAt: '2026-09-01T00:00:00.000Z',
-            savePublishedFields: (id, fields) => saved.push([id, fields]),
+            savePublishedFields: (id, fields, note) => saved.push([id, fields, note]),
             isSubdomainLimitErr: () => false,
             puterErrInfo: () => ({ message: '' }),
             track() {},
@@ -324,7 +337,7 @@ check('switch/auto-name: the address is derived from A’s chat, not B’s',
         console: { warn() {} },
     };
     vm.createContext(sandbox);
-    vm.runInContext(changeSrc, sandbox);
+    vm.runInContext(extract(source, 'function addressChangedNoteMessage(oldUrl, newUrl) {') + '\n' + changeSrc, sandbox);
     const handler = vm.runInContext('(' + handlerSrc + ')', sandbox);
     const done = handler.call({ closest: () => panel, prop() { return this; } });
     for (let i = 0; i < 20 && !releaseCreate; i++) await new Promise(setImmediate);
@@ -338,8 +351,12 @@ check('switch/auto-name: the address is derived from A’s chat, not B’s',
     });
     releaseCreate({ subdomain: 'new-name' });
     await done;
-    const [id, fields] = saved[0] || [];
+    const [id, fields, note] = saved[0] || [];
     check('change address: the rename is saved to the project it was made for', id === 'chat-a', JSON.stringify(saved));
+    check('change address: …with the note for its AI, naming both addresses',
+        note && /old-name\.puter\.site/.test(noteText(note)) && /new-name\.puter\.site/.test(noteText(note)),
+        JSON.stringify(note));
+    check('change address: the open project\'s conversation is left alone', sandbox.chatHistory.length === 0);
     check('change address: that project keeps its own published version and date',
         fields && fields.publishedVersionId === 'v-a-7' && fields.publishedAt === '2026-09-01T00:00:00.000Z',
         JSON.stringify(fields));
