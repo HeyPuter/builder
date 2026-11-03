@@ -354,7 +354,7 @@ function setup() {
 
 // ---- The address change itself (ui.js) ----------------------------------------
 {
-    const start = uiSource.indexOf('let _addressChanging = false;');
+    const start = uiSource.indexOf('const _addressChangingChats = new Set();');
     const end = uiSource.indexOf('\n}\n', uiSource.indexOf('async function changePublishedAddress(typed) {')) + 2;
     function make({ blocked = null, busy = false, starting = false } = {}) {
         const log = [];
@@ -421,6 +421,29 @@ function setup() {
     finishCreate();
     await pending;
     check('…and neither is, once it ends', slow.sb.isAddressChanging('p') === false && slow.sb.isAddressChanging() === false);
+
+    // Two projects at once: the user opened another one while the first ran.
+    const two = make();
+    let finishFirst;
+    two.sb.puter.hosting.create = (sub) => sub === 'first-new'
+        ? new Promise((res) => { finishFirst = res; })
+        : Promise.resolve(two.log.push('create:' + sub));
+    const first = two.sb.changePublishedAddress('first-new');
+    for (let i = 0; i < 20 && !finishFirst; i++) await new Promise(setImmediate);
+    two.sb.currentChatId = 'q';
+    two.sb.currentPublishedUrl = 'https://q-old.puter.site/';
+    two.sb.currentPublishedPath = '/pub/q/r1';
+    let err = null, second = null;
+    try { second = await two.sb.changePublishedAddress('q-new'); } catch (e) { err = e; }
+    check('another project can change its address meanwhile', !err && second && second.changed && second.url === 'https://q-new.puter.site/', err && err.code);
+    check('…and the first is still changing', two.sb.isAddressChanging('p') === true && two.sb.isAddressChanging('q') === false);
+    err = null;
+    two.sb.currentChatId = 'p';
+    try { await two.sb.changePublishedAddress('again'); } catch (e) { err = e; }
+    check('the same project can\'t start a second change', err && err.code === 'busy');
+    finishFirst();
+    await first;
+    check('both done: none changing', two.sb.isAddressChanging() === false);
 }
 
 // ---- A turn that is gone shows nothing --------------------------------------
