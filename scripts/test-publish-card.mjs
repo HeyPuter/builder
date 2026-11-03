@@ -508,6 +508,43 @@ function setup() {
     check('a redraw leaves focus outside the card alone', dom.document.activeElement === composer);
 }
 
+// ---- An error is about its own attempt --------------------------------------
+// A failed Publish changes left its error on the card. The user then published
+// from the toolbar, so the card read Live; the next change the AI made brought
+// the card back to Publish changes, with the old error under it, as if that
+// publish had failed too.
+{
+    const { env, tool, cards, q, calls, dom } = setup();
+    env.currentPublishedUrl = 'https://bakery.puter.site/';
+    env.currentPublishedVersionId = 'v1';
+    await tool.exec({}, {});
+    const card = cards()[0];
+    dom.dispatch(q(card, '.publish-card-btn'), 'click');
+    calls[0].fail(new Error('network'));
+    check('a failed Publish changes shows its error', !!q(card, '.publish-card-error'));
+    env.refreshPublishCards();
+    check('…which a redraw in the same state keeps', !!q(card, '.publish-card-error'));
+    env.busy = true; // the toolbar publishes
+    env.refreshPublishCards();
+    check('another publish starting drops the error', !q(card, '.publish-card-error'));
+    env.busy = false;
+    env._projectDirtySinceSnapshot = false; env.currentPublishedVersionId = 'v2';
+    env.refreshPublishCards();
+    env._projectDirtySinceSnapshot = true; // the AI changes something
+    env.refreshPublishCards();
+    check('…and it doesn\'t come back with the next changes',
+        card.getAttribute('data-mode') === 'changes' && !q(card, '.publish-card-error'));
+
+    // Without a publish in between: Live, then changes again.
+    dom.dispatch(q(card, '.publish-card-btn'), 'click');
+    calls[1].fail(new Error('network'));
+    env._projectDirtySinceSnapshot = false; // up to date: Live
+    env.refreshPublishCards();
+    env._projectDirtySinceSnapshot = true;
+    env.refreshPublishCards();
+    check('a change of state drops it too', !q(card, '.publish-card-error'));
+}
+
 // ---- A failure doesn't take focus from where the user moved on to ----------
 // A publish takes a few seconds, and the user may start typing their next
 // message meanwhile: the error went beside the field and pulled focus into
