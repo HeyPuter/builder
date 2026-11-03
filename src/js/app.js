@@ -4690,6 +4690,16 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         return;
     }
 
+    // Nor while this project's published site is moving to a new address
+    // (changePublishedAddress): it leaves a note for the AI when it's done,
+    // which would land in the middle of the turn, and the turn would still
+    // see the old address.
+    if (window.isAddressChanging?.(currentChatId)) {
+        window.showToast?.('Finishing the address change — you can send the moment it’s done.',
+            { type: 'info', key: 'send-blocked-address', throttleMs: 3000 });
+        return;
+    }
+
     // One send at a time through the setup below (see _sendSetupInFlight).
     // While a queued message is in that setup, a send from the composer joins
     // the queue behind it instead of being dropped.

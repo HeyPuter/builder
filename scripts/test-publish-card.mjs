@@ -390,6 +390,19 @@ function setup() {
     const s2 = await same.sb.changePublishedAddress('old');
     check('the same address: nothing to change', s2.changed === false && same.log.length === 0);
     check('the flag clears afterwards', ok.sb.isAddressChanging() === false);
+
+    // Per project: a send in another project doesn't wait for this one.
+    const slow = make();
+    let finishCreate;
+    slow.sb.puter.hosting.create = () => new Promise((res) => { finishCreate = res; });
+    const pending = slow.sb.changePublishedAddress('newer');
+    for (let i = 0; i < 20 && !finishCreate; i++) await new Promise(setImmediate);
+    check('while it runs: this project is changing, another one isn\'t',
+        slow.sb.isAddressChanging() === true && slow.sb.isAddressChanging('p') === true
+        && slow.sb.isAddressChanging('other') === false);
+    finishCreate();
+    await pending;
+    check('…and neither is, once it ends', slow.sb.isAddressChanging('p') === false && slow.sb.isAddressChanging() === false);
 }
 
 // ---- A turn that is gone shows nothing --------------------------------------

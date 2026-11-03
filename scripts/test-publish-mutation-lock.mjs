@@ -77,6 +77,19 @@ check('the query is scoped per chat, not global',
         /isPublishInFlight[\s\S]{0,400}showToast/.test(body));
 }
 
+// ---- app.js: a send waits for an address change of this project -----------
+// The change leaves a note for the AI when it's done (see
+// changePublishedAddress). A turn started meanwhile got that note in the
+// middle of it, and worked with the old address.
+{
+    const start = appSource.indexOf('async function sendChatMessage(');
+    const body = appSource.slice(start, start + 7000);
+    check('sendChatMessage refuses while this project\'s address is changing',
+        /isAddressChanging\?\.\(currentChatId\)/.test(body));
+    check('…and says so',
+        /isAddressChanging\?\.\(currentChatId\)[\s\S]{0,300}showToast/.test(body));
+}
+
 // ---- versions.js: a restore waits for the publish --------------------------
 {
     const start = versionsSource.indexOf('async function restoreVersion(');
