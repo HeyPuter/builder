@@ -2195,6 +2195,7 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
     padding: 8px 8px 8px 14px;
     font-size: 14px;
     color: #333;
+    container-type: inline-size;
 }
 .publish-card-row {
     display: flex;
@@ -2298,6 +2299,20 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
     margin-top: 6px;
     font-size: 12.5px;
     color: #c0392b;
+}
+/* A narrow card (a phone, or a narrow chat column): the address field takes
+   the whole row and the button goes under it. Beside the button, the field
+   was so narrow that a long address was cut off against its .puter.site
+   suffix, reading as a different address. Both span the card's inner width
+   (the field's -6px margin included). */
+@container (max-width: 440px) {
+    .publish-card-row.has-field { flex-wrap: wrap; row-gap: 8px; }
+    .publish-card-row.has-field > .publish-card-address { flex-basis: calc(100% + 6px); }
+    .publish-card-row.has-field > .publish-card-btn {
+        flex: 1 1 calc(100% + 6px);
+        margin-left: -6px;
+        justify-content: center;
+    }
 }
 
 .clarify-summary {

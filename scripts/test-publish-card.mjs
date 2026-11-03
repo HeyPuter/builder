@@ -561,6 +561,25 @@ function setup() {
         base > 0 && zoomNote > base && /\.publish-card-input,/.test(list), list);
 }
 
+// ---- A narrow card puts the button under the field --------------------------
+// Beside the button on a phone, the field was so narrow that a long address
+// was cut off against its .puter.site suffix ("bakery-ord.puter.site").
+{
+    const css = read('../src/css/styles.css');
+    const inner = extract(css, '.publish-card-inner {');
+    check('the card is a size container', /container-type: inline-size/.test(inner));
+    check('a narrow card wraps the rows with a field, the field taking the whole row',
+        /@container \(max-width: \d+px\) \{\s*\.publish-card-row\.has-field \{ flex-wrap: wrap;[\s\S]*?\.publish-card-row\.has-field > \.publish-card-address \{ flex-basis: calc\(100% \+ 6px\); \}/.test(css));
+    const { env, tool, cards, q, addressTool } = setup();
+    await tool.exec({ address: 'shop' }, {});
+    check('the publish form\'s row has a field', q(cards()[0], '.publish-card-row').classList.contains('has-field'));
+    env.currentPublishedUrl = 'https://shop.puter.site/';
+    await addressTool.exec({ address: 'shop-2' }, {});
+    check('so does the address change\'s', q(cards()[1], '.publish-card-row').classList.contains('has-field'));
+    await tool.exec({}, {});
+    check('the Publish changes row doesn\'t (its link shortens instead)', !q(cards()[2], '.publish-card-row').classList.contains('has-field'));
+}
+
 // ---- Wiring --------------------------------------------------------------------
 {
     const vite = read('../vite.config.js');
