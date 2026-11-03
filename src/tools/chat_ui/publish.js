@@ -106,7 +106,9 @@
                 errorHtml;
         }
         const safeUrl = htmlEscape(view.url || '');
-        const link = `<a class="publish-card-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer">${htmlEscape(hostOf(view.url))}</a>`;
+        // Cut off in a narrow card (the chat beside the preview): the title
+        // shows the whole address, as the popover's link does.
+        const link = `<a class="publish-card-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer" title="${safeUrl}">${htmlEscape(hostOf(view.url))}</a>`;
         if (view.state === 'changes') {
             return `<div class="publish-card-row">${link}${buttonHtml(view, 'Publish changes')}</div>` + errorHtml;
         }
@@ -135,10 +137,10 @@
         const done = $card.attr('data-kind') === 'address' ? 'Address changed' : 'Published';
         const host = htmlEscape(hostOf(url));
         const address = current
-            ? `<a class="publish-card-link" href="${htmlEscape(url)}" target="_blank" rel="noopener noreferrer">${host}</a>`
+            ? `<a class="publish-card-link" href="${htmlEscape(url)}" target="_blank" rel="noopener noreferrer" title="${htmlEscape(url)}">${host}</a>`
             // The line-through is all that says it's gone, which a screen
             // reader doesn't read: "Published x.puter.site" sounded live.
-            : `<span class="publish-card-gone">${host}</span><span class="sr-only"> (no longer works)</span>`;
+            : `<span class="publish-card-gone" title="${host}">${host}</span><span class="sr-only"> (no longer works)</span>`;
         $inner.html('<div class="publish-card-row publish-card-record">' +
                 `<span class="publish-card-done">${check}${done}</span>${address}` +
             '</div>');
