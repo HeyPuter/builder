@@ -59,6 +59,7 @@ function setup(rounds) {
         generateMessageId: () => 'msg',
         prepareHistoryForAI: (h) => h,
         setSpinnerLabel: (t) => labels.push(t),
+        deferSpinnerIdle: () => labels.push('(wait for Working restarted)'),
         puter: { ai: { chat: async () => chunks(...(rounds.shift() || [text('Done.'), usage()])) } },
     };
     env.window = env;
@@ -66,7 +67,7 @@ function setup(rounds) {
     vm.runInContext(modelSource, env);
     vm.runInContext(streamSource, env);
     vm.runInContext(toolsSource, env);
-    for (const name of ['edit', 'write', 'TodoWrite', 'update_preview', 'mcp_notion_search']) {
+    for (const name of ['edit', 'write', 'ReadTextFile', 'TodoWrite', 'update_preview', 'mcp_notion_search']) {
         env.tools.push({
             type: 'function',
             function: { name, parameters: { type: 'object', properties: {} } },
@@ -98,7 +99,7 @@ await check('an edit names the part of the app as soon as its path is in, with n
     // and a generic label replaced a moment later read as a snap. Then ''
     // once the edit has run and the next round starts, and '' again for that
     // round's text.
-    assert.deepEqual(h.labels, ['Updating the main page', '', '']);
+    assert.deepEqual(h.labels, ['', 'Updating the main page', '', '']);
 });
 
 await check('edits in a row to one part keep their words up between them', async () => {
@@ -110,7 +111,19 @@ await check('edits in a row to one part keep their words up between them', async
         start('edit', 'e2'), ...pieces('e2', JSON.stringify(b)), tool('edit', 'e2', b), usage(),
     ), h.context);
     // A clear between them blanked the words, then the same ones faded back.
-    assert.deepEqual(h.labels, ['Updating the main page', 'Updating the main page', '', '']);
+    // The wait for Working still starts over, as that clear did.
+    assert.deepEqual(h.labels, ['', 'Updating the main page', '(wait for Working restarted)', 'Updating the main page', '', '']);
+});
+
+await check('a write after another kind of call clears that call\'s words', async () => {
+    const input = { path: APP + '/index.html', data: '<p>x</p>' };
+    const h = setup([]);
+    await h.env.handleMessageStream(chunks(
+        start('ReadTextFile', 'r1'), tool('ReadTextFile', 'r1', { path: APP + '/index.html' }),
+        start('write', 'w1'), ...pieces('w1', JSON.stringify(input)), tool('write', 'w1', input), usage(),
+    ), h.context);
+    // "Reading a file" stayed up while the file was written.
+    assert.deepEqual(h.labels.slice(0, 3), ['Reading a file', '', 'Creating the main page']);
 });
 
 await check('the complete call is still the one that runs', async () => {
@@ -126,11 +139,11 @@ await check('the part comes from the path within the project, never a file name'
     const inFolder = setup([]);
     await inFolder.env.handleMessageStream(chunks(start('write', 'w1'), ...pieces('w1', `{"path":"${APP}/js/app.js","data":"x"}`),
         tool('write', 'w1'), usage()), inFolder.context);
-    assert.equal(inFolder.labels[0], 'Making it interactive');
+    assert.equal(inFolder.labels[1], 'Making it interactive');
     const nested = setup([]);
     await nested.env.handleMessageStream(chunks(start('write', 'w1'), ...pieces('w1', `{"path":"${APP}/blog/index.html","data":"x"}`),
         tool('write', 'w1'), usage()), nested.context);
-    assert.equal(nested.labels[0], 'Creating a page', 'only the project\'s own index.html is the main page');
+    assert.equal(nested.labels[1], 'Creating a page', 'only the project\'s own index.html is the main page');
     assert.ok(![...inFolder.labels, ...nested.labels].some((l) => /\.(html|js)\b/.test(l)), 'no file names');
 });
 
@@ -155,14 +168,14 @@ await check('an escaped path is read as written', async () => {
     const h = setup([]);
     await h.env.handleMessageStream(chunks(start('write', 'w1'), ...pieces('w1', `{"path":"${APP}/my \\"best\\" page.html","data":"x"}`),
         tool('write', 'w1'), usage()), h.context);
-    assert.equal(h.labels[0], 'Creating a page');
+    assert.equal(h.labels[1], 'Creating a page');
 });
 
 await check('a long write stops being read once its path is in', async () => {
     const h = setup([]);
     const json = `{"path":"${APP}/index.html","data":"${'x'.repeat(20000)}"}`;
     await h.env.handleMessageStream(chunks(start('write', 'w1'), ...pieces('w1', json, 50), tool('write', 'w1'), usage()), h.context);
-    assert.equal(h.labels[0], 'Creating the main page');
+    assert.deepEqual(h.labels.slice(0, 2), ['', 'Creating the main page']);
     assert.equal(h.labels.filter((l) => l === 'Creating the main page').length, 1, 'set once, not on every piece');
 });
 
@@ -170,7 +183,7 @@ await check('a write whose path can\'t be read falls back to its plain wording',
     const h = setup([]);
     const json = `{"data":"${'x'.repeat(3000)}","path":"${APP}/index.html"}`;
     await h.env.handleMessageStream(chunks(start('write', 'w1'), ...pieces('w1', json, 100), tool('write', 'w1'), usage()), h.context);
-    assert.equal(h.labels[0], 'Working on your app');
+    assert.deepEqual(h.labels.slice(0, 2), ['', 'Working on your app']);
 });
 
 await check('tools with their own UI leave the dots bare, other tools get a plain status', async () => {
@@ -225,9 +238,10 @@ function labelHarness({ withLabel = true } = {}) {
         clearTimeout: (t) => { const i = timers.indexOf(t); if (i >= 0) timers.splice(i, 1); },
         window: {},
     };
-    const set = new Function('document', 'setTimeout', 'clearTimeout', 'window',
-        slice(helpers, 'const SPINNER_IDLE_LABEL', 'window.setSpinnerLabel = setSpinnerLabel;') + '\nreturn setSpinnerLabel;'
+    const fns = new Function('document', 'setTimeout', 'clearTimeout', 'window',
+        slice(helpers, 'const SPINNER_IDLE_LABEL', 'window.setSpinnerLabel = setSpinnerLabel;') + '\nreturn { setSpinnerLabel, deferSpinnerIdle };'
     )(env.document, env.setTimeout, env.clearTimeout, env.window);
+    const { setSpinnerLabel: set, deferSpinnerIdle: defer } = fns;
     const advance = (ms) => {
         const until = now + ms;
         for (;;) {
@@ -241,7 +255,7 @@ function labelHarness({ withLabel = true } = {}) {
     };
     // The dots go and fresh ones come, with an empty label of their own.
     const newDots = () => { label = makeLabel(); };
-    return { set, advance, get label() { return label; }, fades, timers, newDots, classes };
+    return { set, defer, advance, get label() { return label; }, fades, timers, newDots, classes };
 }
 
 await check('a cleared label says Working after a second, not before', async () => {
@@ -355,6 +369,27 @@ await check('fresh dots show their words at once, not after the old dots\' secon
     h.newDots();
     h.set('Creating the main page');
     assert.equal(h.label.textContent, 'Creating the main page');
+});
+
+await check('a write starting just before Working pushes it back', async () => {
+    const h = labelHarness();
+    h.set('');            // the last piece of text
+    h.advance(950);
+    h.defer();            // a write starts after another write
+    h.advance(100);
+    assert.equal(h.label.textContent, '', 'no Working just before the path is in');
+    h.set('Updating the main page');
+    assert.equal(h.label.textContent, 'Updating the main page');
+});
+
+await check('with words up there is no wait to push back', async () => {
+    const h = labelHarness();
+    h.set('Updating the main page');
+    h.advance(1000);
+    h.defer();
+    h.advance(5000);
+    assert.equal(h.label.textContent, 'Updating the main page');
+    assert.equal(h.timers.length, 0);
 });
 
 await check('with no dots on screen nothing waits or loops', async () => {

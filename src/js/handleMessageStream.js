@@ -458,13 +458,18 @@ async function handleMessageStream(stream, context) {
                 clearThinking();
                 window.noteTurnProgress?.();
                 startSpinnerStub();
+                const afterPart = !!(progress && TOOL_PART[progress.name]);
                 progress = { id: completion.id, name: completion.name, json: '', path: null };
                 // `write` and `edit` wait for their path, which comes in the
                 // call's first pieces: showing "Working on your app" first
                 // only for it to be replaced a moment later read as a snap.
-                // The words already up stay until then, since clearing them
-                // made a run of edits to one part blink off and back on.
+                // Right after another write or edit its words stay up until
+                // then, since clearing them made a run of edits to one part
+                // blink off and back on. The wait for "Working" still starts
+                // over, as the clear would have done.
                 if (!TOOL_PART[completion.name]) window.setSpinnerLabel?.(toolProgressLabel(completion.name));
+                else if (afterPart) window.deferSpinnerIdle?.();
+                else window.setSpinnerLabel?.('');
                 continue;
             }
             if (completion.type === 'tool_input_delta') {

@@ -632,8 +632,8 @@ function showSpinner() {
 
 // What the model is doing, beside the thinking dots: the tool call it is
 // writing (see toolProgressLabel in handleMessageStream.js). '' clears it, and
-// if nothing new arrives within a second the dots say "Working", the word their
-// aria-label already uses. A quick hand-off between steps stays plain dots, so
+// once the dots have been bare a second with nothing new they say "Working",
+// the word their aria-label already uses. A quick hand-off between steps stays plain dots, so
 // the words don't flick back and forth, and a longer wait doesn't look
 // stalled. New words fade in rather than snap. Words stay up for at least a
 // second, even once they're out of date, so a run of quick steps doesn't flash
@@ -685,7 +685,15 @@ function endSpinnerLabelHold() {
     _spinnerLabelNext = null;
     if (next !== null) setSpinnerLabel(next);
 }
+// Start the wait for "Working" over, without touching the words. For a step
+// that keeps the words up where a clear would have restarted the wait.
+function deferSpinnerIdle() {
+    if (!_spinnerIdleTimer) return;
+    clearTimeout(_spinnerIdleTimer);
+    _spinnerIdleTimer = setTimeout(() => setSpinnerLabel(SPINNER_IDLE_LABEL), SPINNER_IDLE_MS);
+}
 window.setSpinnerLabel = setSpinnerLabel;
+window.deferSpinnerIdle = deferSpinnerIdle;
 
 // Fade the floating thinking-dots out, then remove them from the DOM. The node
 // loses its `.floating-spinner` identity immediately (renamed to
