@@ -2629,6 +2629,8 @@ function addressChangedNoteMessage(oldUrl, newUrl) {
 //   success({ chatId, url, isFirst, siteMetaPromise })
 //                                     it is live; only called while that
 //                                     project is still open
+//   away({ chatId, url, isFirst })    optional: it is live, but another
+//                                     project is open by now
 //   fail(error)                       it failed, and the busy state is clear
 //   source                            optional, the analytics source
 // The guards, the busy state, the files, hosting, the records and analytics
@@ -2860,6 +2862,8 @@ async function publishProject(ui) {
         } else {
             // Its note goes into its saved conversation instead.
             window.savePublishedFields?.(chatId, fields, publishedNoteMessage(url, isFirst));
+            try { await ui.away?.({ chatId, url, isFirst }); }
+            catch (e) { /* best effort: the publish itself worked */ }
         }
         ok = true;
         // Report what the project cost to build up to this publish: the AI usage

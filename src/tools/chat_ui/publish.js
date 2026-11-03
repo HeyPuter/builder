@@ -280,7 +280,11 @@
                 $now.attr('data-published-url', url).removeAttr('data-key');
                 refreshPublishCards();
                 window.announce?.(isFirst ? 'Your website is live.' : 'Your website was updated.');
-                await recordCardPublish($card.attr('data-offer'), url);
+                await recordCardPublish(chatId, $card.attr('data-offer'), url);
+            },
+            // It went live once another project was open.
+            away({ url }) {
+                return recordCardPublish(chatId, $card.attr('data-offer'), url);
             },
             fail(e) {
                 const text = cardErrorText(e);
@@ -327,12 +331,13 @@
         if (!r.changed) { showCardError($card, 'That’s already your site’s address.'); return; }
         // Counted wherever the user is now, as the popover's is.
         window.track?.('Site Address Changed', { source: 'chat' });
-        // Another project is open now: its own cards aren't this one.
-        if (!r.open) return;
-        (cardNow(chatId, $card) || $card).attr('data-published-url', r.url).removeAttr('data-key');
-        refreshPublishCards();
-        window.announce?.(`Your site is now at ${hostOf(r.url)}.`);
-        await recordCardPublish($card.attr('data-offer'), r.url);
+        // Another project's cards aren't this one, when it is open now.
+        if (r.open && currentChatId === chatId) {
+            (cardNow(chatId, $card) || $card).attr('data-published-url', r.url).removeAttr('data-key');
+            refreshPublishCards();
+            window.announce?.(`Your site is now at ${hostOf(r.url)}.`);
+        }
+        await recordCardPublish(chatId, $card.attr('data-offer'), r.url);
     }
 
     // The card id a tool result carries, if it is an OfferPublish result.
@@ -344,15 +349,36 @@
 
     // Save a publish made from a card on its tool result, so the card still
     // reads "Published" once a newer card replaces it, after a reload too.
-    // success only runs while the project is open, so chatHistory is its own.
-    async function recordCardPublish(offer, url) {
-        if (!offer || typeof chatHistory === 'undefined' || !Array.isArray(chatHistory)) return;
-        const message = chatHistory.find(m => offerOf(m) === offer);
-        if (!message) return;
-        message.publishCardUrl = url;
-        if (typeof saveCurrentChat === 'function') {
-            try { await saveCurrentChat({ currentChatId, chatHistory }); }
-            catch (e) { /* save surfaces its own toast on failure */ }
+    // When another project is open by now, it goes into the card's own saved
+    // conversation: unrecorded, a Change address card read as unused when the
+    // user came back, offering to move the site to the address it now had.
+    async function recordCardPublish(chatId, offer, url) {
+        if (!offer) return;
+        if (currentChatId === chatId) {
+            if (typeof chatHistory === 'undefined' || !Array.isArray(chatHistory)) return;
+            const message = chatHistory.find(m => offerOf(m) === offer);
+            if (!message) return;
+            message.publishCardUrl = url;
+            if (typeof saveCurrentChat === 'function') {
+                try { await saveCurrentChat({ currentChatId, chatHistory }); }
+                catch (e) { /* save surfaces its own toast on failure */ }
+            }
+            return;
+        }
+        // The same read, patch and write as savePublishedFields (app.js),
+        // under the chat file's lock.
+        if (typeof withChatFileLock !== 'function' || typeof chatFilePath !== 'function') return;
+        try {
+            await withChatFileLock(chatId, async () => {
+                const path = chatFilePath(chatId);
+                const data = JSON.parse(await puter.fs.read(path).then(d => d.text()));
+                const message = Array.isArray(data.history) ? data.history.find(m => offerOf(m) === offer) : null;
+                if (!message) return;
+                message.publishCardUrl = url;
+                await puter.fs.write(path, JSON.stringify(data));
+            });
+        } catch (e) {
+            console.warn('Could not record the publish on its card:', e);
         }
     }
 

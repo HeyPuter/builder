@@ -69,7 +69,7 @@ const ROOT = '/alice/AppData/builder';
 const WORK = ROOT + '/project-a';
 const PUB = ROOT + '/.published/project-a';
 
-async function run({ published, history, withUsageHelpers = true, ui = null, createError = null }) {
+async function run({ published, history, withUsageHelpers = true, ui = null, createError = null, switchAway = false }) {
     const files = new Map([[WORK, 'NEW WORK']]);
     if (published) files.set(PUB, 'OLD COPY');
     const events = [], alerts = [];
@@ -121,7 +121,11 @@ async function run({ published, history, withUsageHelpers = true, ui = null, cre
                 copy: async (from, to, options) => { files.set(to + '/' + options.newName, files.get(from)); },
             },
             hosting: {
-                create: async sub => { if (createError) throw createError; return { subdomain: sub }; },
+                create: async sub => {
+                    if (switchAway) sandbox.currentChatId = 'project-b'; // opened while it publishes
+                    if (createError) throw createError;
+                    return { subdomain: sub };
+                },
                 update: async () => {},
             },
         },
@@ -247,6 +251,17 @@ const HISTORY = [
     check('card failure: its fail hook runs, with no alert and no event',
         seen.join() === 'start:true,fail' && failed.alerts.length === 0 && failed.events.length === 0,
         JSON.stringify({ seen, alerts: failed.alerts, events: failed.events }));
+
+    // Live once another project is open: success is for the open project,
+    // so the card hears it through away, to record it on its own project.
+    seen.length = 0;
+    card.away = ({ chatId, url, isFirst }) => { seen.push('away:' + chatId + ':' + url + ':' + isFirst); };
+    const away = await run({ published: false, history: HISTORY, ui: card, switchAway: true });
+    check('card, another project open by the end: away runs instead of success, and it is counted',
+        seen.join() === 'start:true,away:project-a:https://bakery.puter.site/:true' && away.events.length === 1,
+        JSON.stringify({ seen, events: away.events }));
+    const popoverAway = await run({ published: false, history: HISTORY, switchAway: true });
+    check('popover, the same: it has no away hook, and the publish still counts', popoverAway.events.length === 1);
 }
 
 // ---- tokenBand / costBand boundaries -----------------------------------------
