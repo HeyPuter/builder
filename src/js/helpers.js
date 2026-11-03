@@ -632,31 +632,68 @@ function showSpinner() {
 
 // What the model is doing, beside the thinking dots: the tool call it is
 // writing (see toolProgressLabel in handleMessageStream.js). '' clears it, and
-// if nothing new arrives within a second the dots say "Working", the word their
-// aria-label already uses. A quick hand-off between steps stays plain dots, so
+// once the dots have been bare a second with nothing new they say "Working",
+// the word their aria-label already uses. A quick hand-off between steps stays plain dots, so
 // the words don't flick back and forth, and a longer wait doesn't look
-// stalled. New words fade in rather than snap. A no-op while there are no dots
-// (a running checklist item stands in for them).
+// stalled. New words fade in rather than snap. Words stay up for at least a
+// second, even once they're out of date, so a run of quick steps doesn't flash
+// past too fast to read. Whatever arrives in that second waits, and only the
+// latest is shown. A no-op while there are no dots (a running checklist item
+// stands in for them).
 const SPINNER_IDLE_LABEL = 'Working';
 const SPINNER_IDLE_MS = 1000;
+const SPINNER_LABEL_MIN_MS = 1000;
 let _spinnerIdleTimer = null;
+let _spinnerLabelHold = null;  // runs while the words on screen are under a second old
+let _spinnerLabelNext = null;  // what to show once the hold ends, null when nothing waits
+let _spinnerLabelEl = null;    // the label the hold belongs to
 function setSpinnerLabel(text) {
     clearTimeout(_spinnerIdleTimer);
     _spinnerIdleTimer = null;
     const label = document.querySelector('.floating-spinner .floating-spinner-label');
     if (!label) return;
     const next = text || '';
+    // New dots have nothing on them to hold.
+    if (label !== _spinnerLabelEl) {
+        clearTimeout(_spinnerLabelHold);
+        _spinnerLabelHold = null;
+        _spinnerLabelEl = label;
+    }
+    if (_spinnerLabelHold) {
+        _spinnerLabelNext = next;
+        return;
+    }
+    _spinnerLabelNext = null;
     if (label.textContent !== next) {
         label.textContent = next;
         if (next) {
             label.classList.remove('is-changing');
             void label.offsetWidth; // restart the fade
             label.classList.add('is-changing');
+            // Drop the class once the fade is done. Moving the dots re-inserts
+            // them, which replays any animation still set, so unchanged words
+            // faded in again on every tool call.
+            label.onanimationend = () => label.classList.remove('is-changing');
+            _spinnerLabelHold = setTimeout(endSpinnerLabelHold, SPINNER_LABEL_MIN_MS);
         }
     }
     if (!next) _spinnerIdleTimer = setTimeout(() => setSpinnerLabel(SPINNER_IDLE_LABEL), SPINNER_IDLE_MS);
 }
+function endSpinnerLabelHold() {
+    _spinnerLabelHold = null;
+    const next = _spinnerLabelNext;
+    _spinnerLabelNext = null;
+    if (next !== null) setSpinnerLabel(next);
+}
+// Start the wait for "Working" over, without touching the words. For a step
+// that keeps the words up where a clear would have restarted the wait.
+function deferSpinnerIdle() {
+    if (!_spinnerIdleTimer) return;
+    clearTimeout(_spinnerIdleTimer);
+    _spinnerIdleTimer = setTimeout(() => setSpinnerLabel(SPINNER_IDLE_LABEL), SPINNER_IDLE_MS);
+}
 window.setSpinnerLabel = setSpinnerLabel;
+window.deferSpinnerIdle = deferSpinnerIdle;
 
 // Fade the floating thinking-dots out, then remove them from the DOM. The node
 // loses its `.floating-spinner` identity immediately (renamed to
