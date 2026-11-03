@@ -548,6 +548,19 @@ function setup() {
         toasts.length === 3 && toasts[2].text === 'Your site’s address couldn’t be changed. That address is taken. Try another.', JSON.stringify(toasts[2]));
 }
 
+// ---- Phones: the field is 16px ----------------------------------------------
+// iOS Safari zooms the page when a field under 16px gets focus, and stays
+// zoomed. The card's field was 13px, beside a .puter.site suffix that phones
+// already draw at 16px.
+{
+    const css = read('../src/css/styles.css');
+    const base = css.indexOf('.publish-card-input {');
+    const zoomNote = css.indexOf('iOS Safari zooms the whole page');
+    const list = css.slice(zoomNote, css.indexOf('font-size: 16px', zoomNote));
+    check('on phones the card\'s field is 16px, after its base rule so it wins',
+        base > 0 && zoomNote > base && /\.publish-card-input,/.test(list), list);
+}
+
 // ---- Wiring --------------------------------------------------------------------
 {
     const vite = read('../vite.config.js');
