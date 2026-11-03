@@ -543,6 +543,20 @@ function setup() {
     code = null;
     try { await saving.sb.changePublishedAddress('new'); } catch (e) { code = e.code; }
     check('while a publish saves code first: refused, nothing created', code === 'busy' && saving.log.length === 0, saving.log.join());
+    // A publish running: it updates the address being moved.
+    const publishing = make({ busy: true });
+    code = null;
+    try { await publishing.sb.changePublishedAddress('new'); } catch (e) { code = e.code; }
+    check('while a publish runs: refused, nothing created', code === 'busy' && publishing.log.length === 0, publishing.log.join());
+    // The published files can't be found: the new address would point at
+    // nothing, and the old one would be dropped.
+    const lost = make();
+    lost.sb.resolvePublishedDir = async () => null;
+    code = null;
+    try { await lost.sb.changePublishedAddress('new'); } catch (e) { code = e.code; }
+    check('no published files: refused, nothing created or dropped', code === 'no-files'
+        && !lost.log.some(l => l.startsWith('create') || l.startsWith('delete')), lost.log.join());
+    check('…and the project isn\'t left marked as changing', lost.sb.isAddressChanging('p') === false);
     const bad = make();
     try { await bad.sb.changePublishedAddress('-bad-'); } catch (e) { code = e.code; }
     check('an invalid address is refused', code === 'invalid-name' && bad.log.length === 0);
@@ -609,10 +623,25 @@ function setup() {
     check('reload: an older card published from reads Published', /Published/.test(used.textContent) && q(used, '.publish-card-link'));
     check('reload: the newest is the control, drawn from the state', q(latest, '.publish-card-btn').textContent === 'Publish changes');
     const app = read('../src/js/app.js');
-    check('loadChat shows a saved card again, with its id and its publish',
-        /toolResponse\.__publish_offer\)[\s\S]{0,400}renderPublishCard\?\.\(\{\s*address: toolResponse\.address,\s*offer: toolResponse\.offer,\s*publishedUrl: message\.publishCardUrl,/.test(app));
-    check('the saved publish never reaches the model', /delete msg\.publishCardUrl/.test(helpersSource));
-    check('loadChat passes the card\'s kind', /publishedUrl: message\.publishCardUrl,\s*kind: toolResponse\.kind,/.test(app));
+    // The call's arguments, in any order.
+    const from = app.indexOf('} else if (toolResponse.__publish_offer) {');
+    const call = from < 0 ? '' : app.slice(app.indexOf('window.renderPublishCard?.({', from), app.indexOf('});', from));
+    check('loadChat shows a saved card again, with its id, its publish and its kind',
+        ['address: toolResponse.address', 'offer: toolResponse.offer', 'publishedUrl: message.publishCardUrl', 'kind: toolResponse.kind']
+            .every(arg => call.includes(arg)), call);
+    // Run, not read: what the model is sent has no publishCardUrl, and the
+    // saved history keeps it.
+    const ha = helpersSource.indexOf('function prepareHistoryForAI(');
+    const hb = helpersSource.indexOf('/**\n * Sum the AI-reported cost', ha);
+    const { prepareHistoryForAI } = new Function('window', helpersSource.slice(ha, hb) + '\nreturn { prepareHistoryForAI };')({});
+    const saved = [
+        { role: 'system', content: 'x' },
+        { role: 'assistant', content: [{ type: 'tool_use', id: 't1', name: 'OfferPublish', input: {} }] },
+        { role: 'user', content: { type: 'tool_result', tool_use_id: 't1', content: '{"__publish_offer":true}' }, publishCardUrl: 'https://a.puter.site/' },
+    ];
+    const sent = prepareHistoryForAI(saved);
+    check('the saved publish never reaches the model, and stays saved',
+        sent.every(m => !('publishCardUrl' in m)) && saved[2].publishCardUrl === 'https://a.puter.site/', JSON.stringify(sent));
 }
 
 // ---- Keyboard focus survives the redraws ------------------------------------
@@ -735,8 +764,9 @@ function setup() {
     const addr = cards()[1];
     dom.dispatch(q(addr, '.publish-card-btn'), 'click');
     await new Promise(setImmediate);
-    check('…and a failed address change too',
-        q(addr, '.publish-card-error') && dom.document.activeElement === composer);
+    check('…and a failed address change too, saying why it was refused',
+        q(addr, '.publish-card-error') && q(addr, '.publish-card-error').textContent === 'Wait for the current task to finish, then try again.'
+        && dom.document.activeElement === composer, q(addr, '.publish-card-error')?.textContent);
 }
 
 // ---- How it went, after the user opened another project ---------------------
