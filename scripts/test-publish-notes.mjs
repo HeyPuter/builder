@@ -1,0 +1,163 @@
+import fs from 'node:fs';
+import vm from 'node:vm';
+
+// ---- The AI hears where the published site is --------------------------------
+// The AI isn't told the published address any other way: a publish and an
+// address change each leave it a hidden note (publishedNoteMessage,
+// addressChangedNoteMessage in ui.js). Without one, what it last heard names
+// an address that no longer works, or says nothing is public yet, and it hands
+// the user that.
+//
+// The Settings dialog's rename moves the site as the toolbar's and the chat's
+// address change do, but left no note, and it ran during the open project's
+// turn, where a note would land in the middle of it. Drives the real
+// submitAddress / persistPublished (sliced out of showChatProperties) and the
+// real savePublishedFields.
+
+let failures = 0;
+function check(name, cond, detail) {
+    if (cond) console.log('ok   - ' + name);
+    else { console.error('FAIL - ' + name + (detail ? '\n       ' + detail : '')); failures++; }
+}
+
+const uiSource = fs.readFileSync(new URL('../src/js/ui.js', import.meta.url), 'utf8');
+const appSource = fs.readFileSync(new URL('../src/js/app.js', import.meta.url), 'utf8');
+
+function extract(src, signature, end = '\n}\n') {
+    const a = src.indexOf(signature);
+    if (a < 0) throw new Error('could not find ' + signature);
+    const b = src.indexOf(end, a);
+    if (b < 0) throw new Error('could not find the end of ' + signature);
+    return src.slice(a, b + end.length);
+}
+
+// ---- The Settings rename ------------------------------------------------------
+// showChatProperties' own closures, with what they read from it.
+const SETTINGS = `
+function makeSettings(chatId, pub, saved, listEntry) {
+    const ADDR_RE = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
+    function renderPublishedCell() { env.rendered++; }
+    ${extract(uiSource, '    async function persistPublished(fields', '\n    }\n')}
+    ${extract(uiSource, '    async function submitAddress($form) {', '\n    }\n')}
+    return submitAddress;
+}`;
+
+function setup({ open = true, processing = false } = {}) {
+    const env = {
+        console: { warn() {}, error() {} },
+        currentChatId: open ? 'chat-a' : 'chat-b',
+        chatHistory: [{ role: 'user', content: 'hi' }],
+        isProcessing: processing,
+        _sendSetupInFlight: false,
+        _publishPanelOpen: false,
+        rendered: 0,
+        hosting: [], toasts: [], saves: [], fieldSaves: [],
+        renderPublishPanel() {},
+        setPublishBusy() {},
+        resolvePublishedDir: async (p) => p,
+        absolutizeSocialImagesInRelease: async () => {},
+        generateMessageId: () => 'm1',
+        saveCurrentChat: async (ctx) => { env.saves.push(ctx.chatHistory.map(m => m.content)); },
+        puter: {
+            hosting: {
+                create: async (sub, path) => { env.hosting.push(['create', sub, path]); },
+                delete: async (sub) => { env.hosting.push(['delete', sub]); },
+            },
+            ui: { alert: async () => {} },
+        },
+    };
+    env.window = Object.assign(env, {
+        isPublishInFlight: () => false,
+        isAddressChanging: () => false,
+        showToast: (text) => env.toasts.push(text),
+        refreshPublishButton() {},
+        savePublishedFields: async (id, fields, note) => { env.fieldSaves.push({ id, fields, note }); },
+        isSubdomainLimitErr: () => false,
+        isSubdomainTakenErr: () => false,
+        puterErrInfo: (e) => ({ message: e && e.message }),
+        restoreFocus() {},
+    });
+    vm.createContext(env);
+    vm.runInContext([
+        extract(uiSource, 'function publishBlockedReason() {'),
+        extract(uiSource, 'function previewSubdomain(url) {'),
+        extract(uiSource, 'function addressChangedNoteMessage(oldUrl, newUrl) {'),
+        SETTINGS,
+    ].join('\n\n'), env);
+    const submit = env.makeSettings('chat-a',
+        { url: 'https://old-name.puter.site/', path: '/alice/pub/r1' },
+        { publishedVersionId: 'v1', publishedAt: 't' },
+        { publishedUrl: 'https://old-name.puter.site/' });
+    const field = { val: () => 'new-name', prop() { return field; }, trigger() { return field; } };
+    const $form = { find: () => field };
+    return { env, run: () => submit($form) };
+}
+
+const noteText = (m) => m && Array.isArray(m.content) && m.content[0] && m.content[0].text;
+
+{
+    const { env, run } = setup({ open: true });
+    await run();
+    const note = env.chatHistory.at(-1);
+    check('open project: the site moves', env.hosting.some(h => h[0] === 'create' && h[1] === 'new-name'));
+    check('…and the AI gets a hidden note naming both addresses',
+        note && note.role === 'assistant' && note.versionNote === true && note.content[0].type === 'text-hidden'
+        && /old-name\.puter\.site/.test(noteText(note)) && /new-name\.puter\.site/.test(noteText(note)),
+        JSON.stringify(note));
+    check('…saved along with the new address', env.saves.length === 1 && env.saves[0].length === 2);
+}
+
+{
+    const { env, run } = setup({ open: true, processing: true });
+    await run();
+    check('during the open project\'s turn: nothing moves', env.hosting.length === 0, JSON.stringify(env.hosting));
+    check('…no note lands in the middle of the turn', env.chatHistory.length === 1);
+    check('…and the user is told to wait', env.toasts.length === 1 && /Finishing the current task/.test(env.toasts[0]), JSON.stringify(env.toasts));
+}
+
+{
+    const { env, run } = setup({ open: false, processing: true }); // the open project's turn
+    await run();
+    const save = env.fieldSaves[0];
+    check('another project: not held by the open project\'s turn', env.hosting.some(h => h[0] === 'create'));
+    check('…its record gets the new address, and the note for its AI',
+        save && save.id === 'chat-a' && save.fields.publishedUrl === 'https://new-name.puter.site/'
+        && /old-name\.puter\.site/.test(noteText(save.note)), JSON.stringify(save));
+    check('…and the open project\'s conversation is left alone', env.chatHistory.length === 1);
+}
+
+// ---- savePublishedFields adds the note to that chat's file --------------------
+{
+    const files = new Map([['chat-history/chat-b.json', JSON.stringify({ id: 'chat-b', history: [{ role: 'user', content: 'hi' }] })]]);
+    const env = {
+        console: { warn() {}, error() {} },
+        savedChats: [{ id: 'chat-b' }],
+        saveChatList: async () => {},
+        updateChatHistorySidebar() {},
+        puter: {
+            fs: {
+                read: async (p) => ({ text: async () => files.get(p) }),
+                write: async (p, d) => { files.set(p, d); },
+            },
+        },
+    };
+    env.window = env;
+    vm.createContext(env);
+    vm.runInContext([
+        extract(appSource, 'function chatFilePath(chatId) {'),
+        extract(appSource, 'function withChatFileLock(chatId, fn) {'),
+        extract(appSource, 'window.savePublishedFields = async function (chatId, fields', '\n};\n'),
+    ].join('\n\n'), env);
+    const note = { role: 'assistant', content: [{ type: 'text-hidden', text: '[moved]' }], versionNote: true };
+    await env.savePublishedFields('chat-b', { publishedUrl: 'https://x.puter.site/' }, note);
+    const saved = JSON.parse(files.get('chat-history/chat-b.json'));
+    check('savePublishedFields: the address and the note go into that chat\'s file',
+        saved.publishedUrl === 'https://x.puter.site/' && saved.history.length === 2 && noteText(saved.history[1]) === '[moved]',
+        JSON.stringify(saved));
+    await env.savePublishedFields('chat-b', { publishedUrl: 'https://y.puter.site/' });
+    check('…and without one, the conversation is unchanged',
+        JSON.parse(files.get('chat-history/chat-b.json')).history.length === 2);
+}
+
+if (failures) { console.error(failures + ' failure(s)'); process.exit(1); }
+console.log('all publish-notes checks passed');
