@@ -155,12 +155,16 @@
     // Copy a template into a new project in the signed-in user's account.
     // Resolves with { id, chat }: the new chat id and the data saved for it.
     // Throws on failure after cleaning up; the caller tells the user.
-    async function createFork(template) {
+    // progress.stage names the step it was on, for Template Use Failed:
+    // download (which includes a file that refers to an unknown backend),
+    // backend, files or save.
+    async function createFork(template, progress = {}) {
         const username = window.user.username;
         const parentDir = `/${username}/AppData/${puter.appID}`;
         const newId = generateChatId();
         const appDir = `${parentDir}/${newId}`;
 
+        progress.stage = 'download';
         const files = await fetchTemplateFiles(template);
         const byPath = new Map(files.map(f => [f.path, f]));
 
@@ -222,8 +226,12 @@
                 deployWorkers(),
                 writeFiles(rest.filter(f => !callsBackend(f))),
             ]);
-            const failed = settled.find(r => r.status === 'rejected');
-            if (failed) throw failed.reason;
+            const failed = settled.findIndex(r => r.status === 'rejected');
+            if (failed !== -1) {
+                progress.stage = failed === 0 ? 'backend' : 'files';
+                throw settled[failed].reason;
+            }
+            progress.stage = 'files';
             await writeFiles(rest.filter(callsBackend));
         } catch (e) {
             await discardFork(appDir, deployed, subdomain);
@@ -246,8 +254,10 @@
         }
 
         // 4. The project itself: a system prompt that knows the app exists,
-        //    the template's own follow-up chips, and a title the auto-namers
-        //    leave alone (customTitle, see saveCurrentChat).
+        //    the template's own follow-up chips (marked as the template's, for
+        //    the Suggestion Clicked event), and a title the auto-namers leave
+        //    alone (customTitle, see saveCurrentChat).
+        progress.stage = 'save';
         const renamedFiles = template.files.map(p => {
             const w = template.workers.find(n => p === `workers/${n}.js`);
             return w ? `workers/${deployed.find(d => d.templateName === w).name}.js` : p;
@@ -288,7 +298,7 @@
             publishedPath: null,
             publishedVersionId: null,
             publishedAt: null,
-            suggestions: template.suggestions,
+            suggestions: template.suggestions.map(s => ({ ...s, from: 'template' })),
             interrupted: false,
             pinned: false,
         };
@@ -332,17 +342,19 @@
         _forking = slug;
         const startedIn = currentChatId;
         let template = null;
+        const progress = { stage: null };
         try {
             await ensureAuthenticated();
             template = await findTemplate(slug);
             if (!template) {
+                window.track?.('Template Use Failed', { template: slug, source, stage: 'unavailable' });
                 window.showToast?.("That template isn't available right now. Try again in a moment.", { type: 'error' });
                 return null;
             }
             if (!await confirmLeaveActiveChat()) return null;
             onStart?.();
             window.showProjectLoading?.(template.name, { hasPreview: true });
-            const { id: newId, chat } = await createFork(template);
+            const { id: newId, chat } = await createFork(template, progress);
             window.track?.('Template Used', { template: template.slug, source });
             // The user may have opened another project while the fork was
             // being made. Don't pull them out of it: the new one is in the
@@ -362,6 +374,7 @@
             // A dismissed sign-in is the user's answer, not an error.
             if (!window.user || window.user.is_temp) return null;
             console.error('Could not create a project from the template:', e);
+            window.track?.('Template Use Failed', { template: slug, source, stage: progress.stage || 'other' });
             const name = template ? `“${template.name}”` : 'this template';
             puter.ui.alert(`Couldn't create a project from ${name}. Nothing was added to your account, so you can safely try again.`);
             return null;
@@ -565,12 +578,13 @@
             try { record = await window.BuilderHandoff?.take(link.handoffId); }
             catch (e) { console.warn('Could not read the template handoff:', e); }
         }
+        const clicked = !!(record && record.template === link.slug);
         const template = await findTemplate(link.slug);
         if (!template) {
+            window.track?.('Template Use Failed', { template: link.slug, source: clicked ? 'page' : 'link', stage: 'unavailable' });
             window.showToast?.("That template isn't available right now. Try again in a moment.", { type: 'error' });
             return;
         }
-        const clicked = !!(record && record.template === link.slug);
         if (clicked && window.user && !window.user.is_temp) {
             await forkTemplate(link.slug, { source: 'page' });
             return;

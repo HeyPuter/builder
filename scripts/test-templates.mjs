@@ -121,6 +121,19 @@ check('titles are disambiguated against existing projects',
     core.uniqueTitle('Notes', ['Other']) === 'Notes' &&
     core.uniqueTitle('Notes', ['Notes']) === 'Notes 2' &&
     core.uniqueTitle('Notes', ['Notes', 'Notes 2']) === 'Notes 3');
+{
+    const sys = (origin) => [{ role: 'system', content: 'x', templateOrigin: origin }, { role: 'user', content: 'hi' }];
+    check('originSlug: a fork reports the template it came from',
+        core.originSlug(sys({ slug: 'feedback-board', name: 'Feedback board', version: 'abcdef12' })) === 'feedback-board');
+    check('originSlug: a project started from scratch reports none',
+        core.originSlug([{ role: 'system', content: 'x' }]) === '' && core.originSlug([]) === '' &&
+        core.originSlug(null) === '' && core.originSlug('nope') === '');
+    check('originSlug: only the system message counts',
+        core.originSlug([{ role: 'user', content: 'x', templateOrigin: { slug: 'notes' } }]) === '');
+    check('originSlug: a malformed origin reports none',
+        core.originSlug(sys({ slug: 'Not A Slug' })) === '' && core.originSlug(sys({ slug: 42 })) === '' &&
+        core.originSlug(sys('notes')) === '' && core.originSlug(sys(null)) === '');
+}
 
 {
     const appDir = '/alice/AppData/app-uid/chat_new';
@@ -426,9 +439,10 @@ if (built) {
             chat.history[0].templateOrigin.slug === 'landing-page' && chat.history[0].templateOrigin.version === t.version);
         check('fork: named after the template, disambiguated, and kept from the auto-namers',
             chat.title === 'Product Landing Page 2' && chat.customTitle === true && chat.aiTitled === false);
-        check('fork: opens with the template\'s suggestion chips',
+        check('fork: opens with the template\'s suggestion chips, marked as the template\'s',
             JSON.stringify(chat.suggestions) ===
-            JSON.stringify(core.sanitizeIndex(JSON.parse(JSON.stringify(built.index))).find((x) => x.slug === 'landing-page').suggestions) &&
+            JSON.stringify(core.sanitizeIndex(JSON.parse(JSON.stringify(built.index))).find((x) => x.slug === 'landing-page').suggestions
+                .map((s) => ({ ...s, from: 'template' }))) &&
             chat.suggestions.length === entry('landing-page').suggestions.length);
         check('fork: starts unpublished and not interrupted',
             chat.publishedUrl === null && chat.publishedPath === null && chat.interrupted === false &&
@@ -444,6 +458,7 @@ if (built) {
             env.log.versions.length === 1 && env.log.versions[0].chatId === 'chat_new' && env.log.versions[0].appDir === env.appDir);
         check('fork: counted, and nothing alarming shown',
             env.log.tracked.some(([e, p]) => e === 'Template Used' && p.template === 'landing-page' && p.source === 'landing') &&
+            !env.log.tracked.some(([e]) => e === 'Template Use Failed') &&
             env.log.alerts.length === 0);
         check('fork: a template without instructions adds no template rules', !blocks[2].text.includes('Rules for this'));
     }
@@ -490,10 +505,15 @@ if (built) {
     // --- Failures leave nothing behind ----------------------------------------
     const nothingLeft = (env) => env.underApp().length === 0 && !env.chatFile() &&
         !env.ctx.savedChats.some((c) => c.id === 'chat_new') && env.log.loads.length === 0 && env.deployed.size === 0;
+    // The Template Use Failed events a fork sent, as "slug/source/stage".
+    const failedAt = (env) => env.log.tracked.filter(([e]) => e === 'Template Use Failed').map(([, p]) => `${p.template}/${p.source}/${p.stage}`);
     {
         const env = makeEnv({ failCreate: () => true });
-        const id = await env.ctx.forkTemplate('feedback-board');
+        const id = await env.ctx.forkTemplate('feedback-board', { source: 'landing' });
         check('a backend that will not deploy: no project is made', id === null && nothingLeft(env));
+        check('a backend that will not deploy: reported once, at the backend step',
+            JSON.stringify(failedAt(env)) === JSON.stringify(['feedback-board/landing/backend']) &&
+            !env.log.tracked.some(([e]) => e === 'Template Used'));
         check('a backend that will not deploy: the user is told nothing was added', env.log.alerts.length === 1 && /Nothing was added/.test(env.log.alerts[0]));
         check('a backend that will not deploy: the loading state is taken down', env.log.hid >= 1);
     }
@@ -511,12 +531,14 @@ if (built) {
         const env = makeEnv({ listFails: true });
         await env.ctx.forkTemplate('feedback-board');
         check('a worker list that fails: no project is made (a name could clash)', nothingLeft(env) && env.log.alerts.length === 1);
+        check('a worker list that fails: reported at the backend step', JSON.stringify(failedAt(env)) === JSON.stringify(['feedback-board/app/backend']));
     }
     {
         const env = makeEnv({ failFetch: (url) => url.endsWith('/app.js') });
         await env.ctx.forkTemplate('feedback-board');
         check('a file that will not download: nothing is written or deployed at all',
             nothingLeft(env) && env.files.size === 0 && env.listCalls() === 0 && env.log.alerts.length === 1);
+        check('a file that will not download: reported at the download step', JSON.stringify(failedAt(env)) === JSON.stringify(['feedback-board/app/download']));
     }
     {
         const env = makeEnv({ failWrite: (p) => p.endsWith('/index.html') });
@@ -524,6 +546,21 @@ if (built) {
         await flush(); await flush();
         check('a write that fails: the backend and every file already written are removed',
             nothingLeft(env) && env.deletedWorkers.length === 1 && (env.log.deleted || []).includes(env.appDir));
+        check('a write that fails: reported at the files step', JSON.stringify(failedAt(env)) === JSON.stringify(['feedback-board/app/files']));
+    }
+    {
+        const env = makeEnv({ failWrite: (p) => p.startsWith('chat-history/') });
+        const id = await env.ctx.forkTemplate('feedback-board');
+        await flush(); await flush();
+        check('a project that cannot be saved: nothing is left behind',
+            id === null && nothingLeft(env) && env.deletedWorkers.length === 1 && env.log.alerts.length === 1);
+        check('a project that cannot be saved: reported at the save step', JSON.stringify(failedAt(env)) === JSON.stringify(['feedback-board/app/save']));
+    }
+    {
+        const env = makeEnv();
+        env.ctx.system_prompt_common = () => { throw new Error('prompt failed'); };
+        await env.ctx.forkTemplate('feedback-board');
+        check('a project that fails while being put together: reported at the save step', JSON.stringify(failedAt(env)) === JSON.stringify(['feedback-board/app/save']));
     }
     {
         const bad = {
@@ -534,6 +571,7 @@ if (built) {
         await env.ctx.forkTemplate('sneaky');
         check('a placeholder for a backend the template does not ship is refused before any write',
             nothingLeft(env) && env.files.size === 0 && env.log.alerts.length === 1);
+        check('an unknown backend placeholder: reported at the download step', JSON.stringify(failedAt(env)) === JSON.stringify(['sneaky/app/download']));
     }
     {
         const env = makeEnv({ failHosting: true });
@@ -542,12 +580,14 @@ if (built) {
         check('a preview that cannot be created: the project is still made, without one',
             !!chat && chat.previewUrl === null && chat.previewPath === null && env.log.loads.length === 1 && env.log.previews.length === 0);
         check('a preview that cannot be created: the note does not claim one', !chat.history[0].content[2].text.includes('publish_site'));
+        check('a preview that cannot be created: counted as used, not failed',
+            failedAt(env).length === 0 && env.log.tracked.some(([e]) => e === 'Template Used'));
     }
     {
         const env = makeEnv({ signedOut: true, signInDismissed: true });
         const id = await env.ctx.forkTemplate('landing-page');
         check('a dismissed sign-in: nothing happens and nothing is reported as an error',
-            id === null && env.files.size === 0 && env.log.alerts.length === 0 && env.log.fetches.length === 0);
+            id === null && env.files.size === 0 && env.log.alerts.length === 0 && env.log.fetches.length === 0 && env.log.tracked.length === 0);
     }
     {
         const env = makeEnv({ signedOut: true });
@@ -557,12 +597,13 @@ if (built) {
     {
         const env = makeEnv({ confirmLeave: false });
         const id = await env.ctx.forkTemplate('landing-page');
-        check('declining to leave a running build: nothing happens', id === null && env.files.size === 0);
+        check('declining to leave a running build: nothing happens', id === null && env.files.size === 0 && failedAt(env).length === 0);
     }
     {
         const env = makeEnv();
         const id = await env.ctx.forkTemplate('no-such-template');
         check('an unknown template: a toast, and nothing is written', id === null && env.files.size === 0 && env.log.toasts.length === 1);
+        check('an unknown template: reported as unavailable', JSON.stringify(failedAt(env)) === JSON.stringify(['no-such-template/app/unavailable']));
     }
     {
         const env = makeEnv();
@@ -636,7 +677,16 @@ if (built) {
         const env = makeEnv({ search: '?template=gone-now' });
         env.ctx.captureTemplateDeepLink();
         await env.ctx.consumeTemplateDeepLink();
-        check('deep link: a template that no longer exists gets a toast', env.log.toasts.length === 1 && env.log.tracked.length === 0);
+        check('deep link: a template that no longer exists gets a toast', env.log.toasts.length === 1 && env.files.size === 0);
+        check('deep link: a template that no longer exists is reported as unavailable',
+            JSON.stringify(failedAt(env)) === JSON.stringify(['gone-now/link/unavailable']) && env.log.tracked.length === 1);
+    }
+    {
+        const env = makeEnv({ search: `?template=gone-now&handoff=${HID}`, handoff: { [HID]: { template: 'gone-now', prompt: '', files: [] } } });
+        env.ctx.captureTemplateDeepLink();
+        await env.ctx.consumeTemplateDeepLink();
+        check('deep link: a hand-over for a template that no longer exists is reported from the page',
+            JSON.stringify(failedAt(env)) === JSON.stringify(['gone-now/page/unavailable']));
     }
     {
         const env = makeEnv({ search: '?template=feedback-board', flagOff: true });
@@ -683,6 +733,42 @@ if (built) {
     const sent = sandbox.prepareHistoryForAI(history);
     check('the template origin never reaches the model', !('templateOrigin' in sent[0]) && sent[0].content[0].text === 'x');
     check('stripping it leaves the saved history intact', history[0].templateOrigin.slug === 'a');
+}
+
+// Analytics: a project's events carry the template it was copied from.
+{
+    const a = HELPERS.indexOf('function templateProp(history) {');
+    const b = HELPERS.indexOf('\n}\n', HELPERS.indexOf('function templatePropFor(slug) {'));
+    const fn = (win) => new Function('window', HELPERS.slice(a, b + 2) + '\nreturn templateProp;')(win);
+    const win = {};
+    new Function('window', CORE_SRC)(win);
+    const fork = [{ role: 'system', content: 'x', templateOrigin: { slug: 'feedback-board', name: 'Feedback board', version: 'abcdef12' } }];
+    check('templateProp: a fork\'s events name its template',
+        JSON.stringify(fn(win)(fork)) === JSON.stringify({ from_template: true, template: 'feedback-board' }));
+    const scratch = JSON.stringify({ from_template: false });
+    check('templateProp: a project from scratch says so, with no template',
+        JSON.stringify(fn(win)([{ role: 'system', content: 'x' }])) === scratch && JSON.stringify(fn(win)(null)) === scratch);
+    check('templateProp: without TemplateCore it says from scratch rather than throwing',
+        JSON.stringify(fn({})(fork)) === scratch);
+
+    const send = APP.slice(APP.indexOf('async function sendChatMessage('));
+    check('a turn reads its project\'s template once, from the history it saves to',
+        send.includes('const turnTemplate = templateProp(turnSaveContext.chatHistory);'));
+    check('Project Created and Build Started carry the template',
+        send.includes("if (isFirstBuildTurn) window.track?.('Project Created', turnTemplate);") &&
+        /window\.track\?\.\('Build Started', \{[^\n]*\.\.\.turnTemplate \}\);/.test(send));
+    check('Build Completed carries the template', /'Build Completed',[\s\S]{0,500}compacted: turnStats\.compactions > 0, \.\.\.turnTemplate \}/.test(send));
+    check('Build Abandoned learns the template from the build it reports',
+        send.includes('_activeBuild = { turnSeq, startedAt: turnStartedAt, firstBuild: isFirstBuildTurn, template: turnTemplate.template };'));
+    check('every limit hit passes the template on to Upgrade After Limit',
+        (send.match(/recordUsageLimitHit\('(credits|tier)', turnTemplate\.template\);/g) || []).length === 3);
+    check('Project Published carries the template of the project it published', UI.includes('...templateProp(startHistory),'));
+    check('Project Downloaded carries the template, read before the download',
+        /const template = templateProp\(chatHistory\);\s*await downloadProject\([^\n]*\n\s*window\.track\?\.\('Project Downloaded', template\);/.test(UI));
+    check('a template\'s own chips are marked when drawn',
+        APP.includes("if (s.from === 'template') $chip.attr('data-from', 'template');"));
+    check('Suggestion Clicked says where the chip came from, once per choice',
+        /'\.chat-suggestion-chip', function\(\) \{\s*if \(!\$\(this\)\.hasClass\('selected'\)\) \{\s*window\.track\?\.\('Suggestion Clicked', \{\s*from: \$\(this\)\.attr\('data-from'\) === 'template' \? 'template' : 'ai',\s*\.\.\.templateProp\(chatHistory\),/.test(UI));
 }
 
 const boot = APP.slice(APP.indexOf('$(document).ready(async function(){'));
