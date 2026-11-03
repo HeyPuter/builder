@@ -3253,7 +3253,10 @@ $(document).on('keydown', '.publish-address-input', function (e) {
 // `open` says the project was still on screen at the end. Throws an error
 // with a code (invalid-name, busy, no-files) or the hosting error.
 let _addressChanging = false;
-window.isAddressChanging = () => _addressChanging;
+// The project whose address is moving. A send waits for it in that project
+// only (see sendChatMessage); with no id, the question is whether any is.
+let _addressChangingChat = null;
+window.isAddressChanging = (chatId) => _addressChanging && (chatId === undefined || chatId === _addressChangingChat);
 async function changePublishedAddress(typed) {
     const oldUrl = window.currentPublishedUrl;
     const oldSub = previewSubdomain(oldUrl);
@@ -3277,6 +3280,7 @@ async function changePublishedAddress(typed) {
     const publishedVersionId = window.currentPublishedVersionId || null;
     const publishedAt = window.currentPublishedAt || null;
     _addressChanging = true;
+    _addressChangingChat = chatId;
     window.refreshPublishCards?.();
     try {
         const path = await resolvePublishedDir(window.currentPublishedPath, chatId);
@@ -3308,6 +3312,7 @@ async function changePublishedAddress(typed) {
         return { changed: true, url: newUrl, oldUrl, open: true };
     } finally {
         _addressChanging = false;
+        _addressChangingChat = null;
         // The toolbar and the cards show the new address (or the old one, on
         // a failure) at once.
         window.refreshPublishButton?.();
