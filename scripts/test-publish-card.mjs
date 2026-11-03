@@ -241,6 +241,27 @@ function setup() {
     check('up to date, only a read to come: still nothing new', /nothing new to publish/.test(readLater.instruction), readLater.instruction);
 }
 
+// ---- The old address stays readable ----------------------------------------
+// An older card's address that has since moved is crossed out, and it still
+// says where that publish went: at 13px it needs 4.5:1 against the card
+// (WCAG AA). #8a8a8a on the card's #fafafa was 3.3:1.
+{
+    const css = read('../src/css/styles.css');
+    const colorOf = (sel, prop) => {
+        const m = css.match(new RegExp('\\n' + sel.replace(/[.-]/g, '\\$&') + ' \\{[^}]*?\\b' + prop + ':\\s*(#[0-9a-f]{6})', 'i'));
+        return m && m[1];
+    };
+    const lum = (hex) => {
+        const c = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255)
+            .map(v => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+        return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    };
+    const fg = colorOf('.publish-card-gone', 'color');
+    const bg = colorOf('.publish-card-inner', 'background');
+    const ratio = fg && bg ? (lum(bg) + 0.05) / (lum(fg) + 0.05) : 0;
+    check('a moved address on an older card meets 4.5:1 against the card', ratio >= 4.5, `${fg} on ${bg}: ${ratio.toFixed(2)}`);
+}
+
 // ---- An older card keeps the publish made from it ---------------------------
 {
     const { env, tool, cards, q, calls, dom } = setup();
