@@ -1227,6 +1227,9 @@ function prepareHistoryForAI(historyArray, modelId, opts) {
     const deduped = retireSuggestNextSteps(dropDuplicateToolResults(copy));
     // An older chat's optional opening line (see OPENING_LINE_NOTE).
     if (Array.isArray(deduped)) noteOnOldPrompt(deduped, OPTIONAL_OPENING_RULE, OPENING_LINE_NOTE, OPENING_LINE_RULE);
+    // And its publish rule, from before the chat's Publish button (see
+    // PUBLISH_TOOLS_NOTE).
+    if (Array.isArray(deduped)) noteOnOldPrompt(deduped, OLD_PUBLISH_RULE, PUBLISH_TOOLS_NOTE, PUBLISH_TOOLS_RULE);
     // No half characters on the wire (see wellFormedDeep).
     wellFormedDeep(deduped);
     // Apply cacheLast logic to the last message
@@ -1369,6 +1372,15 @@ window.retireSuggestNextSteps = retireSuggestNextSteps;
 const OPTIONAL_OPENING_RULE = 'you may send AT MOST one short opening message';
 const OPENING_LINE_RULE = 'start with exactly one short opening sentence';
 const OPENING_LINE_NOTE = '[In every turn that uses tools, start with exactly one short opening sentence, before your first tool call, that tells the user what you are about to do. It is required, not optional. Apart from it, the rules against narrating between tool calls still apply.]';
+
+// The AI can put a Publish or Change address button in the chat (OfferPublish,
+// OfferAddressChange). A prompt from before that sends the user to the
+// preview's Publish button and names neither tool, and a chat keeps its
+// prompt, so the projects most ready to publish only had the tools'
+// descriptions to go on. Such a prompt gets the new sentences as a note.
+const OLD_PUBLISH_RULE = 'using the Publish button in the preview. You never make the app public';
+const PUBLISH_TOOLS_RULE = 'call the OfferPublish tool';
+const PUBLISH_TOOLS_NOTE = '[When the user asks you to publish the app, call the OfferPublish tool, which puts a Publish button in the chat for them to click. When they ask to change the published site\'s address, call OfferAddressChange, which puts a Change address button in the chat.]';
 
 // Add `note` to the end of an older chat's system prompt, on the request copy,
 // while that prompt still has `oldText` and doesn't yet have `newText`. A chat
