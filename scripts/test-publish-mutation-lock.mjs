@@ -90,6 +90,19 @@ check('the query is scoped per chat, not global',
         /isAddressChanging\?\.\(currentChatId\)[\s\S]{0,300}showToast/.test(body));
 }
 
+// ---- ui.js: the Settings rename waits for an address change ---------------
+// The toolbar's and the chat's address change already wait for the Settings
+// rename (it marks the project publish-busy). The other way round, both
+// created a new address and dropped the old one, leaving one behind.
+{
+    const s = uiSource.indexOf('async function submitAddress($form) {');
+    const submit = uiSource.slice(s, uiSource.indexOf("$published.on('click', '.properties-rename-site'", s));
+    const guard = submit.indexOf('isAddressChanging?.(chatId)');
+    check('the Settings rename refuses while this project\'s address is changing, before it marks itself busy',
+        guard > 0 && guard < submit.indexOf('setPublishBusy(true, chatId)'));
+    check('…and says so', /isAddressChanging\?\.\(chatId\)\) \{\s*window\.showToast/.test(submit));
+}
+
 // ---- versions.js: a restore waits for the publish --------------------------
 {
     const start = versionsSource.indexOf('async function restoreVersion(');
