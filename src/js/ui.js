@@ -2605,15 +2605,15 @@ async function doPublish() {
 // (prepareHistoryForAI). versionNote: not a build reply (countCompletedBuilds).
 function publishedNoteMessage(url, isFirst) {
     const text = isFirst
-        ? `[The user published the app. It is now public at ${url}. Later changes reach that address only when they publish again.]`
-        : `[The user published their latest changes. The site at ${url} now serves the app as it is now. Later changes reach it only when they publish again.]`;
+        ? `[The user published the app. It is now public at ${url}, and you can give the user that address. Later changes reach it only when they publish again.]`
+        : `[The user published their latest changes. The site at ${url} now serves the app as it is now, and you can give the user that address. Later changes reach it only when they publish again.]`;
     const messageId = (typeof generateMessageId === 'function') ? generateMessageId() : null;
     return { role: 'assistant', content: [{ type: 'text-hidden', text }], messageId, versionNote: true };
 }
 
 // The note an address change leaves for the AI, the same way as the one above.
 function addressChangedNoteMessage(oldUrl, newUrl) {
-    const text = `[The user moved the published site from ${oldUrl} to ${newUrl}. The old address no longer works.]`;
+    const text = `[The user moved the published site from ${oldUrl} to ${newUrl}. The old address no longer works; you can give the user the new one.]`;
     const messageId = (typeof generateMessageId === 'function') ? generateMessageId() : null;
     return { role: 'assistant', content: [{ type: 'text-hidden', text }], messageId, versionNote: true };
 }

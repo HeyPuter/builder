@@ -196,6 +196,26 @@ const isResultFor = (m, id) => m && m.role === 'user' && m.content && m.content.
         h.length === 4 && isResultFor(h[2], 't1') && noteText(h[3]) === '[moved]', JSON.stringify(h));
 }
 
+// ---- After a publish, the AI may give out the address ------------------------
+// The prompt and publish_site's description tell the AI never to share a
+// public link, and the notes only said the site is public: asked "what's my
+// link?" after publishing, it hedged or pointed at the preview.
+{
+    const sb = { generateMessageId: () => 'm' };
+    vm.createContext(sb);
+    vm.runInContext(extract(uiSource, 'function publishedNoteMessage(url, isFirst) {') + '\n'
+        + extract(uiSource, 'function addressChangedNoteMessage(oldUrl, newUrl) {'), sb);
+    const first = noteText(sb.publishedNoteMessage('https://a.puter.site/', true));
+    const again = noteText(sb.publishedNoteMessage('https://a.puter.site/', false));
+    const moved = noteText(sb.addressChangedNoteMessage('https://a.puter.site/', 'https://b.puter.site/'));
+    check('the publish notes say the AI can give the user the address',
+        /you can give the user that address/.test(first) && /you can give the user that address/.test(again), first + ' | ' + again);
+    check('…and the address change note, the new one', /you can give the user the new one/.test(moved), moved);
+    const publishSite = fs.readFileSync(new URL('../src/tools/apps_and_sites/publish_site.js', import.meta.url), 'utf8');
+    check('publish_site keeps the link private only until the user publishes',
+        /until the user has published it you should not tell the user the app is "live"\/"published" or share a public link/.test(publishSite));
+}
+
 // ---- An older chat's prompt learns about the Publish button ------------------
 // A chat keeps the system prompt it started with. One from before the chat's
 // Publish button sends the user to the preview's Publish button and names
