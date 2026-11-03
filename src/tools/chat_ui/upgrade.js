@@ -97,7 +97,7 @@
                     ? {
                         __upgrade_offer: true,
                         subscribed: true,
-                        instruction: "The user has a paid Puter subscription. They can remove the badge from their public site themselves (the builder preview never shows it). Tell them in one or two short sentences to open Publish, tick \"Remove the 'Made with Puter' badge\", and publish. Do not edit the runtime script tag.",
+                        instruction: "The user has a paid Puter subscription. They can remove the badge from their public site themselves (the builder preview never shows it). Tell them in one or two short sentences to open Publish in the preview toolbar, tick \"Remove the 'Made with Puter' badge\", and publish there (the Publish button you can put in the chat has no badge option). Do not edit the runtime script tag.",
                     }
                     : {
                         __upgrade_offer: true,
@@ -116,7 +116,7 @@
                 ? {
                     __upgrade_offer: true,
                     subscribed: false,
-                    instruction: "An Upgrade button is now showing in the chat. Tell the user in one or two short sentences that removing the badge needs a paid Puter subscription, and that after upgrading they tick \"Remove the 'Made with Puter' badge\" in Publish and publish their site. Do not edit the runtime script tag.",
+                    instruction: "An Upgrade button is now showing in the chat. Tell the user in one or two short sentences that removing the badge needs a paid Puter subscription, and that after upgrading they tick \"Remove the 'Made with Puter' badge\" in Publish in the preview toolbar and publish their site there. Do not edit the runtime script tag.",
                 }
                 : {
                     __upgrade_offer: true,
