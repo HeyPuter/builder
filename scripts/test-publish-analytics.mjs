@@ -53,6 +53,9 @@ const PUBLISH_CODE = [
     extract(helpersSource, 'function templateProp(history) {'),
     extract(helpersSource, 'function templatePropFor(slug) {'),
     extract(source, 'async function doPublish() {'),
+    extract(source, 'function publishedNoteMessage(url, isFirst) {'),
+    extract(source, 'function pushAiNote(history, note) {'),
+    extract(source, 'async function publishProject(ui) {'),
 ].join('\n\n');
 const USAGE_CODE = [
     extract(helpersSource, 'function sumChatCostCents(history) {'),
@@ -67,7 +70,7 @@ const ROOT = '/alice/AppData/builder';
 const WORK = ROOT + '/project-a';
 const PUB = ROOT + '/.published/project-a';
 
-async function run({ published, history, withUsageHelpers = true }) {
+async function run({ published, history, withUsageHelpers = true, ui = null, createError = null, switchAway = false, extra = null, extraWindow = null }) {
     const files = new Map([[WORK, 'NEW WORK']]);
     if (published) files.set(PUB, 'OLD COPY');
     const events = [], alerts = [];
@@ -119,15 +122,21 @@ async function run({ published, history, withUsageHelpers = true }) {
                 copy: async (from, to, options) => { files.set(to + '/' + options.newName, files.get(from)); },
             },
             hosting: {
-                create: async sub => ({ subdomain: sub }),
+                create: async sub => {
+                    if (switchAway) sandbox.currentChatId = 'project-b'; // opened while it publishes
+                    if (createError) throw createError;
+                    return { subdomain: sub };
+                },
                 update: async () => {},
             },
         },
     };
+    if (extra) Object.assign(sandbox, extra(sandbox));
+    if (extraWindow) Object.assign(sandbox.window, extraWindow(sandbox));
     new Function('window', CORE_SOURCE)(sandbox.window);
     vm.createContext(sandbox);
     vm.runInContext(PUBLISH_CODE + (withUsageHelpers ? '\n\n' + USAGE_CODE : ''), sandbox, { filename: 'src/js/ui.js' });
-    await sandbox.doPublish();
+    await (ui ? sandbox.publishProject(ui) : sandbox.doPublish());
     return { events: events.filter(e => e.event === 'Project Published'), alerts };
 }
 
@@ -196,6 +205,112 @@ const HISTORY = [
     const fork = [{ ...HISTORY[0], templateOrigin: { slug: 'feedback-board', name: 'Feedback board', version: 'abcdef12' } }, ...HISTORY.slice(1)];
     const f = (await run({ published: false, history: fork, withUsageHelpers: false })).events[0];
     check('fallback: a fork still names the template', f && f.props.from_template === true && f.props.template === 'feedback-board', JSON.stringify(f));
+}
+
+// ---- The AI hears about the publish -----------------------------------------
+// The user publishes outside any turn, so a hidden note tells the AI on its
+// next message that the site is live (and where), whichever surface it came from.
+{
+    const first = structuredClone(HISTORY);
+    await run({ published: false, history: first });
+    const note = first[first.length - 1];
+    const text = note && Array.isArray(note.content) && note.content[0] && note.content[0].text;
+    check('first publish: a hidden note for the AI with the address',
+        note.role === 'assistant' && note.versionNote === true && note.content.length === 1
+        && note.content[0].type === 'text-hidden' && /published the app/.test(text) && /https:\/\/[a-z0-9-]+\.puter\.site\//.test(text),
+        JSON.stringify(note));
+    const again = structuredClone(HISTORY);
+    await run({ published: true, history: again });
+    const n2 = again[again.length - 1];
+    check('republish: the note says the latest changes are live',
+        n2.content[0].type === 'text-hidden' && /latest changes/.test(n2.content[0].text) && n2.content[0].text.includes('https://ay-site.puter.site/'),
+        JSON.stringify(n2));
+}
+
+// ---- Published from the chat's Publish card ----------------------------------
+// The card (tools/chat_ui/publish.js) runs the same publish with its own hooks
+// and source. The popover's event carries no source.
+{
+    const seen = [];
+    const card = {
+        source: 'chat',
+        render() { seen.push('render'); },
+        desiredName: () => 'bakery',
+        start(isFirst) { seen.push('start:' + isFirst); },
+        success({ url, isFirst }) { seen.push('success:' + url + ':' + isFirst); },
+        fail(e) { seen.push('fail'); },
+    };
+    const { events, alerts } = await run({ published: false, history: HISTORY, ui: card });
+    const p = events[0] && events[0].props;
+    check('card: published, reported with source chat', events.length === 1 && p.source === 'chat' && p.first_publish === true, JSON.stringify(events));
+    check('card: its hooks ran in order, at the address it typed',
+        seen.join() === 'start:true,success:https://bakery.puter.site/:true', seen.join());
+    check('card: no popover alert', alerts.length === 0, JSON.stringify(alerts));
+    const panel = (await run({ published: false, history: HISTORY })).events[0].props;
+    check('popover: no source on its event', panel && !('source' in panel), JSON.stringify(panel));
+
+    seen.length = 0;
+    const failed = await run({ published: false, history: HISTORY, ui: card, createError: new Error('boom') });
+    check('card failure: its fail hook runs, with no alert and no event',
+        seen.join() === 'start:true,fail' && failed.alerts.length === 0 && failed.events.length === 0,
+        JSON.stringify({ seen, alerts: failed.alerts, events: failed.events }));
+
+    // Live once another project is open: success is for the open project,
+    // so the card hears it through away, to record it on its own project.
+    seen.length = 0;
+    card.away = ({ chatId, url, isFirst }) => { seen.push('away:' + chatId + ':' + url + ':' + isFirst); };
+    const away = await run({ published: false, history: HISTORY, ui: card, switchAway: true });
+    check('card, another project open by the end: away runs instead of success, and it is counted',
+        seen.join() === 'start:true,away:project-a:https://bakery.puter.site/:true' && away.events.length === 1,
+        JSON.stringify({ seen, events: away.events }));
+    const popoverAway = await run({ published: false, history: HISTORY, switchAway: true });
+    check('popover, the same: it has no away hook, and the publish still counts', popoverAway.events.length === 1);
+}
+
+// ---- The card sees its failure with the busy state clear --------------------
+// A failed publish clears its busy state before the surface shows the
+// failure: the card's redraw while busy clears its error (and the popover's
+// draws the progress note again), so a failure shown while still busy was
+// wiped at once. The other tests stub the busy state out.
+{
+    let busy = false, busyAtFail = null;
+    const card = {
+        source: 'chat',
+        render() {},
+        desiredName: () => 'bakery',
+        start() {},
+        success() {},
+        fail() { busyAtFail = busy; },
+    };
+    await run({ published: false, history: HISTORY, ui: card, createError: new Error('boom'),
+        extra: () => ({ setPublishBusy(b) { busy = b; } }) });
+    check('card failure: the busy state is clear when its fail hook runs', busyAtFail === false, String(busyAtFail));
+}
+
+// ---- No publish while this project's address is moving ---------------------
+// Publishing then would update the address that is about to go away. The
+// wait was only checked by reading the source.
+{
+    const seen = [], toasts = [];
+    const card = {
+        source: 'chat',
+        render() { seen.push('render'); },
+        desiredName: () => 'bakery',
+        start() { seen.push('start'); },
+        success() { seen.push('success'); },
+        fail() { seen.push('fail'); },
+    };
+    const r = await run({ published: true, history: HISTORY, ui: card,
+        extraWindow: () => ({
+            isAddressChanging: (id) => id === 'project-a',
+            showToast: (text) => toasts.push(text),
+        }) });
+    check('while the address moves: nothing is published, and the surface redraws',
+        seen.join() === 'render' && r.events.length === 0, seen.join());
+    check('…and the user is told to wait', toasts.length === 1 && /Finishing the address change/.test(toasts[0]), JSON.stringify(toasts));
+    const other = await run({ published: true, history: HISTORY, ui: { ...card, render() {}, start() {}, success() {}, fail() {} },
+        extraWindow: () => ({ isAddressChanging: (id) => id === 'project-b' }) });
+    check('another project\'s address change doesn\'t hold this publish', other.events.length === 1);
 }
 
 // ---- tokenBand / costBand boundaries -----------------------------------------

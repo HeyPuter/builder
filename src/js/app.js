@@ -549,7 +549,9 @@ async function saveCurrentChatUnlocked(context) {
 // read-modify-write that chat's file directly and patch its in-memory list entry.
 // Best-effort and non-blocking — a failure only means the URL must be re-derived
 // on next open; it never disrupts the chat that's currently on screen.
-window.savePublishedFields = async function (chatId, fields) {
+// `note`, when given, is a message for the AI (a hidden note saying the site
+// was published or moved) added to that chat's conversation in the same write.
+window.savePublishedFields = async function (chatId, fields, note) {
     if (!chatId || !fields) return;
     try {
         const merged = await withChatFileLock(chatId, async () => {
@@ -563,6 +565,11 @@ window.savePublishedFields = async function (chatId, fields) {
             chatData.publishedPath = fields.publishedPath || null;
             chatData.publishedVersionId = fields.publishedVersionId || null;
             chatData.publishedAt = fields.publishedAt || null;
+            if (note && Array.isArray(chatData.history)) {
+                // Its missing tool results first, as pushAiNote (ui.js) does.
+                repairDanglingToolUses(chatData.history);
+                chatData.history.push(note);
+            }
             await puter.fs.write(chatFilePath(chatId), JSON.stringify(chatData));
             return true;
         });
@@ -1240,6 +1247,16 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
                             // the user has a paid plan by now. Offers from before
                             // the code editor carry no feature and are the badge.
                             if (!toolResponse.subscribed && !window.Branding?.isSubscribed(window.user)) window.renderUpgradeCard?.({ feature: toolResponse.feature });
+                        } else if (toolResponse.__publish_offer) {
+                            // A past Publish card: shown again. The newest is
+                            // drawn from the project's publish state now; an
+                            // older one shows the publish made from it, if any.
+                            window.renderPublishCard?.({
+                                address: toolResponse.address,
+                                offer: toolResponse.offer,
+                                publishedUrl: message.publishCardUrl,
+                                kind: toolResponse.kind,
+                            });
                         } else if (toolResponse.success && toolResponse.filename && (toolResponse.path
                             || (Array.isArray(toolResponse.items) && toolResponse.items.some(it => it && it.path)))) {
                             // A generated image, video or audio clip (see
@@ -1736,6 +1753,32 @@ async function discardCopyAttempt(newAppDir, renames) {
 // (sibling .issues/<chatId>.json, see issues.js) is left behind for the same
 // reason: it's a punch list against the original's live preview.
 const _duplicatingChats = new Set(); // source chatIds with a duplication in flight
+// A copy starts unpublished (see duplicateChat), but the conversation it
+// inherits says otherwise: the notes for the AI name the original's public
+// address (it then gave that out as the copy's), and a Publish card records
+// the publish made from it (it read "Published" in the copy). The records go,
+// so those cards are hidden, and a note tells the AI whose address it is.
+// The newest card is drawn from the copy's own state, a Publish form, filled
+// in with the address the AI suggested for the original: taken by now, so
+// its Publish could only fail. The copied cards' addresses go too, and a
+// publish from an empty field names the site as the popover's does.
+function unpublishCopiedHistory(history, originalUrl) {
+    if (!Array.isArray(history)) return;
+    for (const m of history) if (m && 'publishCardUrl' in m) delete m.publishCardUrl;
+    if (!originalUrl) return;
+    for (const m of history) {
+        const c = m && m.content;
+        if (!c || c.type !== 'tool_result' || typeof c.content !== 'string' || !c.content.includes('__publish_offer')) continue;
+        try {
+            const r = JSON.parse(c.content);
+            if (r && r.__publish_offer && r.address) { r.address = ''; c.content = JSON.stringify(r); }
+        } catch (e) { /* not a card's result */ }
+    }
+    if (typeof pushAiNote === 'function' && typeof copiedProjectNoteMessage === 'function') {
+        pushAiNote(history, copiedProjectNoteMessage(originalUrl));
+    }
+}
+
 async function duplicateChat(chatId) {
     if (!chatId || _duplicatingChats.has(chatId)) return;
     _duplicatingChats.add(chatId);
@@ -1772,10 +1815,12 @@ async function duplicateChat(chatId) {
         let sourceHistory = Array.isArray(source.history) ? source.history : [];
         let origPreviewUrl = source.previewUrl || null;
         let origPreviewPath = source.previewPath || null;
+        let origPublishedUrl = source.publishedUrl || null;
         if (chatId === currentChatId) {
             if (Array.isArray(chatHistory)) sourceHistory = chatHistory;
             origPreviewUrl = window.currentPreviewUrl || origPreviewUrl;
             origPreviewPath = window.currentPreviewPath || origPreviewPath;
+            origPublishedUrl = window.currentPublishedUrl || origPublishedUrl;
         }
 
         // --- Clone the conversation, rewriting app-dir references -----------
@@ -1842,6 +1887,9 @@ async function duplicateChat(chatId) {
         const finalHistory = workerRenames.length
             ? window.WorkerOwnership.rewriteHistory(clonedHistory, workerRenames)
             : clonedHistory;
+        // The copy starts unpublished (below), so the original's publishes
+        // aren't its own.
+        unpublishCopiedHistory(finalHistory, origPublishedUrl);
 
         // --- Publish the copy to its OWN subdomain (if the source was live) -
         let newPreviewUrl = null, newPreviewPath = null;
@@ -4677,6 +4725,16 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     if (window.isPublishInFlight?.(currentChatId) || window.isPublishStarting?.(currentChatId)) {
         window.showToast?.('Finishing publishing — you can send the moment it’s done.',
             { type: 'info', key: 'send-blocked-publish', throttleMs: 3000 });
+        return;
+    }
+
+    // Nor while this project's published site is moving to a new address
+    // (changePublishedAddress): it leaves a note for the AI when it's done,
+    // which would land in the middle of the turn, and the turn would still
+    // see the old address.
+    if (window.isAddressChanging?.(currentChatId)) {
+        window.showToast?.('Finishing the address change — you can send the moment it’s done.',
+            { type: 'info', key: 'send-blocked-address', throttleMs: 3000 });
         return;
     }
 

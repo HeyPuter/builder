@@ -32,7 +32,7 @@ export class El {
     }
     get children() { return this.childNodes.filter(n => n.nodeType === 1); }
     get textContent() { return this.childNodes.map(n => n.textContent).join(''); }
-    set textContent(v) { this.childNodes.forEach(n => { n.parentNode = null; }); this.childNodes = []; if (v !== '') this.appendChild(new Text(v)); }
+    set textContent(v) { this.childNodes.forEach(n => { dropFocus(n); n.parentNode = null; }); this.childNodes = []; if (v !== '') this.appendChild(new Text(v)); }
     get className() { return this.attrs.get('class') || ''; }
     set className(v) { this.attrs.set('class', String(v)); }
     get classes() { return this.className.split(/\s+/).filter(Boolean); }
@@ -45,7 +45,7 @@ export class El {
     hasAttribute(k) { return this.attrs.has(k); }
     appendChild(n) { if (n.parentNode) n.parentNode.removeChild(n); n.parentNode = this; this.childNodes.push(n); return n; }
     insertAfter(n, ref) { if (n.parentNode) n.parentNode.removeChild(n); n.parentNode = this; this.childNodes.splice(this.childNodes.indexOf(ref) + 1, 0, n); }
-    removeChild(n) { const i = this.childNodes.indexOf(n); if (i >= 0) this.childNodes.splice(i, 1); n.parentNode = null; return n; }
+    removeChild(n) { const i = this.childNodes.indexOf(n); if (i >= 0) this.childNodes.splice(i, 1); dropFocus(n); n.parentNode = null; return n; }
     remove() { if (this.parentNode) this.parentNode.removeChild(this); }
     replaceWith(n) { const p = this.parentNode; if (!p) return; p.insertAfter(n, this); p.removeChild(this); }
     contains(n) { for (let x = n; x; x = x.parentNode) if (x === this) return true; return false; }
@@ -58,6 +58,18 @@ export class El {
     removeEventListener(ev, fn) { this.listeners[ev] = (this.listeners[ev] || []).filter(f => f !== fn); }
     fire(ev, extra = {}) { const e = { type: ev, target: this, preventDefault() {}, stopPropagation() {}, ...extra }; [...(this.listeners[ev] || [])].forEach(f => f.call(this, e)); return e; }
     focus() { if (this.ownerDocument) this.ownerDocument.activeElement = this; }
+    // Form controls: what jQuery's .prop/.val set, else the markup's attribute.
+    get disabled() { return 'disabled' in this.props ? !!this.props.disabled : this.hasAttribute('disabled'); }
+    get value() { return 'value' in this.props ? this.props.value : (this.getAttribute('value') ?? ''); }
+    set value(v) { this.props.value = String(v); }
+    setSelectionRange() {}
+}
+
+// As in a browser, removing the focused element (or what holds it) moves
+// focus to <body>.
+function dropFocus(n) {
+    const doc = n.ownerDocument;
+    if (doc && doc.activeElement && n.nodeType === 1 && n.contains(doc.activeElement)) doc.activeElement = doc.body;
 }
 
 function compoundMatches(el, c) {
@@ -121,7 +133,10 @@ export function makeDom() {
         toArray() { return [...this.els]; }
         find(sel) { return new Q([...new Set(this.els.flatMap(e => e.querySelectorAll(sel)))]); }
         closest(sel) { return new Q([...new Set(this.els.map(e => e.closest(sel)))]); }
-        is(sel) { return this.els.some(e => e.nodeType === 1 && matches(e, sel)); }
+        is(sel) {
+            if (sel === ':focus') return this.els.some(e => e === document.activeElement);
+            return this.els.some(e => e.nodeType === 1 && matches(e, sel));
+        }
         addClass(c) { this.els.forEach(e => e.addClass(c)); return this; }
         removeClass(c) { this.els.forEach(e => e.removeClass(c)); return this; }
         hasClass(c) { return this.els.some(e => e.hasClass(c)); }
@@ -137,6 +152,9 @@ export function makeDom() {
         data(k, v) { if (v === undefined) return this.els[0] ? this.els[0].jqData[k] : undefined; this.els.forEach(e => { e.jqData[k] = v; }); return this; }
         text(v) { if (v === undefined) return this.els.map(e => e.textContent).join(''); this.els.forEach(e => { e.textContent = String(v); }); return this; }
         empty() { this.els.forEach(e => { e.textContent = ''; }); return this; }
+        // Setter only: replaces the children with the parsed markup.
+        html(v) { this.els.forEach(e => { e.textContent = ''; for (const n of own(parseHTML(String(v)))) e.appendChild(n); }); return this; }
+        val(v) { if (v === undefined) return this.els[0] ? this.els[0].value : undefined; this.els.forEach(e => { e.value = v; }); return this; }
         append(...items) {
             const target = this.els[0];
             for (const it of items) for (const n of toNodes(it)) target.appendChild(n);

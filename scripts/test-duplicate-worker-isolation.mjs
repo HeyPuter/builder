@@ -23,6 +23,7 @@ function check(name, cond, detail) {
 
 const appSource = fs.readFileSync(new URL('../src/js/app.js', import.meta.url), 'utf8');
 const helpersSource = fs.readFileSync(new URL('../src/js/helpers.js', import.meta.url), 'utf8');
+const uiSource = fs.readFileSync(new URL('../src/js/ui.js', import.meta.url), 'utf8');
 const ownershipSource = fs.readFileSync(new URL('../src/js/worker-ownership.js', import.meta.url), 'utf8');
 const senderSource = fs.readFileSync(new URL('../src/js/worker-sender.js', import.meta.url), 'utf8');
 
@@ -41,6 +42,10 @@ const CODE = [
     extract(appSource, 'async function discardCopyAttempt(newAppDir, renames) {'),
     extract(appSource, 'async function redeployWorkersForCopy(oldAppDir, newAppDir) {'),
     extract(appSource, 'function markChatItemBusy($item, cls, on) {'),
+    extract(appSource, 'function repairDanglingToolUses(history) {'),
+    extract(uiSource, 'function copiedProjectNoteMessage(originalUrl) {'),
+    extract(uiSource, 'function pushAiNote(history, note) {'),
+    extract(appSource, 'function unpublishCopiedHistory(history, originalUrl) {'),
     extract(appSource, 'async function duplicateChat(chatId) {'),
 ].join('\n\n');
 
@@ -48,15 +53,28 @@ const PARENT = '/alice/AppData/builder';
 const OLD_DIR = PARENT + '/chat1';
 
 // failAt: null | 'list' | 'create-first' | 'create-second' | 'chat-write'
-async function run({ failAt = null, workerCount = 1, senderTitle = null, failRename = false } = {}) {
+async function run({ failAt = null, workerCount = 1, senderTitle = null, failRename = false, published = false, openUnsaved = false } = {}) {
+    // A published source: its AI was told the public address, and the user
+    // published from a Publish card in the chat.
+    const history = [{ role: 'system', content: 'cwd ' + OLD_DIR }];
+    if (published) {
+        history.push(
+            { role: 'assistant', content: [{ type: 'tool_use', id: 't1', name: 'OfferPublish', input: {} }] },
+            { role: 'user', content: { type: 'tool_result', tool_use_id: 't1',
+                content: JSON.stringify({ __publish_offer: true, address: 'notes', offer: 'offer-1', instruction: '' }) },
+                publishCardUrl: 'https://notes.puter.site/' },
+            { role: 'assistant', content: [{ type: 'text-hidden', text: '[The user published the app. It is now public at https://notes.puter.site/.]' }], versionNote: true },
+        );
+    }
     const files = new Map([
         [OLD_DIR + '/index.html', "fetch('https://original-api.puter.work/save', {method:'POST'})"],
         [OLD_DIR + '/workers/original-api.js', 'export default { fetch() {} }'],
         // An image generated in the chat (its media folder, beside the project).
         [PARENT + '/.media/chat1/image_1.png', 'PNG'],
         ['chat-history/chat1.json', JSON.stringify({
-            id: 'chat1', title: 'Notes', history: [{ role: 'system', content: 'cwd ' + OLD_DIR }],
+            id: 'chat1', title: 'Notes', history,
             previewUrl: 'https://draft-one.puter.site/', previewPath: OLD_DIR,
+            ...(published && !openUnsaved ? { publishedUrl: 'https://notes.puter.site/', publishedPath: PARENT + '/.published/chat1/r1' } : {}),
         })],
     ]);
     const deployed = new Map([['original-api', {
@@ -177,6 +195,13 @@ async function run({ failAt = null, workerCount = 1, senderTitle = null, failRen
             },
         },
     };
+    // The source is the open project, published moments ago: its file
+    // doesn't have the address yet, the live state does.
+    if (openUnsaved) {
+        sandbox.currentChatId = 'chat1';
+        sandbox.chatHistory = history;
+        sandbox.window.currentPublishedUrl = 'https://notes.puter.site/';
+    }
     vm.createContext(sandbox);
     // The real media-folder helpers (window.mediaDirForAppDir).
     const h0 = helpersSource.indexOf('window.normalizePosixPath =');
@@ -219,6 +244,35 @@ check('control: the copy is hosted', ok.hosted.join() === 'copy-draft');
 check('control: no error shown', ok.alerts.length === 0, JSON.stringify(ok.alerts));
 check('control: the copy gets its own copy of the generated media', ok.copyMediaLeft === 1, String(ok.copyMediaLeft));
 check('control: a backend on its default sender name renames nothing', ok.renames.length === 0, JSON.stringify(ok.renames));
+
+// ---- A published source: the copy isn't, and its AI is told ---------------
+// The copy inherits a conversation that says the site is public at the
+// original's address. Its AI gave that address out as the copy's, and the
+// Publish card the user published from read "Published" in the copy.
+{
+    const r = await run({ published: true });
+    const h = r.copyChat.history;
+    check('published source: the copy starts unpublished', r.copyChat.publishedUrl === null);
+    check('published source: no card in the copy records the original\'s publish',
+        !h.some(m => 'publishCardUrl' in m), JSON.stringify(h));
+    const last = h[h.length - 1];
+    check('published source: a note tells the copy\'s AI the address is the original\'s',
+        last.role === 'assistant' && last.versionNote === true && last.content[0].type === 'text-hidden'
+        && /copy isn't published/.test(last.content[0].text) && last.content[0].text.includes('https://notes.puter.site/'),
+        JSON.stringify(last));
+    const offer = h.find(m => m.content && m.content.type === 'tool_result' && m.content.content.includes('__publish_offer'));
+    const offerResult = offer && JSON.parse(offer.content.content);
+    check('published source: the copy\'s card isn\'t filled in with the original\'s (taken) address',
+        offerResult && offerResult.__publish_offer === true && offerResult.address === '' && offerResult.offer === 'offer-1',
+        JSON.stringify(offerResult));
+    const open = await run({ published: true, openUnsaved: true });
+    const openLast = open.copyChat.history.at(-1);
+    check('the open project, published but not yet saved: its live address is the one the note names',
+        openLast.versionNote === true && /copy isn't published/.test(openLast.content[0].text)
+        && openLast.content[0].text.includes('https://notes.puter.site/'), JSON.stringify(openLast));
+    const plain = await run();
+    check('unpublished source: no note added', plain.copyChat.history.length === 1, JSON.stringify(plain.copyChat.history));
+}
 
 // ---- The copy's backend sends under the original's sender name --------------
 {

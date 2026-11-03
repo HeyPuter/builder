@@ -2183,6 +2183,150 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
 .upgrade-card-btn:hover,
 .model-panel-upgrade:hover { background: #000; }
 
+/* The Publish card the AI puts in the chat (tools/chat_ui/publish.js): one
+   row, either the address to publish at and a Publish button, or the live
+   address. */
+.publish-card { animation: suggestionsIn 0.2s ease; }
+.publish-card .message-content { padding: 0 !important; }
+.publish-card-inner {
+    background: #fafafa;
+    border: 1px solid #ececec;
+    border-radius: 12px;
+    padding: 8px 8px 8px 14px;
+    font-size: 14px;
+    color: #333;
+    container-type: inline-size;
+}
+.publish-card-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 32px;
+}
+.publish-card-address {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    height: 32px;
+    box-sizing: border-box;
+    margin-left: -6px;
+    padding: 0 10px;
+    background: #fff;
+    border: 1px solid #e3e3e3;
+    border-radius: 8px;
+    cursor: text;
+}
+/* The field's focus indicator: the border and a soft ring around the whole
+   address, suffix included. The global input:focus-visible ring (which text
+   inputs match on any focus) drew a second box around the bare input inside
+   it. */
+.publish-card-address:focus-within {
+    border-color: #0a6ae0;
+    box-shadow: 0 0 0 3px rgba(10, 106, 224, 0.18);
+}
+.publish-card-input:focus-visible { outline: none; }
+.publish-card-input {
+    flex: 1 1 auto;
+    min-width: 40px;
+    border: none;
+    outline: none;
+    background: transparent;
+    padding: 0;
+    font-family: inherit;
+    font-size: 13px;
+    color: #323232;
+    /* Against the suffix, so the field reads as one address. */
+    text-align: right;
+    /* An address longer than the field (a 30-character one on a 320px
+       phone) was cut mid-letter against .puter.site, reading as another
+       address. The ellipsis shows it goes on; focused, it scrolls. */
+    text-overflow: ellipsis;
+}
+.publish-card-input:disabled { color: #8a8a8a; }
+.publish-card-link {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    color: #1a5fb4;
+    text-decoration: none;
+}
+.publish-card-link:hover { text-decoration: underline; }
+.publish-card .publish-live { flex: 0 0 auto; }
+.publish-card-btn {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 14px;
+    border: none;
+    border-radius: 8px;
+    background: #0a6ae0;
+    color: #fff;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+.publish-card-btn:hover { background: #0858c2; }
+.publish-card-btn:disabled { background: #9bbfe6; cursor: default; }
+.publish-card-btn svg { display: block; flex: 0 0 auto; }
+.publish-card.is-superseded { display: none; }
+/* Holds focus while its button is disabled for a publish; it's not a
+   control, so no focus ring (like the Publish popover). */
+.publish-card-inner:focus,
+.publish-card-inner:focus-visible { outline: none; }
+.publish-card-done {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13px;
+    color: #6b6b6b;
+}
+.publish-card-done svg { display: block; color: #2e9e5b; }
+/* An address an older card published to, since moved: no longer a link. */
+.publish-card-gone {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    color: #6b6b6b;
+    text-decoration: line-through;
+}
+.publish-card-note {
+    margin-top: 6px;
+    font-size: 12.5px;
+    color: #6b6b6b;
+}
+.publish-card-error {
+    margin-top: 6px;
+    font-size: 12.5px;
+    color: #c0392b;
+}
+/* A narrow card (a phone, or a narrow chat column): the address field takes
+   the whole row and the button goes under it. Beside the button, the field
+   was so narrow that a long address was cut off against its .puter.site
+   suffix, reading as a different address. Both span the card's inner width
+   (the field's -6px margin included). */
+@container (max-width: 440px) {
+    .publish-card-row.has-field { flex-wrap: wrap; row-gap: 8px; }
+    .publish-card-row.has-field > .publish-card-address { flex-basis: calc(100% + 6px); }
+    .publish-card-row.has-field > .publish-card-btn {
+        flex: 1 1 calc(100% + 6px);
+        margin-left: -6px;
+        justify-content: center;
+    }
+}
+
 .clarify-summary {
     animation: suggestionsIn 0.2s ease;
 }
@@ -4833,6 +4977,7 @@ body.preview-active.chat-hidden .chat {
     .chat-search-input,
     .publish-name-input,
     .publish-address-input,
+    .publish-card-input,
     .chat-title-input,
     .clarify-custom-input {
         font-size: 16px;
@@ -6548,6 +6693,19 @@ html[data-theme="dark"] .publish-branding { border-color: var(--border); color: 
 html[data-theme="dark"] .publish-badge-toggle { color: var(--text); }
 html[data-theme="dark"] .publish-badge-toggle.is-locked label { color: var(--text-secondary); }
 html[data-theme="dark"] .upgrade-card-inner { background: var(--surface); border-color: var(--border); color: var(--text); }
+html[data-theme="dark"] .publish-card-inner { background: var(--surface); border-color: var(--border); color: var(--text); }
+html[data-theme="dark"] .publish-card-address { background: var(--surface-subtle); border-color: var(--border); }
+html[data-theme="dark"] .publish-card-address:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(108, 176, 245, 0.25); }
+html[data-theme="dark"] .publish-card-input { color: var(--text); }
+html[data-theme="dark"] .publish-card-input:disabled { color: var(--text-muted); }
+html[data-theme="dark"] .publish-card-link { color: var(--accent); }
+html[data-theme="dark"] .publish-card-btn { background: var(--accent); color: #0b1118; }
+html[data-theme="dark"] .publish-card-btn:hover { background: #8cc2ff; }
+html[data-theme="dark"] .publish-card-btn:disabled { background: rgba(108, 176, 245, 0.4); }
+html[data-theme="dark"] .publish-card-error { color: var(--danger); }
+html[data-theme="dark"] .publish-card-done { color: var(--text-secondary); }
+html[data-theme="dark"] .publish-card-gone,
+html[data-theme="dark"] .publish-card-note { color: var(--text-muted); }
 html[data-theme="dark"] .upgrade-card-btn,
 html[data-theme="dark"] .model-panel-upgrade,
 html[data-theme="dark"] .publish-branding-btn,
