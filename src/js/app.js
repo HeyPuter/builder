@@ -163,6 +163,7 @@ async function recoverChatListFromFiles() {
                 // rebuilt index shows every published project as unpublished
                 // until each one happens to be re-saved.
                 publishedUrl: chat.publishedUrl || null,
+                publishedDomainUrl: window.CustomDomain?.domainUrl(chat.publishedDomains, chat.publishedUrl) || null,
                 pinned: !!chat.pinned
             });
         } catch (e) {
@@ -490,6 +491,9 @@ async function saveCurrentChatUnlocked(context) {
             lastModified: timestamp,
             previewUrl: previewUrl,
             publishedUrl: publishedUrl,
+            // The user's domain while it serves the site, which the sidebar
+            // shows in place of the puter.site address.
+            publishedDomainUrl: window.CustomDomain?.domainUrl(publishedDomains, publishedUrl) || null,
             // Carry the pin flag forward — this rebuild replaces the entry, so
             // omitting it would silently unpin the project on the next save.
             pinned: !!(live && live.pinned)
@@ -522,6 +526,7 @@ async function saveCurrentChatUnlocked(context) {
             && (live.timestamp || null) === (entry.timestamp || null)
             && (live.previewUrl || null) === (entry.previewUrl || null)
             && (live.publishedUrl || null) === (entry.publishedUrl || null)
+            && (live.publishedDomainUrl || null) === (entry.publishedDomainUrl || null)
             && !!live.pinned === !!entry.pinned;
         const listWrittenAt = _chatListWrittenAt.get(chatId) || 0;
         if (!(sameAsStored && interrupted && Date.now() - listWrittenAt < 30000)) {
@@ -575,13 +580,18 @@ window.savePublishedFields = async function (chatId, fields) {
             if ('publishedAt' in fields) chatData.publishedAt = fields.publishedAt || null;
             if ('publishedDomains' in fields) chatData.publishedDomains = fields.publishedDomains || [];
             await puter.fs.write(chatFilePath(chatId), JSON.stringify(chatData));
-            return hasUrl ? 'url' : 'other';
+            return chatData;
         });
         if (!merged) return;
 
+        // The list entry shows the site's address: its puter.site one, or the
+        // user's domain while that serves the site.
         const entry = savedChats.find(c => c.id === chatId);
-        if (entry && merged === 'url') {
-            entry.publishedUrl = fields.publishedUrl || null;
+        const publishedUrl = merged.publishedUrl || null;
+        const publishedDomainUrl = window.CustomDomain?.domainUrl(merged.publishedDomains, publishedUrl) || null;
+        if (entry && ((entry.publishedUrl || null) !== publishedUrl || (entry.publishedDomainUrl || null) !== publishedDomainUrl)) {
+            entry.publishedUrl = publishedUrl;
+            entry.publishedDomainUrl = publishedDomainUrl;
             await saveChatList();
             updateChatHistorySidebar();
         }
@@ -2278,7 +2288,7 @@ function updateChatHistorySidebar() {
     // projects (most of it re-laying-out every entry), several times that on a
     // phone — typing in the search box lagged.
     const renderSig = JSON.stringify([currentChatId, savedChats.map(c =>
-        [c.id, c.title || '', c.publishedUrl || '', c.previewUrl || '', !!c.pinned])]);
+        [c.id, c.title || '', c.publishedUrl || '', c.publishedDomainUrl || '', c.previewUrl || '', !!c.pinned])]);
     if (chatList.data('renderSig') === renderSig) {
         applyChatSearchFilter(chatList);
         return;
@@ -2431,8 +2441,9 @@ function updateChatHistorySidebar() {
         // URL is an internal working URL (and a duplicate seeds its own), so
         // surfacing it here would make an unpublished draft look identical to a
         // genuinely shared project. The draft preview stays reachable from the
-        // open chat's preview pane.
-        const linkUrl = chat.publishedUrl;
+        // open chat's preview pane. The user's domain, while it serves the
+        // site, is the address the link shows.
+        const linkUrl = chat.publishedDomainUrl || chat.publishedUrl;
         // Only render the app link for an http(s) URL (text + attr, no raw HTML),
         // so a non-http scheme (e.g. javascript:) can never become a clickable sink.
         if (linkUrl && /^https?:\/\//i.test(linkUrl)) {
@@ -2490,13 +2501,15 @@ function updateChatHistorySidebar() {
 // entry under a label keeps its tighter gap, and no match at all says so.
 function applyChatSearchFilter(chatList) {
     // Match the title and the project's addresses. The link an entry shows is
-    // its PUBLISHED url (see buildChatItem above), so that is what a user types
-    // to find it; the draft preview url is kept too for anyone pasting that.
+    // its PUBLISHED url, or the user's domain (see buildChatItem above), so
+    // that is what a user types to find it; the draft preview url is kept too
+    // for anyone pasting that.
     const q = chatSearchQuery.trim().toLowerCase();
     const byId = new Map(savedChats.map(chat => [chat.id, chat]));
     const matches = (chat) => !q || (!!chat && (
         (chat.title || '').toLowerCase().includes(q) ||
         (chat.publishedUrl || '').toLowerCase().includes(q) ||
+        (chat.publishedDomainUrl || '').toLowerCase().includes(q) ||
         (chat.previewUrl || '').toLowerCase().includes(q)));
     const sections = { pinned: { label: null, shown: [] }, recent: { label: null, shown: [] } };
     let section = sections.recent;

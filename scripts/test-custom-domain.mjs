@@ -6,7 +6,9 @@ import fs from 'node:fs';
 // since the builder can't ask Puter for the domain's status, fetches the
 // domain itself until it serves the site. An address change leaves a domain
 // behind on the old address, so the popover asks before one and offers to
-// connect the domain again after. A site not published yet can start with
+// connect the domain again after. A project has one domain at most, and one
+// that another project takes in Puter's window is taken off the project that
+// had it. A site not published yet can start with
 // its domain straight away: one press reserves the name in the address
 // field, opens the dialog for it, and publishes onto it. Custom domains are
 // a paid feature: on the free plan the press opens the upgrade dialog.
@@ -46,12 +48,14 @@ check('a hostname that can\'t go into a URL is refused', CD.normalize({ hostname
 check('an unknown status reads as pending', CD.normalize({ hostname: 'a.com', status: 'weird' }).status === 'pending');
 check('null or junk is refused', CD.normalize(null) === null && CD.normalize('a.com') === null);
 
-let list = CD.upsert([], pending);
-list = CD.upsert(list, { hostname: 'example.com', site: 'cafe', status: 'active', isApex: true });
-check('domains are added one per hostname, the latest first', list.length === 2 && list[0].hostname === 'example.com');
-list = CD.upsert(list, { uuid: 'u9', hostname: 'www.example.com', site: 'cafe-2', status: 'pending' });
-check('connecting a hostname again replaces it, even under a new id, and moves it first', list.length === 2 && list[0].hostname === 'www.example.com' && list[0].site === 'cafe-2' && list[0].uuid === 'u9');
-check('a saved list is cleaned of junk and repeats', CD.list([pending, pending, null, { hostname: '' }]).length === 1);
+let list = CD.set([], pending);
+check('a pick becomes the project\'s domain', list.length === 1 && list[0].hostname === 'www.example.com');
+list = CD.set(list, { hostname: 'example.com', site: 'cafe', status: 'active', isApex: true });
+check('a project has one domain, so another pick replaces it', list.length === 1 && list[0].hostname === 'example.com');
+check('a pick that can\'t be read keeps the one it had', CD.set(list, { hostname: 'bad/host' }).map((d) => d.hostname).join() === 'example.com');
+check('a saved list is cleaned to its first readable domain', CD.list([null, { hostname: '' }, pending, { hostname: 'b.com' }]).map((d) => d.hostname).join() === 'www.example.com');
+check('removing the domain another project took leaves none', CD.remove([pending], 'WWW.Example.com').length === 0
+    && CD.remove([pending], 'other.com').length === 1);
 
 check('a pending domain on the current address is pending', CD.view(pending, 'cafe').kind === 'pending');
 check('…and one on an address the site no longer has is moved', CD.view(pending, 'new-name').kind === 'moved');
@@ -60,9 +64,9 @@ check('its URL is the https root', CD.view(pending, 'cafe').url === 'https://www
 
 const active = CD.markActive([pending], 'WWW.example.com', 42);
 check('a check marks the domain active with the time', active[0].status === 'active' && active[0].activatedAt === 42 && active[0].statusDetail === null);
-check('waiting lists pending and failed domains, not active or moved ones',
-    CD.waiting([pending, { hostname: 'b.com', site: 'cafe', status: 'failed' }, { hostname: 'c.com', site: 'cafe', status: 'active' }, { hostname: 'd.com', site: 'old', status: 'pending' }], 'cafe')
-        .map((d) => d.hostname).join() === 'www.example.com,b.com');
+check('a pending or failed domain is waiting, an active or moved one isn\'t',
+    CD.waiting([pending], 'cafe').length === 1 && CD.waiting([{ hostname: 'b.com', site: 'cafe', status: 'failed' }], 'cafe').length === 1
+    && !CD.waiting([{ hostname: 'c.com', site: 'cafe', status: 'active' }], 'cafe').length && !CD.waiting([{ hostname: 'd.com', site: 'old', status: 'pending' }], 'cafe').length);
 check('the share link is a connected domain', CD.liveUrl(active, 'cafe', 'https://cafe.puter.site/') === 'https://www.example.com/');
 check('…else the puter.site address', CD.liveUrl([pending], 'cafe', 'https://cafe.puter.site/') === 'https://cafe.puter.site/'
     && CD.liveUrl(active, 'renamed', 'https://renamed.puter.site/') === 'https://renamed.puter.site/');
@@ -70,10 +74,25 @@ check('…else the puter.site address', CD.liveUrl([pending], 'cafe', 'https://c
 {
     // Change domain: old.com works, new.com was just picked.
     const old = { hostname: 'old.com', site: 'cafe', status: 'active' };
-    let changed = CD.upsert([old], { hostname: 'new.com', site: 'cafe', status: 'pending' });
-    check('a new pick doesn\'t take the address before it works', CD.liveUrl(changed, 'cafe', 'https://cafe.puter.site/') === 'https://old.com/');
+    let changed = CD.set([old], { hostname: 'new.com', site: 'cafe', status: 'pending' });
+    check('Change domain drops the old one from the project', changed.map((d) => d.hostname).join() === 'new.com');
+    check('…so the address is puter.site until the new one works', CD.liveUrl(changed, 'cafe', 'https://cafe.puter.site/') === 'https://cafe.puter.site/');
     changed = CD.markActive(changed, 'new.com', 1);
-    check('…and takes it once it does, the old one still listed', CD.liveUrl(changed, 'cafe', 'https://cafe.puter.site/') === 'https://new.com/' && changed.some((d) => d.hostname === 'old.com'));
+    check('…and the new one once it does', CD.liveUrl(changed, 'cafe', 'https://cafe.puter.site/') === 'https://new.com/');
+}
+{
+    // A connected domain that later stops showing the site.
+    const lost = CD.markLost([{ hostname: 'a.com', site: 'cafe', status: 'active', activatedAt: 1 }], 'a.com', 7);
+    check('a connected domain found not showing the site is lost', CD.view(lost[0], 'cafe').kind === 'lost' && lost[0].lostAt === 7 && lost[0].status === 'active');
+    check('…so the address goes back to puter.site, and the popover keeps checking it',
+        CD.liveUrl(lost, 'cafe', 'https://cafe.puter.site/') === 'https://cafe.puter.site/' && CD.waiting(lost, 'cafe').length === 1);
+    check('…until a check finds it working again', CD.markActive(lost, 'a.com', 9)[0].lostAt === null && CD.view(CD.markActive(lost, 'a.com', 9)[0], 'cafe').kind === 'active');
+    check('…and a new pick from Puter\'s window is never lost', CD.set(lost, { hostname: 'a.com', site: 'cafe', status: 'active' })[0].lostAt === null);
+    check('an address change still reads as moved, not lost', CD.view(lost[0], 'renamed').kind === 'moved');
+    check('the project list shows a working domain', CD.domainUrl([{ hostname: 'a.com', site: 'cafe', status: 'active' }], 'https://cafe.puter.site/') === 'https://a.com/');
+    check('…and the puter.site address otherwise', CD.domainUrl(lost, 'https://cafe.puter.site/') === null
+        && CD.domainUrl([pending], 'https://cafe.puter.site/') === null && CD.domainUrl([], 'https://cafe.puter.site/') === null
+        && CD.domainUrl([{ hostname: 'a.com', site: 'cafe', status: 'active' }], null) === null);
 }
 check('the same page is the same site', CD.sameSite({ body: '<h1>x</h1>' }, { body: '<h1>x</h1>' }));
 check('…and so is the same file modified at the same time', CD.sameSite({ body: 'a', lastModified: 'Wed' }, { body: 'b', lastModified: 'Wed' }));
@@ -81,9 +100,9 @@ check('a failed read, another page or two empty pages are not', !CD.sameSite(nul
 
 // --- The popover section of ui.js against fakes -------------------------------------
 const section = ui.slice(ui.indexOf("// ---- The user's own domain (inside the popover)"), ui.indexOf('// ---- Share the draft link (toolbar popover)'));
-function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, blocked = null, createImpl, field = 'brave-otter-42' } = {}) {
+function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, blocked = null, createImpl, field = 'brave-otter-42', savedChats = [], files = {} } = {}) {
     const state = { attachCalls: [], saves: [], fieldSaves: [], alerts: [], renders: 0, tracks: [], announced: [], timers: [],
-        upgrades: [], prompts: [], creates: [], mkdirs: [], publishes: [], order: [] };
+        upgrades: [], prompts: [], creates: [], mkdirs: [], publishes: [], order: [], reads: [] };
     const window = {
         CustomDomain: CD,
         user: { subscribed: paid },
@@ -106,7 +125,7 @@ function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, block
         },
         ui: { alert: async (msg, buttons) => { state.alerts.push([msg, buttons]); return alertChoice; } },
         fs: {
-            read: async () => ({ text: async () => JSON.stringify({ publishedDomains: [pending] }) }),
+            read: async (path) => { state.reads.push(path); return { text: async () => JSON.stringify(files[path] || { publishedDomains: [pending] }) }; },
             mkdir: async (dir) => { state.mkdirs.push(dir); },
         },
         randName: () => 'random-name-12',
@@ -139,11 +158,12 @@ function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, block
         publishBadgeToggleHtml: () => '[badge]',
         publishWaitingHtml: (r) => `[waiting ${r}]`,
         doPublish: (opts) => { state.publishes.push(opts); },
+        savedChats,
         state,
     };
     const names = Object.keys(env);
     const code = 'let currentChatId = "A"; let chatHistory = []; let _publishPanelOpen = true; let _suggestedPublishName = null;\n' + section +
-        '\nreturn { connectCustomDomain, checkCustomDomain, publishDomainsHtml, confirmAddressChangeKeepsDomains, publishedShareUrl,' +
+        '\nreturn { connectCustomDomain, checkCustomDomain, publishDomainsHtml, confirmAddressChangeKeepsDomains, publishedShareUrl, watchCustomDomains, stopWatchingCustomDomains,' +
         ' publishWithDomain, reservePublishSubdomain, publishAlsoAtHtml, publishAddressHeadHtml, useOwnDomain,' +
         ' setChat: (id) => { currentChatId = id; }, closePanel: () => { _publishPanelOpen = false; } };';
     const api = new Function(...names, code)(...names.map((k) => env[k]));
@@ -188,6 +208,43 @@ function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, block
     check('…and only its domains are written', Object.keys(h.state.fieldSaves[0][1]).join() === 'publishedDomains');
 }
 {
+    // Project B had www.example.com. Project A takes it in Puter's window, which
+    // moves it to A's site.
+    const savedChats = [
+        { id: 'A', publishedUrl: 'https://cafe.puter.site/' },
+        { id: 'B', publishedUrl: 'https://bistro.puter.site/' },
+        { id: 'C', publishedUrl: null },
+        { id: 'D', publishedUrl: 'https://deli.puter.site/' },
+    ];
+    const files = {
+        'chat-history/B.json': { publishedDomains: [{ hostname: 'www.example.com', site: 'bistro', status: 'active' }] },
+        'chat-history/D.json': { publishedDomains: [{ hostname: 'other.com', site: 'deli', status: 'active' }] },
+    };
+    const h = harness({ attach: async () => pending, savedChats, files });
+    h.connectCustomDomain();
+    for (let i = 0; i < 8; i++) await tick();
+    check('a domain another project had is taken off that project', h.state.fieldSaves.length === 1 && h.state.fieldSaves[0][0] === 'B'
+        && Array.isArray(h.state.fieldSaves[0][1].publishedDomains) && h.state.fieldSaves[0][1].publishedDomains.length === 0, JSON.stringify(h.state.fieldSaves));
+    check('…and stays on this one', h.window.currentPublishedDomains[0]?.hostname === 'www.example.com' && h.state.saves.join() === 'A');
+    check('…a project with another domain keeps it, and one never published isn\'t read', !h.state.fieldSaves.some(([id]) => id === 'D')
+        && !h.state.reads.includes('chat-history/C.json') && !h.state.reads.includes('chat-history/A.json'), h.state.reads.join());
+}
+{
+    // The project that had it is open when the domain lands (the user switched
+    // to it while Puter's window was open for A).
+    let resolve;
+    const savedChats = [{ id: 'A', publishedUrl: 'https://cafe.puter.site/' }, { id: 'B', publishedUrl: 'https://bistro.puter.site/' }];
+    const files = { 'chat-history/B.json': { publishedDomains: [{ hostname: 'www.example.com', site: 'bistro', status: 'active' }] } };
+    const h = harness({ attach: () => new Promise((r) => { resolve = r; }), savedChats, files });
+    h.connectCustomDomain();
+    h.setChat('B');
+    h.window.currentPublishedDomains = CD.list(files['chat-history/B.json'].publishedDomains);
+    const renders = h.state.renders;
+    resolve(pending);
+    for (let i = 0; i < 8; i++) await tick();
+    check('…an open project loses it on screen too', h.window.currentPublishedDomains.length === 0 && h.state.saves.includes('B') && h.state.renders > renders);
+}
+{
     const h = harness({ attach: async () => { const e = new Error('nope'); e.code = 'not_supported'; throw e; } });
     h.connectCustomDomain();
     await tick(); await tick();
@@ -204,13 +261,12 @@ function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, block
     const below = h.publishDomainsHtml();
     check('…and gets no card of its own, since the URL row shows it', below === '');
     check('…and the heading offers to change it', /data-action="change-domain"[^>]*>.*Change domain/.test(h.publishAddressHeadHtml()));
-    const also = h.publishAlsoAtHtml('https://www.example.com/', 'https://cafe.puter.site/');
-    check('the puter.site address moves to the line under it', /Also at <a href="https:\/\/cafe\.puter\.site\/"[^>]*>cafe\.puter\.site<\/a>/.test(also));
+    const also = h.publishAlsoAtHtml('https://cafe.puter.site/');
+    check('the puter.site address moves to the line under it', also === '<div class="publish-also">Also at <a href="https://cafe.puter.site/" target="_blank" rel="noopener noreferrer">cafe.puter.site</a></div>', also);
     check('…without a Change of its own, which would only disconnect the domain', !/publish-change-address/.test(also));
-    h.window.currentPublishedDomains = CD.upsert(h.window.currentPublishedDomains, { hostname: 'example.com', site: 'cafe', status: 'active' });
-    h.window.currentPublishedDomains = CD.upsert(CD.markActive(h.window.currentPublishedDomains, 'example.com', 1), { hostname: 'new.com', site: 'cafe', status: 'pending' });
-    check('a waiting pick next to a working domain is labelled the new one', /New domain</.test(h.publishDomainsHtml()) && /new\.com/.test(h.publishDomainsHtml()));
-    check('…after any other connected domain', /Also at <a[^>]*>example\.com<\/a>, <a[^>]*>cafe\.puter\.site<\/a>/.test(h.publishAlsoAtHtml('https://www.example.com/', 'https://cafe.puter.site/')));
+    h.window.currentPublishedDomains = CD.set(h.window.currentPublishedDomains, { hostname: 'new.com', site: 'cafe', status: 'pending' });
+    check('after Change domain only the new pick shows, waiting for its records', /Your domain</.test(h.publishDomainsHtml())
+        && /new\.com/.test(h.publishDomainsHtml()) && !/www\.example\.com/.test(h.publishDomainsHtml()));
 }
 {
     const fetchImpl = async (url) => {
@@ -226,11 +282,76 @@ function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, block
     check('…and so does one that can\'t be reached yet', await offline.checkCustomDomain('A', 'www.example.com', 'https://cafe.puter.site/') === false);
 }
 {
+    // A connected domain is checked again when the popover opens.
+    const site = '<html>cafe</html>';
+    const fetchFor = (domainPage) => async (url) => {
+        if (url.startsWith('https://www.example.com')) {
+            if (domainPage === null) throw new Error('unreachable');
+            return { ok: true, text: async () => domainPage, headers: { get: () => '' } };
+        }
+        return { ok: true, text: async () => site, headers: { get: () => '' } };
+    };
+    const connected = () => [CD.normalize({ ...pending, status: 'active' })];
+    const settle = async () => { for (let i = 0; i < 6; i++) await tick(); };
+
+    const ok = harness({ attach: async () => null, fetchImpl: fetchFor(site) });
+    ok.window.currentPublishedDomains = connected();
+    ok.watchCustomDomains();
+    await settle();
+    check('a connected domain still showing the site stays connected, with no more checks', ok.window.currentPublishedDomains[0].lostAt === null
+        && !ok.state.timers.length && ok.state.saves.length === 0);
+    const calls = [];
+    const again = harness({ attach: async () => null, fetchImpl: async (u) => { calls.push(u); return fetchFor(site)(u); } });
+    again.window.currentPublishedDomains = connected();
+    again.watchCustomDomains(); await settle();
+    again.watchCustomDomains(); await settle();
+    check('…checked once per opening of the popover', calls.filter((u) => u.includes('example.com')).length === 1);
+    again.stopWatchingCustomDomains();
+    again.watchCustomDomains(); await settle();
+    check('…and again on the next one', calls.filter((u) => u.includes('example.com')).length === 2);
+
+    const gone = harness({ attach: async () => null, fetchImpl: fetchFor('<html>someone else</html>') });
+    gone.window.currentPublishedDomains = connected();
+    gone.watchCustomDomains();
+    await settle();
+    check('one check that finds another site leaves it connected, and checks again', gone.window.currentPublishedDomains[0].lostAt === null
+        && gone.state.timers.includes(15000) && gone.publishedShareUrl('https://cafe.puter.site/') === 'https://www.example.com/');
+    gone.watchCustomDomains();
+    await settle();
+    check('the second in a row marks it lost and saves that', typeof gone.window.currentPublishedDomains[0].lostAt === 'number'
+        && gone.state.saves.join() === 'A' && gone.state.tracks.some(([n]) => n === 'Custom Domain Lost'));
+    check('…so the site\'s address is puter.site again', gone.publishedShareUrl('https://cafe.puter.site/') === 'https://cafe.puter.site/');
+    const card = gone.publishDomainsHtml();
+    check('…and the popover says so, with Check now and Connect again', /is-lost/.test(card) && /Not working/.test(card)
+        && /stopped showing this site/.test(card) && /Check now/.test(card) && /Connect again/.test(card));
+    check('…in plain sentences', !/[:;]\s/.test(card.replace(/<[^>]+>/g, ' ').replace(/https?:\/\//g, '')));
+
+    const unreachable = harness({ attach: async () => null, fetchImpl: fetchFor(null) });
+    unreachable.window.currentPublishedDomains = connected();
+    unreachable.watchCustomDomains(); await settle();
+    unreachable.watchCustomDomains(); await settle();
+    check('a domain that stopped answering is lost the same way', typeof unreachable.window.currentPublishedDomains[0].lostAt === 'number');
+
+    const offline = harness({ attach: async () => null });
+    offline.window.currentPublishedDomains = connected();
+    offline.watchCustomDomains(); await settle();
+    offline.watchCustomDomains(); await settle();
+    check('a check that can\'t read the site\'s own address either counts for nothing', offline.window.currentPublishedDomains[0].lostAt === null
+        && offline.state.saves.length === 0);
+
+    const back = harness({ attach: async () => null, fetchImpl: fetchFor(site) });
+    back.window.currentPublishedDomains = CD.markLost(connected(), 'www.example.com', 5);
+    back.watchCustomDomains();
+    await settle();
+    check('a lost domain that shows the site again is connected again', back.window.currentPublishedDomains[0].lostAt === null
+        && back.publishedShareUrl('https://cafe.puter.site/') === 'https://www.example.com/');
+}
+{
     const h = harness({ attach: async () => null, alertChoice: 'cancel' });
     check('an address change with no domain asks nothing', await h.confirmAddressChangeKeepsDomains([], 'cafe') === true && h.state.alerts.length === 0);
     check('…nor with only domains already left on an older address', await h.confirmAddressChangeKeepsDomains([{ ...pending, site: 'older' }], 'cafe') === true);
-    const ok = await h.confirmAddressChangeKeepsDomains([pending, { hostname: 'example.com', site: 'cafe', status: 'active' }], 'cafe');
-    check('with domains on it, it names them and the user can back out', ok === false && /www\.example\.com and example\.com show your site/.test(h.state.alerts[0][0]));
+    const ok = await h.confirmAddressChangeKeepsDomains([pending], 'cafe');
+    check('with a domain on it, it names the domain and the user can back out', ok === false && /^www\.example\.com shows your site/.test(h.state.alerts[0][0]));
     check('…in plain sentences', !/[:;]\s/.test(h.state.alerts[0][0].replace(/https?:\/\//g, '')));
     h.window.currentPublishedUrl = 'https://renamed.puter.site/';
     h.window.currentPublishedDomains = [CD.normalize(pending)];
@@ -240,6 +361,8 @@ function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, block
     const h = harness({ attach: async () => null });
     h.window.currentPublishedDomains = [CD.normalize({ ...pending, records: [{ type: 'TXT', name: 'x', value: '"><img src=x onerror=alert(1)>' }] })];
     check('record values are escaped', !/<img/.test(h.publishDomainsHtml()));
+    h.window.currentPublishedDomains = [CD.normalize({ ...pending, hostname: 'example.com', isApex: true })];
+    check('a root domain gets no hint of its own, since Puter\'s window covers it', !/root domain|CNAME flattening/.test(h.publishDomainsHtml()));
     h.window.currentPublishedUrl = null;
     check('an unpublished project shows no domain part', h.publishDomainsHtml() === '');
 }
@@ -345,6 +468,24 @@ function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, block
     await window.savePublishedFields('A', { publishedUrl: 'https://new.puter.site/', publishedPath: '/q', publishedVersionId: 'v2', publishedAt: 'u' });
     check('a publish still writes its four fields and keeps the domains', disk.publishedUrl === 'https://new.puter.site/' && disk.publishedDomains.length === 1 && listSaves === 1 && entry.publishedUrl === 'https://new.puter.site/');
 }
+{
+    // The project list shows a working domain in place of the puter.site address.
+    const fn = app.slice(app.indexOf('window.savePublishedFields = async function'), app.indexOf('\n};\n', app.indexOf('window.savePublishedFields = async function')) + 4);
+    let disk = { publishedUrl: 'https://cafe.puter.site/', publishedDomains: [] };
+    let listSaves = 0;
+    const window = { CustomDomain: CD };
+    const entry = { id: 'A', publishedUrl: 'https://cafe.puter.site/' };
+    new Function('window', 'withChatFileLock', 'puter', 'chatFilePath', 'savedChats', 'saveChatList', 'updateChatHistorySidebar', fn)(
+        window, async (id, f) => f(),
+        { fs: { read: async () => ({ text: async () => JSON.stringify(disk) }), write: async (p, t) => { disk = JSON.parse(t); } } },
+        (id) => id, [entry], async () => { listSaves++; }, () => {});
+    await window.savePublishedFields('A', { publishedDomains: [{ hostname: 'cafe.com', site: 'cafe', status: 'pending' }] });
+    check('a domain still waiting leaves the project list alone', listSaves === 0 && !entry.publishedDomainUrl);
+    await window.savePublishedFields('A', { publishedDomains: [{ hostname: 'cafe.com', site: 'cafe', status: 'active' }] });
+    check('a working one goes on the project list', entry.publishedDomainUrl === 'https://cafe.com/' && listSaves === 1);
+    await window.savePublishedFields('A', { publishedDomains: [{ hostname: 'cafe.com', site: 'cafe', status: 'active', lostAt: 3 }] });
+    check('…and comes off it once it\'s lost', entry.publishedDomainUrl === null && entry.publishedUrl === 'https://cafe.puter.site/' && listSaves === 2);
+}
 
 // --- Wiring --------------------------------------------------------------------------
 const vite = read('../vite.config.js');
@@ -355,12 +496,19 @@ check('a save of the open project writes its domains', /publishedDomains = windo
 check('…and a background save keeps the ones on disk', /publishedDomains = Array\.isArray\(prev\.publishedDomains\) \? prev\.publishedDomains : \[\];/.test(save));
 check('…into the record', /publishedDomains: publishedDomains,/.test(save));
 check('opening a project restores its domains', /window\.currentPublishedDomains = window\.CustomDomain\.list\(chat\.publishedDomains\);/.test(app));
+check('the open project\'s list entry carries its working domain, and a change to it is written',
+    /publishedDomainUrl: window\.CustomDomain\?\.domainUrl\(publishedDomains, publishedUrl\) \|\| null,/.test(save)
+    && /\(live\.publishedDomainUrl \|\| null\) === \(entry\.publishedDomainUrl \|\| null\)/.test(save));
+check('…and so does a list rebuilt from the project files', /publishedDomainUrl: window\.CustomDomain\?\.domainUrl\(chat\.publishedDomains, chat\.publishedUrl\) \|\| null,/.test(app));
+check('the sidebar links to the domain, redraws when it changes, and finds the project by it',
+    /const linkUrl = chat\.publishedDomainUrl \|\| chat\.publishedUrl;/.test(app) && /c\.publishedDomainUrl \|\| ''/.test(app)
+    && /\(chat\.publishedDomainUrl \|\| ''\)\.toLowerCase\(\)\.includes\(q\)/.test(app));
 check('a duplicate starts without the source\'s domains', /publishedAt: null,\s*publishedDomains: \[\],\s*\/\/ Carry the source/.test(app));
 check('closing a project clears them', /window\.currentPublishedAt = null;\s*window\.currentPublishedDomains = \[\];/.test(ui));
 check('the live popover shows them above the badge box', /publishDomainsHtml\(\) \+\s*publishBadgeToggleHtml\(\) \+/.test(ui));
 check('opening the popover checks waiting domains, closing it stops', /refreshUserPlan\(\);\s*\/\/[^\n]*\n\s*watchCustomDomains\(\);/.test(ui) && /stopWatchingCustomDomains\(\);\s*\$\('\.preview-publish-btn'\)\.attr\('aria-expanded', 'false'\);/.test(ui));
 check('the live view\'s URL row shows a connected domain, the puter.site address under it',
-    /const primary = publishedShareUrl\(url\) \|\| url;/.test(ui) && /\(primary !== url\s*\? publishAlsoAtHtml\(primary, url\)\s*: '<button class="publish-change-address"/.test(ui));
+    /const primary = publishedShareUrl\(url\) \|\| url;/.test(ui) && /\(primary !== url\s*\? publishAlsoAtHtml\(url\)\s*: '<button class="publish-change-address"/.test(ui));
 check('…and its copy button copies what it shows', /\.publish-copy', async function \(e\) \{[\s\S]{0,200}const url = publishedShareUrl\(window\.currentPublishedUrl\);/.test(ui));
 check('the share view and toast use the connected domain', /const shareUrl = window\.publishedShareUrl\?\.\(url\) \|\| url;/.test(ui) && /_publishSuccessData = \{ url: shareUrl, meta \};/.test(ui));
 check('both address editors ask before leaving a domain behind',
@@ -370,7 +518,7 @@ const publish = ui.slice(ui.indexOf('async function doPublish('), ui.indexOf('as
 check('a first publish with a reserved name points that name at the release, after filling in the address',
     /if \(!existingSub && reserved\) \{[\s\S]*?const sub = await reserved;\s*url = `https:\/\/\$\{sub\}\.puter\.site\/`;\s*await absolutizeSocialImagesInRelease\(releaseDir, url, \[startPreviewUrl\]\);\s*await puter\.hosting\.update\(sub, releaseDir\);\s*_reservedPublishNames\.delete\(chatId\);\s*\} else if \(!existingSub\)/.test(publish));
 check('…and only a first publish uses one', /if \(!isFirst\) reserved = null;/.test(publish));
-check('…and lands on the site view, where the domain shows its records', /if \(_publishPanelOpen && reserved\) \{\s*_publishPanelView = 'form';\s*renderPublishPanel\(\);/.test(publish));
+check('…and lands on the site view, where the domain shows its records', /const viaDomain = !!reserved;/.test(publish) && /if \(_publishPanelOpen && viaDomain\) \{\s*_publishPanelView = 'form';\s*renderPublishPanel\(\);/.test(publish));
 check('the placeholder goes with the replaced releases once the publish lands', /await retirePublishedReleases\(pubRoot, releaseName\);/.test(publish));
 const form = ui.slice(ui.indexOf("if (st.state === 'unpublished') {"), ui.indexOf("title = 'Your site';"));
 check('the heading sits over the address field before a first publish', /publishAddressHeadHtml\(\) \+\s*'<div class="publish-name-row">'/.test(form));

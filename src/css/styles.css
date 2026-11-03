@@ -3965,7 +3965,8 @@ html[data-theme="dark"] .gh-error { color: #ff8a80; }
     background: #e8a33d;
     flex: 0 0 auto;
 }
-.publish-domain.is-failed .publish-domain-dot { background: #d9534f; }
+.publish-domain.is-failed .publish-domain-dot,
+.publish-domain.is-lost .publish-domain-dot { background: #d9534f; }
 .publish-domain.is-moved .publish-domain-dot { background: #b5b5b5; }
 .publish-domain-host {
     flex: 1 1 auto;
@@ -3978,11 +3979,13 @@ html[data-theme="dark"] .gh-error { color: #ff8a80; }
     color: #222;
 }
 .publish-domain-state { flex: 0 0 auto; font-size: 12px; font-weight: 600; color: #9a5b00; }
-.publish-domain.is-failed .publish-domain-state { color: #b3261e; }
+.publish-domain.is-failed .publish-domain-state,
+.publish-domain.is-lost .publish-domain-state { color: #b3261e; }
 .publish-domain.is-moved .publish-domain-state { color: #6f6f6f; }
 .publish-domain-note { margin: 0; font-size: 12px; line-height: 1.45; color: #666; }
 .publish-domain-note.is-not-yet { color: #9a5b00; }
 .publish-domain .publish-domain-btn { align-self: flex-start; }
+.publish-domain-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .publish-domain-records { display: flex; flex-direction: column; gap: 6px; }
 /* Type on the left across both lines, then Name and Value with their copy
    buttons. Values wrap anywhere, since they are pasted as they are. */
@@ -6712,7 +6715,8 @@ html[data-theme="dark"] .publish-domains-label { color: var(--text-muted); }
 html[data-theme="dark"] .publish-domain:not(.is-active) { border-color: var(--border); }
 html[data-theme="dark"] .publish-domain-host { color: var(--text); }
 html[data-theme="dark"] .publish-domain-state { color: #f0c061; }
-html[data-theme="dark"] .publish-domain.is-failed .publish-domain-state { color: #ff8a80; }
+html[data-theme="dark"] .publish-domain.is-failed .publish-domain-state,
+html[data-theme="dark"] .publish-domain.is-lost .publish-domain-state { color: #ff8a80; }
 html[data-theme="dark"] .publish-domain.is-moved .publish-domain-state { color: var(--text-muted); }
 html[data-theme="dark"] .publish-domain-note { color: var(--text-secondary); }
 html[data-theme="dark"] .publish-domain-note.is-not-yet { color: #f0c061; }
