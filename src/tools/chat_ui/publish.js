@@ -51,6 +51,11 @@
         });
         const renaming = !!window.isAddressChanging?.(currentChatId);
         const working = !!publishBlockedReason() || !!window.isPublishStarting?.(currentChatId);
+        // A publish ships the preview's files: with no preview (a project
+        // published once, then opened without one), it would ship the whole
+        // project folder instead. The toolbar has no Publish then, and
+        // Settings refuses.
+        const noPreview = !window.currentPreviewUrl;
         if (url && $card && $card.attr('data-kind') === 'address' && !$card.attr('data-published-url')) {
             return { state: 'address', url, busy: renaming, blocked: working || publishBusyHere() };
         }
@@ -59,7 +64,7 @@
             state: st.state === 'unpublished' ? 'form' : pending ? 'changes' : 'live',
             url,
             busy: publishBusyHere(),
-            blocked: working || renaming,
+            blocked: working || renaming || noPreview,
         };
     }
 
@@ -405,6 +410,7 @@
     // waiting button under an enabled field waits for something else.
     function waitText($card) {
         const what = $card.attr('data-mode') === 'address' ? 'change the address' : 'publish';
+        if (what === 'publish' && !window.currentPreviewUrl) return 'There’s nothing to publish yet — build your app first.';
         const reason = publishBlockedReason();
         const doing = reason === 'restore' ? 'the restore'
             : reason ? 'the current task'
@@ -476,7 +482,8 @@
             strict: false
         },
         exec: async function (args, state) {
-            if (!window.currentPreviewUrl && !window.currentPublishedUrl) {
+            // A publish ships the preview's files (see cardView).
+            if (!window.currentPreviewUrl) {
                 return { error: 'There is nothing to publish yet. Build the app and open its preview with publish_site first.' };
             }
             const address = addressFrom(args && args.address) || puter.randName('-');

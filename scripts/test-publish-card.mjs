@@ -262,6 +262,33 @@ function setup() {
     check('a moved address on an older card meets 4.5:1 against the card', ratio >= 4.5, `${fg} on ${bg}: ${ratio.toFixed(2)}`);
 }
 
+// ---- Published, but no preview: no publish from the chat --------------------
+// A publish ships the preview's files. In a project published once and then
+// opened without a preview, the card still offered Publish changes, and it
+// would have shipped the whole project folder (publishedRootDir falls back
+// to it). The toolbar has no Publish then, and Settings refuses.
+{
+    const { env, tool, cards, q, dom, calls } = setup();
+    env.currentPreviewUrl = null;
+    env.currentPublishedUrl = 'https://ay-site.puter.site/';
+    const r = await tool.exec({}, {});
+    check('no preview: OfferPublish returns an error and no card', r.error && !r.__publish_offer && cards().length === 0, JSON.stringify(r));
+
+    // A card from before (a reloaded chat) waits, and Enter says why.
+    const toasts = [];
+    env.showToast = (text) => toasts.push(text);
+    env.renderPublishCard({ address: 'ay-site', offer: 'offer-1' });
+    const btn = q(cards()[0], '.publish-card-btn');
+    check('no preview: a reloaded card\'s Publish changes waits', btn && btn.disabled, cards()[0].innerHTML);
+    dom.dispatch(btn, 'click');
+    check('…a click does nothing', calls.length === 0);
+    env.currentPublishedUrl = null;
+    env.refreshPublishCards();
+    dom.dispatch(q(cards()[0], '.publish-card-input'), 'keydown', { key: 'Enter' });
+    check('…and Enter in a first publish\'s field says there is nothing to publish yet',
+        calls.length === 0 && /nothing to publish yet/.test(toasts[0] || ''), JSON.stringify(toasts));
+}
+
 // ---- The address the AI passes is kept as the user gave it ------------------
 // Both tools made the address the way a title is made into one: dots became
 // hyphens and it was cut at 30 characters, so "move it to
