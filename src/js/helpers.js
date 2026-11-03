@@ -65,12 +65,11 @@ window.FEATURE_FLAGS = {
     // badge.
     codeEditor: true,
     // Official project templates (js/templates.js, sources in src/templates/):
-    // the "Start from a template" section under the landing hero, the
-    // /?template=<slug> link the /templates/<slug>/ pages send visitors
+    // the /?template=<slug> link the /templates/<slug>/ pages send visitors
     // through, and the fork that copies a template into a new project. When
-    // false the section is never rendered, the index is never fetched, and a
-    // template link lands on the plain landing screen. The static template
-    // pages still build (they are ordinary marketing pages).
+    // false the index is never fetched, and a template link lands on the
+    // plain landing screen. The static template pages still build (they are
+    // ordinary marketing pages), and the landing footer still links them.
     templates: true,
     // Make generated apps installable: the builder writes a manifest.json, PNG
     // icons and the matching <head> tags into the app dir on every preview

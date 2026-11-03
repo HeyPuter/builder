@@ -217,10 +217,9 @@ function renderFeaturedFeed(items) {
     syncHomeFeedLayout();
 }
 
-// The scrolling landing layout (.has-feed, see styles.css) is on while ANY
-// section under the hero is showing: this feed, or the templates row
-// (js/templates.js). Each section's renderer calls this after showing or
-// hiding itself, so neither can switch the layout off under the other.
+// The scrolling landing layout (.has-feed, see styles.css) is on while the
+// feed under the hero is showing. Its renderer calls this after showing or
+// hiding it.
 function syncHomeFeedLayout() {
     $('#new-chat').toggleClass('has-feed', $('.home-feed:not([hidden])').length > 0);
 }

@@ -39,7 +39,6 @@ const TEMPLATES_SRC = read('../src/js/templates.js');
 const APP = read('../src/js/app.js');
 const HELPERS = read('../src/js/helpers.js');
 const UI = read('../src/js/ui.js');
-const FEATURED = read('../src/js/featured.js');
 const PROMPT = read('../src/js/prompt.js');
 const VITE = read('../vite.config.js');
 
@@ -276,7 +275,7 @@ if (built) {
 // =============================================================================
 
 // A jQuery stand-in that absorbs any chain of calls. The fork itself never
-// needs the DOM; the dialog and landing section only need not to throw.
+// needs the DOM; the dialog only needs not to throw.
 const chain = new Proxy(function () {}, {
     get: (t, k) => (k === 'length' ? 1 : k === 'then' ? undefined : k === Symbol.toPrimitive ? () => '' : chain),
     apply: () => chain,
@@ -419,7 +418,7 @@ if (built) {
     // --- A frontend-only template ---------------------------------------------
     {
         const env = makeEnv({ savedChats: [{ id: 'c1', title: 'Product Landing Page' }] });
-        const id = await env.ctx.forkTemplate('landing-page', { source: 'landing' });
+        const id = await env.ctx.forkTemplate('landing-page', { source: 'page' });
         const t = tpl('landing-page');
         const chat = env.chatFile();
         check('fork: resolves with the new project id', id === 'chat_new');
@@ -457,7 +456,7 @@ if (built) {
         check('fork: a restore point of the template as it arrived',
             env.log.versions.length === 1 && env.log.versions[0].chatId === 'chat_new' && env.log.versions[0].appDir === env.appDir);
         check('fork: counted, and nothing alarming shown',
-            env.log.tracked.some(([e, p]) => e === 'Template Used' && p.template === 'landing-page' && p.source === 'landing') &&
+            env.log.tracked.some(([e, p]) => e === 'Template Used' && p.template === 'landing-page' && p.source === 'page') &&
             !env.log.tracked.some(([e]) => e === 'Template Use Failed') &&
             env.log.alerts.length === 0);
         check('fork: a template without instructions adds no template rules', !blocks[2].text.includes('Rules for this'));
@@ -509,10 +508,10 @@ if (built) {
     const failedAt = (env) => env.log.tracked.filter(([e]) => e === 'Template Use Failed').map(([, p]) => `${p.template}/${p.source}/${p.stage}`);
     {
         const env = makeEnv({ failCreate: () => true });
-        const id = await env.ctx.forkTemplate('feedback-board', { source: 'landing' });
+        const id = await env.ctx.forkTemplate('feedback-board', { source: 'page' });
         check('a backend that will not deploy: no project is made', id === null && nothingLeft(env));
         check('a backend that will not deploy: reported once, at the backend step',
-            JSON.stringify(failedAt(env)) === JSON.stringify(['feedback-board/landing/backend']) &&
+            JSON.stringify(failedAt(env)) === JSON.stringify(['feedback-board/page/backend']) &&
             !env.log.tracked.some(([e]) => e === 'Template Used'));
         check('a backend that will not deploy: the user is told nothing was added', env.log.alerts.length === 1 && /Nothing was added/.test(env.log.alerts[0]));
         check('a backend that will not deploy: the loading state is taken down', env.log.hid >= 1);
@@ -692,8 +691,7 @@ if (built) {
         const env = makeEnv({ search: '?template=feedback-board', flagOff: true });
         env.ctx.captureTemplateDeepLink();
         await env.ctx.consumeTemplateDeepLink();
-        env.ctx.initTemplates();
-        check('flag off: links, the landing section and the index fetch are all inert',
+        check('flag off: links and the index fetch are inert',
             env.log.fetches.length === 0 && env.log.tracked.length === 0);
     }
     {
@@ -773,7 +771,6 @@ if (built) {
 
 const boot = APP.slice(APP.indexOf('$(document).ready(async function(){'));
 const at = (s) => boot.indexOf(s);
-check('boot paints the templates row with the feed', at('window.initTemplates?.();') > at('initFeaturedFeed();') && at('initFeaturedFeed();') > 0);
 check('boot captures a template link before the prompt link reads the handoff id',
     at('window.captureTemplateDeepLink?.();') > 0 && at('window.captureTemplateDeepLink?.();') < at('applyPromptDeepLink();'));
 check('boot consumes a template link after auth and the composer handoff',
@@ -789,13 +786,8 @@ check('a fork with no messages yet still saves (a publish before its first messa
 check('Back from a fork with no messages yet returns to the landing',
     APP.includes("} else if (currentChatId && (chatHistory.some(m => m.role !== 'system') || savedChats.some(c => c.id === currentChatId))) {"));
 check('the feature flag exists', /^\s*templates: (true|false),/m.test(HELPERS));
-check('the landing section is rendered only with the flag on, inside the feed layout',
-    /if \(window\.FEATURE_FLAGS\?\.templates\) \{\s*h \+= `<section class="home-feed home-templates"/.test(UI));
-check('the landing templates row links the templates hub', TEMPLATES_SRC.includes('<a class="home-feed-sub home-templates-all" href="/templates/"></a>'));
-check('the feed and the templates row share the landing layout switch',
-    FEATURED.includes("$('#new-chat').toggleClass('has-feed', $('.home-feed:not([hidden])').length > 0);") &&
-    !/\$\('#new-chat'\)\.(add|remove)Class\('has-feed'\)/.test(FEATURED) &&
-    TEMPLATES_SRC.includes('window.syncHomeFeedLayout?.();'));
+check('the landing has no templates section', !UI.includes('home-templates') && !APP.includes('initTemplates'));
+check('the landing footer links the templates hub', UI.includes("{ href: '/templates/', label: 'Templates' }"));
 const scripts = (VITE.match(/const SCRIPTS = \[([\s\S]*?)\];/) || [])[1] || '';
 const pos = (f) => scripts.indexOf(`'${f}'`);
 check('vite bundles both halves, pure first, after what they build on',

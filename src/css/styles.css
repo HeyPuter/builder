@@ -2268,8 +2268,8 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
 .chat-copyright {
     flex-shrink: 0;
     padding: 24px 0 12px;
-    /* Reclaim the column's 20px side padding: the seven-link nav below needs
-       ~570px on one line, and the column's content box is 560px. */
+    /* Reclaim the column's 20px side padding. The eight-link nav below needs
+       ~575px on one line at 12px, and the column's content box is 560px. */
     margin-left: -20px;
     margin-right: -20px;
     display: flex;
@@ -2277,7 +2277,7 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
     align-items: center;
     gap: 10px;
     text-align: center;
-    font-size: 0.8125rem;
+    font-size: 0.75rem;
     color: #5f6670;
 }
 
@@ -2294,7 +2294,7 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
     flex-wrap: wrap;
     justify-content: center;
     align-items: center;
-    gap: 6px 16px;
+    gap: 6px 12px;
     max-width: 600px;
 }
 
@@ -7343,23 +7343,8 @@ html[data-theme="dark"] .feed-card:hover .feed-thumb {
 }
 
 /* ========================== Templates ==========================
-   "Start from a template" (js/templates.js): a row under the landing hero that
-   reuses the community feed's section, grid and card styles (.home-feed,
-   .feed-card) — each card is a link to the template's page whose plain click
-   opens a dialog instead. Then the template dialog and the note a forked
-   project opens with. */
-
-.home-templates + .home-feed { margin-top: 36px; }
-
-/* "All templates" sits where the feed's muted subtitle does. */
-a.home-templates-all { text-decoration: none; }
-a.home-templates-all:hover { text-decoration: underline; text-underline-offset: 2px; }
-
-.template-card:focus-visible { outline: none; }
-.template-card:focus-visible .feed-thumb {
-    outline: 2px solid #2563eb;
-    outline-offset: 2px;
-}
+   The template dialog (js/templates.js), whose screenshot reuses the community
+   feed's .feed-thumb, and the note a forked project opens with. */
 
 /* Dialog — reuses .confirm-modal-overlay for the backdrop. */
 .template-modal {
@@ -7453,7 +7438,6 @@ a.home-templates-all:hover { text-decoration: underline; text-underline-offset: 
     color: #6f6f6f;
 }
 
-html[data-theme="dark"] .template-card:focus-visible .feed-thumb { outline-color: var(--accent); }
 html[data-theme="dark"] .template-modal {
     background: var(--surface-raised);
     box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);

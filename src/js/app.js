@@ -2732,9 +2732,6 @@ $(document).ready(async function(){
     // (we're still pre-reveal, so returning visitors get no layout shift),
     // then revalidate against featured.json in the background.
     initFeaturedFeed();
-    // "Start from a template": the same cached-then-revalidated paint, for the
-    // official templates row (js/templates.js).
-    window.initTemplates?.();
 
     // A deep link (?p=<id>, or a legacy #<id>) is about to restore a project:
     // put the loading skeleton up NOW, before the cloak reveal, so the first
