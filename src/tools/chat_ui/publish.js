@@ -63,6 +63,20 @@
         };
     }
 
+    // An address the AI passes, as the field takes it. "joes-bakery.puter.site"
+    // and "https://joes-bakery.puter.site/" are "joes-bakery", and a valid
+    // address is kept whole, up to the 63 characters the popover takes.
+    // Made into an address as a title is (slugifyTitle), these lost their
+    // dots ("joes-bakery-puter-site") and were cut at 30 characters, and the
+    // AI then offered the result as what the user asked for. Anything else
+    // ("Joe's Bakery") is still made into one.
+    function addressFrom(raw) {
+        const s = String(raw || '').trim().toLowerCase()
+            .replace(/^https?:\/\//, '').replace(/\/+$/, '').replace(/\.puter\.site$/, '');
+        return /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(s) ? s : slugifyTitle(s);
+    }
+    window.publishAddressFrom = addressFrom;
+
     function hostOf(url) {
         return (url || '').replace(/^https?:\/\//, '').replace(/\/+$/, '');
     }
@@ -465,7 +479,7 @@
             if (!window.currentPreviewUrl && !window.currentPublishedUrl) {
                 return { error: 'There is nothing to publish yet. Build the app and open its preview with publish_site first.' };
             }
-            const address = slugifyTitle(args && args.address) || puter.randName('-');
+            const address = addressFrom(args && args.address) || puter.randName('-');
             const offer = 'offer-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
             const view = cardView();
             // The turn may have been stopped, or the chat switched: no card

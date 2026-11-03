@@ -262,6 +262,29 @@ function setup() {
     check('a moved address on an older card meets 4.5:1 against the card', ratio >= 4.5, `${fg} on ${bg}: ${ratio.toFixed(2)}`);
 }
 
+// ---- The address the AI passes is kept as the user gave it ------------------
+// Both tools made the address the way a title is made into one: dots became
+// hyphens and it was cut at 30 characters, so "move it to
+// joes-bakery.puter.site" offered joes-bakery-puter-site, and a longer
+// address lost its end. The AI then presented that as what was asked for.
+{
+    const t = setup();
+    t.env.currentPublishedUrl = 'https://old-name.puter.site/';
+    const long = 'the-best-bakery-in-san-francisco-bay';
+    for (const [given, want] of [
+        ['joes-bakery.puter.site', 'joes-bakery'],
+        ['https://joes-bakery.puter.site/', 'joes-bakery'],
+        [long, long],
+        ["Joe's Bakery", 'joe-s-bakery'],
+    ]) {
+        const r = await t.addressTool.exec({ address: given }, {});
+        check(`OfferAddressChange: "${given}" is offered as ${want}`, r.address === want, JSON.stringify(r));
+    }
+    const u = setup();
+    const r = await u.tool.exec({ address: 'Joes-Bakery.puter.site' }, {});
+    check('OfferPublish: an address given with .puter.site is kept, without it', r.address === 'joes-bakery', JSON.stringify(r));
+}
+
 // ---- Enter while the button waits says why ---------------------------------
 // The card arrives during the AI's reply, so its button starts out waiting.
 // Enter in the field did nothing at all, and the dimmed button gave no

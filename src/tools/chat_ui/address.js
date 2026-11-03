@@ -31,7 +31,8 @@
             if (!url) {
                 return { error: "The site isn't published yet, so it has no public address to change. Its address is picked when it's first published: call OfferPublish with the address instead." };
             }
-            const address = slugifyTitle(args && args.address);
+            // Kept whole when it is already an address (publish.js).
+            const address = window.publishAddressFrom(args && args.address);
             if (!address) {
                 return { error: 'Give the new address in lowercase letters, numbers and hyphens, e.g. "bakery-orders".' };
             }
