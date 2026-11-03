@@ -452,9 +452,15 @@
                 window.track?.('Publish Card Shown', { state: view.state });
             }
             const url = view.url;
-            const instruction = view.state === 'form'
+            // It should come last, but a change still to run in this reply
+            // leaves the site behind: told it was up to date, the AI said so
+            // while the card then offered Publish changes.
+            const changesLater = view.state === 'live'
+                && (state?.laterToolCalls || []).some(t => t && window.isMutatingTool?.(t.name));
+            const told = changesLater ? 'changes' : view.state;
+            const instruction = told === 'form'
                 ? `A Publish button is now in the chat, with the address ${address}.puter.site filled in. The user can change the address. Nothing is public until they click Publish. Tell them so in one short sentence, without saying where the button is, and don't call the site live.`
-                : view.state === 'changes'
+                : told === 'changes'
                     ? `The site is live at ${url}. A Publish changes button is now in the chat, and the latest changes go live when the user clicks it. Tell them so in one short sentence, without saying where the button is.`
                     : `The site is already live at ${url} with every change, so there is nothing new to publish. A link to it is now in the chat. Tell the user in one short sentence.`;
             return { __publish_offer: true, address, offer, instruction };

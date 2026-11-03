@@ -224,6 +224,23 @@ function setup() {
         older.classList.contains('is-superseded') && /Publish changes/.test(newest.textContent));
 }
 
+// ---- Offered before an edit in the same reply ------------------------------
+{
+    const { env, tool } = setup();
+    env.currentPublishedUrl = 'https://ay-site.puter.site/';
+    env.currentPublishedVersionId = 'v2';
+    env._projectDirtySinceSnapshot = false;
+    // The edit leaves the site behind, so the model is told the card offers
+    // Publish changes, as it will once the reply ends. A later read changes
+    // nothing.
+    env.isMutatingTool = (name) => ['write', 'edit'].includes(name);
+    const editLater = await tool.exec({}, { laterToolCalls: [{ name: 'edit', input: {} }] });
+    check('up to date, an edit still to come: the model is told the changes go live on the click',
+        /Publish changes button/.test(editLater.instruction) && !/nothing new/.test(editLater.instruction), editLater.instruction);
+    const readLater = await tool.exec({}, { laterToolCalls: [{ name: 'ReadTextFile', input: {} }] });
+    check('up to date, only a read to come: still nothing new', /nothing new to publish/.test(readLater.instruction), readLater.instruction);
+}
+
 // ---- An older card keeps the publish made from it ---------------------------
 {
     const { env, tool, cards, q, calls, dom } = setup();
