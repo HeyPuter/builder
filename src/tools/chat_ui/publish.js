@@ -165,6 +165,11 @@
             const had = active && $inner[0] && $inner[0].contains(active)
                 ? (active.classList.contains('publish-card-input') ? 'field' : 'control')
                 : null;
+            // An error is about the attempt that failed. Another publish
+            // starting, or the card moving to another state (a publish from
+            // the toolbar that worked), makes it stale: kept, it came back
+            // the next time the site had changes, as if that had failed too.
+            if (view.busy || $card.attr('data-mode') !== view.state) $card.removeAttr('data-error');
             $card.attr('data-key', key).attr('data-mode', view.state);
             $inner.html(cardHtml(view, $card));
             if (had) keepCardFocus($card, had);
