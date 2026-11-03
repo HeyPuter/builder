@@ -32,7 +32,7 @@ export class El {
     }
     get children() { return this.childNodes.filter(n => n.nodeType === 1); }
     get textContent() { return this.childNodes.map(n => n.textContent).join(''); }
-    set textContent(v) { this.childNodes.forEach(n => { n.parentNode = null; }); this.childNodes = []; if (v !== '') this.appendChild(new Text(v)); }
+    set textContent(v) { this.childNodes.forEach(n => { dropFocus(n); n.parentNode = null; }); this.childNodes = []; if (v !== '') this.appendChild(new Text(v)); }
     get className() { return this.attrs.get('class') || ''; }
     set className(v) { this.attrs.set('class', String(v)); }
     get classes() { return this.className.split(/\s+/).filter(Boolean); }
@@ -45,7 +45,7 @@ export class El {
     hasAttribute(k) { return this.attrs.has(k); }
     appendChild(n) { if (n.parentNode) n.parentNode.removeChild(n); n.parentNode = this; this.childNodes.push(n); return n; }
     insertAfter(n, ref) { if (n.parentNode) n.parentNode.removeChild(n); n.parentNode = this; this.childNodes.splice(this.childNodes.indexOf(ref) + 1, 0, n); }
-    removeChild(n) { const i = this.childNodes.indexOf(n); if (i >= 0) this.childNodes.splice(i, 1); n.parentNode = null; return n; }
+    removeChild(n) { const i = this.childNodes.indexOf(n); if (i >= 0) this.childNodes.splice(i, 1); dropFocus(n); n.parentNode = null; return n; }
     remove() { if (this.parentNode) this.parentNode.removeChild(this); }
     replaceWith(n) { const p = this.parentNode; if (!p) return; p.insertAfter(n, this); p.removeChild(this); }
     contains(n) { for (let x = n; x; x = x.parentNode) if (x === this) return true; return false; }
@@ -63,6 +63,13 @@ export class El {
     get value() { return 'value' in this.props ? this.props.value : (this.getAttribute('value') ?? ''); }
     set value(v) { this.props.value = String(v); }
     setSelectionRange() {}
+}
+
+// As in a browser, removing the focused element (or what holds it) moves
+// focus to <body>.
+function dropFocus(n) {
+    const doc = n.ownerDocument;
+    if (doc && doc.activeElement && n.nodeType === 1 && n.contains(doc.activeElement)) doc.activeElement = doc.body;
 }
 
 function compoundMatches(el, c) {

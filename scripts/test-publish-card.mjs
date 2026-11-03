@@ -440,6 +440,41 @@ function setup() {
     check('loadChat passes the card\'s kind', /publishedUrl: message\.publishCardUrl,\s*kind: toolResponse\.kind,/.test(app));
 }
 
+// ---- Keyboard focus survives the redraws ------------------------------------
+// The busy redraw replaced the focused Publish button, dropping focus to the
+// page: a keyboard user's next Tab started from the top of it.
+{
+    const { env, tool, cards, q, calls, dom } = setup();
+    await tool.exec({ address: 'shop' }, {});
+    const card = cards()[0];
+    const btn = q(card, '.publish-card-btn');
+    btn.focus();
+    dom.dispatch(btn, 'keydown', { key: 'Enter' }); // not the field: nothing
+    dom.dispatch(btn, 'click');
+    env.busy = true;
+    env.refreshPublishCards();
+    const inner = q(card, '.publish-card-inner');
+    check('publishing: focus stays on the card while its button is disabled',
+        dom.document.activeElement === inner && inner.getAttribute('tabindex') === '-1');
+    env.busy = false;
+    env.currentPublishedUrl = 'https://shop.puter.site/';
+    env.currentPublishedVersionId = 'v2';
+    env._projectDirtySinceSnapshot = false;
+    await calls[0].success({ url: 'https://shop.puter.site/', isFirst: true });
+    check('live: focus moves to the site\'s link', dom.document.activeElement === q(card, '.publish-card-link'));
+    env._projectDirtySinceSnapshot = true;
+    env.refreshPublishCards();
+    check('changes since: focus moves to Publish changes', dom.document.activeElement === q(card, '.publish-card-btn'));
+
+    // Focus elsewhere is left alone.
+    const composer = dom.document.createElement('textarea');
+    dom.body.appendChild(composer);
+    composer.focus();
+    env.busy = true;
+    env.refreshPublishCards();
+    check('a redraw leaves focus outside the card alone', dom.document.activeElement === composer);
+}
+
 // ---- Wiring --------------------------------------------------------------------
 {
     const vite = read('../vite.config.js');

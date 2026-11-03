@@ -2265,6 +2265,10 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
 .publish-card-btn:disabled { background: #9bbfe6; cursor: default; }
 .publish-card-btn svg { display: block; flex: 0 0 auto; }
 .publish-card.is-superseded { display: none; }
+/* Holds focus while its button is disabled for a publish; it's not a
+   control, so no focus ring (like the Publish popover). */
+.publish-card-inner:focus,
+.publish-card-inner:focus-visible { outline: none; }
 .publish-card-done {
     flex: 0 0 auto;
     display: inline-flex;
