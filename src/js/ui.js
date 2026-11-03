@@ -2651,7 +2651,7 @@ async function publishProject(ui) {
     }
     // The address is moving (changePublishedAddress): publishing now would
     // update the address that is about to go away.
-    if (window.isAddressChanging?.()) {
+    if (window.isAddressChanging?.(currentChatId)) {
         ui.render();
         window.showToast?.('Finishing the address change — you can publish the moment it’s done.',
             { type: 'info', key: 'publish-blocked', throttleMs: 3000 });

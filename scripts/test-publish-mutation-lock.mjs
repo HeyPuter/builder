@@ -103,6 +103,14 @@ check('the query is scoped per chat, not global',
     check('…and says so', /isAddressChanging\?\.\(chatId\)\) \{\s*window\.showToast/.test(submit));
 }
 
+// ---- ui.js: a publish waits for its own project's address change -----------
+{
+    const s = uiSource.indexOf('async function publishProject(ui) {');
+    const body = uiSource.slice(s, s + 3000);
+    check('publishProject waits for an address change of the open project only',
+        /isAddressChanging\?\.\(currentChatId\)/.test(body) && !/isAddressChanging\?\.\(\)/.test(body));
+}
+
 // ---- versions.js: a restore waits for the publish --------------------------
 {
     const start = versionsSource.indexOf('async function restoreVersion(');

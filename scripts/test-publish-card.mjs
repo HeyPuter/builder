@@ -340,6 +340,16 @@ function setup() {
     env.isAddressChanging = () => true;
     await tool.exec({}, {});
     check('a Publish card waits while the address changes', q(cards()[0], '.publish-card-btn').disabled === true);
+
+    // Only for this project's own address: one that keeps changing after the
+    // user opened another project doesn't hold this one's cards.
+    env.isAddressChanging = (chatId) => chatId === undefined || chatId === 'project-other';
+    env.refreshPublishCards();
+    check('another project\'s address change: Publish doesn\'t wait', q(cards()[0], '.publish-card-btn').disabled === false);
+    await env.tools.find(t => t.function.name === 'OfferAddressChange').exec({ address: 'b' }, {});
+    const addr = cards()[1];
+    check('…and a Change address card isn\'t drawn as changing',
+        q(addr, '.publish-card-btn').textContent === 'Change address' && q(addr, '.publish-card-btn').disabled === false);
 }
 
 // ---- The address change itself (ui.js) ----------------------------------------
