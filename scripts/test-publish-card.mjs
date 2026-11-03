@@ -338,6 +338,10 @@ function setup() {
     const gone = q(older, '.publish-card-gone');
     check('older card: a moved address stays, as plain text',
         !q(older, '.publish-card-link') && gone && gone.textContent === 'first-try.puter.site' && /Published/.test(older.textContent));
+    check('…its whole address is in its title, for when it is cut off',
+        gone && gone.getAttribute('title') === 'first-try.puter.site');
+    check('…and the live link\'s too', q(newest, '.publish-card-link')
+        && q(newest, '.publish-card-link').getAttribute('title') === 'https://renamed.puter.site/');
     check('…and a screen reader hears that it no longer works',
         gone && q(gone.parentNode, '.sr-only') && /no longer works/.test(q(gone.parentNode, '.sr-only').textContent),
         older.textContent);
