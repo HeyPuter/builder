@@ -374,5 +374,51 @@ check('switch/auto-name: the address is derived from A’s chat, not B’s',
         JSON.stringify(absolutized));
 }
 
+// ---- Change address during a turn: one wait toast, however many presses ----
+// The refusal's toast had no key or throttle, so each press of Save (or
+// Enter in the field) stacked another copy. A throttled toast is shown once
+// per key in its window (showToast in helpers.js).
+{
+    const marker = "$(document).on('click', '.publish-address-save', ";
+    const a = source.indexOf(marker);
+    const handlerSrc = source.slice(a + marker.length, source.indexOf('\n});\n', a) + 2);
+    const fnStart = source.indexOf('const _addressChangingChats = new Set();');
+    const changeSrc = source.slice(fnStart, source.indexOf('\n}\n', source.indexOf('async function changePublishedAddress(typed) {')) + 2);
+    const shown = [], last = {};
+    const input = { val: () => 'new-name', prop() { return input; }, trigger() { return input; } };
+    const panel = { find: () => input, removeClass() { return panel; } };
+    const sandbox = {
+        currentChatId: 'chat-a',
+        chatHistory: [],
+        window: {
+            currentPublishedUrl: 'https://old-name.puter.site/',
+            isSubdomainLimitErr: () => false,
+            puterErrInfo: () => ({ message: '' }),
+            track() {},
+            // showToast's key and throttle rule, as in helpers.js.
+            showToast(message, opts = {}) {
+                const key = opts.key || message;
+                if (opts.throttleMs && last[key] !== undefined) return;
+                last[key] = 0;
+                shown.push(message);
+            },
+        },
+        publishBlockedReason: () => 'task',
+        publishBusyHere: () => false,
+        $: (x) => (x && x.closest ? x : { closest: () => panel, prop() { return this; } }),
+        puter: { ui: { alert: async () => {} }, hosting: { create: async () => {}, delete: async () => {} } },
+        previewSubdomain: (u) => (u.match(/^https?:\/\/([^.]+)\.puter\.site/) || [])[1] || null,
+        console: { warn() {} },
+    };
+    vm.createContext(sandbox);
+    vm.runInContext(changeSrc, sandbox);
+    const handler = vm.runInContext('(' + handlerSrc + ')', sandbox);
+    const btn = { closest: () => panel, prop() { return this; } };
+    await handler.call(btn);
+    await handler.call(btn);
+    check('change address during a turn: one wait toast for two presses',
+        shown.length === 1 && /Finishing the current task/.test(shown[0]), JSON.stringify(shown));
+}
+
 if (failures) { console.error(failures + ' failure(s)'); process.exit(1); }
 console.log('all publish-switch-race checks passed');

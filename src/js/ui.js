@@ -3368,7 +3368,10 @@ $(document).on('click', '.publish-address-save', async function () {
         if (e && e.code === 'invalid-name') {
             await puter.ui.alert('Please enter a valid address: lowercase letters, numbers, and hyphens only (it cannot start or end with a hyphen).');
         } else if (e && e.code === 'busy') {
-            window.showToast?.('Finishing the current task — you can change the address the moment it’s done.', { type: 'info' });
+            // Throttled like the other waits: each press of Save or Enter
+            // added another copy.
+            window.showToast?.('Finishing the current task — you can change the address the moment it’s done.',
+                { type: 'info', key: 'publish-blocked', throttleMs: 3000 });
         } else if (e && e.code === 'no-files') {
             await puter.ui.alert('Cannot change the address: this project’s published files could not be found. Publish it again first.');
         } else if (window.isSubdomainLimitErr(e)) {
