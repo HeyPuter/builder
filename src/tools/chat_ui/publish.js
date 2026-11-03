@@ -84,13 +84,13 @@
                 '<span class="publish-address-fix">.puter.site</span>' +
             '</label>';
         if (view.state === 'form') {
-            return '<div class="publish-card-row">' +
+            return '<div class="publish-card-row has-field">' +
                     field('Site address (before .puter.site)') +
                     buttonHtml(view, 'Publish') +
                 '</div>' + errorHtml;
         }
         if (view.state === 'address') {
-            return '<div class="publish-card-row">' +
+            return '<div class="publish-card-row has-field">' +
                     field('New site address (before .puter.site)') +
                     buttonHtml(view, 'Change address', 'Changing…') +
                 '</div>' +
