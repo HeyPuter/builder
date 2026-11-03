@@ -262,6 +262,42 @@ function setup() {
     check('a moved address on an older card meets 4.5:1 against the card', ratio >= 4.5, `${fg} on ${bg}: ${ratio.toFixed(2)}`);
 }
 
+// ---- Enter while the button waits says why ---------------------------------
+// The card arrives during the AI's reply, so its button starts out waiting.
+// Enter in the field did nothing at all, and the dimmed button gave no
+// reason; the popover shows "Finishing the current task…" instead.
+{
+    const { env, dom, tool, cards, q, calls } = setup();
+    const toasts = [];
+    env.showToast = (text, opts) => toasts.push({ text, opts });
+    env.blocked = 'task';
+    await tool.exec({ address: 'bakery' }, {});
+    const field = q(cards()[0], '.publish-card-input');
+    dom.dispatch(field, 'keydown', { key: 'Enter' });
+    check('Enter during a reply: nothing is published', calls.length === 0);
+    check('…and a throttled toast says why',
+        toasts.length === 1 && toasts[0].text === 'Finishing the current task — you can publish the moment it’s done.'
+        && toasts[0].opts.key === 'publish-blocked' && toasts[0].opts.throttleMs > 0, JSON.stringify(toasts));
+    env.blocked = 'restore';
+    dom.dispatch(field, 'keydown', { key: 'Enter' });
+    check('…a restore is named as such', /Finishing the restore/.test(toasts.at(-1).text), toasts.at(-1).text);
+    env.blocked = null;
+    env.refreshPublishCards();
+    dom.dispatch(q(cards()[0], '.publish-card-input'), 'keydown', { key: 'Enter' });
+    check('once the reply ends, Enter publishes', calls.length === 1 && toasts.length === 2);
+
+    // A Change address card waiting on another publish says that.
+    const a = setup();
+    const aToasts = [];
+    a.env.showToast = (text) => aToasts.push(text);
+    a.env.currentPublishedUrl = 'https://old-name.puter.site/';
+    a.env.isPublishStarting = () => true;
+    await a.addressTool.exec({ address: 'new-name' }, {});
+    a.dom.dispatch(a.q(a.cards()[0], '.publish-card-input'), 'keydown', { key: 'Enter' });
+    check('Change address waiting on a publish: says so', a.env.renames.length === 0
+        && aToasts[0] === 'Finishing publishing — you can change the address the moment it’s done.', JSON.stringify(aToasts));
+}
+
 // ---- A long address shows that it goes on ----------------------------------
 // On a 320px phone the field fits about 25 characters at 16px, and an
 // address the AI suggests can be 30 (slugifyTitle): it was cut mid-letter
