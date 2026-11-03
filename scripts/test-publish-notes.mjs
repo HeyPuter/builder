@@ -36,13 +36,13 @@ function extract(src, signature, end = '\n}\n') {
 const SETTINGS = `
 function makeSettings(chatId, pub, saved, listEntry) {
     const ADDR_RE = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
-    function renderPublishedCell() { env.rendered++; }
+    function renderPublishedCell() { globalThis.rendered++; }
     ${extract(uiSource, '    async function persistPublished(fields', '\n    }\n')}
     ${extract(uiSource, '    async function submitAddress($form) {', '\n    }\n')}
     return submitAddress;
 }`;
 
-function setup({ open = true, processing = false, history = null } = {}) {
+function setup({ open = true, processing = false, history = null, typed = 'new-name' } = {}) {
     const env = {
         console: { warn() {}, error() {} },
         currentChatId: open ? 'chat-a' : 'chat-b',
@@ -90,7 +90,7 @@ function setup({ open = true, processing = false, history = null } = {}) {
         { url: 'https://old-name.puter.site/', path: '/alice/pub/r1' },
         { publishedVersionId: 'v1', publishedAt: 't' },
         { publishedUrl: 'https://old-name.puter.site/' });
-    const field = { val: () => 'new-name', prop() { return field; }, trigger() { return field; } };
+    const field = { val: () => typed, prop() { return field; }, trigger() { return field; } };
     const $form = { find: () => field };
     return { env, run: () => submit($form) };
 }
@@ -126,6 +126,17 @@ const noteText = (m) => m && Array.isArray(m.content) && m.content[0] && m.conte
         save && save.id === 'chat-a' && save.fields.publishedUrl === 'https://new-name.puter.site/'
         && /old-name\.puter\.site/.test(noteText(save.note)), JSON.stringify(save));
     check('…and the open project\'s conversation is left alone', env.chatHistory.length === 1);
+}
+
+{
+    // Saving the address unchanged closed the editor on main, whatever was
+    // running. The waits for a turn and an address change ran first, so it
+    // was refused with "Finishing the current task" and the editor stayed.
+    const { env, run } = setup({ open: true, processing: true, typed: 'old-name' });
+    await run();
+    check('unchanged address during a turn: the editor closes', env.rendered === 1, String(env.rendered));
+    check('…with no wait toast, nothing moved and no note', env.toasts.length === 0 && env.hosting.length === 0
+        && env.chatHistory.length === 1, JSON.stringify(env.toasts));
 }
 
 // ---- A stopped turn's tool call keeps its result next to it -------------------

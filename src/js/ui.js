@@ -4902,6 +4902,10 @@ async function showChatProperties(chatId) {
             $input.trigger('focus');
             return;
         }
+        // An unchanged address has nothing to wait for: it closes the editor,
+        // as the popover's does, even while the waits below would hold a
+        // change.
+        if (newSub === previewSubdomain(pub.url)) { renderPublishedCell(); return; }
         // Nor while the toolbar or the chat is moving its address
         // (changePublishedAddress): each would create a new address and drop
         // the old one, leaving one of the two new ones behind, unused.
