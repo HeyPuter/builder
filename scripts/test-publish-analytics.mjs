@@ -70,7 +70,7 @@ const ROOT = '/alice/AppData/builder';
 const WORK = ROOT + '/project-a';
 const PUB = ROOT + '/.published/project-a';
 
-async function run({ published, history, withUsageHelpers = true, ui = null, createError = null, switchAway = false }) {
+async function run({ published, history, withUsageHelpers = true, ui = null, createError = null, switchAway = false, extra = null, extraWindow = null }) {
     const files = new Map([[WORK, 'NEW WORK']]);
     if (published) files.set(PUB, 'OLD COPY');
     const events = [], alerts = [];
@@ -131,6 +131,8 @@ async function run({ published, history, withUsageHelpers = true, ui = null, cre
             },
         },
     };
+    if (extra) Object.assign(sandbox, extra(sandbox));
+    if (extraWindow) Object.assign(sandbox.window, extraWindow(sandbox));
     new Function('window', CORE_SOURCE)(sandbox.window);
     vm.createContext(sandbox);
     vm.runInContext(PUBLISH_CODE + (withUsageHelpers ? '\n\n' + USAGE_CODE : ''), sandbox, { filename: 'src/js/ui.js' });
@@ -263,6 +265,52 @@ const HISTORY = [
         JSON.stringify({ seen, events: away.events }));
     const popoverAway = await run({ published: false, history: HISTORY, switchAway: true });
     check('popover, the same: it has no away hook, and the publish still counts', popoverAway.events.length === 1);
+}
+
+// ---- The card sees its failure with the busy state clear --------------------
+// A failed publish clears its busy state before the surface shows the
+// failure: the card's redraw while busy clears its error (and the popover's
+// draws the progress note again), so a failure shown while still busy was
+// wiped at once. The other tests stub the busy state out.
+{
+    let busy = false, busyAtFail = null;
+    const card = {
+        source: 'chat',
+        render() {},
+        desiredName: () => 'bakery',
+        start() {},
+        success() {},
+        fail() { busyAtFail = busy; },
+    };
+    await run({ published: false, history: HISTORY, ui: card, createError: new Error('boom'),
+        extra: () => ({ setPublishBusy(b) { busy = b; } }) });
+    check('card failure: the busy state is clear when its fail hook runs', busyAtFail === false, String(busyAtFail));
+}
+
+// ---- No publish while this project's address is moving ---------------------
+// Publishing then would update the address that is about to go away. The
+// wait was only checked by reading the source.
+{
+    const seen = [], toasts = [];
+    const card = {
+        source: 'chat',
+        render() { seen.push('render'); },
+        desiredName: () => 'bakery',
+        start() { seen.push('start'); },
+        success() { seen.push('success'); },
+        fail() { seen.push('fail'); },
+    };
+    const r = await run({ published: true, history: HISTORY, ui: card,
+        extraWindow: () => ({
+            isAddressChanging: (id) => id === 'project-a',
+            showToast: (text) => toasts.push(text),
+        }) });
+    check('while the address moves: nothing is published, and the surface redraws',
+        seen.join() === 'render' && r.events.length === 0, seen.join());
+    check('…and the user is told to wait', toasts.length === 1 && /Finishing the address change/.test(toasts[0]), JSON.stringify(toasts));
+    const other = await run({ published: true, history: HISTORY, ui: { ...card, render() {}, start() {}, success() {}, fail() {} },
+        extraWindow: () => ({ isAddressChanging: (id) => id === 'project-b' }) });
+    check('another project\'s address change doesn\'t hold this publish', other.events.length === 1);
 }
 
 // ---- tokenBand / costBand boundaries -----------------------------------------
