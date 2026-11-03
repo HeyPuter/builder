@@ -2611,6 +2611,13 @@ function publishedNoteMessage(url, isFirst) {
     return { role: 'assistant', content: [{ type: 'text-hidden', text }], messageId, versionNote: true };
 }
 
+// The note an address change leaves for the AI, the same way as the one above.
+function addressChangedNoteMessage(oldUrl, newUrl) {
+    const text = `[The user moved the published site from ${oldUrl} to ${newUrl}. The old address no longer works.]`;
+    const messageId = (typeof generateMessageId === 'function') ? generateMessageId() : null;
+    return { role: 'assistant', content: [{ type: 'text-hidden', text }], messageId, versionNote: true };
+}
+
 // The core action: push the current working dir to the public subdomain
 // (creating it on first publish), then record + persist the new baseline.
 // `ui` is the surface the user published from (doPublish's popover, or the
@@ -2639,6 +2646,14 @@ async function publishProject(ui) {
             blocked === 'restore'
                 ? 'Finishing the restore — you can publish the moment it’s done.'
                 : 'Finishing the current task — you can publish the moment it’s done.',
+            { type: 'info', key: 'publish-blocked', throttleMs: 3000 });
+        return;
+    }
+    // The address is moving (changePublishedAddress): publishing now would
+    // update the address that is about to go away.
+    if (window.isAddressChanging?.()) {
+        ui.render();
+        window.showToast?.('Finishing the address change — you can publish the moment it’s done.',
             { type: 'info', key: 'publish-blocked', throttleMs: 3000 });
         return;
     }
@@ -3230,20 +3245,25 @@ $(document).on('keydown', '.publish-address-input', function (e) {
     // Keep typing inside the field from bubbling to the panel-level Escape/etc.
     e.stopPropagation();
 });
-$(document).on('click', '.publish-address-save', async function () {
-    const $panel = $(this).closest('.preview-publish-panel');
-    const $input = $panel.find('.publish-address-input');
+// Move the open project's published site to a new address: point a new
+// subdomain at the published copy, then drop the old one. The popover's
+// "Change address" and the Change address card in the chat
+// (tools/chat_ui/publish.js) both call it. Resolves to { changed: false } when
+// there's nothing to change, or { changed: true, url, oldUrl, open } where
+// `open` says the project was still on screen at the end. Throws an error
+// with a code (invalid-name, busy, no-files) or the hosting error.
+let _addressChanging = false;
+window.isAddressChanging = () => _addressChanging;
+async function changePublishedAddress(typed) {
     const oldUrl = window.currentPublishedUrl;
     const oldSub = previewSubdomain(oldUrl);
-    const newSub = ($input.val() || '').trim().toLowerCase();
-
-    if (!oldSub) { endPublishAddressEdit($panel); return; }
-    if (newSub === oldSub) { endPublishAddressEdit($panel); return; }
-    if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(newSub)) {
-        await puter.ui.alert('Please enter a valid address: lowercase letters, numbers, and hyphens only (it cannot start or end with a hyphen).');
-        $input.trigger('focus');
-        return;
-    }
+    const newSub = (typed || '').trim().toLowerCase();
+    if (!oldSub || newSub === oldSub) return { changed: false };
+    const fail = (code) => Object.assign(new Error(code), { code });
+    if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(newSub)) throw fail('invalid-name');
+    // Not during a turn: the note for the AI below would land in the middle
+    // of it. Not during a publish, which updates the address being moved.
+    if (_addressChanging || publishBlockedReason() || publishBusyHere()) throw fail('busy');
     // Only ever the frozen published copy — never publishedRootDir(), which is
     // the live working directory the AI edits. A record with a URL but no path
     // (a save that fell back to the list entry) used to re-point the new public
@@ -3256,15 +3276,11 @@ $(document).on('click', '.publish-address-save', async function () {
     const chatId = currentChatId;
     const publishedVersionId = window.currentPublishedVersionId || null;
     const publishedAt = window.currentPublishedAt || null;
-    const path = await resolvePublishedDir(window.currentPublishedPath, chatId);
-    if (!path) {
-        await puter.ui.alert('Cannot change the address: this project’s published files could not be found. Publish it again first.');
-        return;
-    }
-    const $btn = $(this);
-    $btn.prop('disabled', true);
-    $input.prop('disabled', true);
+    _addressChanging = true;
+    window.refreshPublishCards?.();
     try {
+        const path = await resolvePublishedDir(window.currentPublishedPath, chatId);
+        if (!path) throw fail('no-files');
         // Create the new subdomain first; only drop the old one once that
         // succeeds, so a failure (e.g. name taken) leaves the site reachable.
         await puter.hosting.create(newSub, path);
@@ -3275,21 +3291,52 @@ $(document).on('click', '.publish-address-save', async function () {
         catch (e) { console.warn('Failed to remove old published subdomain:', e); }
 
         const fields = { publishedUrl: newUrl, publishedPath: path, publishedVersionId, publishedAt };
-        if (currentChatId === chatId) {
-            window.currentPublishedUrl = newUrl;
-            window.currentPublishedPath = path;
-            if (typeof saveCurrentChat === 'function') {
-                try { await saveCurrentChat({ currentChatId: chatId, chatHistory: chatHistory }); }
-                catch (e) { /* save surfaces its own failure toast */ }
-            }
-            $panel.removeClass('editing-address');
+        if (currentChatId !== chatId) {
+            window.savePublishedFields?.(chatId, fields);
+            return { changed: true, url: newUrl, oldUrl, open: false };
+        }
+        window.currentPublishedUrl = newUrl;
+        window.currentPublishedPath = path;
+        // The AI's notes name the old address, which no longer works.
+        if (typeof chatHistory !== 'undefined' && Array.isArray(chatHistory)) {
+            chatHistory.push(addressChangedNoteMessage(oldUrl, newUrl));
+        }
+        if (typeof saveCurrentChat === 'function') {
+            try { await saveCurrentChat({ currentChatId: chatId, chatHistory: chatHistory }); }
+            catch (e) { /* save surfaces its own failure toast */ }
+        }
+        return { changed: true, url: newUrl, oldUrl, open: true };
+    } finally {
+        _addressChanging = false;
+        // The toolbar and the cards show the new address (or the old one, on
+        // a failure) at once.
+        window.refreshPublishButton?.();
+    }
+}
+
+$(document).on('click', '.publish-address-save', async function () {
+    const $panel = $(this).closest('.preview-publish-panel');
+    const $input = $panel.find('.publish-address-input');
+    const $btn = $(this);
+    $btn.prop('disabled', true);
+    $input.prop('disabled', true);
+    try {
+        const r = await changePublishedAddress($input.val());
+        if (!r.changed) { endPublishAddressEdit($panel); return; }
+        window.track?.('Site Address Changed', {});
+        // Another project is open now: this popover shows that one.
+        if (r.open) {
             renderPublishPanel();
             endPublishAddressEdit($panel);
-        } else {
-            window.savePublishedFields?.(chatId, fields);
         }
     } catch (e) {
-        if (window.isSubdomainLimitErr(e)) {
+        if (e && e.code === 'invalid-name') {
+            await puter.ui.alert('Please enter a valid address: lowercase letters, numbers, and hyphens only (it cannot start or end with a hyphen).');
+        } else if (e && e.code === 'busy') {
+            window.showToast?.('Finishing the current task — you can change the address the moment it’s done.', { type: 'info' });
+        } else if (e && e.code === 'no-files') {
+            await puter.ui.alert('Cannot change the address: this project’s published files could not be found. Publish it again first.');
+        } else if (window.isSubdomainLimitErr(e)) {
             await puter.ui.alert('You’ve reached the maximum number of published sites for your account, so a new address can’t be created. Delete a site you no longer need, then try again.');
         } else {
             const msg = window.puterErrInfo(e).message;

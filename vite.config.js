@@ -98,6 +98,8 @@ const SCRIPTS = [
   'tools/chat_ui/upgrade.js',
   // After ui.js: the card publishes through publishProject.
   'tools/chat_ui/publish.js',
+  // Its Change address mode, through the card above.
+  'tools/chat_ui/address.js',
   // Generated images/videos/speech: the shared chat card + saving
   // (js/media.js), then the tools built on it.
   'js/media.js',

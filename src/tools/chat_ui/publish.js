@@ -15,8 +15,16 @@
 //   * published, with changes: the address and Publish changes
 //   * published and up to date: Live and the address
 // An older card is history, so it no longer changes: one the user published
-// from stays as a "Published" line with the address it went to, and one that
-// wasn't used is hidden, since a newer card took its place.
+// from stays as a "Published" line with the address it went to (a link only
+// while the site is still there), and one that wasn't used is hidden, since a
+// newer card took its place.
+//
+// OfferAddressChange (address.js) puts the same card in the chat in its
+// Change address mode, for a site that is already published: the new address,
+// editable, and a Change address button that runs the popover's address
+// change (changePublishedAddress in ui.js). Once used, it reads like any
+// other card.
+//
 // Its button waits while a turn, a restore or another publish runs, the same
 // rule the popover follows (publishBlockedReason). refreshPublishCards redraws
 // the cards whenever that state can change (refreshPublishButton and
@@ -31,8 +39,9 @@
     const check = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
     const globe = '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
 
-    // The open project's publish state, as the card shows it.
-    function cardView() {
+    // The open project's publish state, as a card shows it. An unused Change
+    // address card on a published site shows its address form instead.
+    function cardView($card) {
         const url = window.currentPublishedUrl || null;
         const st = window.computePublishState({
             publishedUrl: url,
@@ -40,12 +49,17 @@
             currentVersionId: window.getCurrentVersionId?.(),
             dirtySinceSnapshot: window._projectDirtySinceSnapshot,
         });
+        const renaming = !!window.isAddressChanging?.();
+        const working = !!publishBlockedReason() || !!window.isPublishStarting?.(currentChatId);
+        if (url && $card && $card.attr('data-kind') === 'address' && !$card.attr('data-published-url')) {
+            return { state: 'address', url, busy: renaming, blocked: working || publishBusyHere() };
+        }
         const pending = st.dirty || (url && badgeChangePending(currentChatId, window.currentPublishedPath));
         return {
             state: st.state === 'unpublished' ? 'form' : pending ? 'changes' : 'live',
             url,
             busy: publishBusyHere(),
-            blocked: !!publishBlockedReason() || !!window.isPublishStarting?.(currentChatId),
+            blocked: working || renaming,
         };
     }
 
@@ -53,11 +67,11 @@
         return (url || '').replace(/^https?:\/\//, '').replace(/\/+$/, '');
     }
 
-    function buttonHtml(view, label) {
+    function buttonHtml(view, label, busyLabel = 'Publishing…') {
         const busy = view.busy;
         return `<button type="button" class="publish-card-btn"${busy || view.blocked ? ' disabled' : ''}>` +
             (busy
-                ? '<span class="publish-spinner" aria-hidden="true"></span><span>Publishing…</span>'
+                ? `<span class="publish-spinner" aria-hidden="true"></span><span>${busyLabel}</span>`
                 : `${globe}<span>${label}</span>`) +
             '</button>';
     }
@@ -65,15 +79,23 @@
     function cardHtml(view, $card) {
         const error = $card.attr('data-error') || '';
         const errorHtml = error ? `<div class="publish-card-error">${htmlEscape(error)}</div>` : '';
+        const field = (label) => '<label class="publish-card-address">' +
+                `<input type="text" class="publish-card-input" value="${htmlEscape($card.attr('data-address') || '')}" placeholder="your-app" aria-label="${label}" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off"${view.busy ? ' disabled' : ''}>` +
+                '<span class="publish-address-fix">.puter.site</span>' +
+            '</label>';
         if (view.state === 'form') {
-            const address = $card.attr('data-address') || '';
             return '<div class="publish-card-row">' +
-                    '<label class="publish-card-address">' +
-                        `<input type="text" class="publish-card-input" value="${htmlEscape(address)}" placeholder="your-app" aria-label="Site address (before .puter.site)" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off"${view.busy ? ' disabled' : ''}>` +
-                        '<span class="publish-address-fix">.puter.site</span>' +
-                    '</label>' +
+                    field('Site address (before .puter.site)') +
                     buttonHtml(view, 'Publish') +
                 '</div>' + errorHtml;
+        }
+        if (view.state === 'address') {
+            return '<div class="publish-card-row">' +
+                    field('New site address (before .puter.site)') +
+                    buttonHtml(view, 'Change address', 'Changing…') +
+                '</div>' +
+                `<div class="publish-card-note">Moves your site from ${htmlEscape(hostOf(view.url))}. Links to the old address will stop working.</div>` +
+                errorHtml;
         }
         const safeUrl = htmlEscape(view.url || '');
         const link = `<a class="publish-card-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer">${htmlEscape(hostOf(view.url))}</a>`;
@@ -86,11 +108,15 @@
             '</div>';
     }
 
-    // An older card: the publish made from it, or nothing.
+    // An older card: what was done from it, or nothing. The address it went
+    // to is a link only while the site is still there: after a later address
+    // change, that address no longer works.
     function freezeCard($card) {
-        if ($card.attr('data-key') === 'frozen') return;
-        $card.attr('data-key', 'frozen');
         const url = $card.attr('data-published-url');
+        const current = !!url && url === window.currentPublishedUrl;
+        const key = 'frozen|' + current;
+        if ($card.attr('data-key') === key) return;
+        $card.attr('data-key', key).removeAttr('data-mode');
         const $inner = $card.find('.publish-card-inner');
         if (!url) {
             $card.addClass('is-superseded');
@@ -98,10 +124,13 @@
             return;
         }
         $card.removeClass('is-superseded');
-        const safeUrl = htmlEscape(url);
+        const done = $card.attr('data-kind') === 'address' ? 'Address changed' : 'Published';
+        const host = htmlEscape(hostOf(url));
+        const address = current
+            ? `<a class="publish-card-link" href="${htmlEscape(url)}" target="_blank" rel="noopener noreferrer">${host}</a>`
+            : `<span class="publish-card-gone">${host}</span>`;
         $inner.html('<div class="publish-card-row publish-card-record">' +
-                `<span class="publish-card-done">${check}Published</span>` +
-                `<a class="publish-card-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer">${htmlEscape(hostOf(url))}</a>` +
+                `<span class="publish-card-done">${check}${done}</span>${address}` +
             '</div>');
     }
 
@@ -112,19 +141,19 @@
     function refreshPublishCards() {
         const $cards = $('.chat-box .publish-card');
         if (!$cards.length) return;
-        const view = cardView();
-        const key = [view.state, view.url || '', view.busy].join('|');
         const newest = $cards.length - 1;
         $cards.each(function (i) {
             const $card = $(this);
             if (i < newest) { freezeCard($card); return; }
+            const view = cardView($card);
+            const key = [view.state, view.url || '', view.busy].join('|');
             const $inner = $card.find('.publish-card-inner');
             if ($card.attr('data-key') === key) {
                 $inner.find('.publish-card-btn').prop('disabled', view.busy || view.blocked);
                 return;
             }
             const focused = $inner.find('.publish-card-input').is(':focus');
-            $card.attr('data-key', key);
+            $card.attr('data-key', key).attr('data-mode', view.state);
             $inner.html(cardHtml(view, $card));
             if (focused) focusAddress($card);
         });
@@ -139,7 +168,7 @@
         try { el.setSelectionRange(n, n); } catch (e) { /* not a text field */ }
     }
 
-    function renderPublishCard({ address = '', offer = '', publishedUrl = '' } = {}) {
+    function renderPublishCard({ address = '', offer = '', publishedUrl = '', kind = '' } = {}) {
         bindCardEvents();
         const $node = $(
             '<div class="publish-card message ai-message"><div class="message-content">' +
@@ -147,6 +176,7 @@
             '</div></div>');
         $node.attr('data-address', address || '');
         if (offer) $node.attr('data-offer', offer);
+        if (kind === 'address') $node.attr('data-kind', 'address');
         if (publishedUrl) $node.attr('data-published-url', publishedUrl);
         const $chatBox = $('.chat-box');
         const floatingSpinner = $chatBox.find('.floating-spinner').detach();
@@ -191,6 +221,38 @@
         });
     }
 
+    // The card's words for a failed address change.
+    function addressErrorText(e) {
+        if (e && e.code === 'invalid-name') return 'Use lowercase letters, numbers and hyphens.';
+        if (e && e.code === 'busy') return 'Wait for the current task to finish, then try again.';
+        if (e && e.code === 'no-files') return 'The published files are missing. Publish the site again first.';
+        if (window.isSubdomainLimitErr(e)) return 'You’ve reached your limit of published sites. Delete one to change this.';
+        if (window.isSubdomainTakenErr?.(e)) return 'That address is taken. Try another.';
+        return 'Couldn’t change the address. It may be taken. Try another.';
+    }
+
+    function showCardError($card, text) {
+        $card.attr('data-error', text).removeAttr('data-key');
+        refreshPublishCards();
+        window.announce?.(text);
+        focusAddress($card);
+    }
+
+    async function changeAddressFromCard($card) {
+        $card.removeAttr('data-error');
+        let r;
+        try { r = await changePublishedAddress($card.find('.publish-card-input').val() || ''); }
+        catch (e) { showCardError($card, addressErrorText(e)); return; }
+        if (!r.changed) { showCardError($card, 'That’s already your site’s address.'); return; }
+        // Another project is open now: its own cards aren't this one.
+        if (!r.open) return;
+        $card.attr('data-published-url', r.url).removeAttr('data-key');
+        refreshPublishCards();
+        window.track?.('Site Address Changed', { source: 'chat' });
+        window.announce?.(`Your site is now at ${hostOf(r.url)}.`);
+        await recordCardPublish($card.attr('data-offer'), r.url);
+    }
+
     // The card id a tool result carries, if it is an OfferPublish result.
     function offerOf(message) {
         const c = message && message.content;
@@ -215,7 +277,9 @@
     // A waiting button is disabled, and Enter in the field follows it.
     function publishIfReady($card) {
         const btn = $card.find('.publish-card-btn')[0];
-        if (btn && !btn.disabled) publishFromCard($card);
+        if (!btn || btn.disabled) return;
+        if ($card.attr('data-mode') === 'address') changeAddressFromCard($card);
+        else publishFromCard($card);
     }
     // Bound with the first card, so the file loads without the page (the tool
     // registry is loaded on its own in tests).
@@ -255,7 +319,7 @@
                 properties: {
                     address: {
                         type: "string",
-                        description: "Optional. For a site that isn't published yet: a short address that fits the app, in lowercase letters, numbers and hyphens (e.g. \"bakery-orders\"). The user can change it before publishing. Ignored once the site is published."
+                        description: "Optional. For a site that isn't published yet: a short address that fits the app, in lowercase letters, numbers and hyphens (e.g. \"bakery-orders\"). The user can change it before publishing. Ignored once the site is published: to move a published site, use OfferAddressChange."
                     }
                 },
                 required: [],

@@ -131,7 +131,7 @@ for (const sel of ['.user-panel-account', '.user-panel-feedback']) {
     const end = ui.slice(ui.indexOf('function endPublishAddressEdit($panel) {'), ui.indexOf("$(document).on('click', '.publish-address-cancel'"));
     check('leaving the address editor moves focus to "Change address"', /\.publish-change-address/.test(end) && /focus\(/.test(end));
     check('…on ✕ / Escape', /on\('click', '\.publish-address-cancel', function \(\) \{\s*endPublishAddressEdit\(/.test(ui));
-    check('…on saving the same name', /if \(newSub === oldSub\) \{ endPublishAddressEdit\(\$panel\); return; \}/.test(ui));
+    check('…on saving the same name', /if \(!r\.changed\) \{ endPublishAddressEdit\(\$panel\); return; \}/.test(ui));
     check('…and after saving a new one', /renderPublishPanel\(\);\s*endPublishAddressEdit\(\$panel\);/.test(ui));
 }
 
