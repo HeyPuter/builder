@@ -1,5 +1,5 @@
-// templates.js — official project templates: the landing section, the
-// template dialog, the /?template=<slug> deep link, and the fork itself.
+// templates.js — official project templates: the template dialog, the
+// /?template=<slug> deep link, and the fork itself.
 //
 // What a template is, and how the build ships it, is described at the top of
 // js/template-core.js (the pure half of this feature). This file is the half
@@ -24,8 +24,6 @@
     'use strict';
 
     const INDEX_URL = '/templates.json';
-    const CACHE_KEY = 'templateIndexCache';
-    const DISPLAY_COUNT = 6;
 
     let _templates = null;       // sanitized list once the index has loaded
     let _indexRequest = null;    // in-flight fetch of the index, shared
@@ -38,14 +36,6 @@
 
     // ---- The index ------------------------------------------------------------
 
-    function readCachedIndex() {
-        try {
-            return core().sanitizeIndex(JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'));
-        } catch (e) {
-            return [];
-        }
-    }
-
     // Resolves with the sanitized template list ([] when unavailable). The
     // first call fetches; later calls share that result. A failed fetch is not
     // remembered, so the next caller (a dialog, a deep link) tries again.
@@ -56,10 +46,7 @@
             .then(r => (r.ok ? r.json() : null))
             .then(data => {
                 const list = core().sanitizeIndex(data);
-                if (list.length) {
-                    _templates = list;
-                    try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)); } catch (e) { /* cache is an optimization only */ }
-                }
+                if (list.length) _templates = list;
                 return list;
             })
             .catch(() => [])
@@ -385,9 +372,25 @@
 
     // ---- The dialog -----------------------------------------------------------
 
+    function buildThumb(template) {
+        const $thumb = $('<div class="feed-thumb"></div>');
+        // The feed's own gradient + initial placeholder, from featured.js.
+        const placeholder = () => buildFeaturedPlaceholder({ id: template.slug, name: template.name });
+        if (template.thumbnail) {
+            const $img = $('<img class="feed-thumb-img" alt="" decoding="async">');
+            $img.on('load', () => $img.addClass('loaded'));
+            $img.on('error', () => { $img.remove(); $thumb.append(placeholder()); });
+            $img.attr('src', template.thumbnail);
+            $thumb.append($img);
+        } else {
+            $thumb.append(placeholder());
+        }
+        return $thumb;
+    }
+
     // Preview card for one template: screenshot, name, description, and the
-    // button that forks it. Used by the landing cards and by a /?template=
-    // link that arrives without a click behind it.
+    // button that forks it. Shown for a /?template= link that arrives without
+    // a click behind it.
     function openTemplateDialog(template, { source = 'app' } = {}) {
         $('.template-modal-overlay').remove();
         const $overlay = $(`
@@ -411,7 +414,7 @@
         $overlay.find('.template-modal-title').text(template.name);
         $overlay.find('.template-modal-body').text(template.description);
         $overlay.find('.template-modal-details').attr('href', `/templates/${template.slug}/`);
-        $overlay.find('.template-modal-thumb').append(buildThumb(template, { eager: true }));
+        $overlay.find('.template-modal-thumb').append(buildThumb(template));
         // Most people who open the dialog use the template: download it now.
         fetchTemplateFiles(template).catch(() => { /* the fork retries and reports */ });
 
@@ -454,60 +457,6 @@
             $use.trigger('focus');
         });
         window.track?.('Template Viewed', { template: template.slug, source });
-    }
-
-    // ---- The landing section --------------------------------------------------
-
-    function buildThumb(template, { eager = false } = {}) {
-        const $thumb = $('<div class="feed-thumb"></div>');
-        // The feed's own gradient + initial placeholder, from featured.js.
-        const placeholder = () => buildFeaturedPlaceholder({ id: template.slug, name: template.name });
-        if (template.thumbnail) {
-            const $img = $('<img class="feed-thumb-img" alt="" decoding="async">');
-            $img.on('load', () => $img.addClass('loaded'));
-            $img.on('error', () => { $img.remove(); $thumb.append(placeholder()); });
-            if (!eager) $img.attr('loading', 'lazy');
-            $img.attr('src', template.thumbnail);
-            $thumb.append($img);
-        } else {
-            $thumb.append(placeholder());
-        }
-        return $thumb;
-    }
-
-    // A real link to the template's page, so it can be opened in a new tab,
-    // copied or crawled like any link. A plain click opens the dialog instead
-    // (see initTemplates).
-    function buildCard(template) {
-        const $card = $('<a class="feed-card template-card"></a>')
-            .attr('href', `/templates/${template.slug}/`)
-            .attr('data-template', template.slug)
-            .attr('aria-label', `${template.name} template${template.description ? ': ' + template.description : ''}`);
-        $card.append(buildThumb(template));
-        const $meta = $('<div class="feed-card-meta"></div>');
-        const $row = $('<div class="feed-card-title-row"></div>');
-        $row.append($('<span class="feed-card-title"></span>').text(template.name));
-        if (template.category) $row.append($('<span class="feed-card-cat"></span>').text(template.category));
-        $meta.append($row);
-        if (template.description) $meta.append($('<div class="feed-card-desc"></div>').text(template.description));
-        $card.append($meta);
-        return $card;
-    }
-
-    function renderTemplatesSection(list) {
-        const $section = $('.home-templates');
-        if (!$section.length) return;
-        if (!list.length) {
-            $section.attr('hidden', true).empty();
-        } else {
-            const $head = $('<div class="home-feed-head"></div>');
-            $head.append($('<h2 class="home-feed-title"></h2>').text('Start from a template'));
-            $head.append($('<a class="home-feed-sub home-templates-all" href="/templates/"></a>').text('All templates'));
-            const $grid = $('<div class="home-feed-grid"></div>');
-            list.slice(0, DISPLAY_COUNT).forEach(t => $grid.append(buildCard(t)));
-            $section.empty().append($head, $grid).removeAttr('hidden');
-        }
-        window.syncHomeFeedLayout?.();
     }
 
     // ---- The fork's opening note ----------------------------------------------
@@ -592,38 +541,6 @@
         openTemplateDialog(template, { source: 'link' });
     }
 
-    // ---- Boot -----------------------------------------------------------------
-
-    // Called once from boot (app.js), right after initFeaturedFeed(). Paints
-    // the cached index synchronously (pre-reveal, like the feed), then
-    // revalidates. The kill switch (FEATURE_FLAGS.templates) leaves the
-    // section out of the landing entirely (renderSkeleton) and makes every
-    // entry point here a no-op.
-    function initTemplates() {
-        if (!enabled()) return;
-        const cached = readCachedIndex();
-        if (cached.length) renderTemplatesSection(cached);
-        loadTemplates().then((list) => {
-            if (list.length && JSON.stringify(list) !== JSON.stringify(cached)) renderTemplatesSection(list);
-        });
-
-        $(document).off('click.templates').on('click.templates', '.template-card', async function (e) {
-            // Modified and middle clicks keep their link meaning (new tab,
-            // new window, download): only a plain click opens the dialog.
-            if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-            e.preventDefault();
-            const slug = this.getAttribute('data-template');
-            const href = this.getAttribute('href');
-            const template = await findTemplate(slug);
-            if (template) openTemplateDialog(template, { source: 'landing' });
-            // A card painted from the cached index while the live one can't
-            // be fetched: its own page still works. Not a fork from the cache,
-            // whose file URLs may belong to a deploy that's gone.
-            else if (href) window.location.href = href;
-        });
-    }
-
-    window.initTemplates = initTemplates;
     window.renderTemplateOriginNote = renderTemplateOriginNote;
     window.forkTemplate = forkTemplate;
     window.captureTemplateDeepLink = captureTemplateDeepLink;
