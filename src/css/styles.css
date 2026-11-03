@@ -2238,6 +2238,10 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
     color: #323232;
     /* Against the suffix, so the field reads as one address. */
     text-align: right;
+    /* An address longer than the field (a 30-character one on a 320px
+       phone) was cut mid-letter against .puter.site, reading as another
+       address. The ellipsis shows it goes on; focused, it scrolls. */
+    text-overflow: ellipsis;
 }
 .publish-card-input:disabled { color: #8a8a8a; }
 .publish-card-link {

@@ -262,6 +262,17 @@ function setup() {
     check('a moved address on an older card meets 4.5:1 against the card', ratio >= 4.5, `${fg} on ${bg}: ${ratio.toFixed(2)}`);
 }
 
+// ---- A long address shows that it goes on ----------------------------------
+// On a 320px phone the field fits about 25 characters at 16px, and an
+// address the AI suggests can be 30 (slugifyTitle): it was cut mid-letter
+// against .puter.site ("neighborhood-bakery-order.puter.site"), a different
+// address. An ellipsis marks the cut.
+{
+    const css = read('../src/css/styles.css');
+    const rule = (css.match(/\n\.publish-card-input \{[^}]*\}/) || [''])[0];
+    check('the address field ends a cut address with an ellipsis', /text-overflow:\s*ellipsis/.test(rule), rule);
+}
+
 // ---- An older card keeps the publish made from it ---------------------------
 {
     const { env, tool, cards, q, calls, dom } = setup();
