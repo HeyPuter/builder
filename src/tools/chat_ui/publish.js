@@ -211,14 +211,37 @@
 
     // The card's own words for a failed publish: short, beside the field the
     // user can fix. The popover's alerts say the same at more length.
+    const PUBLISH_FAILED = 'Couldn’t publish. Please try again.';
     function cardErrorText(e) {
         if (e && e.code === 'invalid-name') return 'Use lowercase letters, numbers and hyphens.';
         if ((e && e.code === 'subdomain-limit') || window.isSubdomainLimitErr(e)) return 'You’ve reached your limit of published sites. Delete one to publish this.';
         if (e && e.code === 'name-taken') return 'That address is taken. Try another.';
-        return 'Couldn’t publish. Please try again.';
+        return PUBLISH_FAILED;
+    }
+
+    // The card a publish or an address change was started from, to show how
+    // it went. The user may have opened another project meanwhile (there is
+    // none then), or come back to this one, which drew its cards again: the
+    // same card, found by its id.
+    function cardNow(chatId, $card) {
+        if (currentChatId !== chatId) return null;
+        if (document.body.contains($card[0])) return $card;
+        const offer = $card.attr('data-offer');
+        const el = offer && $('.chat-box .publish-card').toArray().find(c => c.getAttribute('data-offer') === offer);
+        return el ? $(el) : null;
+    }
+
+    // A failure is shown on its card, or, when that isn't on screen, in a
+    // toast: the popover alerts wherever the user is, and a failure the user
+    // never saw read as a publish that worked.
+    function reportCardError(chatId, $card, text, awayText) {
+        const $now = cardNow(chatId, $card);
+        if ($now) showCardError($now, text);
+        else window.showToast?.(awayText, { type: 'error', duration: 8000 });
     }
 
     function publishFromCard($card) {
+        const chatId = currentChatId;
         $card.removeAttr('data-error');
         return publishProject({
             source: 'chat',
@@ -228,23 +251,29 @@
             start() {},
             async success({ url, isFirst }) {
                 // Redrawn, in case a newer card froze this one mid-publish.
-                $card.attr('data-published-url', url).removeAttr('data-key');
+                const $now = cardNow(chatId, $card) || $card;
+                $now.attr('data-published-url', url).removeAttr('data-key');
                 refreshPublishCards();
                 window.announce?.(isFirst ? 'Your website is live.' : 'Your website was updated.');
                 await recordCardPublish($card.attr('data-offer'), url);
             },
-            fail(e) { showCardError($card, cardErrorText(e)); },
+            fail(e) {
+                const text = cardErrorText(e);
+                reportCardError(chatId, $card, text, 'Your site couldn’t be published. ' +
+                    (text === PUBLISH_FAILED ? 'Please try again.' : text));
+            },
         });
     }
 
     // The card's words for a failed address change.
+    const ADDRESS_FAILED = 'Couldn’t change the address. It may be taken. Try another.';
     function addressErrorText(e) {
         if (e && e.code === 'invalid-name') return 'Use lowercase letters, numbers and hyphens.';
         if (e && e.code === 'busy') return 'Wait for the current task to finish, then try again.';
         if (e && e.code === 'no-files') return 'The published files are missing. Publish the site again first.';
         if (window.isSubdomainLimitErr(e)) return 'You’ve reached your limit of published sites. Delete one to change this.';
         if (window.isSubdomainTakenErr?.(e)) return 'That address is taken. Try another.';
-        return 'Couldn’t change the address. It may be taken. Try another.';
+        return ADDRESS_FAILED;
     }
 
     // The error beside the field, and the field focused for the fix, unless
@@ -260,14 +289,20 @@
     }
 
     async function changeAddressFromCard($card) {
+        const chatId = currentChatId;
         $card.removeAttr('data-error');
         let r;
         try { r = await changePublishedAddress($card.find('.publish-card-input').val() || ''); }
-        catch (e) { showCardError($card, addressErrorText(e)); return; }
+        catch (e) {
+            const text = addressErrorText(e);
+            reportCardError(chatId, $card, text, 'Your site’s address couldn’t be changed. ' +
+                (text === ADDRESS_FAILED ? 'It may be taken. Try another.' : text));
+            return;
+        }
         if (!r.changed) { showCardError($card, 'That’s already your site’s address.'); return; }
         // Another project is open now: its own cards aren't this one.
         if (!r.open) return;
-        $card.attr('data-published-url', r.url).removeAttr('data-key');
+        (cardNow(chatId, $card) || $card).attr('data-published-url', r.url).removeAttr('data-key');
         refreshPublishCards();
         window.track?.('Site Address Changed', { source: 'chat' });
         window.announce?.(`Your site is now at ${hostOf(r.url)}.`);

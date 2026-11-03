@@ -501,6 +501,53 @@ function setup() {
         q(addr, '.publish-card-error') && dom.document.activeElement === composer);
 }
 
+// ---- How it went, after the user opened another project ---------------------
+// The card's failure went only onto the card, which a switch had taken off
+// the screen: nothing told the user, and the project still read Publish when
+// they came back. And a user who came back mid-publish has a new copy of the
+// card, drawn by loadChat: the old one got the outcome.
+{
+    const { env, tool, cards, q, calls, dom, chatBox } = setup();
+    const toasts = [];
+    env.showToast = (text, opts) => toasts.push({ text, opts });
+    const r = await tool.exec({ address: 'shop' }, {});
+    dom.dispatch(q(cards()[0], '.publish-card-btn'), 'click');
+    env.currentChatId = 'project-b';
+    chatBox.textContent = '';
+    const err = new Error('taken'); err.code = 'name-taken';
+    calls[0].fail(err);
+    check('failure in another project: a toast says so, with the reason',
+        toasts.length === 1 && toasts[0].opts.type === 'error'
+        && toasts[0].text === 'Your site couldn’t be published. That address is taken. Try another.', JSON.stringify(toasts));
+    calls[0].fail(new Error('network'));
+    check('…a generic failure reads plainly', toasts[1] && toasts[1].text === 'Your site couldn’t be published. Please try again.', JSON.stringify(toasts[1]));
+
+    // Back to the project before it ended: the card is drawn again.
+    env.currentChatId = 'project-a';
+    dom.dispatch(q(env.renderPublishCard({ address: 'shop', offer: r.offer })[0], '.publish-card-btn'), 'click');
+    chatBox.textContent = '';
+    const again = env.renderPublishCard({ address: 'shop', offer: r.offer })[0];
+    calls[1].fail(err);
+    check('back in the project: the error is on the card that is showing',
+        q(again, '.publish-card-error') && q(again, '.publish-card-error').textContent === 'That address is taken. Try another.'
+        && toasts.length === 2);
+    env.currentPublishedUrl = 'https://shop.puter.site/';
+    env.currentPublishedVersionId = 'v2';
+    await calls[1].success({ url: 'https://shop.puter.site/', isFirst: true });
+    check('…and a success marks that card as published from',
+        again.getAttribute('data-published-url') === 'https://shop.puter.site/');
+
+    // The address change, the same way.
+    env.renameResult = Object.assign(new Error('taken'), { taken: true });
+    await env.tools.find(t => t.function.name === 'OfferAddressChange').exec({ address: 'shop-2' }, {});
+    dom.dispatch(q(cards()[cards().length - 1], '.publish-card-btn'), 'click');
+    env.currentChatId = 'project-b';
+    chatBox.textContent = '';
+    await new Promise(setImmediate);
+    check('a failed address change in another project: a toast',
+        toasts.length === 3 && toasts[2].text === 'Your site’s address couldn’t be changed. That address is taken. Try another.', JSON.stringify(toasts[2]));
+}
+
 // ---- Wiring --------------------------------------------------------------------
 {
     const vite = read('../vite.config.js');
