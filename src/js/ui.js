@@ -2618,6 +2618,15 @@ function addressChangedNoteMessage(oldUrl, newUrl) {
     return { role: 'assistant', content: [{ type: 'text-hidden', text }], messageId, versionNote: true };
 }
 
+// The note a copy of a published project starts with (duplicateChat in
+// app.js), the same way as the ones above. The copy isn't published, but the
+// conversation it inherits names the original's public address.
+function copiedProjectNoteMessage(originalUrl) {
+    const text = `[This project is a copy of another project, and the copy isn't published. ${originalUrl} is the original project's site, not this one's: don't give it out as this app's address. The copy gets its own address when the user publishes it.]`;
+    const messageId = (typeof generateMessageId === 'function') ? generateMessageId() : null;
+    return { role: 'assistant', content: [{ type: 'text-hidden', text }], messageId, versionNote: true };
+}
+
 // Add one of those notes to the end of a conversation. A turn the user
 // stopped can leave a tool call there with no result, which the next send
 // fills in at the end (repairDanglingToolUses in app.js): after the note,
