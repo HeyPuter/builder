@@ -38,10 +38,11 @@ function harness() {
     const api = new Function('window', 'Date', `
         let _activeBuild = null, isProcessing = true, _turnProgressed = false;
         ${slice(helpers, 'const WAIT_BANDS', '/**\n * Format a token count')}
+        ${slice(helpers, 'function templatePropFor(slug) {', '/**')}
         ${slice(app, 'function trackBuildAbandoned(how) {', "window.addEventListener('pagehide'")}
         return {
             abandon: trackBuildAbandoned, waitBand,
-            start: (firstBuild) => { _activeBuild = { turnSeq: 1, startedAt: Date.now(), firstBuild }; isProcessing = true; _turnProgressed = false; },
+            start: (firstBuild, template) => { _activeBuild = { turnSeq: 1, startedAt: Date.now(), firstBuild, template }; isProcessing = true; _turnProgressed = false; },
             progressed: () => { _turnProgressed = true; },
             idle: () => { isProcessing = false; },
         };`)({ track: (e, p) => events.push([e, p]) }, { now: () => now });
@@ -60,7 +61,7 @@ await check('leaving during the first wait says nothing had appeared, and how lo
     h.start(true);
     h.wait(7000);
     h.abandon('stopped');
-    assert.deepEqual(h.events, [['Build Abandoned', { how: 'stopped', saw_output: false, waited: '5-10s', first_build: true }]]);
+    assert.deepEqual(h.events, [['Build Abandoned', { how: 'stopped', saw_output: false, waited: '5-10s', first_build: true, from_template: false }]]);
 });
 
 await check('leaving later says the model had shown something', async () => {
@@ -69,7 +70,15 @@ await check('leaving later says the model had shown something', async () => {
     h.progressed();
     h.wait(45000);
     h.abandon('left');
-    assert.deepEqual(h.events[0][1], { how: 'left', saw_output: true, waited: '30-60s', first_build: false });
+    assert.deepEqual(h.events[0][1], { how: 'left', saw_output: true, waited: '30-60s', first_build: false, from_template: false });
+});
+
+await check('a build in a project copied from a template names the template', async () => {
+    const h = harness();
+    h.start(false, 'feedback-board');
+    h.wait(12000);
+    h.abandon('stopped');
+    assert.deepEqual(h.events[0][1], { how: 'stopped', saw_output: false, waited: '10-30s', first_build: false, from_template: true, template: 'feedback-board' });
 });
 
 await check('a build is reported once, and nothing without a running build', async () => {
@@ -98,7 +107,7 @@ await check('every way of giving up reports, as it happens', async () => {
 });
 
 await check('only builds Build Started counted, and only until that turn ends', async () => {
-    assert.match(app, /window\.track\?\.\('Build Started', [^\n]*\n\s*_activeBuild = \{ turnSeq, startedAt: turnStartedAt, firstBuild: isFirstBuildTurn \};/);
+    assert.match(app, /window\.track\?\.\('Build Started', [^\n]*\n\s*_activeBuild = \{ turnSeq, startedAt: turnStartedAt, firstBuild: isFirstBuildTurn, template: turnTemplate\.template \};/);
     assert.match(app, /if \(_activeBuild && _activeBuild\.turnSeq === turnSeq\) _activeBuild = null;/);
 });
 

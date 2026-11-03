@@ -155,6 +155,17 @@ window.TemplateCore = (function () {
         return base.slice(0, 40).replace(/-+$/, '') || 'worker';
     }
 
+    // The slug of the template a project was copied from, read from the
+    // origin its system message records (createFork in templates.js), or ''
+    // for a project started from scratch. "Make a copy" of a fork copies its
+    // history, so the copy reports the same template. For analytics.
+    function originSlug(history) {
+        const first = Array.isArray(history) ? history[0] : null;
+        const origin = first && first.role === 'system' ? first.templateOrigin : null;
+        const slug = origin && typeof origin === 'object' ? origin.slug : '';
+        return typeof slug === 'string' && SLUG_RE.test(slug) ? slug : '';
+    }
+
     // "Feedback board", then "Feedback board 2", "Feedback board 3"... when
     // the user already has projects by that name.
     function uniqueTitle(base, takenTitles) {
@@ -219,6 +230,7 @@ window.TemplateCore = (function () {
         placeholdersIn,
         substituteWorkerUrls,
         workerBaseName,
+        originSlug,
         uniqueTitle,
         buildTemplateNote,
     };

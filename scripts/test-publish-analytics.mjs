@@ -50,6 +50,8 @@ const PUBLISH_CODE = [
     extract(source, 'function publishBlockedReason() {'),
     extract(source, 'async function createPublishSubdomain(path, desired'),
     extract(helpersSource, 'function generateChatTitle(history) {'),
+    extract(helpersSource, 'function templateProp(history) {'),
+    extract(helpersSource, 'function templatePropFor(slug) {'),
     extract(source, 'async function doPublish() {'),
 ].join('\n\n');
 const USAGE_CODE = [
@@ -59,6 +61,7 @@ const USAGE_CODE = [
     helpersSource.slice(helpersSource.indexOf('const COST_BANDS = ['), helpersSource.indexOf('function costBand(cents) {')),
     extract(helpersSource, 'function costBand(cents) {'),
 ].join('\n\n');
+const CORE_SOURCE = fs.readFileSync(new URL('../src/js/template-core.js', import.meta.url), 'utf8');
 
 const ROOT = '/alice/AppData/builder';
 const WORK = ROOT + '/project-a';
@@ -121,6 +124,7 @@ async function run({ published, history, withUsageHelpers = true }) {
             },
         },
     };
+    new Function('window', CORE_SOURCE)(sandbox.window);
     vm.createContext(sandbox);
     vm.runInContext(PUBLISH_CODE + (withUsageHelpers ? '\n\n' + USAGE_CODE : ''), sandbox, { filename: 'src/js/ui.js' });
     await sandbox.doPublish();
@@ -154,6 +158,16 @@ const HISTORY = [
     check('first publish: cost_band from the unrounded cost', p && p.cost_band === '<$0.25', JSON.stringify(p));
 }
 
+// ---- The template a project was copied from ---------------------------------
+{
+    const p0 = (await run({ published: false, history: HISTORY })).events[0].props;
+    check('a project from scratch: from_template false, no template prop', p0 && p0.from_template === false && !('template' in p0), JSON.stringify(p0));
+    const fork = [{ ...HISTORY[0], templateOrigin: { slug: 'feedback-board', name: 'Feedback board', version: 'abcdef12' } }, ...HISTORY.slice(1)];
+    const p = (await run({ published: false, history: fork })).events[0].props;
+    check('a fork: the template it came from, alongside the totals',
+        p && p.from_template === true && p.template === 'feedback-board' && p.tokens_total === 300000, JSON.stringify(p));
+}
+
 // ---- Republish: same totals, flagged as not first ---------------------------
 {
     const { events } = await run({ published: true, history: HISTORY });
@@ -179,6 +193,9 @@ const HISTORY = [
     check('fallback: minimal event still sent',
         events.length === 1 && p.type === 'first' && p.first_publish === true && !('tokens_total' in p),
         JSON.stringify(events));
+    const fork = [{ ...HISTORY[0], templateOrigin: { slug: 'feedback-board', name: 'Feedback board', version: 'abcdef12' } }, ...HISTORY.slice(1)];
+    const f = (await run({ published: false, history: fork, withUsageHelpers: false })).events[0];
+    check('fallback: a fork still names the template', f && f.props.from_template === true && f.props.template === 'feedback-board', JSON.stringify(f));
 }
 
 // ---- tokenBand / costBand boundaries -----------------------------------------
