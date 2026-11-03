@@ -508,6 +508,32 @@ function setup() {
     check('a redraw leaves focus outside the card alone', dom.document.activeElement === composer);
 }
 
+// ---- …and the button waiting in place --------------------------------------
+// A publish that first saves the Code view's edits disables the button without
+// a redraw. The browser drops focus from a disabled button to the page, so a
+// keyboard user's Publish left them at the top of it.
+{
+    const { env, tool, cards, q, dom } = setup();
+    env.currentPublishedUrl = 'https://shop.puter.site/';
+    env.currentPublishedVersionId = 'v1';
+    await tool.exec({}, {});
+    const card = cards()[0];
+    const btn = q(card, '.publish-card-btn');
+    btn.focus();
+    env.isPublishStarting = () => true; // saving the Code view's edits
+    env.refreshPublishCards();
+    const inner = q(card, '.publish-card-inner');
+    check('the button waits, in place', q(card, '.publish-card-btn') === btn && btn.disabled === true);
+    check('…and focus moves to the card', dom.document.activeElement === inner && inner.getAttribute('tabindex') === '-1');
+    env.isPublishStarting = () => false;
+    const composer = dom.document.createElement('textarea');
+    dom.body.appendChild(composer);
+    composer.focus();
+    env.blocked = 'task';
+    env.refreshPublishCards();
+    check('a button waiting without focus leaves focus alone', dom.document.activeElement === composer);
+}
+
 // ---- An error is about its own attempt --------------------------------------
 // A failed Publish changes left its error on the card. The user then published
 // from the toolbar, so the card read Live; the next change the AI made brought
