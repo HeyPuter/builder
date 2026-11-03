@@ -475,6 +475,32 @@ function setup() {
     check('a redraw leaves focus outside the card alone', dom.document.activeElement === composer);
 }
 
+// ---- A failure doesn't take focus from where the user moved on to ----------
+// A publish takes a few seconds, and the user may start typing their next
+// message meanwhile: the error went beside the field and pulled focus into
+// it, mid-sentence.
+{
+    const { env, tool, cards, q, calls, dom } = setup();
+    await tool.exec({ address: 'shop' }, {});
+    const card = cards()[0];
+    dom.dispatch(q(card, '.publish-card-btn'), 'click');
+    const composer = dom.document.createElement('textarea');
+    dom.body.appendChild(composer);
+    composer.focus();
+    const err = new Error('taken'); err.code = 'name-taken';
+    calls[0].fail(err);
+    check('failure while typing elsewhere: the error shows, focus stays put',
+        q(card, '.publish-card-error') && dom.document.activeElement === composer);
+    env.renameResult = Object.assign(new Error('busy'), { code: 'busy' });
+    env.currentPublishedUrl = 'https://shop.puter.site/';
+    await env.tools.find(t => t.function.name === 'OfferAddressChange').exec({ address: 'shop-2' }, {});
+    const addr = cards()[1];
+    dom.dispatch(q(addr, '.publish-card-btn'), 'click');
+    await new Promise(setImmediate);
+    check('…and a failed address change too',
+        q(addr, '.publish-card-error') && dom.document.activeElement === composer);
+}
+
 // ---- Wiring --------------------------------------------------------------------
 {
     const vite = read('../vite.config.js');
