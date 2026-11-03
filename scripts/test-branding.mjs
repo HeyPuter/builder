@@ -117,6 +117,16 @@ check('prompt routes badge-removal requests to OfferUpgrade', promptSrc.includes
 check('OfferUpgrade tool is defined and bundled',
     upgradeToolSrc.includes('name: "OfferUpgrade"') && viteSrc.includes("'tools/chat_ui/upgrade.js'"));
 check('a reloaded chat re-renders the upgrade card', read('../src/js/app.js').includes('toolResponse.__upgrade_offer'));
+// The Publish button the AI can put in the chat (OfferPublish) has no badge
+// box: publishing from it keeps the badge. "Open Publish" read as either
+// button, so a subscriber who asked for no badge could publish with it.
+{
+    const publishToolSrc = read('../src/tools/chat_ui/publish.js');
+    check('OfferUpgrade sends the user to the toolbar\'s Publish for the badge, in both of its answers',
+        (upgradeToolSrc.match(/Publish in the preview toolbar/g) || []).length === 2);
+    check('OfferPublish tells the AI its button has no badge option',
+        /The button has no option to remove the \\"Made with Puter\\" badge/.test(publishToolSrc));
+}
 
 // Paid users see their benefits, and a detected upgrade shows the success dialog.
 check('toolbar shows Benefits on a paid plan', uiSrc.includes("paidPlan ? 'Benefits' : 'Upgrade'"));

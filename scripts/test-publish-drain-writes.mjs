@@ -64,6 +64,9 @@ const CODE = [
     extract(uiSource, 'async function createPublishSubdomain(path, desired'),
     extract(helpersSource, 'function generateChatTitle(history) {'),
     extract(uiSource, 'async function doPublish() {'),
+    extract(uiSource, 'function publishedNoteMessage(url, isFirst) {'),
+    extract(uiSource, 'function pushAiNote(history, note) {'),
+    extract(uiSource, 'async function publishProject(ui) {'),
 ].join('\n\n');
 
 // ---- Static: the drain exists and the publish uses it before copying --------
@@ -77,9 +80,9 @@ check('helpers.js exposes window.drainFileLocks', /window\.drainFileLocks\s*=/.t
     const copyAt = body.indexOf('puter.fs.copy(');
     check('staging a release drains the working directory before copying it',
         start >= 0 && drainAt >= 0 && copyAt >= 0 && drainAt < copyAt, `drain@${drainAt} copy@${copyAt}`);
-    const pubStart = uiSource.indexOf('async function doPublish() {');
+    const pubStart = uiSource.indexOf('async function publishProject(ui) {');
     const pubBody = uiSource.slice(pubStart, uiSource.indexOf('\n}\n', pubStart));
-    check('doPublish stages through it and copies nothing itself',
+    check('publishing stages through it and copies nothing itself',
         pubBody.includes('await stagePublishRelease(') && !pubBody.includes('puter.fs.copy('));
 }
 

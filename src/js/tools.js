@@ -33,7 +33,7 @@ window.getUnavailableTools = function(modelId) {
 // stale.
 const PREVIEW_SAFE_TOOLS = new Set(['stat', 'readdir', 'ReadTextFile', 'SearchFiles', 'ViewImage', 'ViewDocument',
     'ShowImage', 'update_preview', 'TodoWrite', 'AskClarifyingQuestions', 'OfferUpgrade', 'list_workers', 'get_worker',
-    'set_secret', 'set_email_sender_name', 'delete_worker', 'FetchExternalResource']);
+    'set_secret', 'set_email_sender_name', 'delete_worker', 'FetchExternalResource', 'OfferPublish', 'OfferAddressChange']);
 
 // The answer to a tool call whose reply hit the output limit before its
 // arguments were complete. Puter turns cut-off JSON into {}, so running it

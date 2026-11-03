@@ -62,6 +62,9 @@ const CODE = [
     extract(source, 'async function createPublishSubdomain(path, desired'),
     extract(helpersSource, 'function generateChatTitle(history) {'),
     extract(source, 'async function doPublish() {'),
+    extract(source, 'function publishedNoteMessage(url, isFirst) {'),
+    extract(source, 'function pushAiNote(history, note) {'),
+    extract(source, 'async function publishProject(ui) {'),
 ].join('\n\n');
 
 check('doPublish captures the destination before awaiting', /const startUrl = window\.currentPublishedUrl/.test(source));
@@ -123,7 +126,7 @@ async function run({ switchTo = null, aPublished = true, typedName = '' } = {}) 
                 versions[chatId] = versions[chatId] + '-snap';
                 sandbox.window._projectDirtySinceSnapshot = false;
             },
-            savePublishedFields: async (id, fields) => { saved.push({ id, ...fields }); },
+            savePublishedFields: async (id, fields, note) => { saved.push({ id, ...fields, note }); },
             showToast: msg => toasts.push(String(msg)),
             isSubdomainLimitErr: () => false,
             isSubdomainTakenErr: () => false,
@@ -248,6 +251,20 @@ check('switch/republish: A keeps its own version baseline, not B’s',
     'versionId=' + (raceRepublish.record && raceRepublish.record.publishedVersionId));
 check('switch/republish: no snapshot taken for the project that left the screen',
     raceRepublish.snapshots.length === 0, JSON.stringify(raceRepublish.snapshots));
+// The AI is told on the next message (publishedNoteMessage). A publish that
+// finished in another project left its conversation without the note, so its
+// AI still said nothing was public, or named the changes as unpublished.
+const noteText = (n) => (n && Array.isArray(n.content) && n.content[0] && n.content[0].text) || '';
+check('switch/republish: A\'s saved conversation gets the note for its AI',
+    raceRepublish.record && raceRepublish.record.note && raceRepublish.record.note.content[0].type === 'text-hidden'
+    && /published their latest changes/.test(noteText(raceRepublish.record.note))
+    && /ay-site\.puter\.site/.test(noteText(raceRepublish.record.note)),
+    JSON.stringify(raceRepublish.record && raceRepublish.record.note));
+check('control/republish: the open conversation gets it instead', republish.record && !republish.record.note);
+check('publish: the note goes in through pushAiNote, which first gives a stopped turn\'s calls their results',
+    /pushAiNote\(chatHistory, publishedNoteMessage\(url, isFirst\)\)/.test(source)
+    && /function pushAiNote\(history, note\) \{[\s\S]*?repairDanglingToolUses\(history\);\s*history\.push\(note\);/.test(source));
+check('address change: the same', /pushAiNote\(chatHistory, addressChangedNoteMessage\(oldUrl, newUrl\)\)/.test(source));
 
 const raceFirst = await run({ aPublished: false, switchTo: 'published', typedName: 'alpha-notes' });
 check('switch/first publish: creates A’s address rather than updating B’s',
@@ -259,6 +276,9 @@ check('switch/first publish: B’s live site is untouched', raceFirst.bSiteServe
 check('switch/first publish: A records its new URL', raceFirst.record
     && raceFirst.record.publishedUrl === 'https://alpha-notes.puter.site/',
     JSON.stringify(raceFirst.record));
+check('switch/first publish: …and its AI hears that the site is now public there',
+    /published the app\. It is now public at https:\/\/alpha-notes\.puter\.site\//.test(noteText(raceFirst.record && raceFirst.record.note)),
+    JSON.stringify(raceFirst.record && raceFirst.record.note));
 
 // ---- The reverse: switching to a NEVER-PUBLISHED project mid-copy ------------
 const raceUnpublished = await run({ aPublished: true, switchTo: 'unpublished' });
@@ -276,7 +296,8 @@ check('switch/auto-name: the address is derived from A’s chat, not B’s',
     JSON.stringify(raceAutoName.hostingCalls));
 
 // ---- Change address: a switch mid-rename keeps this project's baseline ------
-// The toolbar's address editor read the published version id and date from
+// The address change (changePublishedAddress, behind the toolbar's address
+// editor and the chat's Change address card) read the published version id and date from
 // the globals AFTER awaiting hosting.create/delete; a project opened in the
 // meantime had repointed them, so its values (or nulls) were saved onto this
 // project — which then read "Publish changes" with a wrong "last published".
@@ -285,7 +306,10 @@ check('switch/auto-name: the address is derived from A’s chat, not B’s',
     const a = source.indexOf(marker);
     const b = source.indexOf('\n});\n', a);
     const handlerSrc = source.slice(a + marker.length, b + 2);
+    const fnStart = source.indexOf('const _addressChangingChats = new Set();');
+    const changeSrc = source.slice(fnStart, source.indexOf('\n}\n', source.indexOf('async function changePublishedAddress(typed) {')) + 2);
     const saved = [];
+    const tracked = [];
     const absolutized = [];
     let releaseCreate;
     const input = { val: () => 'new-name', prop() { return input; }, trigger() { return input; } };
@@ -298,10 +322,13 @@ check('switch/auto-name: the address is derived from A’s chat, not B’s',
             currentPublishedPath: '/alice/AppData/builder/.published/chat-a/r1',
             currentPublishedVersionId: 'v-a-7',
             currentPublishedAt: '2026-09-01T00:00:00.000Z',
-            savePublishedFields: (id, fields) => saved.push([id, fields]),
+            savePublishedFields: (id, fields, note) => saved.push([id, fields, note]),
             isSubdomainLimitErr: () => false,
             puterErrInfo: () => ({ message: '' }),
+            track: (event, props) => tracked.push([event, props]),
         },
+        publishBlockedReason: () => null,
+        publishBusyHere: () => false,
         $: (x) => (x && x.closest ? x : { closest: () => panel, prop() { return this; } }),
         puter: {
             ui: { alert: async () => {} },
@@ -316,6 +343,7 @@ check('switch/auto-name: the address is derived from A’s chat, not B’s',
         console: { warn() {} },
     };
     vm.createContext(sandbox);
+    vm.runInContext(extract(source, 'function addressChangedNoteMessage(oldUrl, newUrl) {') + '\n' + extract(source, 'function pushAiNote(history, note) {') + '\n' + changeSrc, sandbox);
     const handler = vm.runInContext('(' + handlerSrc + ')', sandbox);
     const done = handler.call({ closest: () => panel, prop() { return this; } });
     for (let i = 0; i < 20 && !releaseCreate; i++) await new Promise(setImmediate);
@@ -329,8 +357,15 @@ check('switch/auto-name: the address is derived from A’s chat, not B’s',
     });
     releaseCreate({ subdomain: 'new-name' });
     await done;
-    const [id, fields] = saved[0] || [];
+    const [id, fields, note] = saved[0] || [];
     check('change address: the rename is saved to the project it was made for', id === 'chat-a', JSON.stringify(saved));
+    check('change address: …with the note for its AI, naming both addresses',
+        note && /old-name\.puter\.site/.test(noteText(note)) && /new-name\.puter\.site/.test(noteText(note)),
+        JSON.stringify(note));
+    check('change address: the open project\'s conversation is left alone', sandbox.chatHistory.length === 0);
+    check('change address: counted, as from the toolbar',
+        tracked.length === 1 && tracked[0][0] === 'Site Address Changed' && tracked[0][1].source === 'toolbar',
+        JSON.stringify(tracked));
     check('change address: that project keeps its own published version and date',
         fields && fields.publishedVersionId === 'v-a-7' && fields.publishedAt === '2026-09-01T00:00:00.000Z',
         JSON.stringify(fields));
@@ -341,6 +376,52 @@ check('switch/auto-name: the address is derived from A’s chat, not B’s',
         absolutized.length === 1 && absolutized[0][0] === '/alice/AppData/builder/.published/chat-a/r1'
         && absolutized[0][1] === 'https://new-name.puter.site/' && absolutized[0][2][0] === 'https://old-name.puter.site/',
         JSON.stringify(absolutized));
+}
+
+// ---- Change address during a turn: one wait toast, however many presses ----
+// The refusal's toast had no key or throttle, so each press of Save (or
+// Enter in the field) stacked another copy. A throttled toast is shown once
+// per key in its window (showToast in helpers.js).
+{
+    const marker = "$(document).on('click', '.publish-address-save', ";
+    const a = source.indexOf(marker);
+    const handlerSrc = source.slice(a + marker.length, source.indexOf('\n});\n', a) + 2);
+    const fnStart = source.indexOf('const _addressChangingChats = new Set();');
+    const changeSrc = source.slice(fnStart, source.indexOf('\n}\n', source.indexOf('async function changePublishedAddress(typed) {')) + 2);
+    const shown = [], last = {};
+    const input = { val: () => 'new-name', prop() { return input; }, trigger() { return input; } };
+    const panel = { find: () => input, removeClass() { return panel; } };
+    const sandbox = {
+        currentChatId: 'chat-a',
+        chatHistory: [],
+        window: {
+            currentPublishedUrl: 'https://old-name.puter.site/',
+            isSubdomainLimitErr: () => false,
+            puterErrInfo: () => ({ message: '' }),
+            track() {},
+            // showToast's key and throttle rule, as in helpers.js.
+            showToast(message, opts = {}) {
+                const key = opts.key || message;
+                if (opts.throttleMs && last[key] !== undefined) return;
+                last[key] = 0;
+                shown.push(message);
+            },
+        },
+        publishBlockedReason: () => 'task',
+        publishBusyHere: () => false,
+        $: (x) => (x && x.closest ? x : { closest: () => panel, prop() { return this; } }),
+        puter: { ui: { alert: async () => {} }, hosting: { create: async () => {}, delete: async () => {} } },
+        previewSubdomain: (u) => (u.match(/^https?:\/\/([^.]+)\.puter\.site/) || [])[1] || null,
+        console: { warn() {} },
+    };
+    vm.createContext(sandbox);
+    vm.runInContext(changeSrc, sandbox);
+    const handler = vm.runInContext('(' + handlerSrc + ')', sandbox);
+    const btn = { closest: () => panel, prop() { return this; } };
+    await handler.call(btn);
+    await handler.call(btn);
+    check('change address during a turn: one wait toast for two presses',
+        shown.length === 1 && /Finishing the current task/.test(shown[0]), JSON.stringify(shown));
 }
 
 if (failures) { console.error(failures + ' failure(s)'); process.exit(1); }
