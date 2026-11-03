@@ -53,7 +53,7 @@ const PARENT = '/alice/AppData/builder';
 const OLD_DIR = PARENT + '/chat1';
 
 // failAt: null | 'list' | 'create-first' | 'create-second' | 'chat-write'
-async function run({ failAt = null, workerCount = 1, senderTitle = null, failRename = false, published = false } = {}) {
+async function run({ failAt = null, workerCount = 1, senderTitle = null, failRename = false, published = false, openUnsaved = false } = {}) {
     // A published source: its AI was told the public address, and the user
     // published from a Publish card in the chat.
     const history = [{ role: 'system', content: 'cwd ' + OLD_DIR }];
@@ -74,7 +74,7 @@ async function run({ failAt = null, workerCount = 1, senderTitle = null, failRen
         ['chat-history/chat1.json', JSON.stringify({
             id: 'chat1', title: 'Notes', history,
             previewUrl: 'https://draft-one.puter.site/', previewPath: OLD_DIR,
-            ...(published ? { publishedUrl: 'https://notes.puter.site/', publishedPath: PARENT + '/.published/chat1/r1' } : {}),
+            ...(published && !openUnsaved ? { publishedUrl: 'https://notes.puter.site/', publishedPath: PARENT + '/.published/chat1/r1' } : {}),
         })],
     ]);
     const deployed = new Map([['original-api', {
@@ -195,6 +195,13 @@ async function run({ failAt = null, workerCount = 1, senderTitle = null, failRen
             },
         },
     };
+    // The source is the open project, published moments ago: its file
+    // doesn't have the address yet, the live state does.
+    if (openUnsaved) {
+        sandbox.currentChatId = 'chat1';
+        sandbox.chatHistory = history;
+        sandbox.window.currentPublishedUrl = 'https://notes.puter.site/';
+    }
     vm.createContext(sandbox);
     // The real media-folder helpers (window.mediaDirForAppDir).
     const h0 = helpersSource.indexOf('window.normalizePosixPath =');
@@ -258,6 +265,11 @@ check('control: a backend on its default sender name renames nothing', ok.rename
     check('published source: the copy\'s card isn\'t filled in with the original\'s (taken) address',
         offerResult && offerResult.__publish_offer === true && offerResult.address === '' && offerResult.offer === 'offer-1',
         JSON.stringify(offerResult));
+    const open = await run({ published: true, openUnsaved: true });
+    const openLast = open.copyChat.history.at(-1);
+    check('the open project, published but not yet saved: its live address is the one the note names',
+        openLast.versionNote === true && /copy isn't published/.test(openLast.content[0].text)
+        && openLast.content[0].text.includes('https://notes.puter.site/'), JSON.stringify(openLast));
     const plain = await run();
     check('unpublished source: no note added', plain.copyChat.history.length === 1, JSON.stringify(plain.copyChat.history));
 }
