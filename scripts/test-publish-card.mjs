@@ -580,6 +580,18 @@ function setup() {
     check('the Publish changes row doesn\'t (its link shortens instead)', !q(cards()[2], '.publish-card-row').classList.contains('has-field'));
 }
 
+// ---- An address change is counted after a switch too -------------------------
+{
+    const { env, addressTool, cards, q, dom, events } = setup();
+    env.currentPublishedUrl = 'https://shop.puter.site/';
+    await addressTool.exec({ address: 'shop-2' }, {});
+    env.renameResult = { changed: true, url: 'https://shop-2.puter.site/', oldUrl: 'https://shop.puter.site/', open: false };
+    dom.dispatch(q(cards()[0], '.publish-card-btn'), 'click');
+    await new Promise(setImmediate);
+    check('an address change that ends in another project is still counted',
+        events.some(e => e.event === 'Site Address Changed' && e.props.source === 'chat'), JSON.stringify(events));
+}
+
 // ---- Wiring --------------------------------------------------------------------
 {
     const vite = read('../vite.config.js');
