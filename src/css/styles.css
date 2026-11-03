@@ -2295,7 +2295,7 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
     text-overflow: ellipsis;
     white-space: nowrap;
     font-size: 13px;
-    color: #8a8a8a;
+    color: #6b6b6b;
     text-decoration: line-through;
 }
 .publish-card-note {
