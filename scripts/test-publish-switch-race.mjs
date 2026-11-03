@@ -63,6 +63,7 @@ const CODE = [
     extract(helpersSource, 'function generateChatTitle(history) {'),
     extract(source, 'async function doPublish() {'),
     extract(source, 'function publishedNoteMessage(url, isFirst) {'),
+    extract(source, 'function pushAiNote(history, note) {'),
     extract(source, 'async function publishProject(ui) {'),
 ].join('\n\n');
 
@@ -260,6 +261,10 @@ check('switch/republish: A\'s saved conversation gets the note for its AI',
     && /ay-site\.puter\.site/.test(noteText(raceRepublish.record.note)),
     JSON.stringify(raceRepublish.record && raceRepublish.record.note));
 check('control/republish: the open conversation gets it instead', republish.record && !republish.record.note);
+check('publish: the note goes in through pushAiNote, which first gives a stopped turn\'s calls their results',
+    /pushAiNote\(chatHistory, publishedNoteMessage\(url, isFirst\)\)/.test(source)
+    && /function pushAiNote\(history, note\) \{[\s\S]*?repairDanglingToolUses\(history\);\s*history\.push\(note\);/.test(source));
+check('address change: the same', /pushAiNote\(chatHistory, addressChangedNoteMessage\(oldUrl, newUrl\)\)/.test(source));
 
 const raceFirst = await run({ aPublished: false, switchTo: 'published', typedName: 'alpha-notes' });
 check('switch/first publish: creates A’s address rather than updating B’s',
@@ -337,7 +342,7 @@ check('switch/auto-name: the address is derived from A’s chat, not B’s',
         console: { warn() {} },
     };
     vm.createContext(sandbox);
-    vm.runInContext(extract(source, 'function addressChangedNoteMessage(oldUrl, newUrl) {') + '\n' + changeSrc, sandbox);
+    vm.runInContext(extract(source, 'function addressChangedNoteMessage(oldUrl, newUrl) {') + '\n' + extract(source, 'function pushAiNote(history, note) {') + '\n' + changeSrc, sandbox);
     const handler = vm.runInContext('(' + handlerSrc + ')', sandbox);
     const done = handler.call({ closest: () => panel, prop() { return this; } });
     for (let i = 0; i < 20 && !releaseCreate; i++) await new Promise(setImmediate);

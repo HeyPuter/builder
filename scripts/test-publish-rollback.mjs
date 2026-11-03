@@ -54,6 +54,7 @@ const CODE = [
     extract(helpersSource, 'function generateChatTitle(history) {'),
     extract(source, 'async function doPublish() {'),
     extract(source, 'function publishedNoteMessage(url, isFirst) {'),
+    extract(source, 'function pushAiNote(history, note) {'),
     extract(source, 'async function publishProject(ui) {'),
 ].join('\n\n');
 

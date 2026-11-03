@@ -378,7 +378,7 @@ function setup() {
             isPublishStarting: (id) => starting && id === 'p',
         });
         vm.createContext(sb);
-        vm.runInContext(extract(uiSource, 'function addressChangedNoteMessage(oldUrl, newUrl) {') + '\n' + uiSource.slice(start, end), sb);
+        vm.runInContext(extract(uiSource, 'function addressChangedNoteMessage(oldUrl, newUrl) {') + '\n' + extract(uiSource, 'function pushAiNote(history, note) {') + '\n' + uiSource.slice(start, end), sb);
         return { sb, log };
     }
     const ok = make();
