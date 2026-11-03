@@ -233,12 +233,7 @@
                 window.announce?.(isFirst ? 'Your website is live.' : 'Your website was updated.');
                 await recordCardPublish($card.attr('data-offer'), url);
             },
-            fail(e) {
-                $card.attr('data-error', cardErrorText(e)).removeAttr('data-key');
-                refreshPublishCards();
-                window.announce?.(cardErrorText(e));
-                focusAddress($card);
-            },
+            fail(e) { showCardError($card, cardErrorText(e)); },
         });
     }
 
@@ -252,11 +247,16 @@
         return 'Couldn’t change the address. It may be taken. Try another.';
     }
 
+    // The error beside the field, and the field focused for the fix, unless
+    // the user has moved on (typing their next message while it published):
+    // focus is only taken from the card itself, or from nowhere.
     function showCardError($card, text) {
+        const active = document.activeElement;
+        const free = !active || active === document.body || $card[0].contains(active);
         $card.attr('data-error', text).removeAttr('data-key');
         refreshPublishCards();
         window.announce?.(text);
-        focusAddress($card);
+        if (free) focusAddress($card);
     }
 
     async function changeAddressFromCard($card) {
