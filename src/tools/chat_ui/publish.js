@@ -137,7 +137,8 @@
     // Draw the newest card from the current state, and freeze the ones before
     // it. A card whose layout is unchanged only has its button's availability
     // updated (a turn or a restore starting or ending), so a half-typed address
-    // keeps its caret.
+    // keeps its caret. A redraw that replaces what had focus gives it back
+    // (see keepCardFocus).
     function refreshPublishCards() {
         const $cards = $('.chat-box .publish-card');
         if (!$cards.length) return;
@@ -152,20 +153,40 @@
                 $inner.find('.publish-card-btn').prop('disabled', view.busy || view.blocked);
                 return;
             }
-            const focused = $inner.find('.publish-card-input').is(':focus');
+            const active = document.activeElement;
+            const had = active && $inner[0] && $inner[0].contains(active)
+                ? (active.classList.contains('publish-card-input') ? 'field' : 'control')
+                : null;
             $card.attr('data-key', key).attr('data-mode', view.state);
             $inner.html(cardHtml(view, $card));
-            if (focused) focusAddress($card);
+            if (had) keepCardFocus($card, had);
         });
     }
     window.refreshPublishCards = refreshPublishCards;
 
     function focusAddress($card) {
         const el = $card.find('.publish-card-input')[0];
-        if (!el || el.disabled) return;
+        if (!el || el.disabled) return false;
         el.focus({ preventScroll: true });
         const n = el.value.length;
         try { el.setSelectionRange(n, n); } catch (e) { /* not a text field */ }
+        return true;
+    }
+
+    // Focus was in the card and its markup was just replaced, which would drop
+    // it to the page (a keyboard user's Enter on Publish then left them at
+    // the top of the page). It goes to the same kind of control: the field,
+    // or else the button, the link (once the site is live), or, while the
+    // button is disabled for the publish, the card itself.
+    function keepCardFocus($card, had) {
+        if (had === 'field' && focusAddress($card)) return;
+        const btn = $card.find('.publish-card-btn')[0];
+        const el = (btn && !btn.disabled ? btn : null) || $card.find('.publish-card-link')[0];
+        if (el) { el.focus({ preventScroll: true }); return; }
+        if (focusAddress($card)) return;
+        const $inner = $card.find('.publish-card-inner');
+        $inner.attr('tabindex', '-1');
+        $inner[0]?.focus({ preventScroll: true });
     }
 
     function renderPublishCard({ address = '', offer = '', publishedUrl = '', kind = '' } = {}) {
