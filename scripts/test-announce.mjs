@@ -109,8 +109,11 @@ function page({ parsed = true } = {}) {
 // announced explicitly instead, and no longer carry a live role of their own.
 {
     const ui = read('../src/js/ui.js');
+    // From the popover or the chat's Publish card: publishProject announces
+    // right after the surface shows the publish starting.
     check('publishing announces that it started',
-        /_publishPanelView = 'progress';\s*renderPublishPanel\(\);\s*\$\('\.preview-publish-panel'\)\.trigger\('focus'\);\s*window\.announce\?\.\(isFirst \? 'Publishing your site…' : 'Updating your site…'\);/.test(ui));
+        /_publishPanelView = 'progress';\s*renderPublishPanel\(\);\s*\$\('\.preview-publish-panel'\)\.trigger\('focus'\);\s*\},/.test(ui)
+        && /ui\.start\(isFirst\);\s*window\.announce\?\.\(isFirst \? 'Publishing your site…' : 'Updating your site…'\);/.test(ui));
     check('…and that the site is live (the closed-popover path speaks through its toast)',
         /_publishPanelView = 'success';\s*renderPublishPanel\(\);\s*window\.announce\?\.\(isFirst \? 'Your website is live\.' : 'Your website was updated\.'\);/.test(ui));
     check('the progress and success views are not live regions themselves',

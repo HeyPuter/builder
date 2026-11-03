@@ -2,7 +2,7 @@ window.tools.push({
     type: "function",
     function: {
         name: "publish_site",
-        description: `Opens the app's live PREVIEW for the user by hosting its directory at a working URL shown in the preview pane. This is the in-progress preview the user watches while you build — it is NOT a public release of their app. The user decides if and when to make the app public themselves, using the Publish button in the preview; you never make it public, and you should not tell the user the app is "live"/"published" or share a public link.\n
+        description: `Opens the app's live PREVIEW for the user by hosting its directory at a working URL shown in the preview pane. This is the in-progress preview the user watches while you build — it is NOT a public release of their app. The user decides if and when to make the app public themselves, using the Publish button in the preview (or the one OfferPublish puts in the chat when they ask you to publish); you never make it public yourself, and you should not tell the user the app is "live"/"published" or share a public link.\n
 Only files and folders contained within the hosted directory (its descendants) can be accessed through this preview URL. Any directories at the same level (siblings), directories above it (parents), or files in those directories are completely inaccessible — the hosted directory becomes an isolated root, and everything outside it is hidden and unreachable, as if it doesn't exist.\n
 ABSOLUTELY VERY IMPORTANT: you only need to call this ONCE per app. The preview is connected to the directory and updates automatically when files change, so do NOT call it again on later edits.`,
         parameters: {

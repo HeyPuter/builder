@@ -53,6 +53,7 @@ const PUBLISH_CODE = [
     extract(helpersSource, 'function templateProp(history) {'),
     extract(helpersSource, 'function templatePropFor(slug) {'),
     extract(source, 'async function doPublish() {'),
+    extract(source, 'async function publishProject(ui) {'),
 ].join('\n\n');
 const USAGE_CODE = [
     extract(helpersSource, 'function sumChatCostCents(history) {'),
@@ -67,7 +68,7 @@ const ROOT = '/alice/AppData/builder';
 const WORK = ROOT + '/project-a';
 const PUB = ROOT + '/.published/project-a';
 
-async function run({ published, history, withUsageHelpers = true }) {
+async function run({ published, history, withUsageHelpers = true, ui = null, createError = null }) {
     const files = new Map([[WORK, 'NEW WORK']]);
     if (published) files.set(PUB, 'OLD COPY');
     const events = [], alerts = [];
@@ -119,7 +120,7 @@ async function run({ published, history, withUsageHelpers = true }) {
                 copy: async (from, to, options) => { files.set(to + '/' + options.newName, files.get(from)); },
             },
             hosting: {
-                create: async sub => ({ subdomain: sub }),
+                create: async sub => { if (createError) throw createError; return { subdomain: sub }; },
                 update: async () => {},
             },
         },
@@ -127,7 +128,7 @@ async function run({ published, history, withUsageHelpers = true }) {
     new Function('window', CORE_SOURCE)(sandbox.window);
     vm.createContext(sandbox);
     vm.runInContext(PUBLISH_CODE + (withUsageHelpers ? '\n\n' + USAGE_CODE : ''), sandbox, { filename: 'src/js/ui.js' });
-    await sandbox.doPublish();
+    await (ui ? sandbox.publishProject(ui) : sandbox.doPublish());
     return { events: events.filter(e => e.event === 'Project Published'), alerts };
 }
 
@@ -196,6 +197,35 @@ const HISTORY = [
     const fork = [{ ...HISTORY[0], templateOrigin: { slug: 'feedback-board', name: 'Feedback board', version: 'abcdef12' } }, ...HISTORY.slice(1)];
     const f = (await run({ published: false, history: fork, withUsageHelpers: false })).events[0];
     check('fallback: a fork still names the template', f && f.props.from_template === true && f.props.template === 'feedback-board', JSON.stringify(f));
+}
+
+// ---- Published from the chat's Publish card ----------------------------------
+// The card (tools/chat_ui/publish.js) runs the same publish with its own hooks
+// and source. The popover's event carries no source.
+{
+    const seen = [];
+    const card = {
+        source: 'chat',
+        render() { seen.push('render'); },
+        desiredName: () => 'bakery',
+        start(isFirst) { seen.push('start:' + isFirst); },
+        success({ url, isFirst }) { seen.push('success:' + url + ':' + isFirst); },
+        fail(e) { seen.push('fail'); },
+    };
+    const { events, alerts } = await run({ published: false, history: HISTORY, ui: card });
+    const p = events[0] && events[0].props;
+    check('card: published, reported with source chat', events.length === 1 && p.source === 'chat' && p.first_publish === true, JSON.stringify(events));
+    check('card: its hooks ran in order, at the address it typed',
+        seen.join() === 'start:true,success:https://bakery.puter.site/:true', seen.join());
+    check('card: no popover alert', alerts.length === 0, JSON.stringify(alerts));
+    const panel = (await run({ published: false, history: HISTORY })).events[0].props;
+    check('popover: no source on its event', panel && !('source' in panel), JSON.stringify(panel));
+
+    seen.length = 0;
+    const failed = await run({ published: false, history: HISTORY, ui: card, createError: new Error('boom') });
+    check('card failure: its fail hook runs, with no alert and no event',
+        seen.join() === 'start:true,fail' && failed.alerts.length === 0 && failed.events.length === 0,
+        JSON.stringify({ seen, alerts: failed.alerts, events: failed.events }));
 }
 
 // ---- tokenBand / costBand boundaries -----------------------------------------

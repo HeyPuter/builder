@@ -62,6 +62,7 @@ const CODE = [
     extract(source, 'async function createPublishSubdomain(path, desired'),
     extract(helpersSource, 'function generateChatTitle(history) {'),
     extract(source, 'async function doPublish() {'),
+    extract(source, 'async function publishProject(ui) {'),
 ].join('\n\n');
 
 check('doPublish captures the destination before awaiting', /const startUrl = window\.currentPublishedUrl/.test(source));
