@@ -42,7 +42,7 @@ function makeSettings(chatId, pub, saved, listEntry) {
     return submitAddress;
 }`;
 
-function setup({ open = true, processing = false, history = null, typed = 'new-name' } = {}) {
+function setup({ open = true, processing = false, history = null, typed = 'new-name', changing = false } = {}) {
     const env = {
         console: { warn() {}, error() {} },
         currentChatId: open ? 'chat-a' : 'chat-b',
@@ -68,7 +68,7 @@ function setup({ open = true, processing = false, history = null, typed = 'new-n
     };
     env.window = Object.assign(env, {
         isPublishInFlight: () => false,
-        isAddressChanging: () => false,
+        isAddressChanging: (id) => changing && id === 'chat-a',
         showToast: (text) => env.toasts.push(text),
         refreshPublishButton() {},
         tracked: [],
@@ -131,6 +131,17 @@ const noteText = (m) => m && Array.isArray(m.content) && m.content[0] && m.conte
         save && save.id === 'chat-a' && save.fields.publishedUrl === 'https://new-name.puter.site/'
         && /old-name\.puter\.site/.test(noteText(save.note)), JSON.stringify(save));
     check('…and the open project\'s conversation is left alone', env.chatHistory.length === 1);
+}
+
+{
+    // The toolbar or the chat is moving this project's address: each would
+    // create a new address and drop the old one, leaving one of the two new
+    // ones behind, unused.
+    const { env, run } = setup({ open: false, changing: true });
+    await run();
+    check('while its address is changing elsewhere: nothing moves, nothing is saved',
+        env.hosting.length === 0 && env.fieldSaves.length === 0, JSON.stringify(env.hosting));
+    check('…and the user is told to wait', env.toasts.length === 1 && /already changing/.test(env.toasts[0]), JSON.stringify(env.toasts));
 }
 
 {
