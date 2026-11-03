@@ -3265,8 +3265,10 @@ async function changePublishedAddress(typed) {
     const fail = (code) => Object.assign(new Error(code), { code });
     if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(newSub)) throw fail('invalid-name');
     // Not during a turn: the note for the AI below would land in the middle
-    // of it. Not during a publish, which updates the address being moved.
-    if (_addressChanging || publishBlockedReason() || publishBusyHere()) throw fail('busy');
+    // of it. Not during a publish, which updates the address being moved,
+    // including one still saving the Code view's edits before it starts.
+    if (_addressChanging || publishBlockedReason() || publishBusyHere()
+        || window.isPublishStarting?.(currentChatId)) throw fail('busy');
     // Only ever the frozen published copy — never publishedRootDir(), which is
     // the live working directory the AI edits. A record with a URL but no path
     // (a save that fell back to the list entry) used to re-point the new public
