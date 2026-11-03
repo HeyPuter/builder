@@ -223,7 +223,6 @@ function renderFeaturedFeed(items) {
 function syncHomeFeedLayout() {
     $('#new-chat').toggleClass('has-feed', $('.home-feed:not([hidden])').length > 0);
 }
-window.syncHomeFeedLayout = syncHomeFeedLayout;
 
 // Called once from boot (app.js), right after renderSkeleton().
 window.initFeaturedFeed = function () {

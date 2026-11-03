@@ -372,7 +372,7 @@
 
     // ---- The dialog -----------------------------------------------------------
 
-    function buildThumb(template, { eager = false } = {}) {
+    function buildThumb(template) {
         const $thumb = $('<div class="feed-thumb"></div>');
         // The feed's own gradient + initial placeholder, from featured.js.
         const placeholder = () => buildFeaturedPlaceholder({ id: template.slug, name: template.name });
@@ -380,7 +380,6 @@
             const $img = $('<img class="feed-thumb-img" alt="" decoding="async">');
             $img.on('load', () => $img.addClass('loaded'));
             $img.on('error', () => { $img.remove(); $thumb.append(placeholder()); });
-            if (!eager) $img.attr('loading', 'lazy');
             $img.attr('src', template.thumbnail);
             $thumb.append($img);
         } else {
@@ -415,7 +414,7 @@
         $overlay.find('.template-modal-title').text(template.name);
         $overlay.find('.template-modal-body').text(template.description);
         $overlay.find('.template-modal-details').attr('href', `/templates/${template.slug}/`);
-        $overlay.find('.template-modal-thumb').append(buildThumb(template, { eager: true }));
+        $overlay.find('.template-modal-thumb').append(buildThumb(template));
         // Most people who open the dialog use the template: download it now.
         fetchTemplateFiles(template).catch(() => { /* the fork retries and reports */ });
 
