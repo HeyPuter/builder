@@ -578,7 +578,13 @@ window.savePublishedFields = async function (chatId, fields) {
             if ('publishedPath' in fields) chatData.publishedPath = fields.publishedPath || null;
             if ('publishedVersionId' in fields) chatData.publishedVersionId = fields.publishedVersionId || null;
             if ('publishedAt' in fields) chatData.publishedAt = fields.publishedAt || null;
-            if ('publishedDomains' in fields) chatData.publishedDomains = fields.publishedDomains || [];
+            // A function changes the domains on disk, here inside the lock
+            // (updatePublishedDomains).
+            if ('publishedDomains' in fields) {
+                const domains = typeof fields.publishedDomains === 'function'
+                    ? fields.publishedDomains(chatData.publishedDomains) : fields.publishedDomains;
+                chatData.publishedDomains = domains || [];
+            }
             await puter.fs.write(chatFilePath(chatId), JSON.stringify(chatData));
             return chatData;
         });

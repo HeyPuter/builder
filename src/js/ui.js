@@ -2003,7 +2003,7 @@ function renderPublishPanel() {
             publishBadgeToggleHtml() +
             (blocked
                 ? publishWaitingHtml(blocked)
-                : `<button class="publish-action" data-action="publish">${globe}<span>Publish</span></button>`);
+                : `<button class="publish-action" data-action="publish"${window.isReservingPublishName?.(currentChatId) ? ' disabled' : ''}>${globe}<span>Publish</span></button>`);
     } else {
         title = 'Your site';
         // A connected domain is the site's address: the row shows it, and the
@@ -2547,6 +2547,10 @@ async function doPublish({ reserved = null } = {}) {
             { type: 'info', key: 'publish-blocked', throttleMs: 3000 });
         return;
     }
+    // The own-domain route is reserving this project's first name, and a plain
+    // Publish now would race it for the name (publishWithDomain). The button
+    // waits meanwhile, and this holds back the Enter key.
+    if (!reserved && window.isReservingPublishName?.(currentChatId)) return;
     // Publishing ships the files on disk, so unsaved code in the Code view is
     // saved first. The save takes a moment, so the project is marked as
     // starting a publish (a second click, a send or a restore waits) before
@@ -3240,20 +3244,24 @@ $(document).on('click', '.publish-address-save', async function () {
         return;
     }
     // The user's own domains stay with the old address (see custom-domain.js).
+    // The question waits for the user, who may open another project
+    // meanwhile, and the rest is read from the globals, which then describe
+    // THAT project, so a switch stops the change.
+    const chatId = currentChatId;
     if (await window.confirmAddressChangeKeepsDomains?.(window.currentPublishedDomains, oldSub) === false) {
         $input.trigger('focus');
         return;
     }
+    if (currentChatId !== chatId) return;
     // Only ever the frozen published copy — never publishedRootDir(), which is
     // the live working directory the AI edits. A record with a URL but no path
     // (a save that fell back to the list entry) used to re-point the new public
     // subdomain at the working dir, after which every AI edit went live.
     // The rest of this project's published record is read with its id, before
-    // the first await: the user can open another project while the address is
+    // the next await: the user can open another project while the address is
     // being created, and the globals then describe THAT project — saving its
     // version and date here made this one read "Publish changes" afterwards
     // with a wrong (or missing) "last published".
-    const chatId = currentChatId;
     const publishedVersionId = window.currentPublishedVersionId || null;
     const publishedAt = window.currentPublishedAt || null;
     const path = await resolvePublishedDir(window.currentPublishedPath, chatId);
@@ -3326,10 +3334,12 @@ const _domainConnectBusy = new Set();
 const _domainChecks = new Map();
 const _domainManualChecks = new Set();
 const _domainNotYet = new Set();
-// Connected domains this popover opening found working, and the checks in a
-// row that found one not showing the site.
+// Connected domains this popover opening found working, the checks in a row
+// that found one not showing the site, and those checks in flight, shared so
+// rounds that overlap (the popover opening, Puter's window closing) count one.
 const _domainVerified = new Set();
 const _domainMisses = new Map();
+const _domainVerifies = new Map();
 let _domainWatchTimer = null;
 
 // The address to share for the open project: a connected domain that serves
@@ -3347,20 +3357,26 @@ function rerenderPublishPanelForDomains() {
 
 // The "Site address" heading over the address, on the first publish and
 // the live site, with the way to the user's own domain on its right: Use
-// custom domain, or Change domain once one is connected. Everyone who publishes
-// sees it where they pick their address. A paid plan starts right away, and
-// on the free plan the press opens the upgrade dialog (useOwnDomain), so it
-// counts as an upgrade prompt there.
+// custom domain, or Change domain once one is connected. Everyone signed in
+// who publishes sees it where they pick their address. A paid plan starts
+// right away, and on the free plan the press opens the upgrade dialog
+// (useOwnDomain), so it counts as an upgrade prompt there. A signed-out
+// (temporary) user has no plan to upgrade, so gets the label alone, as the
+// badge box leaves them out.
 function publishAddressHeadHtml() {
+    const user = window.user;
+    const offer = !!user && !user.is_temp;
     const sub = previewSubdomain(window.currentPublishedUrl);
     const change = !!sub && window.CustomDomain.list(window.currentPublishedDomains).length > 0;
-    if (!window.Branding.isSubscribed(window.user)) trackUpgradePromptShown('custom_domain');
+    if (offer && !window.Branding.isSubscribed(user)) trackUpgradePromptShown('custom_domain');
     const busy = _domainConnectBusy.has(currentChatId);
     return '<div class="publish-address-head">' +
         '<span class="publish-address-label">Site address</span>' +
-        `<button type="button" class="publish-domain-action" data-action="${change ? 'change-domain' : 'use-domain'}"${busy ? ' disabled' : ''}>` +
-            (busy ? 'Connecting…' : change ? 'Change domain' : 'Use custom domain') +
-        '</button>' +
+        (offer
+            ? `<button type="button" class="publish-domain-action" data-action="${change ? 'change-domain' : 'use-domain'}"${busy ? ' disabled' : ''}>` +
+                (busy ? 'Connecting…' : change ? 'Change domain' : 'Use custom domain') +
+            '</button>'
+            : '') +
     '</div>';
 }
 
@@ -3464,7 +3480,8 @@ function publishDomainRecordHtml(record) {
 
 // Change a project's domains with `change` (old list → new list) and save
 // them: on the open chat's globals and record while it is still on screen,
-// else straight into its record.
+// else in its record, changed inside the record's lock (savePublishedFields)
+// so two changes at once both land.
 async function updatePublishedDomains(chatId, change) {
     if (currentChatId === chatId) {
         window.currentPublishedDomains = change(window.currentPublishedDomains);
@@ -3474,10 +3491,7 @@ async function updatePublishedDomains(chatId, change) {
         }
         return;
     }
-    let saved;
-    try { saved = JSON.parse(await puter.fs.read(`chat-history/${chatId}.json`).then(d => d.text())).publishedDomains; }
-    catch (e) { return; }
-    await window.savePublishedFields?.(chatId, { publishedDomains: change(saved) });
+    await window.savePublishedFields?.(chatId, { publishedDomains: change });
 }
 
 // Open Puter's domain dialog for the site at `sub` (the published one unless
@@ -3558,6 +3572,11 @@ const _reservedPublishNames = new Map();
 // For doPublish, which sends a plain Publish after a failed own-domain one
 // onto the reserved name.
 window.reservedPublishName = (chatId) => _reservedPublishNames.get(chatId) || null;
+// Projects reserving that name right now. A plain Publish meanwhile would
+// race the reservation for the same name, so doPublish holds it back and the
+// popover's Publish button waits.
+const _reservingPublishNames = new Set();
+window.isReservingPublishName = (chatId) => _reservingPublishNames.has(chatId);
 
 // Make `name` this project's site, serving the empty placeholder folder.
 // Puter's dialog can only connect a domain to a site the user already owns,
@@ -3630,11 +3649,13 @@ async function publishWithDomain() {
     }
     _suggestedPublishName = name;
     _domainConnectBusy.add(chatId);
+    _reservingPublishNames.add(chatId);
     rerenderPublishPanelForDomains();
     try {
         await reservePublishSubdomain(chatId, name);
     } catch (e) {
         _domainConnectBusy.delete(chatId);
+        _reservingPublishNames.delete(chatId);
         if (currentChatId !== chatId) return;
         rerenderPublishPanelForDomains();
         if (e && e.code === 'name-taken') {
@@ -3649,6 +3670,7 @@ async function publishWithDomain() {
         return;
     }
     _domainConnectBusy.delete(chatId);
+    _reservingPublishNames.delete(chatId);
     // Another project opened meanwhile: the name stays reserved for a retry.
     if (currentChatId !== chatId) return;
     connectCustomDomain(name, { from: 'first_publish' });
@@ -3701,23 +3723,29 @@ function checkCustomDomain(chatId, hostname, siteUrl) {
 
 // Check a connected domain still shows the site. The second check in a row
 // that finds it doesn't marks it lost, so the site's address goes back to
-// puter.site and the popover offers to check or connect it again. Resolves
-// true when it was marked.
-async function verifyCustomDomain(chatId, hostname, siteUrl) {
-    const serves = await customDomainServesSite(hostname, siteUrl);
-    if (serves === null) return false;
-    if (serves) {
+// puter.site and the popover offers to check or connect it again. A check
+// that learns nothing (the site's own address can't be read either), or ends
+// after the popover closed, counts for nothing. Resolves true when it was
+// marked.
+function verifyCustomDomain(chatId, hostname, siteUrl) {
+    if (_domainVerifies.has(hostname)) return _domainVerifies.get(hostname);
+    const verify = customDomainServesSite(hostname, siteUrl).then(async (serves) => {
+        if (serves === null || !_publishPanelOpen) return false;
+        if (serves) {
+            _domainMisses.delete(hostname);
+            _domainVerified.add(hostname);
+            return false;
+        }
+        const misses = (_domainMisses.get(hostname) || 0) + 1;
+        _domainMisses.set(hostname, misses);
+        if (misses < 2) return false;
         _domainMisses.delete(hostname);
-        _domainVerified.add(hostname);
-        return false;
-    }
-    const misses = (_domainMisses.get(hostname) || 0) + 1;
-    _domainMisses.set(hostname, misses);
-    if (misses < 2) return false;
-    _domainMisses.delete(hostname);
-    await updatePublishedDomains(chatId, (list) => window.CustomDomain.markLost(list, hostname, Date.now()));
-    window.track?.('Custom Domain Lost');
-    return true;
+        await updatePublishedDomains(chatId, (list) => window.CustomDomain.markLost(list, hostname, Date.now()));
+        window.track?.('Custom Domain Lost');
+        return true;
+    }).finally(() => { _domainVerifies.delete(hostname); });
+    _domainVerifies.set(hostname, verify);
+    return verify;
 }
 
 // The open project's connected domain this popover opening hasn't seen
@@ -3759,6 +3787,7 @@ function stopWatchingCustomDomains() {
     _domainWatchTimer = null;
     _domainNotYet.clear();
     _domainVerified.clear();
+    _domainMisses.clear();
 }
 
 // Before an address change. A domain serves the site by its puter.site name,
@@ -5333,19 +5362,21 @@ async function showChatProperties(chatId) {
             $input.trigger('focus');
             return;
         }
+        // The user's own domains stay with the old address (see
+        // custom-domain.js). Asked only when the name really changes, and
+        // before the check below, which a publish started while the question
+        // waits would get past.
+        const domains = chatId === currentChatId ? window.currentPublishedDomains : saved.publishedDomains;
+        const fromSub = previewSubdomain(pub.url);
+        if (newSub !== fromSub && await window.confirmAddressChangeKeepsDomains?.(domains, fromSub) === false) {
+            $input.trigger('focus');
+            return;
+        }
         // A rename may not run while a publish of THIS project is still in
         // flight: both mint subdomains against the same published directory.
         if (window.isPublishInFlight(chatId)) {
             window.showToast?.('This project is already being published — one moment.',
                 { type: 'info', key: 'publish-blocked', throttleMs: 3000 });
-            $input.trigger('focus');
-            return;
-        }
-        // The user's own domains stay with the old address (see
-        // custom-domain.js). Asked only when the name really changes.
-        const domains = chatId === currentChatId ? window.currentPublishedDomains : saved.publishedDomains;
-        const fromSub = previewSubdomain(pub.url);
-        if (newSub !== fromSub && await window.confirmAddressChangeKeepsDomains?.(domains, fromSub) === false) {
             $input.trigger('focus');
             return;
         }

@@ -116,7 +116,12 @@ function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, block
         track: (name, props) => state.tracks.push([name, props]),
         announce: (t) => state.announced.push(t),
         puterErrInfo: (e) => ({ message: e && e.message || '' }),
-        savePublishedFields: async (id, fields) => state.fieldSaves.push([id, fields]),
+        // A change is applied to what's on disk, as the real one does inside the lock.
+        savePublishedFields: async (id, fields) => {
+            const f = { ...fields };
+            if (typeof f.publishedDomains === 'function') f.publishedDomains = f.publishedDomains((files[`chat-history/${id}.json`] || { publishedDomains: [pending] }).publishedDomains);
+            state.fieldSaves.push([id, f]);
+        },
     };
     const puter = {
         hosting: {
@@ -165,7 +170,7 @@ function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, block
     const code = 'let currentChatId = "A"; let chatHistory = []; let _publishPanelOpen = true; let _suggestedPublishName = null;\n' + section +
         '\nreturn { connectCustomDomain, checkCustomDomain, publishDomainsHtml, confirmAddressChangeKeepsDomains, publishedShareUrl, watchCustomDomains, stopWatchingCustomDomains,' +
         ' publishWithDomain, reservePublishSubdomain, publishAlsoAtHtml, publishAddressHeadHtml, useOwnDomain,' +
-        ' setChat: (id) => { currentChatId = id; }, closePanel: () => { _publishPanelOpen = false; } };';
+        ' setChat: (id) => { currentChatId = id; }, closePanel: () => { _publishPanelOpen = false; }, openPanel: () => { _publishPanelOpen = true; } };';
     const api = new Function(...names, code)(...names.map((k) => env[k]));
     return { ...api, window, state };
 }
@@ -339,6 +344,28 @@ function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, block
     check('a check that can\'t read the site\'s own address either counts for nothing', offline.window.currentPublishedDomains[0].lostAt === null
         && offline.state.saves.length === 0);
 
+    const overlap = harness({ attach: async () => null, fetchImpl: fetchFor('<html>someone else</html>') });
+    overlap.window.currentPublishedDomains = connected();
+    overlap.watchCustomDomains();
+    overlap.watchCustomDomains();
+    await settle();
+    check('two rounds at once (the popover opening, Puter\'s window closing) count one miss', overlap.window.currentPublishedDomains[0].lostAt === null
+        && overlap.state.saves.length === 0);
+    overlap.stopWatchingCustomDomains();
+    overlap.watchCustomDomains(); await settle();
+    check('…and a miss from an earlier opening doesn\'t carry over', overlap.window.currentPublishedDomains[0].lostAt === null
+        && overlap.state.saves.length === 0);
+
+    const closed = harness({ attach: async () => null, fetchImpl: fetchFor('<html>someone else</html>') });
+    closed.window.currentPublishedDomains = connected();
+    closed.watchCustomDomains();
+    closed.closePanel();
+    await settle();
+    closed.openPanel();
+    closed.watchCustomDomains(); await settle();
+    check('a check that ends after the popover closed counts for nothing', closed.window.currentPublishedDomains[0].lostAt === null
+        && closed.state.saves.length === 0);
+
     const back = harness({ attach: async () => null, fetchImpl: fetchFor(site) });
     back.window.currentPublishedDomains = CD.markLost(connected(), 'www.example.com', 5);
     back.watchCustomDomains();
@@ -382,6 +409,11 @@ function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, block
     free.window.currentPublishedUrl = null;
     free.useOwnDomain('use-domain');
     check('…and so does a press before a first publish, publishing nothing', free.state.upgrades.length === 3 && free.state.publishes.length === 0 && free.state.creates.length === 0);
+    const temp = harness({ attach: async () => null, paid: false });
+    temp.window.user = { is_temp: true };
+    const tempHead = temp.publishAddressHeadHtml();
+    check('a signed-out user gets the label alone, counted as no upgrade prompt', /Site address/.test(tempHead)
+        && !/publish-domain-action/.test(tempHead) && !temp.state.prompts.length);
     const paid = harness({ attach: async () => null });
     paid.useOwnDomain('use-domain');
     check('…and a press on a live site opens Puter\'s window at once', paid.state.attachCalls.join() === 'cafe');
@@ -394,8 +426,10 @@ function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, block
     h.window.currentPublishedUrl = null;
     h.useOwnDomain('use-domain');
     check('the button waits while the name is reserved', /Connecting…/.test(h.publishAddressHeadHtml()));
+    check('…and so does Publish, which would race it for the name', h.window.isReservingPublishName('A') === true);
     await tick(); await tick();
     check('the press reserves the name in the address field, then opens Puter\'s window for it', h.state.order.join() === 'create joes-cafe,attach joes-cafe', h.state.order.join());
+    check('…and Publish is free again', h.window.isReservingPublishName('A') === false);
     check('…on an empty placeholder folder', h.state.creates[0][1] === '/u/AppData/app/.published/A/r_0_reserved' && h.state.mkdirs.includes('/u/AppData/app/.published/A/r_0_reserved'));
     check('…a placeholder that sorts before every real release', /^r_\d+_/.test('r_0_reserved') && 'r_0_reserved' < 'r_1700000000000_ab12');
     check('…and the publish starts on it', h.state.publishes.length === 1 && await h.state.publishes[0].reserved === 'joes-cafe');
@@ -421,7 +455,7 @@ function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, block
     await tick(); await tick(); await tick();
     check('a taken name is reported here, with no window opened and nothing published', /already taken/.test(h.state.alerts[0]?.[0] || '')
         && h.state.attachCalls.length === 0 && h.state.publishes.length === 0, JSON.stringify(h.state.alerts));
-    check('…and the button is free again', !/Connecting…/.test(h.publishAddressHeadHtml()));
+    check('…and the button is free again', !/Connecting…/.test(h.publishAddressHeadHtml()) && h.window.isReservingPublishName('A') === false);
 }
 {
     const h = harness({ attach: async () => null, createImpl: async () => { const e = new Error('limit'); e.limit = true; throw e; } });
@@ -487,6 +521,25 @@ function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, block
     check('…and comes off it once it\'s lost', entry.publishedDomainUrl === null && entry.publishedUrl === 'https://cafe.puter.site/' && listSaves === 2);
 }
 
+{
+    // Two domain changes at once for a project that isn't open both land.
+    const fn = app.slice(app.indexOf('window.savePublishedFields = async function'), app.indexOf('\n};\n', app.indexOf('window.savePublishedFields = async function')) + 4);
+    let disk = { publishedUrl: 'https://cafe.puter.site/', publishedDomains: [{ hostname: 'cafe.com', site: 'cafe', status: 'pending' }] };
+    const window = { CustomDomain: CD };
+    let queue = Promise.resolve();
+    const lock = (id, f) => { const run = queue.then(f); queue = run.catch(() => {}); return run; };
+    new Function('window', 'withChatFileLock', 'puter', 'chatFilePath', 'savedChats', 'saveChatList', 'updateChatHistorySidebar', fn)(
+        window, lock,
+        { fs: { read: async () => { await tick(); return { text: async () => JSON.stringify(disk) }; }, write: async (p, t) => { await tick(); disk = JSON.parse(t); } } },
+        (id) => id, [], async () => {}, () => {});
+    await Promise.all([
+        window.savePublishedFields('A', { publishedDomains: (list) => CD.markActive(list, 'cafe.com', 5) }),
+        window.savePublishedFields('A', { publishedDomains: (list) => CD.list(list).map((d) => ({ ...d, statusDetail: 'seen' })) }),
+    ]);
+    check('a domain change runs on what\'s on disk, inside the lock, so two at once both land',
+        disk.publishedDomains[0].status === 'active' && disk.publishedDomains[0].statusDetail === 'seen' && disk.publishedUrl === 'https://cafe.puter.site/');
+}
+
 // --- Wiring --------------------------------------------------------------------------
 const vite = read('../vite.config.js');
 check('the module is in the bundle, before ui.js',
@@ -513,14 +566,20 @@ check('…and its copy button copies what it shows', /\.publish-copy', async fun
 check('the share view and toast use the connected domain', /const shareUrl = window\.publishedShareUrl\?\.\(url\) \|\| url;/.test(ui) && /_publishSuccessData = \{ url: shareUrl, meta \};/.test(ui));
 check('both address editors ask before leaving a domain behind',
     (ui.match(/await window\.confirmAddressChangeKeepsDomains\?\.\([^)]*\) === false\)/g) || []).length === 2);
+check('a project opened while the address question waits stops the change',
+    /const chatId = currentChatId;\s*if \(await window\.confirmAddressChangeKeepsDomains\?\.\(window\.currentPublishedDomains, oldSub\) === false\) \{[\s\S]{0,80}\}\s*if \(currentChatId !== chatId\) return;/.test(ui));
+check('Settings asks before checking for a publish in flight, so one started meanwhile still stops it',
+    /confirmAddressChangeKeepsDomains\?\.\(domains, fromSub\) === false\) \{[\s\S]{0,400}if \(window\.isPublishInFlight\(chatId\)\)/.test(ui));
 check('the AI knows where the user connects a domain', /"Use custom domain" next to the site address/.test(read('../src/js/prompt.js')) && /paid Puter plan/.test(read('../src/js/prompt.js')));
 const publish = ui.slice(ui.indexOf('async function doPublish('), ui.indexOf('async function loadPublishedSiteMeta('));
 check('a first publish with a reserved name points that name at the release, after filling in the address',
     /if \(!existingSub && reserved\) \{[\s\S]*?const sub = await reserved;\s*url = `https:\/\/\$\{sub\}\.puter\.site\/`;\s*await absolutizeSocialImagesInRelease\(releaseDir, url, \[startPreviewUrl\]\);\s*await puter\.hosting\.update\(sub, releaseDir\);\s*_reservedPublishNames\.delete\(chatId\);\s*\} else if \(!existingSub\)/.test(publish));
 check('…and only a first publish uses one', /if \(!isFirst\) reserved = null;/.test(publish));
+check('a plain Publish waits while the own-domain route reserves the name', /if \(!reserved && window\.isReservingPublishName\?\.\(currentChatId\)\) return;/.test(publish));
 check('…and lands on the site view, where the domain shows its records', /const viaDomain = !!reserved;/.test(publish) && /if \(_publishPanelOpen && viaDomain\) \{\s*_publishPanelView = 'form';\s*renderPublishPanel\(\);/.test(publish));
 check('the placeholder goes with the replaced releases once the publish lands', /await retirePublishedReleases\(pubRoot, releaseName\);/.test(publish));
 const form = ui.slice(ui.indexOf("if (st.state === 'unpublished') {"), ui.indexOf("title = 'Your site';"));
+check('…and the Publish button shows it', /data-action="publish"\$\{window\.isReservingPublishName\?\.\(currentChatId\) \? ' disabled' : ''\}/.test(form));
 check('the heading sits over the address field before a first publish', /publishAddressHeadHtml\(\) \+\s*'<div class="publish-name-row">'/.test(form));
 check('…and over the URL row on the live site', /'Live'\}<\/div>` \+\s*publishAddressHeadHtml\(\) \+\s*'<div class="publish-url-row">'/.test(ui));
 check('the button runs useOwnDomain', /\.publish-domain-action', function \(e\) \{[\s\S]{0,120}useOwnDomain\(\$\(this\)\.attr\('data-action'\)\);/.test(ui));
