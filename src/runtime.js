@@ -516,6 +516,7 @@
 
     var hasOwn = Object.prototype.hasOwnProperty;
     var aiReply = AI_REPLY;
+    var baseAIReply = AI_REPLY; // what the tests set at their top level
     var dialogs = [];
 
     function isBuilderOrigin(origin) {
@@ -1643,6 +1644,10 @@
         return Promise.race([body, timedOut]).then(function (r) {
             clearTimeout(timer);
             gen++; // this test is over; any step still running in it stops
+            // Each test sees its own dialogs and AI reply (the first test also
+            // sees dialogs from page load). The same array: tests hold it.
+            dialogs.length = 0;
+            aiReply = baseAIReply;
             return delay(30).then(function () { return r; }); // errors fired by the last action
         }).then(function (r) {
             var errors = current.errors;
@@ -1684,6 +1689,7 @@
         }).then(function () {
             clearTimeout(defineTimer);
             registering = false;
+            baseAIReply = aiReply;
             var all = registry.slice(0, MAX_TESTS);
             var groups = [];
             all.forEach(function (t) {
