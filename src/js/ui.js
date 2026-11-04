@@ -2461,6 +2461,10 @@ async function stagePublishRelease(chatId, appDir, srcPath, { removeBadge = fals
         if (!Array.isArray(releaseItems) || releaseItems.length === 0) {
             throw new Error('The copy of your project came back empty, so nothing was published.');
         }
+        // The app's hidden tests (js/app-tests.js) came along in .puter/. The live
+        // site never runs them, so they don't ship with it. Started now and
+        // awaited before the release is handed back, so it adds no wait of its own.
+        const droppingTests = dropAppTestsFromRelease(releaseDir);
         // The "Made with Puter" badge comes off only when the user ticked the
         // box in the popover AND has a paid plan. The plan is asked of Puter
         // now, not the copy loaded with the page: it may have started or ended
@@ -2478,6 +2482,7 @@ async function stagePublishRelease(chatId, appDir, srcPath, { removeBadge = fals
         // previous release is still served; there is no atomic swap of both
         // halves, and a retry completes the release.)
         const publishedWorkers = await deployPublishedWorkers(chatId, appDir, releaseDir, srcPath);
+        await droppingTests;
         return { pubRoot, releaseName, releaseDir, publishedWorkers, branding };
     } catch (e) {
         // The release never went live, so remove whatever of it landed. The
@@ -2487,6 +2492,15 @@ async function stagePublishRelease(chatId, appDir, srcPath, { removeBadge = fals
         catch (e2) { /* best effort — an unserved leftover is harmless */ }
         throw e;
     }
+}
+
+// Remove the app's hidden tests from a staged release. Never throws: most
+// projects have none (the delete just finds nothing), and a copy left behind
+// is an inert file on the live site that nothing loads.
+async function dropAppTestsFromRelease(releaseDir) {
+    const rel = window.AppTests && window.AppTests._core && window.AppTests._core.TESTS_REL;
+    if (!rel || !releaseDir) return;
+    try { await puter.fs.delete(releaseDir + '/' + rel); } catch (e) { /* none, or best effort */ }
 }
 
 // Drop published workers whose draft counterpart no longer exists — a backend
@@ -3974,6 +3988,7 @@ window.resetPreviewErrorDedup = function () {
     const ERROR_MAXLEN = 500;      // cap each error string's length
     const OBSERVE_MS = 3000;       // watch the loaded app this long for late errors
     const LOAD_TIMEOUT_MS = 50000; // give up waiting for the reload (covers CDN wait)
+    const TESTS_READ_MS = 5000;    // after the load, for the app's hidden tests to be read
 
     const buffer = [];
     let capturing = false; // true only between reload-commit and observe-end
@@ -4042,6 +4057,13 @@ window.resetPreviewErrorDedup = function () {
             (typeof window.isStaleTurn === 'function' && window.isStaleTurn(state));
         if (aborted()) { reset(); return { status: 'skipped', reason: 'aborted' }; }
 
+        // The app's hidden tests (js/app-tests.js), if it has any. Read now, so
+        // the read overlaps the reload instead of adding to it. Never fails
+        // the check: an unreadable file is the same as no tests.
+        const testsCode = (window.AppTests && window.AppTests.enabled())
+            ? window.AppTests.read(window.projectRootDir ? window.projectRootDir(state) : '').catch(function () { return null; })
+            : null;
+
         // Arm capture for the upcoming reload, then kick the background refresh
         // (propagation wait + iframe reload) exactly as the tool used to.
         reset();
@@ -4078,16 +4100,46 @@ window.resetPreviewErrorDedup = function () {
             }
             if (!loaded) return { status: 'skipped', reason: 'load-timeout' };
 
+            // Start the hidden tests now, in their own frame, so they run while
+            // the watch below does. Runtime errors win: if the app is already
+            // broken, the tests are dropped and the errors reported alone.
+            // They start whenever the read of the tests is done, so the watch
+            // never waits for it, and a read that hasn't come back within
+            // TESTS_READ_MS of the load counts as no tests (a read that never
+            // settles must not hold update_preview, and the turn, forever).
+            let testsDropped = false;
+            const baseUrl = window.currentPreviewUrl;
+            const testsRun = testsCode
+                ? Promise.race([testsCode, new Promise(function (r) { setTimeout(function () { r(null); }, TESTS_READ_MS); })])
+                    .then(function (code) {
+                        if (!code || !baseUrl || testsDropped || aborted()) return null;
+                        return window.AppTests.run({
+                            baseUrl: baseUrl,
+                            code: code,
+                            aborted: function () { return testsDropped || aborted(); },
+                        });
+                    })
+                    .catch(function () { return { status: 'unavailable' }; })
+                : null;
+
             // The fresh document is live. Watch it for late-firing errors (a
             // failed fetch on mount, a deferred throw) before judging it healthy.
             const obsStart = Date.now();
             while ((Date.now() - obsStart) < OBSERVE_MS) {
-                if (aborted()) return { status: 'skipped', reason: 'aborted' };
+                if (aborted()) { testsDropped = true; return { status: 'skipped', reason: 'aborted' }; }
                 await new Promise(function (r) { setTimeout(r, 300); });
             }
 
             const errors = buffer.slice();
-            return errors.length ? { status: 'errors', errors: errors } : { status: 'ok' };
+            if (errors.length) { testsDropped = true; return { status: 'errors', errors: errors }; }
+            if (testsRun) {
+                const tests = await testsRun;
+                if (aborted()) return { status: 'skipped', reason: 'aborted' };
+                if (tests && tests.status === 'failed' && Array.isArray(tests.failures) && tests.failures.length) {
+                    return { status: 'test-failures', failures: tests.failures, moreFailures: tests.moreFailures || 0, total: tests.total || 0 };
+                }
+            }
+            return { status: 'ok' };
         } finally {
             $frame.off('load', onLoad);
             capturing = false;
