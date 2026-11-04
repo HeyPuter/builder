@@ -582,6 +582,29 @@ async function runtimeChecks(label, src) {
         check(`[${label}] the space bar clicks a button`, keys?.results?.[1]?.passed === true && clicks === 1, { clicks });
     }
 
+    // A test that runs out of time stops where it is, instead of clicking
+    // on through the next test (and its un-awaited steps don't fail it).
+    {
+        const e9 = makeRuntimeEnv(src);
+        const { El: El9, body: body9 } = e9.dom;
+        let clicks = 0;
+        const btn = body9.appendChild(new El9('button', { id: 'inc', tabIndex: 0 }));
+        btn.addEventListener('click', () => { clicks++; btn.textContent = String(clicks); });
+        const r = await runSuite(e9, [
+            "test('slow', { timeout: 200 }, async () => { for (let i = 0; i < 40; i++) { await click('#inc'); await sleep(20); } });",
+            "test('one click adds one', async () => { const before = +(await text('#inc')); await click('#inc'); await sleep(400); expect(+(await text('#inc')) - before).toBe(1); });",
+            "test('left a step running', async () => { waitFor('#never', { timeout: 300 }); });",
+            "test('after it', async () => { await sleep(500); });",
+        ].join('\n'));
+        const by9 = Object.fromEntries((r?.results || []).map(x => [x.name, x]));
+        check(`[${label}] a timed-out test fails`, /Timed out/.test(by9.slow?.error || ''), by9.slow);
+        check(`[${label}] a timed-out test stops clicking into the next one`, by9['one click adds one']?.passed === true, by9['one click adds one']);
+        check(`[${label}] a step left running by a finished test doesn't fail the next`, by9['after it']?.passed === true, by9['after it']);
+        const settled = clicks;
+        await sleep(300);
+        check(`[${label}] nothing keeps clicking after the run`, clicks === settled, { clicks, settled });
+    }
+
     // Setup problems.
     const setup = await runSuite(makeRuntimeEnv(src), "throw new Error('bad setup');");
     check(`[${label}] a throwing setup is reported`, /threw before any test ran: bad setup/.test(setup?.setupError), setup);
