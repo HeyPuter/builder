@@ -1167,7 +1167,10 @@
     function norm(s) { return String(s == null ? '' : s).replace(/\s+/g, ' ').trim(); }
     function secs(ms) { return (Math.round(ms / 100) / 10) + 's'; }
     function delay(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
-    function fatal(msg) { var e = new Error(msg); e.puterFatal = true; return e; }
+    // An error of a test step's own (click, waitFor, …), told apart from the
+    // app's when a test forgot to await the step.
+    function stepError(msg) { var e = new Error(msg); e.puterStep = true; return e; }
+    function fatal(msg) { var e = stepError(msg); e.puterFatal = true; return e; }
 
     function describeTarget(target, opts) {
         var s = (target && target.nodeType === 1) ? describeEl(target) : JSON.stringify(String(target));
@@ -1231,7 +1234,7 @@
                 });
                 function next() {
                     if (Date.now() - start >= timeout) {
-                        return reject(new Error('Timed out after ' + secs(timeout) + ' waiting for ' + describe() +
+                        return reject(stepError('Timed out after ' + secs(timeout) + ' waiting for ' + describe() +
                             (lastError ? ' (last error: ' + messageOf(lastError) + ')' : '') + '.'));
                     }
                     setTimeout(tick, 50);
@@ -1610,6 +1613,11 @@
     window.addEventListener('unhandledrejection', function (e) {
         if (!current) return;
         var r = e && e.reason;
+        if (r && r.puterStep) {
+            // The test's own mistake, not the app breaking.
+            current.unawaited = current.unawaited || messageOf(r);
+            return;
+        }
         current.errors.push('Unhandled promise rejection: ' + messageOf(r && r.message ? r : String(r)));
     });
 
@@ -1636,11 +1644,13 @@
             return delay(30).then(function () { return r; }); // errors fired by the last action
         }).then(function (r) {
             var errors = current.errors;
+            var unawaited = current.unawaited;
             current = null;
             var out = { name: t.name, ms: Date.now() - started, passed: false };
             if (r.timeout) out.error = 'Timed out after ' + secs(t.timeout) + ' (the test never finished).';
             else if (r.error) out.error = messageOf(r.error) + where(r.error);
             else if (errors.length) out.error = 'The app threw an error during this test: ' + errors[0];
+            else if (unawaited) out.error = 'A step this test did not await failed: ' + unawaited + ' Put await before every click, fill, press, text, find and waitFor.';
             else out.passed = true;
             if (out.error) out.error = clip(out.error, MAX_ERROR);
             return out;
