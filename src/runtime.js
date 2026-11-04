@@ -1052,11 +1052,19 @@
         }, timeoutOf(opts, FIND_MS), function () { return describeTarget(target, opts) + ' to ' + state; });
     }
 
-    function fire(el, type, init, Ctor) {
+    // `legacy` sets read-only fields the event constructors ignore (keyCode,
+    // which, charCode), which older and game code still reads.
+    function fire(el, type, init, Ctor, legacy) {
         init = init || {};
         init.bubbles = true; init.cancelable = true; init.composed = true;
         var ev;
         try { ev = new (Ctor || Event)(type, init); } catch (e) { ev = new Event(type, init); }
+        if (legacy) {
+            Object.keys(legacy).forEach(function (k) {
+                var v = legacy[k];
+                attempt(function () { Object.defineProperty(ev, k, { configurable: true, get: function () { return v; } }); });
+            });
+        }
         return el.dispatchEvent(ev);
     }
 
@@ -1133,24 +1141,68 @@
         });
     }
 
+    // What a US keyboard sends for a key, as press() names it: the key
+    // itself ('a', '1', ' ', 'Enter', 'ArrowLeft'), or a common alias
+    // ('Space', 'Esc', 'Up').
+    var KEY_ALIASES = { Space: ' ', Spacebar: ' ', Esc: 'Escape', Return: 'Enter', Left: 'ArrowLeft', Right: 'ArrowRight',
+        Up: 'ArrowUp', Down: 'ArrowDown', Del: 'Delete' };
+    var KEY_CODES = { Enter: 13, Tab: 9, Escape: 27, Backspace: 8, Delete: 46, Insert: 45, Home: 36, End: 35, PageUp: 33,
+        PageDown: 34, ArrowLeft: 37, ArrowUp: 38, ArrowRight: 39, ArrowDown: 40, Shift: 16, Control: 17, Alt: 18, Meta: 91 };
+    var PUNCTUATION = { '-': ['Minus', 189], '_': ['Minus', 189], '=': ['Equal', 187], '+': ['Equal', 187],
+        '[': ['BracketLeft', 219], '{': ['BracketLeft', 219], ']': ['BracketRight', 221], '}': ['BracketRight', 221],
+        '\\': ['Backslash', 220], '|': ['Backslash', 220], ';': ['Semicolon', 186], ':': ['Semicolon', 186],
+        "'": ['Quote', 222], '"': ['Quote', 222], ',': ['Comma', 188], '<': ['Comma', 188], '.': ['Period', 190],
+        '>': ['Period', 190], '/': ['Slash', 191], '?': ['Slash', 191], '`': ['Backquote', 192], '~': ['Backquote', 192] };
+    var SHIFTED_DIGITS = ')!@#$%^&*(';
+    function keyInfo(name) {
+        var key = String(name == null || name === '' ? 'Enter' : name);
+        if (hasOwn.call(KEY_ALIASES, key)) key = KEY_ALIASES[key];
+        var code = key, keyCode = 0;
+        if (key === ' ') { code = 'Space'; keyCode = 32; }
+        else if (/^[a-z]$/i.test(key)) { code = 'Key' + key.toUpperCase(); keyCode = key.toUpperCase().charCodeAt(0); }
+        else if (/^[0-9]$/.test(key)) { code = 'Digit' + key; keyCode = 48 + +key; }
+        else if (key.length === 1 && SHIFTED_DIGITS.indexOf(key) !== -1) {
+            var d = SHIFTED_DIGITS.indexOf(key);
+            code = 'Digit' + d; keyCode = 48 + d;
+        }
+        else if (hasOwn.call(PUNCTUATION, key)) { code = PUNCTUATION[key][0]; keyCode = PUNCTUATION[key][1]; }
+        else if (hasOwn.call(KEY_CODES, key)) keyCode = KEY_CODES[key];
+        else if (/^F([1-9]|1[0-2])$/.test(key)) keyCode = 111 + +key.slice(1);
+        if (key === 'Shift' || key === 'Control' || key === 'Alt' || key === 'Meta') code = key + 'Left';
+        return { key: key, code: code, keyCode: keyCode };
+    }
+
+    // A button, or a checkbox or radio, which the space bar clicks.
+    function spaceClicks(el) {
+        if (el.tagName === 'BUTTON') return true;
+        return el.tagName === 'INPUT' && /^(button|submit|reset|image|checkbox|radio)$/i.test(el.type || '');
+    }
+
     function press(target, key, opts) {
         return find(target, merge(opts, { enabled: true })).then(function (el) {
-            key = String(key || 'Enter');
-            var init = { key: key, code: key.length === 1 ? 'Key' + key.toUpperCase() : key, view: window };
+            var k = keyInfo(key);
+            key = k.key;
+            var init = { key: key, code: k.code, view: window };
+            var printable = key.length === 1;
+            var legacy = { keyCode: k.keyCode, which: k.keyCode, charCode: 0 };
+            var pressLegacy = printable || key === 'Enter'
+                ? { keyCode: printable ? key.charCodeAt(0) : 13, which: printable ? key.charCodeAt(0) : 13, charCode: printable ? key.charCodeAt(0) : 13 }
+                : null;
             focusFor(el);
-            var go = fire(el, 'keydown', init, window.KeyboardEvent);
-            if (go && (key === 'Enter' || key.length === 1)) go = fire(el, 'keypress', init, window.KeyboardEvent);
+            var go = fire(el, 'keydown', init, window.KeyboardEvent, legacy);
+            if (go && pressLegacy) go = fire(el, 'keypress', init, window.KeyboardEvent, pressLegacy);
             if (go && key === 'Enter') {
                 var form = el.form;
-                if (el.tagName === 'INPUT' && form) {
+                if (el.tagName === 'BUTTON' || el.tagName === 'A' || (el.tagName === 'INPUT' && /^(button|submit|reset|image)$/i.test(el.type || ''))) {
+                    el.click();
+                } else if (el.tagName === 'INPUT' && form) {
                     var submit = window.HTMLFormElement && HTMLFormElement.prototype.requestSubmit;
                     if (submit) submit.call(form);
                     else fire(form, 'submit');
-                } else if (el.tagName === 'BUTTON' || el.tagName === 'A') {
-                    el.click();
                 }
             }
-            fire(el, 'keyup', init, window.KeyboardEvent);
+            var up = fire(el, 'keyup', init, window.KeyboardEvent, legacy);
+            if (go && up && key === ' ' && spaceClicks(el) && typeof el.click === 'function') el.click();
             return settle();
         });
     }

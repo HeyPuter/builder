@@ -449,6 +449,25 @@ async function runtimeChecks(label, src) {
     await sleep(20);
     check(`[${label}] one run per page load`, !env.posted.some(p => p.msg.runId === 'second'));
 
+    // press() sends what a real keyboard sends.
+    {
+        const e4 = makeRuntimeEnv(src);
+        const { El: El4, body: body4 } = e4.dom;
+        const seen = [];
+        const pad = body4.appendChild(new El4('div', { id: 'pad', tabIndex: 0 }));
+        pad.addEventListener('keydown', (e) => seen.push(JSON.stringify(e.key) + '|' + e.code + '|' + e.keyCode + '|' + e.which));
+        const btn = body4.appendChild(new El4('button', { id: 'go', tabIndex: 0 }));
+        let clicks = 0;
+        btn.addEventListener('click', () => clicks++);
+        const keys = await runSuite(e4, [
+            "test('keys', async () => { for (const k of [' ', 'Space', '1', 'a', 'Enter', 'ArrowLeft', '+', 'Esc']) await press('#pad', k); });",
+            "test('space clicks a button', async () => { await press('#go', 'Space'); });",
+        ].join('\n'));
+        check(`[${label}] press sends real key, code and keyCode`, keys?.results?.[0]?.passed === true && seen.join(' ') ===
+            '" "|Space|32|32 " "|Space|32|32 "1"|Digit1|49|49 "a"|KeyA|65|65 "Enter"|Enter|13|13 "ArrowLeft"|ArrowLeft|37|37 "+"|Equal|187|187 "Escape"|Escape|27|27', seen);
+        check(`[${label}] the space bar clicks a button`, keys?.results?.[1]?.passed === true && clicks === 1, { clicks });
+    }
+
     // Setup problems.
     const setup = await runSuite(makeRuntimeEnv(src), "throw new Error('bad setup');");
     check(`[${label}] a throwing setup is reported`, /threw before any test ran: bad setup/.test(setup?.setupError), setup);
