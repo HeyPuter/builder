@@ -3715,6 +3715,17 @@ html[data-theme="dark"] .gh-error { color: #ff8a80; }
     box-sizing: border-box;
 }
 .preview-publish-panel.editing-address .publish-change-address { display: none; }
+/* Under the URL row once a connected domain is the site's address: its other
+   addresses, the puter.site one last. A line wraps between addresses, never
+   inside one. */
+.publish-also {
+    margin-top: -4px;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: #6f6f6f;
+}
+.publish-also a { color: inherit; text-decoration: none; white-space: nowrap; }
+.publish-also a:hover { color: #1a5fb4; text-decoration: underline; }
 .preview-publish-panel.editing-address .publish-address-edit { display: flex; }
 /* First-publish address picker — same look as the rename editor, but always
    visible (no toggle) and with no save/cancel buttons (the Publish button is the
@@ -4006,6 +4017,31 @@ html[data-theme="dark"] .gh-error { color: #ff8a80; }
     transition: background-color 0.15s ease;
 }
 .publish-branding-btn:hover { background: #000; }
+/* The "Site address" heading over the address, with the way to the user's
+   own domain on its right, a quiet link like Change address. */
+.publish-address-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px 8px;
+    margin-bottom: -2px;
+}
+.publish-address-label { font-size: 13px; font-weight: 600; color: #222; white-space: nowrap; }
+.publish-domain-action {
+    flex: 0 0 auto;
+    border: none;
+    background: transparent;
+    padding: 2px 0;
+    color: #0a6ae0;
+    font-family: inherit;
+    font-size: 12.5px;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.publish-domain-action:hover:not(:disabled) { text-decoration: underline; }
+.publish-domain-action:disabled { color: #777; cursor: default; }
+.preview-publish-panel.editing-address .publish-domain-action { visibility: hidden; }
 
 /* "Remove the badge" box above the Publish button. Free users see it locked,
    with an Upgrade button beside it. */
@@ -4031,6 +4067,98 @@ html[data-theme="dark"] .gh-error { color: #ff8a80; }
 /* Hidden while the address is being edited: a pick re-renders the popover,
    which would drop the typed address. */
 .preview-publish-panel.editing-address .publish-badge-toggle { display: none; }
+
+/* The user's own domains that still need something (ui.js
+   publishDomainsHtml): a card with the DNS records to set and a Check now
+   button, or one to connect again. A domain that works is the site's
+   address in the URL row instead. Hidden while the address is edited, like
+   the badge box. */
+.publish-domain-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex: 0 0 auto;
+    height: 28px;
+    padding: 0 11px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: #fff;
+    color: #333;
+    font-size: 12.5px;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+}
+.publish-domain-btn:hover:not(:disabled) { background: #f4f4f4; }
+.publish-domain-btn:disabled { color: #777; cursor: default; }
+.publish-domain-btn .publish-spinner { width: 12px; height: 12px; }
+.publish-domains { display: flex; flex-direction: column; gap: 8px; }
+.publish-domains-label { font-size: 11.5px; font-weight: 600; color: #6f6f6f; }
+.publish-domain { display: flex; flex-direction: column; gap: 8px; }
+.publish-domain:not(.is-active) {
+    padding: 10px;
+    border: 1px solid #eaeaea;
+    border-radius: 8px;
+}
+.publish-domain-head { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.publish-domain-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #e8a33d;
+    flex: 0 0 auto;
+}
+.publish-domain.is-failed .publish-domain-dot,
+.publish-domain.is-lost .publish-domain-dot { background: #d9534f; }
+.publish-domain.is-moved .publish-domain-dot { background: #b5b5b5; }
+.publish-domain-host {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    font-weight: 600;
+    color: #222;
+}
+.publish-domain-state { flex: 0 0 auto; font-size: 12px; font-weight: 600; color: #9a5b00; }
+.publish-domain.is-failed .publish-domain-state,
+.publish-domain.is-lost .publish-domain-state { color: #b3261e; }
+.publish-domain.is-moved .publish-domain-state { color: #6f6f6f; }
+.publish-domain-note { margin: 0; font-size: 12px; line-height: 1.45; color: #666; }
+.publish-domain-note.is-not-yet { color: #9a5b00; }
+.publish-domain .publish-domain-btn { align-self: flex-start; }
+.publish-domain-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.publish-domain-records { display: flex; flex-direction: column; gap: 6px; }
+/* Type on the left across both lines, then Name and Value with their copy
+   buttons. Values wrap anywhere, since they are pasted as they are. */
+.publish-domain-record {
+    display: grid;
+    grid-template-columns: 50px 38px minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 6px;
+    row-gap: 2px;
+    padding: 5px 4px 5px 9px;
+    border-radius: 6px;
+    background: #f7f7f7;
+}
+.publish-domain-record-type {
+    grid-row: span 2;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #333;
+}
+.publish-domain-record-type small { display: block; font-size: 10.5px; font-weight: 400; color: #888; }
+.publish-domain-record-key { font-size: 11.5px; color: #888; }
+.publish-domain-record-val {
+    font-size: 12px;
+    color: #222;
+    background: none;
+    padding: 0;
+    word-break: break-all;
+}
+.preview-publish-panel.editing-address .publish-domains { display: none; }
 
 /* --- Share-draft popover content (its chrome is shared with the publish
    popover above; the draft URL row reuses .publish-url-row) ----------------- */
@@ -5078,6 +5206,7 @@ body.preview-active.chat-hidden .chat {
     .publish-address-cancel,
     .properties-address-save,
     .properties-address-cancel { width: 32px; height: 32px; }
+    .publish-domain-btn { height: 36px; padding: 0 14px; }
     .clarify-nav button { width: 32px; height: 32px; }
 
     /* Touch devices can't hover — reveal the controls that desktop only shows
@@ -5650,6 +5779,32 @@ body.preview-active.chat-hidden .chat {
 .upgrade-gh-head + .upgrade-gh-commit i { border-color: #1a7f37; }
 .upgrade-gh-commit b { display: block; width: 62%; height: 6px; border-radius: 3px; background: #dcdce2; }
 .upgrade-gh-commit b.short { width: 44%; }
+/* A site at its own address: the address bar with the domain, over a page. */
+.upgrade-domain .upgrade-art-body b,
+.upgrade-domain .upgrade-art-body > span:not(.upgrade-domain-url) {
+    display: block;
+    height: 6px;
+    border-radius: 3px;
+    background: #ececf0;
+    margin-bottom: 6px;
+}
+.upgrade-domain .upgrade-art-body b { width: 55%; height: 9px; background: #dcdce2; margin-bottom: 8px; }
+.upgrade-domain .upgrade-art-body > span.short { width: 60%; }
+.upgrade-domain-url {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 10px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: #e8f1ff;
+    color: #0a6ae0;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+}
+.upgrade-domain-url svg { width: 9px; height: 9px; flex: 0 0 auto; }
 /* Features still to come: an empty page. */
 .upgrade-future { border-style: dashed; border-color: #d4d4da; }
 .upgrade-future .upgrade-art-body { display: flex; align-items: center; justify-content: center; color: #a3a3ad; }
@@ -6650,6 +6805,9 @@ html[data-theme="dark"] .publish-icon-btn { color: var(--text-secondary); }
 html[data-theme="dark"] .publish-icon-btn:hover { background: var(--surface-hover); }
 html[data-theme="dark"] .publish-icon-btn.copied { color: var(--success); }
 html[data-theme="dark"] .publish-change-address { color: var(--accent); }
+html[data-theme="dark"] .publish-also,
+html[data-theme="dark"] .publish-also a { color: var(--text-muted); }
+html[data-theme="dark"] .publish-also a:hover { color: var(--accent); }
 html[data-theme="dark"] .publish-address-fix { color: var(--text-muted); }
 html[data-theme="dark"] .publish-address-input { color: var(--text); }
 html[data-theme="dark"] .publish-address-save { color: var(--text-secondary); }
@@ -6692,6 +6850,26 @@ html[data-theme="dark"] .publish-result-visit:hover { background: #fff; }
 html[data-theme="dark"] .publish-branding { border-color: var(--border); color: var(--text-secondary); }
 html[data-theme="dark"] .publish-badge-toggle { color: var(--text); }
 html[data-theme="dark"] .publish-badge-toggle.is-locked label { color: var(--text-secondary); }
+html[data-theme="dark"] .publish-address-label { color: var(--text); }
+html[data-theme="dark"] .publish-domain-action { color: var(--accent); }
+html[data-theme="dark"] .publish-domain-action:disabled { color: var(--text-muted); }
+html[data-theme="dark"] .publish-domain-btn { background: var(--surface); border-color: var(--border); color: var(--text); }
+html[data-theme="dark"] .publish-domain-btn:hover:not(:disabled) { background: var(--surface-hover); }
+html[data-theme="dark"] .publish-domain-btn:disabled { color: var(--text-secondary); }
+html[data-theme="dark"] .publish-domains-label { color: var(--text-muted); }
+html[data-theme="dark"] .publish-domain:not(.is-active) { border-color: var(--border); }
+html[data-theme="dark"] .publish-domain-host { color: var(--text); }
+html[data-theme="dark"] .publish-domain-state { color: #f0c061; }
+html[data-theme="dark"] .publish-domain.is-failed .publish-domain-state,
+html[data-theme="dark"] .publish-domain.is-lost .publish-domain-state { color: #ff8a80; }
+html[data-theme="dark"] .publish-domain.is-moved .publish-domain-state { color: var(--text-muted); }
+html[data-theme="dark"] .publish-domain-note { color: var(--text-secondary); }
+html[data-theme="dark"] .publish-domain-note.is-not-yet { color: #f0c061; }
+html[data-theme="dark"] .publish-domain-record { background: var(--surface-subtle); }
+html[data-theme="dark"] .publish-domain-record-type { color: var(--text); }
+html[data-theme="dark"] .publish-domain-record-type small,
+html[data-theme="dark"] .publish-domain-record-key { color: var(--text-muted); }
+html[data-theme="dark"] .publish-domain-record-val { color: var(--text); }
 html[data-theme="dark"] .upgrade-card-inner { background: var(--surface); border-color: var(--border); color: var(--text); }
 html[data-theme="dark"] .publish-card-inner { background: var(--surface); border-color: var(--border); color: var(--text); }
 html[data-theme="dark"] .publish-card-address { background: var(--surface-subtle); border-color: var(--border); }
@@ -6741,6 +6919,9 @@ html[data-theme="dark"] .upgrade-model-row.is-on { background: var(--accent-soft
 html[data-theme="dark"] .upgrade-gh-commit::before { background: var(--border); }
 html[data-theme="dark"] .upgrade-gh-commit i { background: var(--surface); border-color: var(--text-faint); }
 html[data-theme="dark"] .upgrade-gh-head + .upgrade-gh-commit i { border-color: var(--success); }
+html[data-theme="dark"] .upgrade-domain .upgrade-art-body > span:not(.upgrade-domain-url) { background: var(--surface-active); }
+html[data-theme="dark"] .upgrade-domain .upgrade-art-body b { background: var(--border-strong); }
+html[data-theme="dark"] .upgrade-domain-url { background: var(--accent-soft); color: var(--accent); }
 html[data-theme="dark"] .upgrade-future { border-color: var(--border-strong); }
 html[data-theme="dark"] .upgrade-future .upgrade-art-body { color: var(--text-faint); }
 html[data-theme="dark"] .upgrade-modal .upgrade-actions { background: var(--surface-raised); border-top-color: var(--border); }

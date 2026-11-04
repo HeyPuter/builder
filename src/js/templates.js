@@ -285,6 +285,7 @@
             publishedPath: null,
             publishedVersionId: null,
             publishedAt: null,
+            publishedDomains: [],
             suggestions: template.suggestions.map(s => ({ ...s, from: 'template' })),
             interrupted: false,
             pinned: false,

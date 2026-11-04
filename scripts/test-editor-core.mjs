@@ -282,7 +282,7 @@ check('a send waits while a publish or a restore saves code first',
     && app.includes('if (window._restoringVersion || window.isRestoreStarting?.(currentChatId)) {'));
 check('a publish that yields after its save says why, and leaves no preview refresh pending',
     /const blockedNow = publishBlockedReason\(\);\s*if \(blockedNow \|\| publishBusyHere\(\)\) \{\s*ui\.render\(\);/.test(ui)
-    && /async function doPublish\(\) \{\s*return publishProject\(\{\s*render: renderPublishPanel,/.test(ui)
+    && /async function doPublish\(\{ reserved = null \} = \{\}\) \{[\s\S]{0,200}?return publishProject\(\{\s*render: renderPublishPanel,/.test(ui)
     && ui.includes('if (savedCodeForPublish && currentChatId === chatId) flushPreviewRefresh();'));
 check('both plan refresh paths reach the editor', (ui.match(/window\.CodeEditor\?\.onPlanChanged\?\.\(\);/g) || []).length === 2);
 check('the picker is disarmed inside the app, not just in the toolbar', /window\.disarmPreviewPicker = function \(\) \{[\s\S]*?enabled: false/.test(ui));
