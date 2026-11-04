@@ -335,6 +335,49 @@ async function runtimeChecks(label, src) {
     await g.fetch('https://api.puter.work/items');
     await g.fetch('https://example.com/x', { method: 'POST' });
     check(`[${label}] worker reads and other sites pass (fetch)`, real.fetches.length === 2);
+    {
+        // XMLHttpRequest, sendBeacon and form posts: refused like fetch.
+        const sent = [];
+        const e3 = makeRuntimeEnv(src, {
+            before: (g2) => {
+                g2.XMLHttpRequest = class {
+                    constructor() { this.readyState = 0; this.status = 0; this.events = []; }
+                    open(m, u) { this.m = m; this.u = u; this.readyState = 1; }
+                    send() { sent.push(this.m + ' ' + this.u); }
+                    addEventListener() {}
+                    dispatchEvent(e) { this.events.push(e.type + ':' + this.readyState); return true; }
+                };
+                g2.navigator = { sendBeacon: (u) => { sent.push('BEACON ' + u); return true; } };
+                g2.HTMLFormElement = class { constructor(method, action) { this.method = method; this.action = action; } submit() { sent.push('FORM ' + this.action); } };
+            },
+        });
+        const xhr = new e3.g.XMLHttpRequest();
+        xhr.open('POST', 'https://api.puter.work/items');
+        xhr.send('{}');
+        await sleep(10);
+        check(`[${label}] worker writes refused (XMLHttpRequest), as a network error`,
+            sent.length === 0 && xhr.events.join() === 'readystatechange:4,error:4,loadend:4', { sent, events: xhr.events });
+        const sync = new e3.g.XMLHttpRequest();
+        sync.open('DELETE', 'https://api.puter.work/items/1', false);
+        let threw = '';
+        try { sync.send(); } catch (e) { threw = e.message; }
+        check(`[${label}] a synchronous worker write throws`, /turned off/.test(threw) && sent.length === 0);
+        const get = new e3.g.XMLHttpRequest();
+        get.open('POST', 'https://api.puter.work/items');
+        get.open('GET', 'https://api.puter.work/items');
+        get.send();
+        const other = new e3.g.XMLHttpRequest();
+        other.open('POST', 'https://example.com/x');
+        other.send();
+        check(`[${label}] worker reads and other sites pass (XMLHttpRequest)`, sent.join() === 'GET https://api.puter.work/items,POST https://example.com/x', sent);
+        sent.length = 0;
+        check(`[${label}] worker beacons refused, others sent`,
+            e3.g.navigator.sendBeacon('https://api.puter.work/log') === false && e3.g.navigator.sendBeacon('https://example.com/log') === true && sent.join() === 'BEACON https://example.com/log', sent);
+        sent.length = 0;
+        new e3.g.HTMLFormElement('post', 'https://api.puter.work/subscribe').submit();
+        new e3.g.HTMLFormElement('get', 'https://api.puter.work/search').submit();
+        check(`[${label}] a form posted to a worker is refused, a GET form isn't`, sent.join() === 'FORM https://api.puter.work/search', sent);
+    }
     check(`[${label}] worker writes refused (workers.exec)`, /turned off/.test(await reason(g.puter.workers.exec('https://api.puter.work/x', { method: 'DELETE' }))) && real.workerWrites === 0);
     check(`[${label}] worker management refused`, /turned off/.test(await reason(g.puter.workers.create('x'))) && /turned off/.test(await reason(g.puter.hosting.create('x'))));
     check(`[${label}] dialogs answered silently`, g.confirm('Sure?') === true && g.prompt('Name?', 'Ada') === 'Ada' && g.alert('hi') === undefined && g.open('https://x') === null);
