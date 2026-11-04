@@ -3590,7 +3590,9 @@ function publishDomainsHtml() {
 // same warning.
 function publishAlsoAtHtml(siteUrl) {
     const safe = htmlEscape(siteUrl);
-    return `<div class="publish-also">Also at <a href="${safe}" target="_blank" rel="noopener noreferrer">${htmlEscape(siteUrl.replace(/^https?:\/\//, '').replace(/\/+$/, ''))}</a></div>`;
+    // The title shows the whole address when the line cuts it short.
+    const host = htmlEscape(siteUrl.replace(/^https?:\/\//, '').replace(/\/+$/, ''));
+    return `<div class="publish-also">Also at <a href="${safe}" target="_blank" rel="noopener noreferrer" title="${host}">${host}</a></div>`;
 }
 
 function publishDomainCardHtml(domain, sub) {

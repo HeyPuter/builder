@@ -273,7 +273,12 @@ function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, block
     check('…and gets no card of its own, since the URL row shows it', below === '');
     check('…and the heading offers to change it', /data-action="change-domain"[^>]*>.*Change domain/.test(h.publishAddressHeadHtml()));
     const also = h.publishAlsoAtHtml('https://cafe.puter.site/');
-    check('the puter.site address moves to the line under it', also === '<div class="publish-also">Also at <a href="https://cafe.puter.site/" target="_blank" rel="noopener noreferrer">cafe.puter.site</a></div>', also);
+    check('the puter.site address moves to the line under it', also === '<div class="publish-also">Also at <a href="https://cafe.puter.site/" target="_blank" rel="noopener noreferrer" title="cafe.puter.site">cafe.puter.site</a></div>', also);
+    // A long address used to push the popover sideways (56px on a phone).
+    const css = read('../src/css/styles.css');
+    check('…on one line that cuts a long address short, with the whole of it in the title',
+        /\.publish-also \{[^}]*display: flex;[^}]*min-width: 0;[^}]*white-space: nowrap;/.test(css)
+        && /\.publish-also a \{[^}]*min-width: 0;[^}]*overflow: hidden;[^}]*text-overflow: ellipsis;/.test(css));
     check('…without a Change of its own, which would only disconnect the domain', !/publish-change-address/.test(also));
     h.window.currentPublishedDomains = CD.set(h.window.currentPublishedDomains, { hostname: 'new.com', site: 'cafe', status: 'pending' });
     check('after Change domain only the new pick shows, waiting for its records', /Your domain</.test(h.publishDomainsHtml())

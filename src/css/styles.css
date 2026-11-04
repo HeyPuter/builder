@@ -3715,16 +3715,26 @@ html[data-theme="dark"] .gh-error { color: #ff8a80; }
     box-sizing: border-box;
 }
 .preview-publish-panel.editing-address .publish-change-address { display: none; }
-/* Under the URL row once a connected domain is the site's address: its other
-   addresses, the puter.site one last. A line wraps between addresses, never
-   inside one. */
+/* Under the URL row once a connected domain is the site's address: its
+   puter.site address. One line, the address cut short with an ellipsis like
+   the URL row's: a long one used to push the popover sideways. */
 .publish-also {
+    display: flex;
+    gap: 0.3em;
+    min-width: 0;
     margin-top: -4px;
     font-size: 12.5px;
     line-height: 1.45;
     color: #6f6f6f;
+    white-space: nowrap;
 }
-.publish-also a { color: inherit; text-decoration: none; white-space: nowrap; }
+.publish-also a {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: inherit;
+    text-decoration: none;
+}
 .publish-also a:hover { color: #1a5fb4; text-decoration: underline; }
 .preview-publish-panel.editing-address .publish-address-edit { display: flex; }
 /* First-publish address picker — same look as the rename editor, but always
