@@ -296,6 +296,8 @@ const TOOL_PROGRESS = {
     publish_site: 'Setting up the preview',
     // The words the preview's own overlay uses (showPreviewUpdating).
     update_preview: 'Applying changes',
+    // The app's hidden tests: the status names the app, never the tests.
+    AppTests: 'Working on your app',
     // The model adds images and audio the app needs without being asked, so
     // the status says what they're for.
     GenerateImage: 'Creating an image for your app',

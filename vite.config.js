@@ -65,6 +65,9 @@ const SCRIPTS = [
   // Pure half of GitHub sync (what stays out, page normalization, git hashes,
   // the file-by-file plan, commit text, the key scanner).
   'js/github-core.js',
+  // The builder side of an app's hidden tests (storage, the hidden test
+  // frame); ui.js's verifyPreview and the AppTests tool use it.
+  'js/app-tests.js',
   'js/tools.js',
   // Before ui.js, which paints the avatar from window.profilePicture.
   'js/profile-picture.js',
@@ -93,6 +96,7 @@ const SCRIPTS = [
   'tools/fs/search_files.js',
   'tools/apps_and_sites/publish_site.js',
   'tools/apps_and_sites/update_preview.js',
+  'tools/apps_and_sites/app_tests.js',
   'tools/chat_ui/todo.js',
   'tools/chat_ui/clarify.js',
   'tools/chat_ui/upgrade.js',

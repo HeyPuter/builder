@@ -526,7 +526,7 @@ await test('the shipped tools stay within Claude’s strict-tool limit, includin
         await manager.connect(id, 'private-token');
         assert.equal(manager.list()[0].status, 'connected');
         window.mcpManager = manager;
-        assert.equal(window.getTurnTools().length, window.tools.length + 64);
+        assert.equal(window.getTurnTools().length, window.builtinTools().length + 64);
         checkLimit();
     } finally {
         manager.reset();
