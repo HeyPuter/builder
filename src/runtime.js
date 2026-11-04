@@ -725,9 +725,15 @@
                 });
             }
         };
+        // puter.js has clear as its own copy of the real flush, so it is
+        // replaced too, or it would empty the user's real store.
+        methods.clear = methods.flush;
         for (var name in methods) attempt(function () { kv[name] = methods[name]; });
         ['update', 'add', 'remove'].forEach(function (name) {
             if (typeof kv[name] === 'function') attempt(function () { kv[name] = refuse('Changing data with puter.kv.' + name); });
+        });
+        ['share', 'unshare'].forEach(function (name) {
+            if (typeof kv[name] === 'function') attempt(function () { kv[name] = refuse('Sharing data with puter.kv'); });
         });
     }
 
@@ -1011,6 +1017,9 @@
         if (p.kv) attempt(function () { overlayKv(p.kv); });
         ['write', 'mkdir', 'delete', 'rename', 'move', 'copy', 'upload'].forEach(function (n) {
             set(p.fs, n, refuse('Changing files with puter.fs'));
+        });
+        ['share', 'unshare'].forEach(function (n) {
+            if (p.fs && typeof p.fs[n] === 'function') set(p.fs, n, refuse('Sharing files with puter.fs'));
         });
         set(p.auth, 'signIn', refuse('Signing in'));
         set(p.auth, 'signOut', function () { return Promise.resolve(); });

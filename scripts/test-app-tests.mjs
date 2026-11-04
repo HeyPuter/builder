@@ -193,7 +193,7 @@ function makeRuntimeEnv(src, { top = false, name = FRAME_NAME, before } = {}) {
     const listeners = {};
     const realLocal = new Map([['existing', 'kept']]);
     const realKv = new Map([['seed', 'from-real']]);
-    const real = { ai: 0, kvSets: 0, fsWrites: 0, signOuts: 0, workerWrites: 0, fetches: [] };
+    const real = { ai: 0, kvSets: 0, fsWrites: 0, signOuts: 0, workerWrites: 0, shares: 0, fetches: [] };
     const g = {
         console, URL, Promise, Proxy, JSON, Math, Date, Object, Array, String, Number, Boolean, Error, SyntaxError, TypeError, RegExp, Symbol, Map, Set,
         setTimeout, clearTimeout, setInterval, clearInterval, encodeURIComponent, Function,
@@ -217,9 +217,17 @@ function makeRuntimeEnv(src, { top = false, name = FRAME_NAME, before } = {}) {
             set: () => { real.kvSets++; return Promise.resolve(true); },
             del: () => { real.kvSets++; return Promise.resolve(true); },
             list: (p, withValues) => Promise.resolve([...realKv].map(([key, value]) => (withValues ? { key, value } : key))),
+            // As in puter.js: clear is its own copy of the real flush.
+            flush: () => { real.kvSets++; realKv.clear(); return Promise.resolve(true); },
+            clear: () => { real.kvSets++; realKv.clear(); return Promise.resolve(true); },
+            share: () => { real.shares++; return Promise.resolve({}); },
+            unshare: () => { real.shares++; return Promise.resolve({}); },
             setAuthToken() { return 'internal'; },
         },
-        fs: { write: () => { real.fsWrites++; return Promise.resolve({}); }, read: () => Promise.resolve('file') },
+        fs: {
+            write: () => { real.fsWrites++; return Promise.resolve({}); }, read: () => Promise.resolve('file'),
+            share: () => { real.shares++; return Promise.resolve({}); }, unshare: () => { real.shares++; return Promise.resolve({}); },
+        },
         auth: { signIn: () => Promise.resolve({}), signOut: () => { real.signOuts++; } },
         workers: { exec: (u, init) => { if (init && init.method && init.method !== 'GET') real.workerWrites++; return Promise.resolve({ ok: true }); }, create: () => Promise.resolve({}) },
         hosting: { create: () => Promise.resolve({}) },
@@ -233,8 +241,10 @@ function makeRuntimeEnv(src, { top = false, name = FRAME_NAME, before } = {}) {
     const deliver = (data, origin = BUILDER, source = g.parent) =>
         (listeners.message || []).forEach(fn => fn({ data, origin, source }));
     const raise = (type, ev) => (listeners[type] || []).forEach(fn => fn(ev));
-    return { g, self, posted, listeners, deliver, raise, real, realLocal, dom };
+    return { g, self, posted, listeners, deliver, raise, real, realLocal, realKv, dom };
 }
+
+const realKvOf = (env) => env.realKv;
 
 async function runSuite(env, code, extra = {}) {
     const runId = 'run-' + Math.random();
@@ -312,6 +322,15 @@ async function runtimeChecks(label, src) {
     check(`[${label}] kv list with a pattern and values`, withValues.length === 1 && withValues[0].key === 'a' && withValues[0].value.n === 1, withValues);
     await kv.flush();
     check(`[${label}] kv flush empties the view only`, (await kv.list()).length === 0 && real.kvSets === 0);
+    await kv.set('z', 1);
+    await kv.clear();
+    check(`[${label}] kv clear empties the view only, never the real store`,
+        (await kv.list()).length === 0 && real.kvSets === 0 && env.g.puter.kv === kv && realKvOf(env).get('seed') === 'from-real');
+    check(`[${label}] kv and fs sharing refused`,
+        /turned off/.test(await kv.share('todo:', 'someone').then(() => 'resolved', e => e.message)) &&
+        /turned off/.test(await kv.unshare('h').then(() => 'resolved', e => e.message)) &&
+        /turned off/.test(await g.puter.fs.share('/a', 'someone').then(() => 'resolved', e => e.message)) &&
+        /turned off/.test(await g.puter.fs.unshare('/a').then(() => 'resolved', e => e.message)) && real.shares === 0);
     check(`[${label}] kv keeps puter.js internals`, kv.setAuthToken() === 'internal');
 
     // AI: placeholders, no cost.
