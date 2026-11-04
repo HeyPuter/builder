@@ -1136,6 +1136,13 @@ function loadTool(src, win) {
     let health;
     const win = { tools: [], verifyPreview: async () => health, isAborted: () => false, isStaleTurn: () => false };
     const tool = loadTool(updatePreviewSrc, win);
+    {
+        // The description names AppTests only while the tool is offered.
+        const describe = (appTests) => loadTool(updatePreviewSrc, { tools: [], FEATURE_FLAGS: { appTests } }).function.description;
+        check('update_preview: description mentions the tests with the flag on', describe(true).includes('hidden tests (AppTests)'));
+        check('update_preview: description with the flag off is the one from before tests',
+            !describe(false).includes('AppTests') && describe(false).includes('watches the running app for runtime errors. If the result contains'));
+    }
     const failing = { status: 'test-failures', failures: [{ name: 'adds an item', error: 'Expected "0 items" to be "1 items".', where: 'at phone size' }], moreFailures: 3, total: 9 };
     const state = {};
     health = failing;
