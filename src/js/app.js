@@ -164,6 +164,7 @@ async function recoverChatListFromFiles() {
                 // until each one happens to be re-saved.
                 publishedUrl: chat.publishedUrl || null,
                 publishedDomainUrl: window.CustomDomain?.domainUrl(chat.publishedDomains, chat.publishedUrl) || null,
+                publishedDomainHost: window.CustomDomain?.hostOf(chat.publishedDomains) || null,
                 pinned: !!chat.pinned
             });
         } catch (e) {
@@ -494,6 +495,9 @@ async function saveCurrentChatUnlocked(context) {
             // The user's domain while it serves the site, which the sidebar
             // shows in place of the puter.site address.
             publishedDomainUrl: window.CustomDomain?.domainUrl(publishedDomains, publishedUrl) || null,
+            // Its domain in any state, so a domain another project takes is
+            // found here (releaseCustomDomainElsewhere in ui.js).
+            publishedDomainHost: window.CustomDomain?.hostOf(publishedDomains) || null,
             // Carry the pin flag forward — this rebuild replaces the entry, so
             // omitting it would silently unpin the project on the next save.
             pinned: !!(live && live.pinned)
@@ -527,6 +531,7 @@ async function saveCurrentChatUnlocked(context) {
             && (live.previewUrl || null) === (entry.previewUrl || null)
             && (live.publishedUrl || null) === (entry.publishedUrl || null)
             && (live.publishedDomainUrl || null) === (entry.publishedDomainUrl || null)
+            && (live.publishedDomainHost || null) === (entry.publishedDomainHost || null)
             && !!live.pinned === !!entry.pinned;
         const listWrittenAt = _chatListWrittenAt.get(chatId) || 0;
         if (!(sameAsStored && interrupted && Date.now() - listWrittenAt < 30000)) {
@@ -597,13 +602,17 @@ window.savePublishedFields = async function (chatId, fields, note) {
         if (!merged) return;
 
         // The list entry shows the site's address: its puter.site one, or the
-        // user's domain while that serves the site.
+        // user's domain while that serves the site. It also keeps the domain's
+        // hostname in any state (see saveCurrentChatUnlocked).
         const entry = savedChats.find(c => c.id === chatId);
         const publishedUrl = merged.publishedUrl || null;
         const publishedDomainUrl = window.CustomDomain?.domainUrl(merged.publishedDomains, publishedUrl) || null;
-        if (entry && ((entry.publishedUrl || null) !== publishedUrl || (entry.publishedDomainUrl || null) !== publishedDomainUrl)) {
+        const publishedDomainHost = window.CustomDomain?.hostOf(merged.publishedDomains) || null;
+        if (entry && ((entry.publishedUrl || null) !== publishedUrl || (entry.publishedDomainUrl || null) !== publishedDomainUrl
+            || (entry.publishedDomainHost || null) !== publishedDomainHost)) {
             entry.publishedUrl = publishedUrl;
             entry.publishedDomainUrl = publishedDomainUrl;
+            entry.publishedDomainHost = publishedDomainHost;
             await saveChatList();
             updateChatHistorySidebar();
         }

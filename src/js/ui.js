@@ -3736,15 +3736,13 @@ function connectCustomDomain(sub = previewSubdomain(window.currentPublishedUrl),
 // Puter moves a domain the user picks off the site it served before
 // (puter.hosting.attach), so a domain this project just took is no longer
 // another project's: that one's record drops it, and its popover offers Use
-// custom domain again. Only a project with a site can have a domain, so only
-// those are read.
+// custom domain again. The project list names each project's domain
+// (publishedDomainHost), so only a project that had it is touched. Reading
+// every published project's file to find it downloaded each one's whole
+// conversation.
 async function releaseCustomDomainElsewhere(chatId, hostname) {
-    const others = savedChats.filter((c) => c && c.id !== chatId && (c.publishedUrl || _reservedPublishNames.has(c.id)));
+    const others = savedChats.filter((c) => c && c.id !== chatId && c.publishedDomainHost === hostname);
     await Promise.all(others.map(async (c) => {
-        let saved;
-        try { saved = JSON.parse(await puter.fs.read(`chat-history/${c.id}.json`).then(d => d.text())).publishedDomains; }
-        catch (e) { return; }
-        if (!window.CustomDomain.list(saved).some((d) => d.hostname === hostname)) return;
         await updatePublishedDomains(c.id, (list) => window.CustomDomain.remove(list, hostname));
         if (currentChatId === c.id) rerenderPublishPanelForDomains();
     }));

@@ -98,6 +98,9 @@ check('the same page is the same site', CD.sameSite({ body: '<h1>x</h1>' }, { bo
 check('…and so is the same file modified at the same time', CD.sameSite({ body: 'a', lastModified: 'Wed' }, { body: 'b', lastModified: 'Wed' }));
 check('a failed read, another page or two empty pages are not', !CD.sameSite(null, { body: 'a' }) && !CD.sameSite({ body: 'a' }, { body: 'b' }) && !CD.sameSite({ body: '' }, { body: '' }));
 
+check('hostOf names a saved list\'s domain in any state', CD.hostOf([pending]) === 'www.example.com'
+    && CD.hostOf([{ hostname: 'a.com', status: 'failed' }]) === 'a.com' && CD.hostOf([]) === null && CD.hostOf(undefined) === null);
+
 // --- The popover section of ui.js against fakes -------------------------------------
 const section = ui.slice(ui.indexOf("// ---- The user's own domain (inside the popover)"), ui.indexOf('// ---- Share the draft link (toolbar popover)'));
 function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, blocked = null, createImpl, field = 'brave-otter-42', savedChats = [], files = {} } = {}) {
@@ -219,9 +222,9 @@ function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, block
     // moves it to A's site.
     const savedChats = [
         { id: 'A', publishedUrl: 'https://cafe.puter.site/' },
-        { id: 'B', publishedUrl: 'https://bistro.puter.site/' },
+        { id: 'B', publishedUrl: 'https://bistro.puter.site/', publishedDomainHost: 'www.example.com' },
         { id: 'C', publishedUrl: null },
-        { id: 'D', publishedUrl: 'https://deli.puter.site/' },
+        { id: 'D', publishedUrl: 'https://deli.puter.site/', publishedDomainHost: 'other.com' },
     ];
     const files = {
         'chat-history/B.json': { publishedDomains: [{ hostname: 'www.example.com', site: 'bistro', status: 'active' }] },
@@ -233,14 +236,15 @@ function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, block
     check('a domain another project had is taken off that project', h.state.fieldSaves.length === 1 && h.state.fieldSaves[0][0] === 'B'
         && Array.isArray(h.state.fieldSaves[0][1].publishedDomains) && h.state.fieldSaves[0][1].publishedDomains.length === 0, JSON.stringify(h.state.fieldSaves));
     check('…and stays on this one', h.window.currentPublishedDomains[0]?.hostname === 'www.example.com' && h.state.saves.join() === 'A');
-    check('…a project with another domain keeps it, and one never published isn\'t read', !h.state.fieldSaves.some(([id]) => id === 'D')
-        && !h.state.reads.includes('chat-history/C.json') && !h.state.reads.includes('chat-history/A.json'), h.state.reads.join());
+    check('…a project with another domain keeps it', !h.state.fieldSaves.some(([id]) => id === 'D' || id === 'C'));
+    check('…and the project list says which project had it, so no project\'s file (a whole conversation) is read to find it',
+        h.state.reads.length === 0, h.state.reads.join());
 }
 {
     // The project that had it is open when the domain lands (the user switched
     // to it while Puter's window was open for A).
     let resolve;
-    const savedChats = [{ id: 'A', publishedUrl: 'https://cafe.puter.site/' }, { id: 'B', publishedUrl: 'https://bistro.puter.site/' }];
+    const savedChats = [{ id: 'A', publishedUrl: 'https://cafe.puter.site/' }, { id: 'B', publishedUrl: 'https://bistro.puter.site/', publishedDomainHost: 'www.example.com' }];
     const files = { 'chat-history/B.json': { publishedDomains: [{ hostname: 'www.example.com', site: 'bistro', status: 'active' }] } };
     const h = harness({ attach: () => new Promise((r) => { resolve = r; }), savedChats, files });
     h.connectCustomDomain();
@@ -656,11 +660,16 @@ function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, block
         { fs: { read: async () => ({ text: async () => JSON.stringify(disk) }), write: async (p, t) => { disk = JSON.parse(t); } } },
         (id) => id, [entry], async () => { listSaves++; }, () => {});
     await window.savePublishedFields('A', { publishedDomains: [{ hostname: 'cafe.com', site: 'cafe', status: 'pending' }] });
-    check('a domain still waiting leaves the project list alone', listSaves === 0 && !entry.publishedDomainUrl);
+    check('a domain still waiting isn\'t the address the project list shows', !entry.publishedDomainUrl);
+    check('…but the list names it, for a project that takes it later', entry.publishedDomainHost === 'cafe.com' && listSaves === 1);
     await window.savePublishedFields('A', { publishedDomains: [{ hostname: 'cafe.com', site: 'cafe', status: 'active' }] });
-    check('a working one goes on the project list', entry.publishedDomainUrl === 'https://cafe.com/' && listSaves === 1);
+    check('a working one goes on the project list', entry.publishedDomainUrl === 'https://cafe.com/' && listSaves === 2);
     await window.savePublishedFields('A', { publishedDomains: [{ hostname: 'cafe.com', site: 'cafe', status: 'active', lostAt: 3 }] });
-    check('…and comes off it once it\'s lost', entry.publishedDomainUrl === null && entry.publishedUrl === 'https://cafe.puter.site/' && listSaves === 2);
+    check('…and comes off it once it\'s lost', entry.publishedDomainUrl === null && entry.publishedUrl === 'https://cafe.puter.site/' && listSaves === 3);
+    await window.savePublishedFields('A', { publishedDomains: [{ hostname: 'cafe.com', site: 'cafe', status: 'active', lostAt: 4 }] });
+    check('…and a change the list doesn\'t show leaves it alone', listSaves === 3);
+    await window.savePublishedFields('A', { publishedDomains: [] });
+    check('a project another one took the domain from no longer names it', entry.publishedDomainHost === null && listSaves === 4);
 }
 
 {
@@ -694,6 +703,10 @@ check('opening a project restores its domains', /window\.currentPublishedDomains
 check('the open project\'s list entry carries its working domain, and a change to it is written',
     /publishedDomainUrl: window\.CustomDomain\?\.domainUrl\(publishedDomains, publishedUrl\) \|\| null,/.test(save)
     && /\(live\.publishedDomainUrl \|\| null\) === \(entry\.publishedDomainUrl \|\| null\)/.test(save));
+check('the list entry names the project\'s domain in any state, and a change to it is written',
+    /publishedDomainHost: window\.CustomDomain\?\.hostOf\(publishedDomains\) \|\| null,/.test(save)
+    && /\(live\.publishedDomainHost \|\| null\) === \(entry\.publishedDomainHost \|\| null\)/.test(save)
+    && /publishedDomainHost: window\.CustomDomain\?\.hostOf\(chat\.publishedDomains\) \|\| null,/.test(app));
 check('…and so does a list rebuilt from the project files', /publishedDomainUrl: window\.CustomDomain\?\.domainUrl\(chat\.publishedDomains, chat\.publishedUrl\) \|\| null,/.test(app));
 check('the sidebar links to the domain, redraws when it changes, and finds the project by it',
     /const linkUrl = chat\.publishedDomainUrl \|\| chat\.publishedUrl;/.test(app) && /c\.publishedDomainUrl \|\| ''/.test(app)
