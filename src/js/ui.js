@@ -3988,9 +3988,15 @@ function stopWatchingCustomDomains() {
 // back out. Resolves true to go ahead.
 async function confirmAddressChangeKeepsDomains(domains, oldSub) {
     const domain = window.CustomDomain.list(domains)[0];
-    if (!domain || window.CustomDomain.view(domain, oldSub)?.kind === 'moved') return true;
+    const kind = domain && window.CustomDomain.view(domain, oldSub)?.kind;
+    if (!domain || kind === 'moved') return true;
+    // Only a working domain "stops working". One still waiting for its DNS
+    // records (or not working now) is set up for the old address all the same.
+    const what = kind === 'active'
+        ? `${domain.hostname} shows your site through its current address, so it stops working when the address changes.`
+        : `${domain.hostname} is set up for your site’s current address, so it won’t work with the new one.`;
     const choice = await puter.ui.alert(
-        `${domain.hostname} shows your site through its current address, so it stops working when the address changes. You can connect it again afterwards, from Publish.`,
+        `${what} You can connect it again afterwards, from Publish.`,
         [
             { label: 'Change address', value: 'change', type: 'primary' },
             { label: 'Cancel', value: 'cancel', type: 'secondary' },
