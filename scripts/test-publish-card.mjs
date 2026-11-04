@@ -953,7 +953,7 @@ function setup() {
     const prompt = read('../src/js/prompt.js');
     check('the prompt points a publish request at OfferPublish', /When the user asks you to publish it, call the OfferPublish tool/.test(prompt));
     check('and an address change at OfferAddressChange', /change the published site's address, call OfferAddressChange/.test(prompt));
-    const doPublish = extract(uiSource, 'async function doPublish() {');
+    const doPublish = extract(uiSource, 'async function doPublish({ reserved = null } = {}) {');
     check('the popover publishes through publishProject too', /return publishProject\(\{/.test(doPublish));
 }
 

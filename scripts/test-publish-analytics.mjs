@@ -52,7 +52,7 @@ const PUBLISH_CODE = [
     extract(helpersSource, 'function generateChatTitle(history) {'),
     extract(helpersSource, 'function templateProp(history) {'),
     extract(helpersSource, 'function templatePropFor(slug) {'),
-    extract(source, 'async function doPublish() {'),
+    extract(source, 'async function doPublish({ reserved = null } = {}) {'),
     extract(source, 'function publishedNoteMessage(url, isFirst) {'),
     extract(source, 'function pushAiNote(history, note) {'),
     extract(source, 'async function publishProject(ui) {'),

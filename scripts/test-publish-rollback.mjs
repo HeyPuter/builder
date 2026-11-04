@@ -52,7 +52,7 @@ const CODE = [
     extract(source, 'function publishBlockedReason() {'),
     extract(source, 'async function createPublishSubdomain(path, desired'),
     extract(helpersSource, 'function generateChatTitle(history) {'),
-    extract(source, 'async function doPublish() {'),
+    extract(source, 'async function doPublish({ reserved = null } = {}) {'),
     extract(source, 'function publishedNoteMessage(url, isFirst) {'),
     extract(source, 'function pushAiNote(history, note) {'),
     extract(source, 'async function publishProject(ui) {'),
@@ -101,8 +101,10 @@ function makeFs(initial) {
     };
 }
 
-// failAt: null | 'copy' | 'hosting'
-async function run({ failAt = null } = {}) {
+// failAt: null | 'copy' | 'hosting'. `first` publishes a project that has no
+// site yet, with `field` in the address field and `leftReserved` the name a
+// failed own-domain publish reserved for it.
+async function run({ failAt = null, first = false, field = '', leftReserved = null } = {}) {
     const disk = makeFs([
         [A_WORK + '/index.html', 'NEW WORK'],
         [A_WORK + '/app.js', 'NEW SCRIPT'],
@@ -112,9 +114,12 @@ async function run({ failAt = null } = {}) {
     const sites = new Map([['ay-site', A_PUB]]);
     const hostingCalls = [], alerts = [], toasts = [], saved = [];
 
-    const $stub = () => ({ length: 0, val: () => '', trigger() { return this; }, 0: undefined });
+    const $stub = () => ({ length: 0, val: () => field, trigger() { return this; }, 0: undefined });
 
+    // The own-domain section's reservations, as ui.js keeps them.
+    const reservations = new Map(leftReserved ? [['project-a', leftReserved]] : []);
     const sandbox = {
+        _reservedPublishNames: reservations,
         currentChatId: 'project-a',
         currentAppDir: A_WORK,
         chatHistory: [{ role: 'system', content: '' }, { role: 'user', content: 'Alpha Notes App' }],
@@ -131,8 +136,9 @@ async function run({ failAt = null } = {}) {
         window: {
             user: { username: 'alice' },
             currentPreviewPath: A_WORK,
-            currentPublishedUrl: 'https://ay-site.puter.site/',
-            currentPublishedPath: A_PUB,
+            currentPublishedUrl: first ? null : 'https://ay-site.puter.site/',
+            currentPublishedPath: first ? null : A_PUB,
+            reservedPublishName: (id) => reservations.get(id) || null,
             currentPublishedVersionId: 'a-v0',
             _projectDirtySinceSnapshot: false,
             getCurrentVersionId: () => 'a-v1',
@@ -165,6 +171,10 @@ async function run({ failAt = null } = {}) {
                     hostingCalls.push({ method: 'update', sub, path });
                     sites.set(sub, path);
                 },
+                delete: async (sub) => {
+                    hostingCalls.push({ method: 'delete', sub });
+                    sites.delete(sub);
+                },
             },
         },
     };
@@ -181,6 +191,9 @@ async function run({ failAt = null } = {}) {
     const servedDir = sites.get('ay-site');
     return {
         hostingCalls,
+        calls: hostingCalls.map((c) => c.method + ' ' + c.sub).join(),
+        reservedLeft: reservations.size,
+        url: sandbox.window.currentPublishedUrl,
         alerts,
         toasts,
         served: disk.serves(servedDir),
@@ -224,6 +237,23 @@ check('hosting failure: the user is told it failed', hostFail.alerts.length === 
     && /Could not publish/i.test(hostFail.alerts[0]), JSON.stringify(hostFail.alerts));
 check('hosting failure: the half-finished release is cleaned up',
     hostFail.fileCount === 2, 'files=' + hostFail.fileCount);
+
+// ---- A first publish after an own-domain one that didn't land ---------------
+// That route makes the name the project's site (and may connect the domain to
+// it) before publishing. A plain Publish afterwards goes onto that name rather
+// than failing on it as taken, and another name typed meanwhile replaces it,
+// so the project never has two sites.
+const RESERVED = 'joes-cafe';
+const reuse = await run({ first: true, leftReserved: RESERVED });
+check('first publish: an empty field goes onto the reserved name', reuse.calls === 'update joes-cafe'
+    && reuse.url === 'https://joes-cafe.puter.site/' && reuse.alerts.length === 0 && reuse.reservedLeft === 0, reuse.calls + ' ' + JSON.stringify(reuse.alerts));
+const same = await run({ first: true, leftReserved: RESERVED, field: RESERVED });
+check('first publish: so does the reserved name in the field', same.calls === 'update joes-cafe' && same.alerts.length === 0, same.calls);
+const other = await run({ first: true, leftReserved: RESERVED, field: 'other-name' });
+check('first publish: another name replaces the reserved one', other.calls === 'create other-name,delete joes-cafe'
+    && other.url === 'https://other-name.puter.site/' && other.reservedLeft === 0, other.calls);
+const plain = await run({ first: true, field: 'plain-name' });
+check('first publish: with nothing reserved, only the new name is made', plain.calls === 'create plain-name', plain.calls);
 
 if (failures) { console.error(failures + ' failure(s)'); process.exit(1); }
 console.log('all publish-rollback checks passed');
