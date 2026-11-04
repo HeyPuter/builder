@@ -351,6 +351,13 @@
                 (text === ADDRESS_FAILED ? 'It may be taken. Try another.' : text));
             return;
         }
+        // The user kept the address at the custom-domain question (or moved
+        // on while it was open): the card stays as it was.
+        if (r.cancelled) {
+            const $now = cardNow(chatId, $card);
+            if ($now) focusAddress($now);
+            return;
+        }
         if (!r.changed) { showCardError($card, 'That’s already your site’s address.'); return; }
         // Counted wherever the user is now, as the popover's is.
         window.track?.('Site Address Changed', { source: 'chat' });

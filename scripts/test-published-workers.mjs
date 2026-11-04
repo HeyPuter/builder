@@ -67,7 +67,7 @@ const CODE = [
     extract(uiSource, 'function publishBlockedReason() {'),
     extract(uiSource, 'async function createPublishSubdomain(path, desired'),
     extract(helpersSource, 'function generateChatTitle(history) {'),
-    extract(uiSource, 'async function doPublish() {'),
+    extract(uiSource, 'async function doPublish({ reserved = null } = {}) {'),
     extract(uiSource, 'function publishedNoteMessage(url, isFirst) {'),
     extract(uiSource, 'function pushAiNote(history, note) {'),
     extract(uiSource, 'async function publishProject(ui) {'),

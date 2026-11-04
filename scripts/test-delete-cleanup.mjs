@@ -44,7 +44,7 @@ function notFound() { const e = new Error('not found'); e.code = 'subject_does_n
 
 // failing: which step rejects, and with what kind of error.
 async function run({ failing = null, notFoundOnly = false, senderTitle = null, failRename = false, ...opts } = {}) {
-    const sites = new Set(['draft-one', 'pub-one']);
+    const sites = new Set(['draft-one', 'pub-one', ...(opts.reserved ? [opts.reserved] : [])]);
     const workers = new Map([['api-a', { name: 'api-a', file_path: APP_DIR + '/workers/api-a.js' }]]);
     const dirs = new Set([APP_DIR, '/alice/AppData/builder/.published/chat1', 'chat-history/chat1.json']);
     const alerts = [];
@@ -60,7 +60,7 @@ async function run({ failing = null, notFoundOnly = false, senderTitle = null, f
 
     const sandbox = {
         savedChats: [
-            { id: 'chat1', title: 'Notes', previewUrl: 'https://draft-one.puter.site/', publishedUrl: 'https://pub-one.puter.site/' },
+            { id: 'chat1', title: 'Notes', previewUrl: 'https://draft-one.puter.site/', publishedUrl: opts.reserved ? null : 'https://pub-one.puter.site/' },
             { id: 'chat2', title: 'Other' },
         ],
         currentChatId: 'chat2',
@@ -76,6 +76,7 @@ async function run({ failing = null, notFoundOnly = false, senderTitle = null, f
         window: {
             user: { username: 'alice' },
             isPublishInFlight: (id) => !!opts.publishing && id === 'chat1',
+            reservedPublishName: (id) => (id === 'chat1' && opts.reserved) || null,
             showToast: (m) => toasts.push(String(m)),
             animateChatItemRemoval: async () => {},
             deleteChatVersions: async () => {},
@@ -157,6 +158,14 @@ check('control: tombstoned so a late save cannot resurrect it', ok.tombstoned ==
 check('control: no error shown', ok.alerts.length === 0 && ok.threw === false, JSON.stringify(ok.alerts));
 
 check('control: a worker on its default sender name is never renamed', ok.renames.length === 0, JSON.stringify(ok.renames));
+
+// A project whose own-domain first publish reserved an address and never
+// went live: that address is in no URL, and used to be left on the account.
+{
+    const r = await run({ reserved: 'joes-cafe' });
+    check('reserved: the address reserved for a first publish goes with the project',
+        !r.sitesLeft.includes('joes-cafe') && r.sitesLeft.join() === 'pub-one' && r.threw === false, JSON.stringify(r.sitesLeft));
+}
 
 // ---- The email sender name is reset before the worker goes ------------------
 // Puter reuses a sandbox app by worker name, so a later worker with this name
