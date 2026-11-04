@@ -657,10 +657,16 @@
         try { return JSON.parse(JSON.stringify(v)); } catch (e) { return v; }
     }
 
-    function globToRegExp(pattern) {
-        var p = String(pattern == null ? '*' : pattern);
-        return new RegExp('^' + p.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') + '$');
+    // A puter.kv.list pattern as puter.js sends it: trimmed, one trailing *
+    // dropped, and matched as a prefix ('todo:' and 'todo:*' are the same).
+    // null lists every key.
+    function kvPrefix(pattern) {
+        if (typeof pattern !== 'string') return null;
+        var t = pattern.trim();
+        if (t.charAt(t.length - 1) === '*') t = t.slice(0, -1);
+        return t === '' ? null : t;
     }
+    function kvMatches(prefix, key) { return prefix == null || key.indexOf(prefix) === 0; }
 
     // puter.kv the same way: writes in memory, reads through to the real store.
     function overlayKv(kv) {
@@ -700,25 +706,38 @@
             expireAt: function () { return Promise.resolve(true); },
             list: function (pattern, returnValues) {
                 if (pattern && typeof pattern === 'object') {
-                    var args = arguments;
-                    return realList ? Promise.resolve().then(function () { return realList.apply(null, args); }) : Promise.resolve([]);
+                    // { pattern, returnValues } is the same list; anything
+                    // more (paging, streaming, order) goes to the real store.
+                    var opts = pattern, plain = true;
+                    for (var o in opts) if (hasOwn.call(opts, o) && o !== 'pattern' && o !== 'returnValues' && opts[o] !== undefined) plain = false;
+                    if (!plain) {
+                        var args = arguments;
+                        return realList ? Promise.resolve().then(function () { return realList.apply(null, args); }) : Promise.resolve([]);
+                    }
+                    pattern = typeof opts.pattern === 'string' ? opts.pattern : undefined;
+                    returnValues = !!opts.returnValues;
+                } else if (typeof pattern === 'boolean') {
+                    returnValues = pattern; pattern = undefined;
+                } else {
+                    // As puter.js reads it: only true asks for values (an
+                    // object there is request options).
+                    returnValues = returnValues === true;
                 }
-                if (typeof pattern === 'boolean') { returnValues = pattern; pattern = undefined; }
-                var re = globToRegExp(pattern);
+                var prefix = kvPrefix(pattern);
                 var base = (flushed || !realList) ? Promise.resolve([])
-                    : Promise.resolve().then(function () { return realList(pattern == null ? '*' : pattern, true); });
+                    : Promise.resolve().then(function () { return realList(prefix == null ? '*' : prefix + '*', true); });
                 return base.then(function (items) {
                     var values = Object.create(null), order = [];
                     (Array.isArray(items) ? items : []).forEach(function (it) {
                         var key = (it && typeof it === 'object') ? it.key : it;
                         if (key == null) return;
                         key = String(key);
-                        if (has(key) || hasOwn.call(values, key)) return;
+                        if (!kvMatches(prefix, key) || has(key) || hasOwn.call(values, key)) return;
                         values[key] = (it && typeof it === 'object') ? it.value : null;
                         order.push(key);
                     });
                     for (var k in mem) {
-                        if (mem[k] === TOMB || !re.test(k)) continue;
+                        if (mem[k] === TOMB || !kvMatches(prefix, k)) continue;
                         if (!hasOwn.call(values, k)) order.push(k);
                         values[k] = clone(mem[k]);
                     }
