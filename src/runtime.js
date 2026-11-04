@@ -1201,18 +1201,30 @@
         } catch (e) { return false; }
     }
 
+    // Which test is running. A test that runs out of time can't be stopped
+    // (nothing cancels a promise), so each step remembers the test it began
+    // in and, once that test is over, never finishes: the late test stays
+    // stuck in that step instead of clicking through the tests after it.
+    var gen = 0;
+    function hang() { return new Promise(function () {}); }
+    function stillOn(g) { return function (v) { return g === gen ? v : hang(); }; }
+
     // Poll check() until it returns something truthy. A throw marked puterFatal
     // fails at once (a typo in a selector won't fix itself); any other throw is
     // retried and reported if the time runs out.
     function poll(check, timeout, describe) {
         var start = Date.now();
+        var g = gen;
         return new Promise(function (resolve, reject) {
             (function tick() {
+                if (g !== gen) return; // its test is over: never settle
                 var lastError = null;
                 Promise.resolve().then(check).then(function (v) {
+                    if (g !== gen) return;
                     if (v) return resolve(v);
                     next();
                 }, function (e) {
+                    if (g !== gen) return;
                     if (e && e.puterFatal) return reject(e);
                     lastError = e;
                     next();
@@ -1290,7 +1302,9 @@
     }
 
     function click(target, opts) {
+        var g = gen;
         return find(target, merge(opts, { enabled: true })).then(function (el) {
+            if (g !== gen) return hang();
             var r = el.getBoundingClientRect();
             var pos = { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, button: 0, view: window };
             var P = window.PointerEvent || window.MouseEvent;
@@ -1318,7 +1332,9 @@
     }
 
     function fill(target, value, opts) {
+        var g = gen;
         return find(target, merge(opts, { enabled: true })).then(function (el) {
+            if (g !== gen) return hang();
             var type = String(el.type || '').toLowerCase();
             if (el.tagName === 'INPUT' && (type === 'checkbox' || type === 'radio')) {
                 if (el.checked !== !!value) el.click();
@@ -1379,7 +1395,9 @@
     }
 
     function press(target, key, opts) {
+        var g = gen;
         return find(target, merge(opts, { enabled: true })).then(function (el) {
+            if (g !== gen) return hang();
             var k = keyInfo(key);
             key = k.key;
             var init = { key: key, code: k.code, view: window };
@@ -1432,11 +1450,11 @@
         return find(target, merge(opts, { timeout: timeoutOf(opts, WAIT_MS) }));
     }
 
-    function sleep(ms) { return delay(Math.max(0, Math.min(+ms || 0, MAX_SLEEP_MS))); }
+    function sleep(ms) { return delay(Math.max(0, Math.min(+ms || 0, MAX_SLEEP_MS))).then(stillOn(gen)); }
 
     // A beat for the app's handlers (microtasks and a frame's worth of timers)
     // after each action.
-    function settle() { return delay(30); }
+    function settle() { return delay(30).then(stillOn(gen)); }
 
     function merge(a, b) {
         var out = {}, k;
@@ -1603,6 +1621,7 @@
     }
 
     function runOne(t) {
+        gen++;
         current = { errors: [] };
         var started = Date.now();
         post({ type: 'puter-tests-progress', name: t.name });
@@ -1613,6 +1632,7 @@
         var body = Promise.resolve().then(function () { return t.fn(api); }).then(function () { return {}; }, function (e) { return { error: e }; });
         return Promise.race([body, timedOut]).then(function (r) {
             clearTimeout(timer);
+            gen++; // this test is over; any step still running in it stops
             return delay(30).then(function () { return r; }); // errors fired by the last action
         }).then(function (r) {
             var errors = current.errors;
