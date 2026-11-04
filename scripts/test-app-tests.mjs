@@ -589,6 +589,31 @@ await builderScenario('builder: flag off → nothing runs', {
     const r = await env.AT.run({ baseUrl: BASE, code: "test('x', () => {})" });
     check('builder: focus pulled into the test frame goes back to the composer', r.status === 'passed' && env.document.activeElement === env.composer);
 }
+{
+    // Mid-run, and never from inside the blur itself: refocusing while the
+    // browser is still moving focus into the frame left the composer looking
+    // focused while Chrome sent the user's keys to the hidden app.
+    let inBlur = null, soonAfter = null;
+    const env = makeBuilderEnv({
+        scenario: (f) => ({
+            onRun(msg) {
+                f.reply({ type: 'puter-tests-ack', runId: msg.runId });
+                setTimeout(() => {
+                    env.document.activeElement = f;
+                    env.fire('blur', {});
+                    inBlur = env.document.activeElement === f;
+                    setTimeout(() => {
+                        soonAfter = env.document.activeElement === env.composer;
+                        f.reply({ type: 'puter-tests-done', runId: msg.runId, results: [{ name: 'a', passed: true }] });
+                    }, 60);
+                }, 10);
+            },
+        }),
+    });
+    await env.AT.run({ baseUrl: BASE, code: "test('x', () => {})" });
+    check('builder: focus is not taken back inside the blur event', inBlur === true);
+    check('builder: focus goes back to the composer while the tests still run', soonAfter === true);
+}
 
 // Storage through the real read/write/remove.
 {
