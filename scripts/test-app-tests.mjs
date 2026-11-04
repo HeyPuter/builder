@@ -639,6 +639,30 @@ async function runtimeChecks(label, src) {
         check(`[${label}] text() still reads a hidden element`, r?.results?.[1]?.passed === true, r?.results?.[1]);
     }
 
+    {
+        // Each test sees its own dialogs and AI reply; a reply set at the
+        // top level holds for every test.
+        const e12 = makeRuntimeEnv(src);
+        const { El: El12, body: body12 } = e12.dom;
+        const save = body12.appendChild(new El12('button', { id: 'save', tabIndex: 0 }));
+        save.addEventListener('click', () => e12.g.alert('Saved'));
+        const ask = body12.appendChild(new El12('button', { id: 'ask', tabIndex: 0 }));
+        ask.addEventListener('click', async () => { ask.textContent = String(await e12.g.puter.ai.chat('hi')); });
+        e12.g.alert('Welcome');
+        const r = await runSuite(e12, [
+            "setAIReply('TOP');",
+            "test('save', async () => { await click('#save'); expect(dialogs.map(d => d.message)).toEqual(['Welcome', 'Saved']); });",
+            "test('own dialogs', async () => { await click('#save'); expect(dialogs).toHaveLength(1); });",
+            "test('own reply', async () => { setAIReply('MINE'); await click('#ask'); expect(await text('#ask')).toBe('MINE'); });",
+            "test('top reply again', async () => { await click('#ask'); expect(await text('#ask')).toBe('TOP'); });",
+        ].join('\n'));
+        const by12 = Object.fromEntries((r?.results || []).map(x => [x.name, x]));
+        check(`[${label}] the first test sees dialogs from page load`, by12.save?.passed === true, by12.save);
+        check(`[${label}] each test sees only its own dialogs`, by12['own dialogs']?.passed === true, by12['own dialogs']);
+        check(`[${label}] setAIReply in a test holds for that test, the top-level one for the rest`,
+            by12['own reply']?.passed === true && by12['top reply again']?.passed === true, [by12['own reply'], by12['top reply again']]);
+    }
+
     // Setup problems.
     const setup = await runSuite(makeRuntimeEnv(src), "throw new Error('bad setup');");
     check(`[${label}] a throwing setup is reported`, /threw before any test ran: bad setup/.test(setup?.setupError), setup);
