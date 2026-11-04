@@ -589,17 +589,25 @@
             clear: function () { mem = Object.create(null); cleared = true; },
             key: function (i) { var ks = keys(); return (i >= 0 && i < ks.length) ? ks[i] : null; }
         };
-        var proxy = new Proxy({}, {
+        // On Storage's prototype, so it is a Storage to the app (instanceof,
+        // String(), hasOwnProperty) and, as on the real one, the prototype's
+        // members win over stored keys of the same name.
+        var target = Object.create(StorageProto || Object.prototype);
+        var proxy = new Proxy(target, {
             get: function (t, p) {
                 if (p === 'length') return keys().length;
-                if (typeof p !== 'string') return undefined;
+                if (typeof p !== 'string') return t[p];
                 if (hasOwn.call(api, p)) return api[p];
+                if (p in t) return t[p];
                 var v = getItem(p);
                 return v === null ? undefined : v;
             },
             set: function (t, p, v) { if (typeof p === 'string') api.setItem(p, v); return true; },
             deleteProperty: function (t, p) { if (typeof p === 'string') api.removeItem(p); return true; },
-            has: function (t, p) { return typeof p === 'string' && (hasOwn.call(api, p) || getItem(p) !== null); },
+            has: function (t, p) {
+                if (typeof p !== 'string') return p in t;
+                return hasOwn.call(api, p) || p in t || getItem(p) !== null;
+            },
             ownKeys: function () { return keys(); },
             getOwnPropertyDescriptor: function (t, p) {
                 var v = typeof p === 'string' ? getItem(p) : null;
@@ -649,6 +657,8 @@
             try { real = window[name]; } catch (e) { real = null; }
             var layer = overlayStorage(real);
             if (real) storageLayers.push({ real: real, api: layer.api, keys: layer.keys });
+            // Storage.prototype.getItem.call(localStorage, …) reaches the layer too.
+            storageLayers.push({ real: layer.proxy, api: layer.api, keys: layer.keys });
             Object.defineProperty(window, name, { configurable: true, enumerable: true, get: function () { return layer.proxy; } });
         });
     }

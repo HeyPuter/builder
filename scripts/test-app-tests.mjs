@@ -311,6 +311,21 @@ async function runtimeChecks(label, src) {
         kept.clear();
         check(`[${label}] clear through a kept reference keeps the real data`,
             kept.length === 0 && e2.g.localStorage.getItem('b') === null && e2.realLocal.get('existing') === 'kept');
+        {
+            // The layer is a Storage to the app, like the real one.
+            const ls = e2.g.localStorage;
+            ls.setItem('mine', 'M');
+            let threw = '';
+            let str = '';
+            try { str = String(ls); } catch (e) { threw = e.message; }
+            check(`[${label}] the layer behaves like a Storage object`,
+                ls instanceof e2.g.Storage && ls.hasOwnProperty('mine') === true && ls.hasOwnProperty('nope') === false &&
+                Object.prototype.hasOwnProperty.call(ls, 'mine') && typeof ls.toString === 'function' && !threw && str.length > 0 &&
+                'length' in ls && 'mine' in ls && !('nope' in ls) &&
+                e2.g.Storage.prototype.getItem.call(ls, 'mine') === 'M' && e2.g.Storage.prototype.setItem.call(ls, 'viaProto', '1') === undefined &&
+                ls.getItem('viaProto') === '1' && !e2.realLocal.has('viaProto') && !e2.realLocal.has('mine'), { threw });
+            ls.clear();
+        }
         const other = new e2.g.Storage(new Map([['x', '1']]));
         other.setItem('y', '2');
         check(`[${label}] a store that isn't overlaid works as before`, other.getItem('y') === '2' && other.length === 2);
