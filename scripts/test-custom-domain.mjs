@@ -485,6 +485,36 @@ function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, block
     check('a site already published never takes the first-publish path', h.state.creates.length === 0 && h.state.publishes.length === 0);
 }
 
+{
+    // The real renderPublishPanel's first-publish form, against fakes. After
+    // an own-domain publish that didn't land, its field used to come back
+    // with a random name on the next open, and Publish then made that site
+    // and deleted the reserved one the domain was connected to.
+    const at = ui.indexOf('function renderPublishPanel() {');
+    const fn = ui.slice(at, ui.indexOf('\n}\n', at) + 2);
+    const form = (reserved) => {
+        let body = '';
+        const $panel = { length: 1, find: (sel) => ({ text() {}, html(h) { if (sel === '.publish-panel-body') body = h; } }) };
+        const env = {
+            $: () => $panel, keepPublishPanelFocus: () => () => {}, _publishPanelView: 'form', _publishSuccessData: null,
+            publishBusyHere: () => false, publishBlockedReason: () => null, currentChatId: 'A',
+            htmlEscape: (s) => String(s), publishAddressHeadHtml: () => '', publishBadgeToggleHtml: () => '',
+            puter: { randName: () => 'random-name-12' },
+            window: {
+                currentPublishedUrl: null, computePublishState: () => ({ state: 'unpublished' }),
+                reservedPublishName: (id) => (id === 'A' ? reserved : null), isReservingPublishName: () => false,
+            },
+        };
+        const names = Object.keys(env);
+        const suggested = new Function(...names, 'let _suggestedPublishName = null;\n' + fn + '\nrenderPublishPanel(); return _suggestedPublishName;')(...names.map((k) => env[k]));
+        return { suggested, body };
+    };
+    const left = form('joes-cafe');
+    check('the form offers the name an own-domain publish reserved and didn\'t land on', left.suggested === 'joes-cafe'
+        && /class="publish-name-input" value="joes-cafe"/.test(left.body), left.suggested);
+    check('…and a random name when there is none', form(null).suggested === 'random-name-12');
+}
+
 // --- savePublishedFields merges only what it is given --------------------------------
 {
     const fn = app.slice(app.indexOf('window.savePublishedFields = async function'), app.indexOf('\n};\n', app.indexOf('window.savePublishedFields = async function')) + 4);
