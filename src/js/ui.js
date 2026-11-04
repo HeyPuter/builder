@@ -2641,6 +2641,10 @@ async function doPublish({ reserved = null } = {}) {
             const $nameInput = $('.preview-publish-panel .publish-name-input');
             if ($nameInput.length) { $nameInput.trigger('focus'); $nameInput[0].select(); }
         },
+    }).finally(() => {
+        // The progress note's own-domain wording belongs to this publish. A
+        // later one from the chat's card doesn't set it, so it showed there.
+        if (viaDomain) _publishViaDomain = false;
     });
 }
 

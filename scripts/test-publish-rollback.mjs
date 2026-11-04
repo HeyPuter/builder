@@ -103,8 +103,9 @@ function makeFs(initial) {
 
 // failAt: null | 'copy' | 'hosting'. `first` publishes a project that has no
 // site yet, with `field` in the address field and `leftReserved` the name a
-// failed own-domain publish reserved for it.
-async function run({ failAt = null, first = false, field = '', leftReserved = null } = {}) {
+// failed own-domain publish reserved for it. `reserved` is the name the
+// own-domain route passes the popover's publish (publishWithDomain).
+async function run({ failAt = null, first = false, field = '', leftReserved = null, reserved = null } = {}) {
     const disk = makeFs([
         [A_WORK + '/index.html', 'NEW WORK'],
         [A_WORK + '/app.js', 'NEW SCRIPT'],
@@ -168,7 +169,7 @@ async function run({ failAt = null, first = false, field = '', leftReserved = nu
                 },
                 update: async (sub, path) => {
                     if (failAt === 'hosting') throw new Error('hosting unavailable');
-                    hostingCalls.push({ method: 'update', sub, path });
+                    hostingCalls.push({ method: 'update', sub, path, viaDomain: sandbox._publishViaDomain });
                     sites.set(sub, path);
                 },
                 delete: async (sub) => {
@@ -186,13 +187,14 @@ async function run({ failAt = null, first = false, field = '', leftReserved = nu
 
     vm.createContext(sandbox);
     vm.runInContext(CODE, sandbox, { filename: 'src/js/ui.js' });
-    await sandbox.doPublish();
+    await sandbox.doPublish(reserved ? { reserved: Promise.resolve(reserved) } : undefined);
 
     const servedDir = sites.get('ay-site');
     return {
         hostingCalls,
         calls: hostingCalls.map((c) => c.method + ' ' + c.sub).join(),
         reservedLeft: reservations.size,
+        viaDomainAfter: sandbox._publishViaDomain,
         url: sandbox.window.currentPublishedUrl,
         alerts,
         toasts,
@@ -254,6 +256,16 @@ check('first publish: another name replaces the reserved one', other.calls === '
     && other.url === 'https://other-name.puter.site/' && other.reservedLeft === 0, other.calls);
 const plain = await run({ first: true, field: 'plain-name' });
 check('first publish: with nothing reserved, only the new name is made', plain.calls === 'create plain-name', plain.calls);
+
+// The own-domain route's progress note ("Pick or add your domain in Puter's
+// window") is that publish's alone: it used to stay on, so a later publish
+// from the chat's card showed it too.
+const viaDomain = await run({ first: true, reserved: RESERVED });
+check('own-domain publish: the progress note says so while it runs', viaDomain.hostingCalls[0]?.viaDomain === true
+    && viaDomain.url === 'https://joes-cafe.puter.site/', JSON.stringify(viaDomain.hostingCalls));
+check('…and stops saying so once it ends', viaDomain.viaDomainAfter === false, String(viaDomain.viaDomainAfter));
+const viaDomainFail = await run({ first: true, reserved: RESERVED, failAt: 'hosting' });
+check('…a failed one too', viaDomainFail.viaDomainAfter === false && viaDomainFail.alerts.length === 1, String(viaDomainFail.viaDomainAfter));
 
 if (failures) { console.error(failures + ' failure(s)'); process.exit(1); }
 console.log('all publish-rollback checks passed');
