@@ -101,9 +101,9 @@ check('the three candidates are registered', () => {
 
 // ---- Request options --------------------------------------------------------
 
-check('Opus: medium effort, one tool call per reply, started on Anthropic', () => {
+check('Opus: medium effort, several tool calls per reply, started on Anthropic', () => {
     const o = M.buildChatOptions('claude-opus-5-5', { tools: ['t'], signal: 's' });
-    assert.deepEqual(plain(o), plain({ model: 'claude-opus-5-5', tools: ['t'], stream: true, streamToolInput: true, reasoning_effort: 'medium', parallelToolCalls: false, provider: 'claude', signal: 's' }));
+    assert.deepEqual(plain(o), plain({ model: 'claude-opus-5-5', tools: ['t'], stream: true, streamToolInput: true, reasoning_effort: 'medium', parallelToolCalls: true, provider: 'claude', signal: 's' }));
 });
 
 check('with the compaction flag off, no model asks for it', () => {

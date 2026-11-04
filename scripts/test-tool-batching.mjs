@@ -3,8 +3,8 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 // ---- A reply's tool calls run together, after the reply is complete ---------
-// GPT and Gemini put several tool calls in one reply (and so does Opus when
-// Puter serves it through a reseller). handleMessageStream used to run each
+// Every model may put several tool calls in one reply (parallelToolCalls is
+// on). handleMessageStream used to run each
 // call the moment it arrived and start the next model round from inside it,
 // so calls 2..N of a reply ran after the rest of the turn, late and over newer
 // files. Now the calls wait for the reply's usage line and run as one batch,
@@ -123,7 +123,7 @@ await check('later rounds keep the turn\'s model, options and history shape', as
     assert.equal(prepared.model, 'gpt-6.1-sol', 'prepareHistoryForAI is told the model');
     assert.equal(opts.model, 'gpt-6.1-sol');
     assert.equal(opts.provider, 'openai-responses');
-    assert.equal(opts.parallelToolCalls, false);
+    assert.equal(opts.parallelToolCalls, true);
 });
 
 await check('narration around the calls is saved as one message ahead of them', async () => {

@@ -1049,9 +1049,9 @@ async function clearPreviewCache(baseUrl, dir, live) {
 }
 
 // ---- Clearing early -------------------------------------------------------
-// Puter lets Claude make one tool call per reply, so a whole model round, about
-// two seconds, sits between the AI's last file write and its update_preview
-// call. The clear needs only the writes, not that call, so the tool loop
+// The AI's update_preview call often comes a reply after its last file write,
+// so a whole model round, about two seconds, sits between them. The clear
+// needs only the writes, not that call, so the tool loop
 // (handleToolCalls) starts one as soon as a round that may have written files
 // ends, and the refresh update_preview kicks off takes it over instead of
 // starting its own.

@@ -394,9 +394,9 @@ async function handleMessageStream(stream, context) {
     // This reply's tool calls, run together once the reply is complete: at its
     // usage line, which Puter writes last, or at the end of the stream. Running
     // each call the moment it arrived started the next model round before the
-    // rest of the reply was read, so a reply with several calls (GPT and
-    // Gemini make them, and so does Opus when Puter serves it through a
-    // reseller) ran calls 2..N after the turn had moved on: late, out of
+    // rest of the reply was read, so a reply with several calls (every model
+    // may make them, see parallelToolCalls in ModelCore.buildChatOptions)
+    // ran calls 2..N after the turn had moved on: late, out of
     // order, over newer files. A reply that ends in an error or an abort drops
     // its calls unrun. They were never stored, so nothing is left dangling.
     // No timer runs them early: a healthy reply can go quiet for minutes while

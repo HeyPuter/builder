@@ -3,8 +3,8 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 // ---- The tool loop starts the preview's cache clear early -------------------
-// Puter lets Claude make one tool call per reply, so a whole model round sits
-// between the AI's last write and its update_preview call. The tool loop now
+// The AI's update_preview call often comes a reply after its last write, so a
+// whole model round sits between them. The tool loop now
 // starts the clear when a round that may have written files ends, and drops it
 // before any tool that may write, since the canary only covers files written
 // before its read. The clear itself, and update_preview's refresh taking it
