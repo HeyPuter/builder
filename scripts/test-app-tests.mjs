@@ -328,6 +328,23 @@ async function runtimeChecks(label, src) {
     check(`[${label}] kv list merges the layer`, keys.includes('a') && keys.includes('c') && !keys.includes('seed'), keys);
     const withValues = await kv.list('a*', true);
     check(`[${label}] kv list with a pattern and values`, withValues.length === 1 && withValues[0].key === 'a' && withValues[0].value.n === 1, withValues);
+    {
+        // Patterns as puter.js sends them: a prefix, with or without a
+        // trailing *, and the { pattern, returnValues } form.
+        await kv.set('todo:1', 'milk');
+        await kv.set('todos', 'x');
+        const plain = await kv.list('todo:');
+        const star = await kv.list(' todo:* ');
+        const opts = await kv.list({ pattern: 'todo:', returnValues: true });
+        const withConfig = await kv.list('todo:', { headers: {} });
+        check(`[${label}] kv list matches a pattern as a prefix`,
+            JSON.stringify(plain) === '["todo:1"]' && JSON.stringify(star) === '["todo:1"]', { plain, star });
+        check(`[${label}] kv list({ pattern, returnValues }) sees the test's writes`,
+            opts.length === 1 && opts[0].key === 'todo:1' && opts[0].value === 'milk', opts);
+        check(`[${label}] kv list with request options still lists keys`, JSON.stringify(withConfig) === '["todo:1"]', withConfig);
+        await kv.del('todo:1');
+        await kv.del('todos');
+    }
     await kv.flush();
     check(`[${label}] kv flush empties the view only`, (await kv.list()).length === 0 && real.kvSets === 0);
     await kv.set('z', 1);
