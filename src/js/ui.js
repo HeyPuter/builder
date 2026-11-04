@@ -3988,6 +3988,7 @@ window.resetPreviewErrorDedup = function () {
     const ERROR_MAXLEN = 500;      // cap each error string's length
     const OBSERVE_MS = 3000;       // watch the loaded app this long for late errors
     const LOAD_TIMEOUT_MS = 50000; // give up waiting for the reload (covers CDN wait)
+    const TESTS_READ_MS = 5000;    // after the load, for the app's hidden tests to be read
 
     const buffer = [];
     let capturing = false; // true only between reload-commit and observe-end
@@ -4102,14 +4103,23 @@ window.resetPreviewErrorDedup = function () {
             // Start the hidden tests now, in their own frame, so they run while
             // the watch below does. Runtime errors win: if the app is already
             // broken, the tests are dropped and the errors reported alone.
+            // They start whenever the read of the tests is done, so the watch
+            // never waits for it, and a read that hasn't come back within
+            // TESTS_READ_MS of the load counts as no tests (a read that never
+            // settles must not hold update_preview, and the turn, forever).
             let testsDropped = false;
-            const code = testsCode ? await testsCode : null;
-            const testsRun = (code && window.currentPreviewUrl)
-                ? window.AppTests.run({
-                    baseUrl: window.currentPreviewUrl,
-                    code: code,
-                    aborted: function () { return testsDropped || aborted(); },
-                }).catch(function () { return { status: 'unavailable' }; })
+            const baseUrl = window.currentPreviewUrl;
+            const testsRun = testsCode
+                ? Promise.race([testsCode, new Promise(function (r) { setTimeout(function () { r(null); }, TESTS_READ_MS); })])
+                    .then(function (code) {
+                        if (!code || !baseUrl || testsDropped || aborted()) return null;
+                        return window.AppTests.run({
+                            baseUrl: baseUrl,
+                            code: code,
+                            aborted: function () { return testsDropped || aborted(); },
+                        });
+                    })
+                    .catch(function () { return { status: 'unavailable' }; })
                 : null;
 
             // The fresh document is live. Watch it for late-firing errors (a

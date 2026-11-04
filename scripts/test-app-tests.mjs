@@ -1039,7 +1039,7 @@ await builderScenario('builder: flag off → nothing runs', {
 const vStart = uiSrc.indexOf('// --- In-turn preview verification');
 const vEnd = uiSrc.indexOf("$(document).on('click', '.send'", vStart);
 const verifySlice = uiSrc.slice(vStart, vEnd);
-function makeVerify({ errorsAfterLoad = [], tests, readFails = false, abortAfterMs = 0 } = {}) {
+function makeVerify({ errorsAfterLoad = [], tests, readFails = false, readHangs = false, readDelay = 0, abortAfterMs = 0 } = {}) {
     const loadHandlers = [];
     const frame = { length: 1, on(ev, fn) { if (ev === 'load') loadHandlers.push(fn); return this; }, off() { return this; } };
     const $ = (sel) => (sel === '.preview-frame' ? frame : sel === 'body' ? { hasClass: () => true } : { length: 0 });
@@ -1064,7 +1064,12 @@ function makeVerify({ errorsAfterLoad = [], tests, readFails = false, abortAfter
     if (tests !== undefined) {
         win.AppTests = {
             enabled: () => true,
-            read: async () => { if (readFails) throw new Error('boom'); return tests === null ? null : 'test("x", () => {})'; },
+            read: async () => {
+                if (readHangs) return new Promise(() => {});
+                if (readDelay) await sleep(readDelay);
+                if (readFails) throw new Error('boom');
+                return tests === null ? null : 'test("x", () => {})';
+            },
             run: async ({ aborted }) => {
                 seen.runs++;
                 if (tests === 'reject') throw new Error('runner crashed');
@@ -1081,6 +1086,7 @@ function makeVerify({ errorsAfterLoad = [], tests, readFails = false, abortAfter
     new Function('window', '$', 'isTrustedPreviewMessage', 'isRuntimeAssetError', verifySlice + '\nreturn null;')(win, $, () => true, () => false);
     return { win, seen };
 }
+const FAIL_FOR_READ = { after: 100, result: { status: 'failed', total: 1, failures: [{ name: 'a', error: 'e', where: '' }], moreFailures: 0 } };
 {
     const FAIL = { after: 100, result: { status: 'failed', total: 2, failures: [{ name: 'a', error: 'e', where: '' }], moreFailures: 0 } };
     const t0 = Date.now();
@@ -1104,6 +1110,18 @@ function makeVerify({ errorsAfterLoad = [], tests, readFails = false, abortAfter
     check('verify: a stop during the tests → skipped', stopped.status === 'skipped');
     check('verify: tests overlap the error watch (no added wait when they finish inside it)', slowTests < 3900 + 600, slowTests);
     check('verify: all scenarios settled promptly', Date.now() - t0 < 8000);
+}
+{
+    // A read of the tests that never comes back doesn't hold update_preview
+    // (and the turn) forever, and a slow one doesn't hold up the error watch.
+    const t0 = Date.now();
+    const [hung, slowRead] = await Promise.all([
+        (async () => { const s = Date.now(); const r = await makeVerify({ tests: FAIL_FOR_READ, readHangs: true }).win.verifyPreview({}); return { r, ms: Date.now() - s }; })(),
+        (async () => { const s = Date.now(); const v = makeVerify({ tests: { after: 1, result: { status: 'passed' } }, readDelay: 2500 }); const r = await v.win.verifyPreview({}); return { r, ms: Date.now() - s, runs: v.seen.runs }; })(),
+    ]);
+    check('verify: a tests read that never settles → ok, within the cap', hung.r.status === 'ok' && hung.ms < 5000 + 900, hung);
+    check('verify: a slow tests read overlaps the error watch', slowRead.r.status === 'ok' && slowRead.runs === 1 && slowRead.ms < 3000 + 900, slowRead);
+    check('verify: read checks settled promptly', Date.now() - t0 < 7000);
 }
 
 // ===========================================================================
