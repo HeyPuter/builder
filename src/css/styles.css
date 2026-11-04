@@ -4039,8 +4039,9 @@ html[data-theme="dark"] .gh-error { color: #ff8a80; }
     white-space: nowrap;
     cursor: pointer;
 }
-.publish-domain-action:hover:not(:disabled) { text-decoration: underline; }
-.publish-domain-action:disabled { color: #777; cursor: default; }
+.publish-domain-action:hover:not(:disabled):not([aria-disabled="true"]) { text-decoration: underline; }
+.publish-domain-action:disabled,
+.publish-domain-action[aria-disabled="true"] { color: #777; cursor: default; }
 .preview-publish-panel.editing-address .publish-domain-action { visibility: hidden; }
 
 /* "Remove the badge" box above the Publish button. Free users see it locked,
@@ -4090,8 +4091,9 @@ html[data-theme="dark"] .gh-error { color: #ff8a80; }
     font-family: inherit;
     cursor: pointer;
 }
-.publish-domain-btn:hover:not(:disabled) { background: #f4f4f4; }
-.publish-domain-btn:disabled { color: #777; cursor: default; }
+.publish-domain-btn:hover:not(:disabled):not([aria-disabled="true"]) { background: #f4f4f4; }
+.publish-domain-btn:disabled,
+.publish-domain-btn[aria-disabled="true"] { color: #777; cursor: default; }
 .publish-domain-btn .publish-spinner { width: 12px; height: 12px; }
 .publish-domains { display: flex; flex-direction: column; gap: 8px; }
 .publish-domains-label { font-size: 11.5px; font-weight: 600; color: #6f6f6f; }
@@ -6852,10 +6854,12 @@ html[data-theme="dark"] .publish-badge-toggle { color: var(--text); }
 html[data-theme="dark"] .publish-badge-toggle.is-locked label { color: var(--text-secondary); }
 html[data-theme="dark"] .publish-address-label { color: var(--text); }
 html[data-theme="dark"] .publish-domain-action { color: var(--accent); }
-html[data-theme="dark"] .publish-domain-action:disabled { color: var(--text-muted); }
+html[data-theme="dark"] .publish-domain-action:disabled,
+html[data-theme="dark"] .publish-domain-action[aria-disabled="true"] { color: var(--text-muted); }
 html[data-theme="dark"] .publish-domain-btn { background: var(--surface); border-color: var(--border); color: var(--text); }
-html[data-theme="dark"] .publish-domain-btn:hover:not(:disabled) { background: var(--surface-hover); }
-html[data-theme="dark"] .publish-domain-btn:disabled { color: var(--text-secondary); }
+html[data-theme="dark"] .publish-domain-btn:hover:not(:disabled):not([aria-disabled="true"]) { background: var(--surface-hover); }
+html[data-theme="dark"] .publish-domain-btn:disabled,
+html[data-theme="dark"] .publish-domain-btn[aria-disabled="true"] { color: var(--text-secondary); }
 html[data-theme="dark"] .publish-domains-label { color: var(--text-muted); }
 html[data-theme="dark"] .publish-domain:not(.is-active) { border-color: var(--border); }
 html[data-theme="dark"] .publish-domain-host { color: var(--text); }

@@ -171,6 +171,7 @@ function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, block
     const code = 'let currentChatId = "A"; let chatHistory = []; let _publishPanelOpen = true; let _suggestedPublishName = null;\n' + section +
         '\nreturn { connectCustomDomain, checkCustomDomain, publishDomainsHtml, confirmAddressChangeKeepsDomains, publishedShareUrl, watchCustomDomains, stopWatchingCustomDomains,' +
         ' publishWithDomain, reservePublishSubdomain, publishAlsoAtHtml, publishAddressHeadHtml, useOwnDomain,' +
+        ' markChecking: (host) => _domainManualChecks.add(host), setConnectBusy: () => _domainConnectBusy.add(currentChatId),' +
         ' setChat: (id) => { currentChatId = id; }, closePanel: () => { _publishPanelOpen = false; }, openPanel: () => { _publishPanelOpen = true; } };';
     const api = new Function(...names, code)(...names.map((k) => env[k]));
     return { ...api, window, state };
@@ -547,6 +548,50 @@ function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, block
     check('the form offers the name an own-domain publish reserved and didn\'t land on', left.suggested === 'joes-cafe'
         && /class="publish-name-input" value="joes-cafe"/.test(left.body), left.suggested);
     check('…and a random name when there is none', form(null).suggested === 'random-name-12');
+}
+
+{
+    // A domain button that waits (Check now while it checks, Connect again or
+    // Change domain while Puter's window is open) keeps the keyboard focus
+    // through the render that marks it. Disabled, it couldn't hold it, and
+    // the real keepPublishPanelFocus sent focus to the popover itself.
+    const at = ui.indexOf('function keepPublishPanelFocus($panel) {');
+    const keep = new Function('document', ui.slice(at, ui.indexOf('\n}\n', at) + 2) + '\nreturn keepPublishPanelFocus;');
+    const button = (html, cls) => {
+        const tag = html.match(new RegExp(`<button[^>]*class="[^"]*\\b${cls}\\b[^"]*"[^>]*>`))?.[0] || '';
+        return { tag, el: {
+            classList: Object.assign(tag.match(/class="([^"]*)"/)[1].split(' '), { contains(c) { return this.includes(c); } }),
+            getAttribute: (a) => tag.match(new RegExp(` ${a}="([^"]*)"`))?.[1] ?? null,
+            disabled: /\sdisabled[\s>]/.test(tag),
+            focus() { this.focused = true; },
+        } };
+    };
+    const focusAfterRender = (before, after) => {
+        const panel = { focused: false };
+        const body = { contains: (el) => el === before.el };
+        const $panel = {
+            find: (sel) => sel === '.publish-panel-body' ? Object.assign([body], { length: 1 })
+                : { filter: () => [sel.startsWith('.' + after.el.classList[0]) ? after.el : null] },
+            trigger: () => { panel.focused = true; },
+        };
+        keep({ activeElement: before.el })($panel)();
+        return after.el.focused ? 'button' : panel.focused ? 'popover' : 'nowhere';
+    };
+    const h = harness({ attach: async () => null });
+    h.window.currentPublishedDomains = [CD.normalize(pending)];
+    const idle = button(h.publishDomainsHtml(), 'publish-domain-check');
+    h.markChecking('www.example.com');
+    const checking = button(h.publishDomainsHtml(), 'publish-domain-check');
+    check('Check now reads as busy while it checks', /aria-disabled="true"/.test(checking.tag) && /Checking…/.test(h.publishDomainsHtml()), checking.tag);
+    check('…and keeps the focus through that render', focusAfterRender(idle, checking) === 'button', checking.tag);
+    h.window.currentPublishedDomains = [CD.normalize({ ...pending, site: 'older' })];
+    const reconnect = button(h.publishDomainsHtml(), 'publish-domain-connect');
+    const head = button(h.publishAddressHeadHtml(), 'publish-domain-action');
+    h.setConnectBusy();
+    check('so do Connect again and Change domain while Puter\'s window is open',
+        focusAfterRender(reconnect, button(h.publishDomainsHtml(), 'publish-domain-connect')) === 'button'
+        && focusAfterRender(head, button(h.publishAddressHeadHtml(), 'publish-domain-action')) === 'button'
+        && /Connecting…/.test(h.publishAddressHeadHtml()));
 }
 
 // --- savePublishedFields merges only what it is given --------------------------------
