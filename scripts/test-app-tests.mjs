@@ -604,6 +604,24 @@ async function runtimeChecks(label, src) {
         await sleep(300);
         check(`[${label}] nothing keeps clicking after the run`, clicks === settled, { clicks, settled });
     }
+    {
+        // A step the test didn't await fails while it runs: the browser
+        // reports it as an unhandled rejection, which is the test's mistake,
+        // not the app's. (The stub has no event loop hook for it, so a button
+        // hands the step's error over the way the browser would.)
+        const e10 = makeRuntimeEnv(src);
+        const { El: El10, body: body10 } = e10.dom;
+        const raiser = body10.appendChild(new El10('button', { id: 'raise', tabIndex: 0 }));
+        raiser.addEventListener('click', () => e10.raise('unhandledrejection', { reason: raiser.err }));
+        const r = await runSuite(e10, [
+            "test('forgot await', async () => { waitFor('#never', { timeout: 50 }).catch(e => { $('#raise').err = e; }); await sleep(150); await click('#raise'); });",
+            "test('app rejects', async () => { $('#raise').err = new Error('db down'); await click('#raise'); });",
+        ].join('\n'));
+        const [forgot, appRejects] = r?.results || [];
+        check(`[${label}] an un-awaited step's failure is the test's, not the app's`,
+            /did not await failed: Timed out after 0\.1s waiting for "#never"/.test(forgot?.error || '') && !/app threw/.test(forgot?.error || ''), forgot);
+        check(`[${label}] the app's own unhandled rejection is still the app's`, /app threw an error during this test: Unhandled promise rejection: db down/.test(appRejects?.error || ''), appRejects);
+    }
 
     // Setup problems.
     const setup = await runSuite(makeRuntimeEnv(src), "throw new Error('bad setup');");
