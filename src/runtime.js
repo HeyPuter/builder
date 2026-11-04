@@ -806,6 +806,27 @@
         });
         sandboxClipboard();
         attempt(function () {
+            // Web Audio stays suspended in the frame (no autoplay, so the
+            // hidden app is never heard), and resume() would wait forever for
+            // a click a person never makes there: a game's Start button that
+            // awaits it would look broken. It resolves at once; the context
+            // stays silent.
+            [window.AudioContext, window.webkitAudioContext].forEach(function (C) {
+                var proto = C && C.prototype;
+                if (!proto || typeof proto.resume !== 'function' || proto.resume.puterTests) return;
+                var resume = proto.resume;
+                var quick = function () {
+                    try {
+                        var p = resume.apply(this, arguments);
+                        if (p && typeof p.then === 'function') p.then(null, function () { /* stays suspended */ });
+                    } catch (e) { /* stays suspended */ }
+                    return Promise.resolve();
+                };
+                quick.puterTests = true;
+                proto.resume = quick;
+            });
+        });
+        attempt(function () {
             // The frame has no fullscreen permission, so the request would
             // reject; a full-screen button "works" and the page stays put.
             var El = window.Element && window.Element.prototype;

@@ -396,6 +396,11 @@ async function runtimeChecks(label, src) {
         const fsResult = await new e5.g.Element().requestFullscreen().then(() => 'ok', (e) => e.message);
         const exitResult = await new e5.g.Document().exitFullscreen().then(() => 'ok', (e) => e.message);
         check(`[${label}] full-screen requests succeed without going full screen`, fsResult === 'ok' && exitResult === 'ok' && fullscreens === 0);
+        const e7 = makeRuntimeEnv(src, {
+            before: (g2) => { g2.AudioContext = class { resume() { return new Promise(() => {}); } }; g2.webkitAudioContext = g2.AudioContext; },
+        });
+        const resumed = await Promise.race([new e7.g.AudioContext().resume().then(() => 'resolved'), sleep(100).then(() => 'hung')]);
+        check(`[${label}] AudioContext.resume() resolves without a real click`, resumed === 'resolved');
         const e6 = makeRuntimeEnv(src, { before: (g2) => { g2.navigator = {}; } });
         await e6.g.navigator.clipboard.writeText('x');
         check(`[${label}] a page without navigator.clipboard gets the frame's own`, (await e6.g.navigator.clipboard.readText()) === 'x');
