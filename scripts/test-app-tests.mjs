@@ -193,7 +193,7 @@ function makeRuntimeEnv(src, { top = false, name = FRAME_NAME, before } = {}) {
     const listeners = {};
     const realLocal = new Map([['existing', 'kept']]);
     const realKv = new Map([['seed', 'from-real']]);
-    const real = { ai: 0, kvSets: 0, fsWrites: 0, signOuts: 0, workerWrites: 0, shares: 0, fetches: [] };
+    const real = { ai: 0, kvSets: 0, fsWrites: 0, signOuts: 0, workerWrites: 0, shares: 0, sent: 0, fetches: [] };
     const g = {
         console, URL, Promise, Proxy, JSON, Math, Date, Object, Array, String, Number, Boolean, Error, SyntaxError, TypeError, RegExp, Symbol, Map, Set,
         setTimeout, clearTimeout, setInterval, clearInterval, encodeURIComponent, Function,
@@ -231,6 +231,9 @@ function makeRuntimeEnv(src, { top = false, name = FRAME_NAME, before } = {}) {
         auth: { signIn: () => Promise.resolve({}), signOut: () => { real.signOuts++; } },
         workers: { exec: (u, init) => { if (init && init.method && init.method !== 'GET') real.workerWrites++; return Promise.resolve({ ok: true }); }, create: () => Promise.resolve({}) },
         hosting: { create: () => Promise.resolve({}) },
+        email: { send: () => { real.sent++; return Promise.resolve({}); }, sendTransactional: () => { real.sent++; return Promise.resolve({}); }, list: () => Promise.resolve([]) },
+        notifications: { notify: () => { real.sent++; return Promise.resolve({}); }, status: () => Promise.resolve('on') },
+        teams: { resetPassword: () => { real.sent++; return Promise.resolve({}); }, list: () => Promise.resolve([]) },
     };
     const dom = makeDom(g);
     if (before) before(g, { realLocal });
@@ -425,6 +428,12 @@ async function runtimeChecks(label, src) {
         check(`[${label}] a page without navigator.clipboard gets the frame's own`, (await e6.g.navigator.clipboard.readText()) === 'x');
     }
     check(`[${label}] worker writes refused (workers.exec)`, /turned off/.test(await reason(g.puter.workers.exec('https://api.puter.work/x', { method: 'DELETE' }))) && real.workerWrites === 0);
+    check(`[${label}] email, notifications and team changes refused`,
+        /turned off/.test(await reason(g.puter.email.send({ to: 'a@b.c' }))) && /turned off/.test(await reason(g.puter.email.sendTransactional('a@b.c', 's', 'b'))) &&
+        /turned off/.test(await reason(g.puter.notifications.notify({ title: 'Hi' }))) && /turned off/.test(await reason(g.puter.teams.resetPassword('x'))) &&
+        real.sent === 0);
+    check(`[${label}] reading email, notifications and teams passes`,
+        Array.isArray(await g.puter.email.list()) && (await g.puter.notifications.status()) === 'on' && Array.isArray(await g.puter.teams.list()));
     check(`[${label}] worker management refused`, /turned off/.test(await reason(g.puter.workers.create('x'))) && /turned off/.test(await reason(g.puter.hosting.create('x'))));
     check(`[${label}] dialogs answered silently`, g.confirm('Sure?') === true && g.prompt('Name?', 'Ada') === 'Ada' && g.alert('hi') === undefined && g.open('https://x') === null);
 

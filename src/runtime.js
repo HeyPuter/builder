@@ -476,8 +476,9 @@
 //   * Tests leave no trace the user could see. From the moment this half runs,
 //     localStorage, sessionStorage and puter.kv writes go to an in-memory
 //     layer over the real data, AI calls get placeholder answers (no cost),
-//     puter.fs changes, sign-in and sign-out, hosting/app/worker management
-//     and requests that change data on the app's workers are refused, dialogs
+//     puter.fs changes, sign-in and sign-out, hosting/app/worker/team
+//     management, email, notifications and requests that change data on the
+//     app's workers are refused, dialogs
 //     are answered without showing, and media plays muted. The frame itself
 //     is sandboxed without popups, dialogs, downloads or device access.
 //     IndexedDB and cookies are the exception: an app usually opens its
@@ -1028,6 +1029,18 @@
             set(p.apps, n, refuse('Changing apps with puter.apps'));
             set(p.workers, n, refuse('Changing workers with puter.workers'));
         });
+        // Things that reach people or change the account, and can't be taken
+        // back: email, notifications pushed to the user's devices, and team
+        // members and passwords.
+        function refuseAll(ns, names, what) {
+            names.forEach(function (n) {
+                if (ns && typeof ns[n] === 'function') set(ns, n, refuse(what));
+            });
+        }
+        refuseAll(p.email, ['send', 'sendTransactional'], 'Sending email');
+        refuseAll(p.notifications, ['notify', 'cancel', 'enable', 'disable', 'enablePush', 'removeDevice'], 'Sending notifications');
+        refuseAll(p.teams, ['create', 'update', 'delete', 'createMember', 'resendActivation', 'disableMember', 'enableMember',
+            'resetPassword', 'resetTwoFactor', 'deleteMemberAccount'], 'Changing teams with puter.teams');
         var workers = p.workers;
         var exec = workers && workers.exec;
         if (typeof exec === 'function') {
