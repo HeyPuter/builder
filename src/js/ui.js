@@ -1992,8 +1992,11 @@ function renderPublishPanel() {
         title = 'Publish your site';
         // Prefill a random address (puter.randName) as the suggestion; the user
         // can edit it before publishing (it's their public link). Generated once
-        // per open and cached so re-renders don't keep reshuffling it.
-        if (!_suggestedPublishName) _suggestedPublishName = puter.randName('-');
+        // per open and cached so re-renders don't keep reshuffling it. A name
+        // an own-domain publish reserved and didn't land on comes first: it
+        // is the project's site already, and may have the domain. A random
+        // one here made Publish replace it, leaving the domain behind.
+        if (!_suggestedPublishName) _suggestedPublishName = window.reservedPublishName?.(currentChatId) || puter.randName('-');
         const suggested = htmlEscape(_suggestedPublishName);
         body =
             '<p class="publish-blurb">Pick a public address, then publish. You can change it later, and you\'ll keep editing here, with changes staying in your draft until you publish.</p>' +
