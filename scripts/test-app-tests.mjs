@@ -172,7 +172,23 @@ function storageOf(map) {
     };
 }
 
-function makeRuntimeEnv(src, { top = false, name = FRAME_NAME } = {}) {
+// A Storage class like the browser's: methods and length on the prototype,
+// so a reference the app kept still goes through them.
+function storageClass() {
+    const maps = new WeakMap();
+    class Storage {
+        constructor(map) { maps.set(this, map); }
+        getItem(k) { const m = maps.get(this); return m.has(String(k)) ? m.get(String(k)) : null; }
+        setItem(k, v) { maps.get(this).set(String(k), String(v)); }
+        removeItem(k) { maps.get(this).delete(String(k)); }
+        clear() { maps.get(this).clear(); }
+        key(i) { return [...maps.get(this).keys()][i] ?? null; }
+        get length() { return maps.get(this).size; }
+    }
+    return Storage;
+}
+
+function makeRuntimeEnv(src, { top = false, name = FRAME_NAME, before } = {}) {
     const posted = [];
     const listeners = {};
     const realLocal = new Map([['existing', 'kept']]);
@@ -209,6 +225,7 @@ function makeRuntimeEnv(src, { top = false, name = FRAME_NAME } = {}) {
         hosting: { create: () => Promise.resolve({}) },
     };
     const dom = makeDom(g);
+    if (before) before(g, { realLocal });
     vm.createContext(g);
     vm.runInContext(src, g);
     // Inside the context, `window` is the context's own view of g, not g.
@@ -253,6 +270,33 @@ async function runtimeChecks(label, src) {
     check(`[${label}] localStorage keys/length reflect the layer`, JSON.stringify(Object.keys(g.localStorage).sort()) === JSON.stringify(['new', 'prop']) && g.localStorage.length === 2);
     g.localStorage.clear();
     check(`[${label}] localStorage.clear hides the real data, keeps it`, g.localStorage.length === 0 && g.localStorage.getItem('existing') === null && env.realLocal.get('existing') === 'kept');
+
+    // A reference to the real store kept before this file ran (it is
+    // deferred): its writes stay in memory too, and it sees the layer.
+    {
+        let kept = null;
+        const e2 = makeRuntimeEnv(src, {
+            before: (g2, { realLocal }) => {
+                g2.Storage = storageClass();
+                g2.localStorage = new g2.Storage(realLocal);
+                kept = g2.localStorage;
+            },
+        });
+        kept.setItem('todos', 'TEST');
+        kept.removeItem('existing');
+        check(`[${label}] a kept localStorage reference writes to memory only`,
+            e2.realLocal.get('existing') === 'kept' && !e2.realLocal.has('todos'), [...e2.realLocal]);
+        check(`[${label}] a kept reference and the layer agree`,
+            kept.getItem('todos') === 'TEST' && e2.g.localStorage.getItem('todos') === 'TEST' && kept.getItem('existing') === null &&
+            kept.length === 1 && kept.key(0) === 'todos');
+        e2.g.localStorage.setItem('b', '2');
+        kept.clear();
+        check(`[${label}] clear through a kept reference keeps the real data`,
+            kept.length === 0 && e2.g.localStorage.getItem('b') === null && e2.realLocal.get('existing') === 'kept');
+        const other = new e2.g.Storage(new Map([['x', '1']]));
+        other.setItem('y', '2');
+        check(`[${label}] a store that isn't overlaid works as before`, other.getItem('y') === '2' && other.length === 2);
+    }
 
     // puter.kv: same overlay.
     const kv = g.puter.kv;
