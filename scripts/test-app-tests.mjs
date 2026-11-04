@@ -399,6 +399,10 @@ async function runtimeChecks(label, src) {
     const boom = body.appendChild(new El('button', { id: 'boom', _text: 'Boom' }));
     boom.addEventListener('click', () => env.raise('error', { message: 'Uncaught Error: kaboom', filename: 'https://app.puter.site/app.js', lineno: 3, target: env.self }));
     body.appendChild(new El('button', { id: 'gone', hidden: true }));
+    // An SVG element: no click() of its own.
+    const cell = body.appendChild(new El('rect', { id: 'cell' }));
+    cell.click = undefined;
+    cell.addEventListener('click', () => { count.textContent = 'cell clicked'; });
 
     const done = await runSuite(env, [
         "test('adds an item', async () => {",
@@ -414,22 +418,24 @@ async function runtimeChecks(label, src) {
         "test('hidden element', async () => { await click('#gone', { timeout: 150 }); });",
         "test('hangs', { timeout: 150 }, () => new Promise(() => {}));",
         "test('bad selector', async () => { await click('##'); });",
+        "test('svg click', async () => { await click('#cell'); expect(await text('#count')).toBe('cell clicked'); });",
         "test('other page', { page: 'about.html' }, async () => {});",
         "test('phone', { mobile: true }, async () => {});",
     ].join('\n'));
     const by = Object.fromEntries((done?.results || []).map(r => [r.name, r]));
     check(`[${label}] ack goes to the builder's origin only`, env.posted.every(p => p.origin === BUILDER) && env.posted[0].msg.type === 'puter-tests-ack');
-    check(`[${label}] plan announced before running`, env.posted.some(p => p.msg.type === 'puter-tests-plan' && p.msg.total === 8));
+    check(`[${label}] plan announced before running`, env.posted.some(p => p.msg.type === 'puter-tests-plan' && p.msg.total === 9));
     check(`[${label}] passing test passes`, by['adds an item']?.passed === true, by['adds an item']);
     check(`[${label}] assertion failure explained with its line`, /Expected "1 items" to be "9 items"\. \(tests line 8\)/.test(by['wrong count']?.error), by['wrong count']);
     check(`[${label}] an app error during a test fails it`, /threw an error during this test: Uncaught Error: kaboom \(app\.js:3\)/.test(by['app error']?.error), by['app error']);
     check(`[${label}] a hidden element is explained`, /exists but is hidden/.test(by['hidden element']?.error), by['hidden element']);
     check(`[${label}] a hung test times out`, /Timed out after 0\.2s|Timed out after 0\.1s/.test(by.hangs?.error), by.hangs);
     check(`[${label}] a bad selector fails at once`, /Invalid CSS selector/.test(by['bad selector']?.error), by['bad selector']);
-    check(`[${label}] only this page's tests ran`, !by['other page'] && !by.phone && done.results.length === 6);
+    check(`[${label}] an SVG element is clicked`, by['svg click']?.passed === true, by['svg click']);
+    check(`[${label}] only this page's tests ran`, !by['other page'] && !by.phone && done.results.length === 7);
     check(`[${label}] other pages and sizes reported as groups`,
         JSON.stringify(done.groups) === JSON.stringify([{ page: '', mobile: false }, { page: 'about.html', mobile: false }, { page: '', mobile: true }]), done.groups);
-    check(`[${label}] each result posted as it finished`, env.posted.filter(p => p.msg.type === 'puter-tests-result').length === 6);
+    check(`[${label}] each result posted as it finished`, env.posted.filter(p => p.msg.type === 'puter-tests-result').length === 7);
     check(`[${label}] a resend of the same run is only acked`, (() => {
         const before = env.posted.length;
         env.deliver({ type: 'puter-tests-run', runId: done.runId, code: 'x' });
