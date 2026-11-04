@@ -449,6 +449,35 @@ async function runtimeChecks(label, src) {
         });
         const resumed = await Promise.race([new e7.g.AudioContext().resume().then(() => 'resolved'), sleep(100).then(() => 'hung')]);
         check(`[${label}] AudioContext.resume() resolves without a real click`, resumed === 'resolved');
+        {
+            // BroadcastChannel: what the test frame says stays in the frame
+            // (the visible preview is on the same origin).
+            const outside = [];
+            let early = null;
+            const e8 = makeRuntimeEnv(src, {
+                before: (g2) => {
+                    g2.EventTarget = EventTarget; g2.MessageEvent = MessageEvent; g2.structuredClone = structuredClone;
+                    g2.BroadcastChannel = class extends EventTarget { constructor(n) { super(); this.name = n; } postMessage(d) { outside.push(this.name + ':' + JSON.stringify(d)); } close() {} };
+                    early = new g2.BroadcastChannel('sync');
+                },
+            });
+            const a = new e8.g.BroadcastChannel('sync');
+            const b = new e8.g.BroadcastChannel('sync');
+            const other = new e8.g.BroadcastChannel('other');
+            const heard = [];
+            b.onmessage = (ev) => heard.push('b:' + ev.data.todo);
+            b.addEventListener('message', (ev) => heard.push('b2:' + ev.data.todo));
+            other.onmessage = (ev) => heard.push('other');
+            a.onmessage = () => heard.push('a heard itself');
+            a.postMessage({ todo: 'milk' });
+            early.postMessage({ todo: 'eggs' });
+            await sleep(10);
+            b.close();
+            a.postMessage({ todo: 'late' });
+            await sleep(10);
+            check(`[${label}] BroadcastChannel messages stay inside the test frame`,
+                outside.length === 0 && heard.join() === 'b:milk,b2:milk', { outside, heard });
+        }
         const e6 = makeRuntimeEnv(src, { before: (g2) => { g2.navigator = {}; } });
         await e6.g.navigator.clipboard.writeText('x');
         check(`[${label}] a page without navigator.clipboard gets the frame's own`, (await e6.g.navigator.clipboard.readText()) === 'x');
