@@ -106,6 +106,8 @@ const SCRIPTS = [
   'tools/chat_ui/publish.js',
   // Its Change address mode, through the card above.
   'tools/chat_ui/address.js',
+  // Its domain mode, through the card above.
+  'tools/chat_ui/domain.js',
   // Generated images/videos/speech: the shared chat card + saving
   // (js/media.js), then the tools built on it.
   'js/media.js',
