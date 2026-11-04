@@ -2255,6 +2255,18 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
     text-decoration: none;
 }
 .publish-card-link:hover { text-decoration: underline; }
+/* The domain card's label before a site address to show (the free plan),
+   and the domain an older one added that isn't working yet: plain text in
+   the link's place. */
+.publish-card-label,
+.publish-card-host {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+}
 .publish-card .publish-live { flex: 0 0 auto; }
 .publish-card-btn {
     flex: 0 0 auto;
@@ -6896,6 +6908,8 @@ html[data-theme="dark"] .publish-card-btn:hover { background: #8cc2ff; }
 html[data-theme="dark"] .publish-card-btn:disabled { background: rgba(108, 176, 245, 0.4); }
 html[data-theme="dark"] .publish-card-error { color: var(--danger); }
 html[data-theme="dark"] .publish-card-done { color: var(--text-secondary); }
+html[data-theme="dark"] .publish-card-label,
+html[data-theme="dark"] .publish-card-host { color: var(--text); }
 html[data-theme="dark"] .publish-card-gone,
 html[data-theme="dark"] .publish-card-note { color: var(--text-muted); }
 html[data-theme="dark"] .upgrade-card-btn,
