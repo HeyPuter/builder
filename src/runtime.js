@@ -801,6 +801,17 @@
                 }, 0);
             };
         });
+        sandboxClipboard();
+        attempt(function () {
+            // The frame has no fullscreen permission, so the request would
+            // reject; a full-screen button "works" and the page stays put.
+            var El = window.Element && window.Element.prototype;
+            var Doc = window.Document && window.Document.prototype;
+            var ok = function () { return Promise.resolve(); };
+            if (El && typeof El.requestFullscreen === 'function') El.requestFullscreen = ok;
+            if (El && typeof El.webkitRequestFullscreen === 'function') El.webkitRequestFullscreen = function () {};
+            if (Doc && typeof Doc.exitFullscreen === 'function') Doc.exitFullscreen = ok;
+        });
         overlayWindowStorage('localStorage');
         overlayWindowStorage('sessionStorage');
         rerouteStorage();
@@ -895,6 +906,64 @@
                     if (!blockedPost) return submit.apply(this, arguments);
                 };
             }
+        });
+    }
+
+    // A clipboard of the frame's own: the frame may not use the real one (the
+    // visible preview may, so a working Copy button must not fail here), and
+    // a test must never replace what the user copied. readText() gives back
+    // what the app copied, so a test can check it.
+    function sandboxClipboard() {
+        var copied = '';
+        var items = [];
+        var fake = {
+            writeText: function (t) { copied = String(t == null ? '' : t); items = []; return Promise.resolve(); },
+            readText: function () { return Promise.resolve(copied); },
+            write: function (data) {
+                items = Array.isArray(data) ? data.slice() : [];
+                copied = '';
+                var text = null;
+                items.forEach(function (item) {
+                    if (text || !item || typeof item.getType !== 'function') return;
+                    if (Array.isArray(item.types) && item.types.indexOf('text/plain') === -1) return;
+                    text = Promise.resolve(item.getType('text/plain')).then(function (b) { return b && typeof b.text === 'function' ? b.text() : String(b); })
+                        .then(function (t) { copied = String(t); }, function () { /* not text */ });
+                });
+                return text ? text.then(function () {}) : Promise.resolve();
+            },
+            read: function () { return Promise.resolve(items.slice()); }
+        };
+        attempt(function () {
+            var nav = window.navigator;
+            if (!nav) return;
+            var board = null;
+            try { board = nav.clipboard; } catch (e) { board = null; }
+            if (board && typeof board === 'object') {
+                Object.keys(fake).forEach(function (n) { attempt(function () { board[n] = fake[n]; }); });
+            } else {
+                Object.defineProperty(nav, 'clipboard', { configurable: true, enumerable: true, get: function () { return fake; } });
+            }
+        });
+        attempt(function () {
+            // The old way to copy: the selected text.
+            var exec = document.execCommand;
+            if (typeof exec !== 'function') return;
+            document.execCommand = function (cmd) {
+                var c = String(cmd).toLowerCase();
+                if (c !== 'copy' && c !== 'cut') return exec.apply(document, arguments);
+                var sel = '';
+                try {
+                    var a = document.activeElement;
+                    if (a && (a.tagName === 'TEXTAREA' || a.tagName === 'INPUT') && typeof a.selectionStart === 'number') {
+                        sel = String(a.value).slice(a.selectionStart, a.selectionEnd);
+                    } else if (window.getSelection) {
+                        sel = String(window.getSelection());
+                    }
+                } catch (e) { /* nothing selected */ }
+                copied = sel;
+                items = [];
+                return true;
+            };
         });
     }
 
