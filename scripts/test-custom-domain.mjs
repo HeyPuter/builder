@@ -102,7 +102,7 @@ check('a failed read, another page or two empty pages are not', !CD.sameSite(nul
 const section = ui.slice(ui.indexOf("// ---- The user's own domain (inside the popover)"), ui.indexOf('// ---- Share the draft link (toolbar popover)'));
 function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, blocked = null, createImpl, field = 'brave-otter-42', savedChats = [], files = {} } = {}) {
     const state = { attachCalls: [], saves: [], fieldSaves: [], alerts: [], renders: 0, tracks: [], announced: [], timers: [],
-        upgrades: [], prompts: [], creates: [], mkdirs: [], publishes: [], order: [], reads: [] };
+        upgrades: [], prompts: [], creates: [], mkdirs: [], publishes: [], order: [], reads: [], deletes: [], field };
     const window = {
         CustomDomain: CD,
         user: { subscribed: paid },
@@ -126,7 +126,8 @@ function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, block
     const puter = {
         hosting: {
             attach: (sub) => { state.attachCalls.push(sub); state.order.push('attach ' + sub); return attach(sub); },
-            create: async (name, dir) => { state.creates.push([name, dir]); state.order.push('create ' + name); if (createImpl) return createImpl(name, dir); return { subdomain: name }; },
+            create: async (name, dir) => { state.creates.push([name, dir]); state.order.push('create ' + name); if (state.refuse) throw state.refuse; if (createImpl) return createImpl(name, dir); return { subdomain: name }; },
+            delete: async (name) => { state.deletes.push(name); },
         },
         ui: { alert: async (msg, buttons) => { state.alerts.push([msg, buttons]); return alertChoice; } },
         fs: {
@@ -135,7 +136,7 @@ function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, block
         },
         randName: () => 'random-name-12',
     };
-    const $ = (x) => ({ on() {}, hasClass: () => false, val: () => field, trigger() { state.focused = x; return this; } });
+    const $ = (x) => ({ on() {}, hasClass: () => false, val: () => state.field, trigger() { state.focused = x; return this; } });
     const env = {
         window, puter, $,
         htmlEscape: (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
@@ -439,7 +440,34 @@ function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, block
     h.useOwnDomain('use-domain');
     await tick(); await tick();
     check('a retry after a failed publish reuses the name instead of making another', h.state.attachCalls[1] === 'joes-cafe'
-        && await h.state.publishes[1].reserved === 'joes-cafe' && h.state.creates.length === 1);
+        && await h.state.publishes[1].reserved === 'joes-cafe' && h.state.creates.length === 1 && h.state.deletes.length === 0);
+    // The user types another name before the next try: that name is used, as
+    // a plain Publish would, and the one it replaces is let go.
+    resolve(null); // Puter's window from the retry is closed
+    await tick(); await tick();
+    h.state.field = 'joes-diner';
+    h.useOwnDomain('use-domain');
+    for (let i = 0; i < 4; i++) await tick();
+    check('a name typed after a failed try is the one used, not the reserved one', h.state.creates[1]?.[0] === 'joes-diner'
+        && h.state.attachCalls[2] === 'joes-diner' && await h.state.publishes[2].reserved === 'joes-diner', JSON.stringify(h.state.creates));
+    check('…and the name it replaces is removed', h.state.deletes.join() === 'joes-cafe', h.state.deletes.join());
+}
+{
+    // The new name is taken: the reserved one stays the project's.
+    const h = harness({ attach: async () => null, field: 'joes-cafe' });
+    h.window.currentPublishedUrl = null;
+    h.useOwnDomain('use-domain');
+    for (let i = 0; i < 4; i++) await tick();
+    h.state.field = 'taken-name';
+    const taken = Object.assign(new Error('taken'), { taken: true });
+    const create = h.state.creates.length;
+    h.window.isSubdomainTakenErr = (e) => e === taken;
+    // Every create from here on is refused as taken.
+    h.state.refuse = taken;
+    h.useOwnDomain('use-domain');
+    for (let i = 0; i < 4; i++) await tick();
+    check('a typed name that is taken leaves the reserved one in place', h.state.creates.length === create + 1
+        && h.state.deletes.length === 0 && h.state.publishes.length === 1 && /already taken/.test(h.state.alerts[0]?.[0] || ''), JSON.stringify(h.state.alerts));
 }
 {
     const h = harness({ attach: async () => null, field: '' });
