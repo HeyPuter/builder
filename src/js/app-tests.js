@@ -237,11 +237,9 @@
     function guardFocus(frame) {
         const usable = (el) => !!el && el !== frame && el !== document.body;
         let last = usable(document.activeElement) ? document.activeElement : null;
-        let stolen = false;
         const giveBack = () => {
             const now = document.activeElement;
             if (now !== frame) { if (usable(now)) last = now; return; }
-            stolen = true;
             if (last && last.isConnected && typeof last.focus === 'function') {
                 try { last.focus({ preventScroll: true }); } catch (e) { /* ignore */ }
             }
@@ -258,12 +256,15 @@
             check: giveBack,
             stop: () => {
                 giveBack();
+                // Only focus the frame still holds is given back once it is
+                // gone; focus the user moved away themselves stays where it is.
+                const held = document.activeElement === frame;
                 document.removeEventListener('focusin', onFocusIn, true);
                 window.removeEventListener('blur', soon, true);
                 return () => {
                     // After the frame is gone: focus it held went to the body.
                     const a = document.activeElement;
-                    if (stolen && (!a || a === document.body) && last && last.isConnected) {
+                    if (held && (!a || a === document.body) && last && last.isConnected) {
                         try { last.focus({ preventScroll: true }); } catch (e) { /* ignore */ }
                     }
                 };

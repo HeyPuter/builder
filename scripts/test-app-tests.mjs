@@ -979,6 +979,30 @@ await builderScenario('builder: flag off → nothing runs', {
     check('builder: focus taken from the visible preview goes back to the preview', afterSteal === preview && env.document.activeElement === preview,
         { afterSteal: afterSteal && afterSteal.id, end: env.document.activeElement && env.document.activeElement.id });
 }
+{
+    // After a steal was given back, the user leaves the composer: the end of
+    // the run doesn't pull them back into it (on a phone that raises the
+    // keyboard).
+    const env = makeBuilderEnv({
+        scenario: (f) => ({
+            onRun(msg) {
+                f.reply({ type: 'puter-tests-ack', runId: msg.runId });
+                setTimeout(() => {
+                    env.document.activeElement = f;
+                    env.fire('blur', {});
+                    setTimeout(() => {
+                        env.document.activeElement = env.document.body;
+                        f.reply({ type: 'puter-tests-done', runId: msg.runId, results: [{ name: 'a', passed: true }] });
+                    }, 80);
+                }, 10);
+            },
+        }),
+    });
+    await env.AT.run({ baseUrl: BASE, code: "test('x', () => {})" });
+    check('builder: focus the user moved away stays away at the end of the run', env.document.activeElement === env.document.body,
+        env.document.activeElement && env.document.activeElement.id);
+}
+
 // Storage through the real read/write/remove.
 {
     const env = makeBuilderEnv();
