@@ -3,6 +3,12 @@
 // flag here to turn a capability on/off app-wide — call sites both hide the UI
 // entry points and guard the action, so a disabled feature can't be reached.
 window.FEATURE_FLAGS = {
+    // Hidden app tests: the AI keeps a few automated tests for apps with
+    // behaviour worth protecting (the AppTests tool), and update_preview runs
+    // them in an invisible copy of the app after every change (js/app-tests.js,
+    // the runner is half 3 of src/runtime.js). When false the tool and the
+    // prompt rule are gone and nothing runs; tests already saved stay unused.
+    appTests: true,
     // Download-as-zip for a project. Disabled for now; re-enable by setting true.
     downloadProject: true,
     // Show the total AI cost (summed usage.usd_cents) in the project info

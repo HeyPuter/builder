@@ -11,12 +11,21 @@ const showError = (placeholderMessage, errorText) => {
 
 window.tools = [];
 
+// The builder's own tools a turn offers: every registered one, less any whose
+// available() says it is switched off (a feature flag). Registration never
+// depends on a flag, so the shipped tool list stays the same for checks that
+// count it (scripts/test-mcp.mjs).
+window.builtinTools = function() {
+    return window.tools.filter(t => !t || typeof t.available !== 'function' || t.available());
+};
+
 
 // The tools for a turn on `modelId`: the builder's own, then the MCP tools
 // that model can take (see ModelCore.turnTools).
 window.getTurnTools = function(modelId) {
     const mcp = window.mcpManager?.getTools() || [];
-    return window.ModelCore ? window.ModelCore.turnTools(modelId, window.tools, mcp) : [...window.tools, ...mcp];
+    const own = window.builtinTools();
+    return window.ModelCore ? window.ModelCore.turnTools(modelId, own, mcp) : [...own, ...mcp];
 };
 // The MCP tools left out of a turn on `modelId` ({label, server}), which the
 // model is told about (ModelCore.unavailableToolsNote).
@@ -33,7 +42,9 @@ window.getUnavailableTools = function(modelId) {
 // stale.
 const PREVIEW_SAFE_TOOLS = new Set(['stat', 'readdir', 'ReadTextFile', 'SearchFiles', 'ViewImage', 'ViewDocument',
     'ShowImage', 'update_preview', 'TodoWrite', 'AskClarifyingQuestions', 'OfferUpgrade', 'list_workers', 'get_worker',
-    'set_secret', 'set_email_sender_name', 'delete_worker', 'FetchExternalResource', 'OfferPublish', 'OfferAddressChange']);
+    'set_secret', 'set_email_sender_name', 'delete_worker', 'FetchExternalResource', 'OfferPublish', 'OfferAddressChange',
+    // Writes only the project's hidden .puter/ folder, which the preview never loads.
+    'AppTests']);
 
 // The answer to a tool call whose reply hit the output limit before its
 // arguments were complete. Puter turns cut-off JSON into {}, so running it
@@ -200,7 +211,8 @@ function nextStepLabel(toolCalls, history) {
     if (!check) return '';
     let result = null;
     try { result = JSON.parse(findToolResult(history, check.id).content.content); } catch (e) { /* not a check's result */ }
-    return result && result.verification && result.verification.status === 'errors_detected' ? 'Fixing a problem' : 'Finishing up';
+    const status = result && result.verification && result.verification.status;
+    return status === 'errors_detected' || status === 'tests_failed' ? 'Fixing a problem' : 'Finishing up';
 }
 
 async function handleToolCalls(completion, isTopLevel = false, c) {
@@ -389,7 +401,7 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
     // history shape and the request options for every round.
     const stream = await abortableAwait(puter.ai.chat(
         prepareHistoryForAI(c.chatHistory, c.model, { unavailableTools: c.unavailableTools }),
-        window.ModelCore.buildChatOptions(c.model, { tools: c.tools || window.tools, signal: c.abortController.signal })
+        window.ModelCore.buildChatOptions(c.model, { tools: c.tools || window.builtinTools(), signal: c.abortController.signal })
     ), c.abortController.signal);
     // Round handoff = liveness for the background-freeze watchdog (see
     // mobile-lifecycle-keepalive in app.js). Guarded so a stale turn's rounds
