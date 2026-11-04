@@ -483,6 +483,15 @@ const BASE = 'https://preview-1.puter.site/';
     const cleaned = core.cleanResult({ name: 'a`b\nc', passed: 'yes', error: 'x'.repeat(1000) });
     check('core: frame results are cleaned and clipped', cleaned.name === 'a b c' && cleaned.passed === false && cleaned.error.length <= 401);
     check('core: syntax errors caught at save', !!core.syntaxError('test(') && core.syntaxError("test('x', async () => { await click('#a'); })") === null);
+    // The runner compiles the tests with every API name as a parameter, so
+    // redeclaring one is a syntax error there; the save-time check must agree.
+    check('core: redeclaring an API name is refused at save, as the runner refuses it',
+        /already been declared/.test(core.syntaxError("const sleep = (ms) => new Promise(r => setTimeout(r, ms));\ntest('x', async () => { await sleep(1); });") || ''));
+    {
+        const m = runtimeSrc.match(/var API_NAMES = (\[[^\]]*\]);/);
+        const runnerNames = m ? new Function('return ' + m[1])() : null;
+        check('core: the save-time check uses the runner\'s API names', JSON.stringify(runnerNames) === JSON.stringify([...core.API_NAMES]), { runnerNames, builder: core.API_NAMES });
+    }
     const merged = core.mergeRetry({ results: [{ name: 'a', passed: false, error: 'e' }, { name: 'b', passed: false, error: 'e' }] },
         { results: [{ name: 'a', passed: true }, { name: 'b', passed: false, error: 'e2' }] });
     check('core: a test passing on retry counts as passed', merged.results[0].passed === true && merged.results[1].passed === false);

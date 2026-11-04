@@ -79,12 +79,19 @@
         }
     }
 
+    // The names the runner hands the tests (API_NAMES in src/runtime.js; the
+    // two lists must match). The check below compiles with all of them, so a
+    // test that redeclares one (`const sleep = …`) is refused here, as the
+    // runner would refuse it, instead of after a whole preview round.
+    const API_NAMES = ['test', 'expect', '$', '$$', 'find', 'click', 'fill', 'press', 'text', 'visible',
+        'waitFor', 'sleep', 'dialogs', 'setAIReply'];
+
     // A syntax error found now saves the AI a whole preview round. Compile
     // only (nothing runs); a builder page that forbids eval just skips this.
     function syntaxError(code) {
         let Ctor;
         try { Ctor = Object.getPrototypeOf(async function () {}).constructor; } catch (e) { return null; }
-        try { new Ctor('test', 'expect', code); return null; }
+        try { new Ctor(...API_NAMES, code); return null; }
         catch (e) { return e && e.name === 'SyntaxError' ? e.message : null; }
     }
 
@@ -441,6 +448,6 @@
     window.AppTests = {
         enabled, testsPath, read, write, remove, run, timing,
         // Pure parts, for scripts/test-app-tests.mjs.
-        _core: { groupKey, groupUrl, cleanResult, cleanGroups, mergeRetry, summarize, groupLabel, syntaxError, TESTS_REL, FRAME_NAME },
+        _core: { groupKey, groupUrl, cleanResult, cleanGroups, mergeRetry, summarize, groupLabel, syntaxError, TESTS_REL, FRAME_NAME, API_NAMES },
     };
 })();
