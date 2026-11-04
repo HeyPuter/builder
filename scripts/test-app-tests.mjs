@@ -623,6 +623,22 @@ async function runtimeChecks(label, src) {
         check(`[${label}] the app's own unhandled rejection is still the app's`, /app threw an error during this test: Unhandled promise rejection: db down/.test(appRejects?.error || ''), appRejects);
     }
 
+    {
+        // text() reads the element on screen first, a hidden one only if
+        // that's all there is.
+        const e11 = makeRuntimeEnv(src);
+        const { El: El11, body: body11 } = e11.dom;
+        body11.appendChild(new El11('h2', { _text: 'Settings', hidden: true }));
+        body11.appendChild(new El11('h2', { _text: 'Your cart' }));
+        body11.appendChild(new El11('p', { id: 'note', _text: 'Saved', hidden: true }));
+        const r = await runSuite(e11, [
+            "test('visible first', async () => { expect(await text('h2')).toBe('Your cart'); });",
+            "test('hidden when that is all', async () => { expect(await text('#note')).toBe('Saved'); });",
+        ].join('\n'));
+        check(`[${label}] text() prefers the element on screen`, r?.results?.[0]?.passed === true, r?.results?.[0]);
+        check(`[${label}] text() still reads a hidden element`, r?.results?.[1]?.passed === true, r?.results?.[1]);
+    }
+
     // Setup problems.
     const setup = await runSuite(makeRuntimeEnv(src), "throw new Error('bad setup');");
     check(`[${label}] a throwing setup is reported`, /threw before any test ran: bad setup/.test(setup?.setupError), setup);

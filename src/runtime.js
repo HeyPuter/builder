@@ -1255,8 +1255,10 @@
         return poll(function () {
             var els = query(target, opts);
             if (!els.length) { state = 'exist'; return null; }
-            if (opts.visible === false) return els[0];
             var shown = els.filter(isVisible);
+            // text() reads hidden elements too, but the one on screen first:
+            // an app that hides its other screens has the same heading in each.
+            if (opts.visible === false) return shown[0] || els[0];
             if (!shown.length) { state = 'be visible (it exists but is hidden)'; return null; }
             if (opts.enabled) {
                 var on = shown.filter(function (el) { return !el.disabled; });
