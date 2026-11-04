@@ -3823,10 +3823,12 @@ async function publishWithDomain() {
         doPublish();
         return;
     }
-    // A name reserved by an earlier try that didn't publish comes first: the
-    // domain may already be connected to it.
+    // The name in the field, which starts as the one an earlier try reserved
+    // and didn't publish (the domain may be connected to it). Another name
+    // typed since replaces it, as a plain Publish's does.
+    const previous = _reservedPublishNames.get(chatId) || null;
     const typed = String($('.preview-publish-panel .publish-name-input').val() || '').trim().toLowerCase();
-    const name = _reservedPublishNames.get(chatId) || typed || ownDomainSubdomainName(chatHistory);
+    const name = typed || previous || ownDomainSubdomainName(chatHistory);
     if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(name)) {
         await puter.ui.alert('Please enter a valid address: lowercase letters, numbers, and hyphens only (it can’t start or end with a hyphen).');
         $('.preview-publish-panel .publish-name-input').trigger('focus');
@@ -3856,6 +3858,12 @@ async function publishWithDomain() {
     }
     _domainConnectBusy.delete(chatId);
     _reservingPublishNames.delete(chatId);
+    // The name it replaces is no longer the project's: left, it would hold
+    // one of the account's sites with nothing on it.
+    if (previous && previous !== name) {
+        Promise.resolve().then(() => puter.hosting.delete(previous))
+            .catch((e) => console.warn('Publish: could not remove the reserved address:', e));
+    }
     // Another project opened meanwhile: the name stays reserved for a retry.
     if (currentChatId !== chatId) return;
     connectCustomDomain(name, { from: 'first_publish' });
