@@ -907,6 +907,7 @@ function loadTool(src, win) {
     };
     const tool = loadTool(appTestsToolSrc, win);
     check('tool: AppTests registers', tool.function.name === 'AppTests');
+    check('tool: tells the AI device features are not available', /camera, microphone, location and popups are not available/.test(appTestsToolSrc));
     check('tool: tells the AI IndexedDB and cookies are not protected', /IndexedDB and cookies are NOT protected/.test(appTestsToolSrc));
     check('tool: not strict (Claude allows 20 strict tools)', tool.function.strict !== true);
     check('tool: offered only with the flag', tool.available() === true && (win.FEATURE_FLAGS.appTests = false, tool.available() === false));
