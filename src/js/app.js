@@ -1495,6 +1495,11 @@ async function deleteChat(chatId) {
             const m = (u || '').match(/^https?:\/\/([^.]+)\.puter\.site/);
             if (m) subsToDelete.add(m[1]);
         }
+        // So is an address the own-domain route reserved for a first publish
+        // that never landed (publishWithDomain in ui.js): it's in no URL yet,
+        // and left behind it held one of the account's sites.
+        const reservedSub = window.reservedPublishName?.(chatId);
+        if (reservedSub) subsToDelete.add(reservedSub);
         for (const sub of subsToDelete) {
             await cleanup(`the site ${sub}.puter.site`, () => puter.hosting.delete(sub));
         }
