@@ -1086,7 +1086,9 @@
             focusFor(el);
             fire(el, 'pointerup', merge(pos, { pointerId: 1, pointerType: 'mouse', isPrimary: true, buttons: 0 }), P);
             fire(el, 'mouseup', merge(pos, { buttons: 0 }), window.MouseEvent);
-            el.click();
+            // SVG elements (a board's cells, a chart's bars) have no click().
+            if (typeof el.click === 'function') el.click();
+            else fire(el, 'click', merge(pos, { detail: 1, buttons: 0 }), window.MouseEvent);
             return settle();
         });
     }
