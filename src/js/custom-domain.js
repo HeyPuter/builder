@@ -151,6 +151,16 @@
     }
 
     /**
+     * The hostname of a saved list's domain, whatever its state, or null. The
+     * project list keeps it, so a domain another project takes is found there
+     * without reading every project's file.
+     */
+    function hostOf(saved) {
+        const d = list(saved)[0];
+        return d ? d.hostname : null;
+    }
+
+    /**
      * Whether two reads of a site's home page ({ body, lastModified }, or
      * null when the read failed) came from the same site. The same page, or
      * the same file modified at the same time when the host serves the bytes
@@ -162,5 +172,5 @@
         return !!a.lastModified && a.lastModified === b.lastModified;
     }
 
-    window.CustomDomain = { normalize, list, set, remove, markActive, markLost, view, waiting, liveUrl, domainUrl, sameSite };
+    window.CustomDomain = { normalize, list, set, remove, markActive, markLost, view, waiting, liveUrl, domainUrl, hostOf, sameSite };
 })();
