@@ -480,6 +480,9 @@
 //     and requests that change data on the app's workers are refused, dialogs
 //     are answered without showing, and media plays muted. The frame itself
 //     is sandboxed without popups, dialogs, downloads or device access.
+//     IndexedDB and cookies are the exception: an app usually opens its
+//     database before this deferred file runs, so writes there can't be
+//     redirected, and the AppTests tool tells the AI not to test them.
 //   * Nothing throws into the host page (see half 2's note on "Script error.").
 //   * No async/await syntax: one parse error here would take the badge and
 //     the picker down with it in every browser that runs halves 1 and 2.
