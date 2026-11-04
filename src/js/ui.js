@@ -3630,7 +3630,7 @@ function publishDomainCardHtml(domain, sub) {
         '</div>';
     }
     const failed = v.kind === 'failed';
-    const records = v.domain.records.map(publishDomainRecordHtml).join('');
+    const records = v.domain.records.map((r, i) => publishDomainRecordHtml(r, i)).join('');
     return `<div class="publish-domain is-${failed ? 'failed' : 'pending'}">` +
         '<div class="publish-domain-head">' +
             '<span class="publish-domain-dot" aria-hidden="true"></span>' +
@@ -3650,8 +3650,10 @@ function publishDomainCardHtml(domain, sub) {
 }
 
 // One DNS record: its type on the left, then its name and value, each with a
-// copy button (the values are long and pasted as they are).
-function publishDomainRecordHtml(record) {
+// copy button (the values are long and pasted as they are). Each button's
+// data-action is its own, so a re-render puts the focus back on the same one
+// (keepPublishPanelFocus) rather than on the site's copy button above.
+function publishDomainRecordHtml(record, i) {
     const type = htmlEscape(record.type);
     const name = htmlEscape(record.name);
     const value = htmlEscape(record.value);
@@ -3659,10 +3661,10 @@ function publishDomainRecordHtml(record) {
         `<span class="publish-domain-record-type">${type}${record.required ? '' : '<small>Optional</small>'}</span>` +
         '<span class="publish-domain-record-key">Name</span>' +
         `<code class="publish-domain-record-val">${name}</code>` +
-        `<button type="button" class="publish-icon-btn publish-domain-copy" data-copy="${name}" title="Copy name" aria-label="Copy the ${type} record’s name">${_domainCopySvg}</button>` +
+        `<button type="button" class="publish-icon-btn publish-domain-copy" data-action="copy-record-${i}-name" data-copy="${name}" title="Copy name" aria-label="Copy the ${type} record’s name">${_domainCopySvg}</button>` +
         '<span class="publish-domain-record-key">Value</span>' +
         `<code class="publish-domain-record-val">${value}</code>` +
-        `<button type="button" class="publish-icon-btn publish-domain-copy" data-copy="${value}" title="Copy value" aria-label="Copy the ${type} record’s value">${_domainCopySvg}</button>` +
+        `<button type="button" class="publish-icon-btn publish-domain-copy" data-action="copy-record-${i}-value" data-copy="${value}" title="Copy value" aria-label="Copy the ${type} record’s value">${_domainCopySvg}</button>` +
     '</div>';
 }
 

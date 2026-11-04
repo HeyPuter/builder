@@ -594,6 +594,39 @@ function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, block
         && /Connecting…/.test(h.publishAddressHeadHtml()));
 }
 
+{
+    // Focus on a DNS record's copy button, then a re-render (a turn ending,
+    // say): it used to land on the site's own copy button above, which shares
+    // the first class keepPublishPanelFocus matches on.
+    const at = ui.indexOf('function keepPublishPanelFocus($panel) {');
+    const keep = new Function('document', ui.slice(at, ui.indexOf('\n}\n', at) + 2) + '\nreturn keepPublishPanelFocus;');
+    const buttons = (html) => (html.match(/<button[^>]*>/g) || []).map((tag) => {
+        const attr = (a) => tag.match(new RegExp(` ${a}="([^"]*)"`))?.[1] ?? null;
+        const classes = attr('class').split(' ');
+        return { tag, classList: Object.assign(classes, { contains: (c) => classes.includes(c) }), getAttribute: attr,
+            disabled: /\sdisabled[\s>]/.test(tag), focus() { this.focused = true; } };
+    });
+    const h = harness({ attach: async () => null });
+    h.window.currentPublishedDomains = [CD.normalize(pending)];
+    // The live view's URL row comes first, with the site's copy button.
+    const render = () => buttons('<button class="publish-icon-btn publish-copy" title="Copy link">' + h.publishDomainsHtml());
+    const before = render();
+    const active = before.find((b) => b.getAttribute('data-copy') === 'abc');
+    const after = render();
+    const $panel = {
+        find: (sel) => {
+            if (sel === '.publish-panel-body') return Object.assign([{ contains: (el) => before.includes(el) }], { length: 1 });
+            const m = sel.match(/^\.([\w-]+)(?:\[data-action="([^"]*)"\])?$/);
+            return { filter: () => after.filter((b) => b.classList.contains(m[1]) && (!m[2] || b.getAttribute('data-action') === m[2])) };
+        },
+        trigger() { this.focused = true; },
+    };
+    keep({ activeElement: active })($panel)();
+    const landed = after.find((b) => b.focused);
+    check('a re-render keeps the focus on the DNS record\'s copy button it was on', landed && landed.getAttribute('data-copy') === 'abc',
+        landed ? landed.tag : 'none');
+}
+
 // --- savePublishedFields merges only what it is given --------------------------------
 {
     const fn = app.slice(app.indexOf('window.savePublishedFields = async function'), app.indexOf('\n};\n', app.indexOf('window.savePublishedFields = async function')) + 4);
