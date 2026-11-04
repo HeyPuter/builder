@@ -378,6 +378,28 @@ async function runtimeChecks(label, src) {
         new e3.g.HTMLFormElement('get', 'https://api.puter.work/search').submit();
         check(`[${label}] a form posted to a worker is refused, a GET form isn't`, sent.join() === 'FORM https://api.puter.work/search', sent);
     }
+    {
+        // The clipboard and fullscreen: the frame may not use them, the
+        // visible preview may, so they succeed here without touching anything.
+        let userClipboard = 'USER';
+        let fullscreens = 0;
+        const e5 = makeRuntimeEnv(src, {
+            before: (g2) => {
+                g2.navigator = { clipboard: { writeText: (t) => { userClipboard = t; return Promise.resolve(); }, readText: () => Promise.resolve(userClipboard) } };
+                g2.Element = class { requestFullscreen() { fullscreens++; return Promise.reject(new Error('Disallowed by permissions policy')); } };
+                g2.Document = class { exitFullscreen() { return Promise.reject(new Error('Not in fullscreen')); } };
+            },
+        });
+        await e5.g.navigator.clipboard.writeText('pa55word');
+        check(`[${label}] the app's copy lands on the frame's own clipboard`,
+            (await e5.g.navigator.clipboard.readText()) === 'pa55word' && userClipboard === 'USER', { userClipboard });
+        const fsResult = await new e5.g.Element().requestFullscreen().then(() => 'ok', (e) => e.message);
+        const exitResult = await new e5.g.Document().exitFullscreen().then(() => 'ok', (e) => e.message);
+        check(`[${label}] full-screen requests succeed without going full screen`, fsResult === 'ok' && exitResult === 'ok' && fullscreens === 0);
+        const e6 = makeRuntimeEnv(src, { before: (g2) => { g2.navigator = {}; } });
+        await e6.g.navigator.clipboard.writeText('x');
+        check(`[${label}] a page without navigator.clipboard gets the frame's own`, (await e6.g.navigator.clipboard.readText()) === 'x');
+    }
     check(`[${label}] worker writes refused (workers.exec)`, /turned off/.test(await reason(g.puter.workers.exec('https://api.puter.work/x', { method: 'DELETE' }))) && real.workerWrites === 0);
     check(`[${label}] worker management refused`, /turned off/.test(await reason(g.puter.workers.create('x'))) && /turned off/.test(await reason(g.puter.hosting.create('x'))));
     check(`[${label}] dialogs answered silently`, g.confirm('Sure?') === true && g.prompt('Name?', 'Ada') === 'Ada' && g.alert('hi') === undefined && g.open('https://x') === null);
