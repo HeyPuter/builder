@@ -379,8 +379,14 @@ function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, block
     check('an address change with no domain asks nothing', await h.confirmAddressChangeKeepsDomains([], 'cafe') === true && h.state.alerts.length === 0);
     check('…nor with only domains already left on an older address', await h.confirmAddressChangeKeepsDomains([{ ...pending, site: 'older' }], 'cafe') === true);
     const ok = await h.confirmAddressChangeKeepsDomains([pending], 'cafe');
-    check('with a domain on it, it names the domain and the user can back out', ok === false && /^www\.example\.com shows your site/.test(h.state.alerts[0][0]));
+    check('with a domain on it, it names the domain and the user can back out', ok === false && /^www\.example\.com /.test(h.state.alerts[0][0]));
     check('…in plain sentences', !/[:;]\s/.test(h.state.alerts[0][0].replace(/https?:\/\//g, '')));
+    check('…not saying a domain still waiting for DNS stops working', /is set up for your site’s current address/.test(h.state.alerts[0][0])
+        && !/stops working/.test(h.state.alerts[0][0]), h.state.alerts[0][0]);
+    await h.confirmAddressChangeKeepsDomains([{ ...pending, status: 'active' }], 'cafe');
+    check('…which a working one does', /^www\.example\.com shows your site through its current address, so it stops working/.test(h.state.alerts[1][0]), h.state.alerts[1][0]);
+    await h.confirmAddressChangeKeepsDomains([{ ...pending, status: 'active', lostAt: 5 }], 'cafe');
+    check('…and one found not working is set up for it too', /is set up for your site’s current address/.test(h.state.alerts[2][0]), h.state.alerts[2][0]);
     h.window.currentPublishedUrl = 'https://renamed.puter.site/';
     h.window.currentPublishedDomains = [CD.normalize(pending)];
     check('after the change the domain offers to connect again', /Not connected/.test(h.publishDomainsHtml()) && /Connect again/.test(h.publishDomainsHtml()));
