@@ -216,8 +216,12 @@
     // be typing their next message, and keys would go to the hidden app. A test
     // that focuses a field can pull focus into the frame; the builder's window
     // then gets a blur, and focus goes straight back to whatever had it here.
-    // Removing a focused frame drops focus to the page body, so stop() gives it
-    // back too.
+    // Not from inside that blur: refocusing while the browser is still moving
+    // focus into the frame leaves the builder's element looking active while
+    // the frame keeps getting the keys. Just after it, the frame is plainly
+    // the active element and taking focus back works, so the check runs a few
+    // times over the next moment. Removing a focused frame drops focus to the
+    // page body, so stop() gives it back too.
     function guardFocus(frame) {
         let last = document.activeElement && document.activeElement !== frame && document.activeElement !== document.body
             ? document.activeElement : null;
@@ -230,19 +234,19 @@
             }
             if (document.activeElement === frame) { try { frame.blur(); } catch (e) { /* ignore */ } }
         };
+        const soon = () => { for (const ms of [0, 50, 150, 400]) setTimeout(giveBack, ms); };
         const onFocusIn = (e) => {
-            if (e.target === frame) giveBack();
+            if (e.target === frame) soon();
             else if (e.target && e.target !== document.body) last = e.target;
         };
-        const onBlur = () => { setTimeout(giveBack, 0); giveBack(); };
         document.addEventListener('focusin', onFocusIn, true);
-        window.addEventListener('blur', onBlur, true);
+        window.addEventListener('blur', soon, true);
         return {
             check: giveBack,
             stop: () => {
                 giveBack();
                 document.removeEventListener('focusin', onFocusIn, true);
-                window.removeEventListener('blur', onBlur, true);
+                window.removeEventListener('blur', soon, true);
                 return () => {
                     // After the frame is gone: focus it held went to the body.
                     const a = document.activeElement;
