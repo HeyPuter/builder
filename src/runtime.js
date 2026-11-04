@@ -1,5 +1,6 @@
 // The runtime script every generated app loads, served at
-// builder.puter.com/runtime.js. It is ONE file with TWO independent halves:
+// builder.puter.com/runtime.js. It is ONE file with THREE independent parts
+// (called halves below, from when there were two):
 //
 //   1. The "Made with Puter" attribution badge — a small dismissible pill
 //      hovering in the page's bottom-right corner that links back to the
@@ -7,9 +8,11 @@
 //   2. The builder's element-picker bridge (click-to-edit) — outlines the
 //      hovered element and posts its locator to the builder. FRAMED documents
 //      only, i.e. the builder's own live-preview pane.
+//   3. The builder's hidden test runner — runs the app's tests when the
+//      builder loads the page in its invisible test frame, and nowhere else.
 //
 // Each half is a self-contained IIFE with its own guard, and half 1 runs first
-// so it can never be affected by half 2. A framed page can run both.
+// so it can never be affected by the others. A framed page can run all three.
 //
 // Generated apps load this file with a single baked
 // <script src="https://builder.puter.com/runtime.js" defer></script> tag — the
@@ -45,9 +48,9 @@
 // verify clean) instead of failing loudly. Errors from THIS file are dropped at
 // the builder's door on purpose (isRuntimeAssetError in js/ui.js).
 //
-// scripts/test-badge.mjs (half 1) and scripts/test-click-to-edit.mjs (half 2)
-// execute this file against a stub DOM and guard its invariants; run both after
-// any change here.
+// scripts/test-badge.mjs (half 1), scripts/test-click-to-edit.mjs (half 2) and
+// scripts/test-app-tests.mjs (half 3) execute this file against a stub DOM and
+// guard its invariants; run all three after any change here.
 
 // ===========================================================================
 //  Half 1 — the "Made with Puter" badge
@@ -451,4 +454,846 @@
     var reposition = guard(function () { if (armed && hovered) outline(hovered); });
     window.addEventListener('scroll', reposition, true);
     window.addEventListener('resize', reposition, true);
+})();
+
+// ===========================================================================
+//  Half 3 — the builder's hidden test runner (its test frame only)
+// ===========================================================================
+// The builder keeps a small set of automated tests for some apps (the AppTests
+// tool, stored in the project's hidden .puter/ folder, never in the app's own
+// files). After a change, update_preview loads the app a second time in an
+// invisible frame named 'puter-test-runner' and posts the tests here; this
+// half runs them against the real page and posts the results back. The
+// builder side lives in js/app-tests.js.
+//
+// Contract with the pages it runs on:
+//   * Inert everywhere else. A page that is top-level, or framed under any
+//     other name (the builder's visible preview included), installs nothing.
+//   * Only the builder can start a run (isBuilderOrigin, as in half 2), and
+//     every reply goes to that exact origin. A third-party page that frames an
+//     app under this name gets an app whose storage writes go nowhere, and no
+//     way to run code in it.
+//   * Tests leave no trace the user could see. From the moment this half runs,
+//     localStorage, sessionStorage and puter.kv writes go to an in-memory
+//     layer over the real data, AI calls get placeholder answers (no cost),
+//     puter.fs changes, sign-in and sign-out, hosting/app/worker management
+//     and requests that change data on the app's workers are refused, dialogs
+//     are answered without showing, and media plays muted. The frame itself
+//     is sandboxed without popups, dialogs, downloads or device access.
+//   * Nothing throws into the host page (see half 2's note on "Script error.").
+//   * No async/await syntax: one parse error here would take the badge and
+//     the picker down with it in every browser that runs halves 1 and 2.
+//
+// scripts/test-app-tests.mjs runs this half against a stub DOM.
+(function () {
+    'use strict';
+
+    var FRAME_NAME = 'puter-test-runner';
+    try {
+        if (window.top === window.self) return;
+        if (window.name !== FRAME_NAME) return;
+    } catch (e) { return; }
+    if (!window.addEventListener || typeof Promise !== 'function') return;
+    if (window.__puterTestRunner) return;
+    try { window.__puterTestRunner = true; } catch (e) { return; }
+
+    var MAX_TESTS = 25;
+    var DEFAULT_TEST_MS = 10000;
+    var MAX_TEST_MS = 30000;
+    var DEFINE_MS = 5000;
+    var FIND_MS = 3000;
+    var WAIT_MS = 5000;
+    var MAX_SLEEP_MS = 5000;
+    var MAX_ERROR = 400;
+    var MAX_CODE = 100000;
+    var AI_REPLY = 'This is a placeholder AI reply used while testing.';
+    var IMAGE = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512"><rect width="512" height="512" fill="#d4d4d8"/></svg>');
+    var SILENT_WAV = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';
+
+    var hasOwn = Object.prototype.hasOwnProperty;
+    var aiReply = AI_REPLY;
+    var dialogs = [];
+
+    function isBuilderOrigin(origin) {
+        var o = String(origin || '').toLowerCase();
+        return /^https:\/\/([a-z0-9-]+\.)*puter\.com$/.test(o) ||
+               /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(o);
+    }
+
+    function attempt(fn) { try { fn(); } catch (e) { /* never break the host page */ } }
+
+    function refused(what) {
+        return new Error(what + ' is turned off while tests run.');
+    }
+    function refuse(what) {
+        return function () { return Promise.reject(refused(what)); };
+    }
+
+    // ---- The sandbox -------------------------------------------------------
+
+    // Storage whose writes stay in memory while reads fall through to the real
+    // store, so the app (and puter.js, which keeps its session there) still
+    // sees what was there, and the user's data is never changed.
+    function overlayStorage(real) {
+        var mem = Object.create(null); // key -> string, or null once removed
+        var cleared = false;
+        function has(k) { return hasOwn.call(mem, k); }
+        function getItem(k) {
+            k = String(k);
+            if (has(k)) return mem[k];
+            if (cleared || !real) return null;
+            try { return real.getItem(k); } catch (e) { return null; }
+        }
+        function keys() {
+            var out = [];
+            if (!cleared && real) {
+                try {
+                    for (var i = 0; i < real.length; i++) {
+                        var k = real.key(i);
+                        if (k != null && !has(k)) out.push(k);
+                    }
+                } catch (e) { /* unreadable store: memory only */ }
+            }
+            for (var m in mem) if (mem[m] !== null) out.push(m);
+            return out;
+        }
+        var api = {
+            getItem: getItem,
+            setItem: function (k, v) { mem[String(k)] = String(v); },
+            removeItem: function (k) { mem[String(k)] = null; },
+            clear: function () { mem = Object.create(null); cleared = true; },
+            key: function (i) { var ks = keys(); return (i >= 0 && i < ks.length) ? ks[i] : null; }
+        };
+        return new Proxy({}, {
+            get: function (t, p) {
+                if (p === 'length') return keys().length;
+                if (typeof p !== 'string') return undefined;
+                if (hasOwn.call(api, p)) return api[p];
+                var v = getItem(p);
+                return v === null ? undefined : v;
+            },
+            set: function (t, p, v) { if (typeof p === 'string') api.setItem(p, v); return true; },
+            deleteProperty: function (t, p) { if (typeof p === 'string') api.removeItem(p); return true; },
+            has: function (t, p) { return typeof p === 'string' && (hasOwn.call(api, p) || getItem(p) !== null); },
+            ownKeys: function () { return keys(); },
+            getOwnPropertyDescriptor: function (t, p) {
+                var v = typeof p === 'string' ? getItem(p) : null;
+                return v === null ? undefined : { value: v, writable: true, enumerable: true, configurable: true };
+            }
+        });
+    }
+
+    function overlayWindowStorage(name) {
+        attempt(function () {
+            var real = null;
+            try { real = window[name]; } catch (e) { real = null; }
+            var layer = overlayStorage(real);
+            Object.defineProperty(window, name, { configurable: true, enumerable: true, get: function () { return layer; } });
+        });
+    }
+
+    function clone(v) {
+        if (v === undefined) return null;
+        try { return JSON.parse(JSON.stringify(v)); } catch (e) { return v; }
+    }
+
+    function globToRegExp(pattern) {
+        var p = String(pattern == null ? '*' : pattern);
+        return new RegExp('^' + p.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') + '$');
+    }
+
+    // puter.kv the same way: writes in memory, reads through to the real store.
+    function overlayKv(kv) {
+        var realGet = typeof kv.get === 'function' ? kv.get.bind(kv) : null;
+        var realList = typeof kv.list === 'function' ? kv.list.bind(kv) : null;
+        var TOMB = {};
+        var mem = Object.create(null);
+        var flushed = false;
+        function has(k) { return hasOwn.call(mem, k); }
+        function get(k) {
+            k = String(k);
+            if (has(k)) return Promise.resolve(mem[k] === TOMB ? null : clone(mem[k]));
+            if (flushed || !realGet) return Promise.resolve(null);
+            return Promise.resolve().then(function () { return realGet(k); });
+        }
+        function incr(k, amount) {
+            if (amount !== undefined && typeof amount !== 'number') return Promise.reject(refused('Changing several counters at once with puter.kv'));
+            var by = amount === undefined ? 1 : amount;
+            k = String(k);
+            return get(k).then(function (cur) {
+                var next = (Number(cur) || 0) + by;
+                mem[k] = next;
+                return next;
+            });
+        }
+        var methods = {
+            get: get,
+            set: function (k, v) { mem[String(k)] = clone(v); return Promise.resolve(true); },
+            del: function (k) { mem[String(k)] = TOMB; return Promise.resolve(true); },
+            incr: incr,
+            decr: function (k, amount) {
+                if (amount !== undefined && typeof amount !== 'number') return Promise.reject(refused('Changing several counters at once with puter.kv'));
+                return incr(k, -(amount === undefined ? 1 : amount));
+            },
+            flush: function () { mem = Object.create(null); flushed = true; return Promise.resolve(true); },
+            expire: function () { return Promise.resolve(true); },
+            expireAt: function () { return Promise.resolve(true); },
+            list: function (pattern, returnValues) {
+                if (pattern && typeof pattern === 'object') {
+                    var args = arguments;
+                    return realList ? Promise.resolve().then(function () { return realList.apply(null, args); }) : Promise.resolve([]);
+                }
+                if (typeof pattern === 'boolean') { returnValues = pattern; pattern = undefined; }
+                var re = globToRegExp(pattern);
+                var base = (flushed || !realList) ? Promise.resolve([])
+                    : Promise.resolve().then(function () { return realList(pattern == null ? '*' : pattern, true); });
+                return base.then(function (items) {
+                    var values = Object.create(null), order = [];
+                    (Array.isArray(items) ? items : []).forEach(function (it) {
+                        var key = (it && typeof it === 'object') ? it.key : it;
+                        if (key == null) return;
+                        key = String(key);
+                        if (has(key) || hasOwn.call(values, key)) return;
+                        values[key] = (it && typeof it === 'object') ? it.value : null;
+                        order.push(key);
+                    });
+                    for (var k in mem) {
+                        if (mem[k] === TOMB || !re.test(k)) continue;
+                        if (!hasOwn.call(values, k)) order.push(k);
+                        values[k] = clone(mem[k]);
+                    }
+                    return order.map(function (k) { return returnValues ? { key: k, value: values[k] } : k; });
+                });
+            }
+        };
+        for (var name in methods) attempt(function () { kv[name] = methods[name]; });
+        ['update', 'add', 'remove'].forEach(function (name) {
+            if (typeof kv[name] === 'function') attempt(function () { kv[name] = refuse('Changing data with puter.kv.' + name); });
+        });
+    }
+
+    function fakeChat() {
+        var stream = false;
+        for (var i = 0; i < arguments.length; i++) {
+            var a = arguments[i];
+            if (a && typeof a === 'object' && !Array.isArray(a) && a.stream === true) stream = true;
+        }
+        var text = aiReply;
+        if (stream) {
+            var done = false;
+            var it = {
+                next: function () {
+                    if (done) return Promise.resolve({ done: true, value: undefined });
+                    done = true;
+                    return Promise.resolve({ done: false, value: { type: 'text', text: text } });
+                },
+                'return': function () { done = true; return Promise.resolve({ done: true, value: undefined }); }
+            };
+            if (typeof Symbol === 'function' && Symbol.asyncIterator) it[Symbol.asyncIterator] = function () { return it; };
+            return Promise.resolve(it);
+        }
+        return Promise.resolve({
+            message: { role: 'assistant', content: text },
+            text: text,
+            index: 0,
+            finish_reason: 'stop',
+            toString: function () { return text; },
+            valueOf: function () { return text; }
+        });
+    }
+    function fakeImage() { var img = new Image(); img.src = IMAGE; return Promise.resolve(img); }
+    function fakeAudio() { var a = new Audio(SILENT_WAV); a.muted = true; return Promise.resolve(a); }
+    function fakeVideo() { var v = document.createElement('video'); v.muted = true; return Promise.resolve(v); }
+    function fakeText() { return Promise.resolve('Placeholder text read from the image.'); }
+    function fakeTranscript() {
+        var text = 'Placeholder transcript.';
+        return Promise.resolve({ text: text, toString: function () { return text; } });
+    }
+
+    function isWorkerUrl(u) {
+        try { return /(^|\.)puter\.work$/i.test(new URL(String(u), location.href).hostname); } catch (e) { return false; }
+    }
+    function changesData(method) { return !/^(GET|HEAD|OPTIONS)$/i.test(String(method || 'GET')); }
+    var WORKER_REFUSAL = 'Requests that change data on the app\'s backend';
+
+    function sandboxPage() {
+        attempt(function () { window.alert = function (m) { dialogs.push({ type: 'alert', message: String(m == null ? '' : m) }); }; });
+        attempt(function () { window.confirm = function (m) { dialogs.push({ type: 'confirm', message: String(m == null ? '' : m) }); return true; }; });
+        attempt(function () {
+            window.prompt = function (m, d) {
+                dialogs.push({ type: 'prompt', message: String(m == null ? '' : m) });
+                return d == null ? '' : String(d);
+            };
+        });
+        attempt(function () { window.open = function () { return null; }; });
+        attempt(function () {
+            var proto = window.HTMLMediaElement && HTMLMediaElement.prototype;
+            var play = proto && proto.play;
+            if (typeof play !== 'function') return;
+            proto.play = function () {
+                try { this.muted = true; } catch (e) { /* read-only in some engines */ }
+                return play.apply(this, arguments);
+            };
+        });
+        attempt(function () {
+            var synth = window.speechSynthesis;
+            if (!synth || typeof synth.speak !== 'function') return;
+            synth.speak = function (u) {
+                setTimeout(function () {
+                    try { u.dispatchEvent(new Event('end')); }
+                    catch (e) { try { if (u && typeof u.onend === 'function') u.onend({}); } catch (e2) { /* ignore */ } }
+                }, 0);
+            };
+        });
+        overlayWindowStorage('localStorage');
+        overlayWindowStorage('sessionStorage');
+        attempt(function () {
+            var realFetch = window.fetch;
+            if (typeof realFetch !== 'function') return;
+            window.fetch = function (input, init) {
+                var url = typeof input === 'string' ? input : (input && input.url) || String(input);
+                var method = (init && init.method) || (input && typeof input === 'object' && input.method) || 'GET';
+                if (isWorkerUrl(url) && changesData(method)) return Promise.reject(refused(WORKER_REFUSAL));
+                return realFetch.apply(window, arguments);
+            };
+        });
+        sandboxPuter();
+    }
+
+    var sandboxedPuter = null;
+    function sandboxPuter() {
+        var p;
+        try { p = window.puter; } catch (e) { return; }
+        if (!p || (typeof p !== 'object' && typeof p !== 'function') || p === sandboxedPuter) return;
+        sandboxedPuter = p;
+        function set(ns, name, fn) {
+            if (ns && (typeof ns === 'object' || typeof ns === 'function')) attempt(function () { ns[name] = fn; });
+        }
+        var ai = p.ai;
+        set(ai, 'chat', fakeChat);
+        set(ai, 'txt2img', fakeImage);
+        set(ai, 'txt2speech', fakeAudio);
+        set(ai, 'speech2speech', fakeAudio);
+        set(ai, 'txt2vid', fakeVideo);
+        set(ai, 'img2txt', fakeText);
+        set(ai, 'speech2txt', fakeTranscript);
+        if (p.kv) attempt(function () { overlayKv(p.kv); });
+        ['write', 'mkdir', 'delete', 'rename', 'move', 'copy', 'upload'].forEach(function (n) {
+            set(p.fs, n, refuse('Changing files with puter.fs'));
+        });
+        set(p.auth, 'signIn', refuse('Signing in'));
+        set(p.auth, 'signOut', function () { return Promise.resolve(); });
+        ['create', 'update', 'delete'].forEach(function (n) {
+            set(p.hosting, n, refuse('Changing sites with puter.hosting'));
+            set(p.apps, n, refuse('Changing apps with puter.apps'));
+            set(p.workers, n, refuse('Changing workers with puter.workers'));
+        });
+        var workers = p.workers;
+        var exec = workers && workers.exec;
+        if (typeof exec === 'function') {
+            set(workers, 'exec', function (url, init) {
+                if (changesData(init && init.method)) return Promise.reject(refused(WORKER_REFUSAL));
+                return exec.apply(workers, arguments);
+            });
+        }
+    }
+
+    sandboxPage();
+
+    // ---- The test API ------------------------------------------------------
+
+    function clip(s, max) {
+        s = String(s == null ? '' : s);
+        return s.length > max ? s.slice(0, max) + '…' : s;
+    }
+    function describeEl(el) {
+        try {
+            var s = '<' + el.tagName.toLowerCase();
+            if (el.id) s += ' id="' + el.id + '"';
+            if (typeof el.className === 'string' && el.className) s += ' class="' + el.className + '"';
+            return s + '>';
+        } catch (e) { return 'element'; }
+    }
+    function fmt(v) {
+        if (typeof v === 'string') return clip(JSON.stringify(v), 120);
+        if (v && v.nodeType === 1) return describeEl(v);
+        if (typeof v === 'function') return 'a function';
+        if (v === undefined) return 'undefined';
+        if (typeof v === 'number' || typeof v === 'boolean' || v === null) return String(v);
+        try { return clip(JSON.stringify(v), 120); } catch (e) { return clip(String(v), 120); }
+    }
+    function messageOf(e) {
+        if (e && typeof e.message === 'string' && e.message) return e.message;
+        return String(e);
+    }
+    function norm(s) { return String(s == null ? '' : s).replace(/\s+/g, ' ').trim(); }
+    function secs(ms) { return (Math.round(ms / 100) / 10) + 's'; }
+    function delay(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+    function fatal(msg) { var e = new Error(msg); e.puterFatal = true; return e; }
+
+    function describeTarget(target, opts) {
+        var s = (target && target.nodeType === 1) ? describeEl(target) : JSON.stringify(String(target));
+        if (opts && opts.text != null) s += ' with text ' + JSON.stringify(String(opts.text));
+        return s;
+    }
+
+    function query(target, opts) {
+        if (target && target.nodeType === 1) return target.isConnected === false ? [] : [target];
+        if (typeof target !== 'string' || !target) throw fatal('Expected a CSS selector or an element, got ' + fmt(target) + '.');
+        var list;
+        try { list = Array.prototype.slice.call(document.querySelectorAll(target)); }
+        catch (e) { throw fatal('Invalid CSS selector ' + JSON.stringify(target) + '.'); }
+        if (opts && opts.text != null) {
+            var want = norm(opts.text).toLowerCase();
+            list = list.filter(function (el) { return norm(el.textContent).toLowerCase().indexOf(want) !== -1; });
+            // The innermost match is the one meant ("button" inside "li").
+            list = list.filter(function (el) { return !list.some(function (o) { return o !== el && el.contains(o); }); });
+        }
+        return list;
+    }
+
+    function isVisible(el) {
+        try {
+            if (el.isConnected === false) return false;
+            var r = el.getBoundingClientRect();
+            if (!r || (r.width === 0 && r.height === 0)) return false;
+            var s = window.getComputedStyle ? getComputedStyle(el) : null;
+            if (s && (s.visibility === 'hidden' || s.display === 'none')) return false;
+            return true;
+        } catch (e) { return false; }
+    }
+
+    // Poll check() until it returns something truthy. A throw marked puterFatal
+    // fails at once (a typo in a selector won't fix itself); any other throw is
+    // retried and reported if the time runs out.
+    function poll(check, timeout, describe) {
+        var start = Date.now();
+        return new Promise(function (resolve, reject) {
+            (function tick() {
+                var lastError = null;
+                Promise.resolve().then(check).then(function (v) {
+                    if (v) return resolve(v);
+                    next();
+                }, function (e) {
+                    if (e && e.puterFatal) return reject(e);
+                    lastError = e;
+                    next();
+                });
+                function next() {
+                    if (Date.now() - start >= timeout) {
+                        return reject(new Error('Timed out after ' + secs(timeout) + ' waiting for ' + describe() +
+                            (lastError ? ' (last error: ' + messageOf(lastError) + ')' : '') + '.'));
+                    }
+                    setTimeout(tick, 50);
+                }
+            })();
+        });
+    }
+
+    function timeoutOf(opts, fallback) {
+        var t = opts && +opts.timeout;
+        return t > 0 ? Math.min(t, MAX_TEST_MS) : fallback;
+    }
+
+    // Wait for a visible (and, for actions, enabled) element.
+    function find(target, opts) {
+        opts = opts || {};
+        var state = 'exist';
+        return poll(function () {
+            var els = query(target, opts);
+            if (!els.length) { state = 'exist'; return null; }
+            if (opts.visible === false) return els[0];
+            var shown = els.filter(isVisible);
+            if (!shown.length) { state = 'be visible (it exists but is hidden)'; return null; }
+            if (opts.enabled) {
+                var on = shown.filter(function (el) { return !el.disabled; });
+                if (!on.length) { state = 'be enabled (it is disabled)'; return null; }
+                return on[0];
+            }
+            return shown[0];
+        }, timeoutOf(opts, FIND_MS), function () { return describeTarget(target, opts) + ' to ' + state; });
+    }
+
+    function fire(el, type, init, Ctor) {
+        init = init || {};
+        init.bubbles = true; init.cancelable = true; init.composed = true;
+        var ev;
+        try { ev = new (Ctor || Event)(type, init); } catch (e) { ev = new Event(type, init); }
+        return el.dispatchEvent(ev);
+    }
+
+    function isTextField(el) {
+        var tag = el.tagName;
+        if (tag === 'TEXTAREA' || tag === 'SELECT') return true;
+        if (tag === 'INPUT') return !/^(button|submit|reset|checkbox|radio|file|image|hidden|range|color)$/i.test(el.type || '');
+        return !!el.isContentEditable;
+    }
+
+    function focusFor(el) {
+        var active = document.activeElement;
+        if (isTextField(el) || el.tagName === 'BUTTON' || el.tagName === 'A' || el.tabIndex >= 0) {
+            if (active !== el) try { el.focus({ preventScroll: true }); } catch (e) { /* not focusable */ }
+        } else if (active && active !== document.body && active !== el && !(active.contains && active.contains(el))) {
+            try { active.blur(); } catch (e) { /* ignore */ }
+        }
+    }
+
+    function click(target, opts) {
+        return find(target, merge(opts, { enabled: true })).then(function (el) {
+            var r = el.getBoundingClientRect();
+            var pos = { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, button: 0, view: window };
+            var P = window.PointerEvent || window.MouseEvent;
+            fire(el, 'pointerdown', merge(pos, { pointerId: 1, pointerType: 'mouse', isPrimary: true, buttons: 1 }), P);
+            fire(el, 'mousedown', merge(pos, { buttons: 1 }), window.MouseEvent);
+            focusFor(el);
+            fire(el, 'pointerup', merge(pos, { pointerId: 1, pointerType: 'mouse', isPrimary: true, buttons: 0 }), P);
+            fire(el, 'mouseup', merge(pos, { buttons: 0 }), window.MouseEvent);
+            el.click();
+            return settle();
+        });
+    }
+
+    function nativeSetter(el) {
+        var protos = [window.HTMLInputElement, window.HTMLTextAreaElement, window.HTMLSelectElement];
+        for (var i = 0; i < protos.length; i++) {
+            if (protos[i] && el instanceof protos[i]) {
+                var d = Object.getOwnPropertyDescriptor(protos[i].prototype, 'value');
+                if (d && d.set) return d.set;
+            }
+        }
+        return null;
+    }
+
+    function fill(target, value, opts) {
+        return find(target, merge(opts, { enabled: true })).then(function (el) {
+            var type = String(el.type || '').toLowerCase();
+            if (el.tagName === 'INPUT' && (type === 'checkbox' || type === 'radio')) {
+                if (el.checked !== !!value) el.click();
+                return settle();
+            }
+            if (!isTextField(el)) throw fatal(describeEl(el) + ' is not a text field, select or checkbox, so fill() can\'t type into it.');
+            if (el.readOnly) throw fatal(describeEl(el) + ' is read-only.');
+            focusFor(el);
+            var text = String(value == null ? '' : value);
+            if (el.isContentEditable && el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA') {
+                el.textContent = text;
+            } else {
+                var setter = nativeSetter(el);
+                if (setter) setter.call(el, text); else el.value = text;
+                if (el.tagName === 'SELECT' && el.value !== text) throw fatal(describeEl(el) + ' has no option with the value ' + JSON.stringify(text) + '.');
+            }
+            fire(el, 'input', { inputType: 'insertText', data: text }, window.InputEvent);
+            fire(el, 'change');
+            return settle();
+        });
+    }
+
+    function press(target, key, opts) {
+        return find(target, merge(opts, { enabled: true })).then(function (el) {
+            key = String(key || 'Enter');
+            var init = { key: key, code: key.length === 1 ? 'Key' + key.toUpperCase() : key, view: window };
+            focusFor(el);
+            var go = fire(el, 'keydown', init, window.KeyboardEvent);
+            if (go && (key === 'Enter' || key.length === 1)) go = fire(el, 'keypress', init, window.KeyboardEvent);
+            if (go && key === 'Enter') {
+                var form = el.form;
+                if (el.tagName === 'INPUT' && form) {
+                    var submit = window.HTMLFormElement && HTMLFormElement.prototype.requestSubmit;
+                    if (submit) submit.call(form);
+                    else fire(form, 'submit');
+                } else if (el.tagName === 'BUTTON' || el.tagName === 'A') {
+                    el.click();
+                }
+            }
+            fire(el, 'keyup', init, window.KeyboardEvent);
+            return settle();
+        });
+    }
+
+    function text(target, opts) {
+        return find(target, merge(opts, { visible: false })).then(function (el) {
+            if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') return String(el.value);
+            return norm(el.textContent);
+        });
+    }
+
+    function visible(target, opts) {
+        return query(target, opts).some(isVisible);
+    }
+
+    function waitFor(target, opts) {
+        opts = opts || {};
+        if (typeof target === 'function') {
+            return poll(target, timeoutOf(opts, WAIT_MS), function () {
+                return opts.message ? String(opts.message) : 'the condition ' + clip(norm(String(target)), 100) + ' to be true';
+            });
+        }
+        if (opts.hidden) {
+            return poll(function () { return !query(target, opts).some(isVisible); }, timeoutOf(opts, WAIT_MS),
+                function () { return describeTarget(target, opts) + ' to be hidden or gone'; });
+        }
+        return find(target, merge(opts, { timeout: timeoutOf(opts, WAIT_MS) }));
+    }
+
+    function sleep(ms) { return delay(Math.max(0, Math.min(+ms || 0, MAX_SLEEP_MS))); }
+
+    // A beat for the app's handlers (microtasks and a frame's worth of timers)
+    // after each action.
+    function settle() { return delay(30); }
+
+    function merge(a, b) {
+        var out = {}, k;
+        if (a) for (k in a) if (hasOwn.call(a, k)) out[k] = a[k];
+        if (b) for (k in b) if (hasOwn.call(b, k)) out[k] = b[k];
+        return out;
+    }
+
+    function deepEqual(a, b) {
+        if (Object.is(a, b)) return true;
+        if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
+        if (Array.isArray(a) !== Array.isArray(b)) return false;
+        if (a instanceof Date && b instanceof Date) return a.getTime() === b.getTime();
+        var ka = Object.keys(a), kb = Object.keys(b);
+        if (ka.length !== kb.length) return false;
+        for (var i = 0; i < ka.length; i++) {
+            if (!hasOwn.call(b, ka[i]) || !deepEqual(a[ka[i]], b[ka[i]])) return false;
+        }
+        return true;
+    }
+
+    function expect(actual) {
+        function matchers(negate) {
+            function check(pass, what, expected) {
+                if (!!pass === !negate) return;
+                throw new Error('Expected ' + fmt(actual) + (negate ? ' not ' : ' ') + what +
+                    (arguments.length > 2 ? ' ' + fmt(expected) : '') + '.');
+            }
+            return {
+                toBe: function (e) { check(Object.is(actual, e), 'to be', e); },
+                toEqual: function (e) { check(deepEqual(actual, e), 'to equal', e); },
+                toContain: function (e) {
+                    var ok = typeof actual === 'string' ? actual.indexOf(String(e)) !== -1
+                        : Array.isArray(actual) ? actual.some(function (x) { return deepEqual(x, e); }) : false;
+                    check(ok, 'to contain', e);
+                },
+                toMatch: function (re) {
+                    var ok = typeof actual === 'string' && (re instanceof RegExp ? re.test(actual) : actual.indexOf(String(re)) !== -1);
+                    check(ok, 'to match', re instanceof RegExp ? String(re) : re);
+                },
+                toHaveLength: function (n) { check(actual != null && actual.length === n, 'to have length', n); },
+                toBeTruthy: function () { check(!!actual, 'to be truthy'); },
+                toBeFalsy: function () { check(!actual, 'to be falsy'); },
+                toBeNull: function () { check(actual === null, 'to be null'); },
+                toBeDefined: function () { check(actual !== undefined, 'to be defined'); },
+                toBeUndefined: function () { check(actual === undefined, 'to be undefined'); },
+                toBeGreaterThan: function (n) { check(actual > n, 'to be greater than', n); },
+                toBeGreaterThanOrEqual: function (n) { check(actual >= n, 'to be at least', n); },
+                toBeLessThan: function (n) { check(actual < n, 'to be less than', n); },
+                toBeLessThanOrEqual: function (n) { check(actual <= n, 'to be at most', n); },
+                toBeCloseTo: function (n, digits) {
+                    var d = digits == null ? 2 : digits;
+                    check(Math.abs(actual - n) < Math.pow(10, -d) / 2, 'to be close to', n);
+                }
+            };
+        }
+        var m = matchers(false);
+        m.not = matchers(true);
+        return m;
+    }
+
+    // ---- Running -----------------------------------------------------------
+
+    var API_NAMES = ['test', 'expect', '$', '$$', 'find', 'click', 'fill', 'press', 'text', 'visible',
+        'waitFor', 'sleep', 'dialogs', 'setAIReply'];
+
+    function normPage(p) {
+        var s = String(p == null ? '' : p).trim().replace(/^\.\//, '').replace(/^\/+/, '');
+        return (s === 'index.html' || s === 'index.htm') ? '' : s;
+    }
+
+    var registry = [];
+    var registering = true;
+    function test(name, opts, fn) {
+        if (typeof opts === 'function') { fn = opts; opts = {}; }
+        if (!registering) throw new Error('test() must be called at the top level of the tests, not inside another test.');
+        if (typeof fn !== 'function') throw new Error('test(' + fmt(name) + ') needs a function.');
+        opts = (opts && typeof opts === 'object') ? opts : {};
+        registry.push({
+            name: clip(norm(name) || 'Unnamed test', 120),
+            page: normPage(opts.page),
+            mobile: !!opts.mobile,
+            timeout: timeoutOf(opts, DEFAULT_TEST_MS),
+            fn: fn
+        });
+    }
+
+    var api = {
+        test: test,
+        expect: expect,
+        $: function (sel) { return document.querySelector(sel); },
+        $$: function (sel) { return Array.prototype.slice.call(document.querySelectorAll(sel)); },
+        find: find,
+        click: click,
+        fill: fill,
+        press: press,
+        text: text,
+        visible: visible,
+        waitFor: waitFor,
+        sleep: sleep,
+        dialogs: dialogs,
+        setAIReply: function (t) { aiReply = String(t == null ? AI_REPLY : t); }
+    };
+
+    // Lines in the tests as the AI wrote them. The Function constructor puts a
+    // header above the body, and how many lines it takes differs by engine,
+    // so it is measured once with a probe rather than assumed.
+    var SOURCE_URL = 'puter-app-tests.js';
+    var AsyncFunction = null;
+    var lineOffset = 0;
+    function compile(code) {
+        if (!AsyncFunction) {
+            // Built from a string so this file never contains async syntax.
+            // eslint-disable-next-line no-new-func
+            AsyncFunction = new Function('return Object.getPrototypeOf(async function () {}).constructor')();
+        }
+        return AsyncFunction.apply(null, API_NAMES.concat([code + '\n//# sourceURL=' + SOURCE_URL]));
+    }
+    function measureOffset() {
+        if (!AsyncFunction) return Promise.resolve(0);
+        return AsyncFunction('throw new Error("probe")\n//# sourceURL=' + SOURCE_URL)().then(function () { return 0; }, function (e) {
+            var n = lineIn(e && e.stack);
+            return n ? n - 1 : 0;
+        });
+    }
+    function lineIn(stack) {
+        var m = String(stack || '').match(/puter-app-tests\.js:(\d+)/);
+        return m ? +m[1] : 0;
+    }
+    function where(e) {
+        var n = lineIn(e && e.stack);
+        return n ? ' (tests line ' + Math.max(1, n - (lineOffset || 0)) + ')' : '';
+    }
+
+    // Uncaught errors while a test runs are the app breaking under it.
+    var current = null;
+    window.addEventListener('error', function (e) {
+        if (!current || !e || (e.target && e.target !== window)) return;
+        var msg = e.message || '';
+        var src = e.filename || '';
+        if (!src && /^Script error\.?$/i.test(msg)) return; // unattributable, cross-origin
+        if (/builder\.puter\.com/.test(src)) return;          // this runtime, not the app
+        current.errors.push(msg + (src ? ' (' + src.split('/').pop() + (e.lineno ? ':' + e.lineno : '') + ')' : ''));
+    }, true);
+    window.addEventListener('unhandledrejection', function (e) {
+        if (!current) return;
+        var r = e && e.reason;
+        current.errors.push('Unhandled promise rejection: ' + messageOf(r && r.message ? r : String(r)));
+    });
+
+    var builderOrigin = null;
+    var runId = null;
+    function post(msg) {
+        msg.runId = runId;
+        try { window.parent.postMessage(msg, builderOrigin); } catch (e) { /* best-effort */ }
+    }
+
+    function runOne(t) {
+        current = { errors: [] };
+        var started = Date.now();
+        post({ type: 'puter-tests-progress', name: t.name });
+        var timer;
+        var timedOut = new Promise(function (resolve) {
+            timer = setTimeout(function () { resolve({ timeout: true }); }, t.timeout);
+        });
+        var body = Promise.resolve().then(function () { return t.fn(api); }).then(function () { return {}; }, function (e) { return { error: e }; });
+        return Promise.race([body, timedOut]).then(function (r) {
+            clearTimeout(timer);
+            return delay(30).then(function () { return r; }); // errors fired by the last action
+        }).then(function (r) {
+            var errors = current.errors;
+            current = null;
+            var out = { name: t.name, ms: Date.now() - started, passed: false };
+            if (r.timeout) out.error = 'Timed out after ' + secs(t.timeout) + ' (the test never finished).';
+            else if (r.error) out.error = messageOf(r.error) + where(r.error);
+            else if (errors.length) out.error = 'The app threw an error during this test: ' + errors[0];
+            else out.passed = true;
+            if (out.error) out.error = clip(out.error, MAX_ERROR);
+            return out;
+        });
+    }
+
+    function runAll(code, group) {
+        var defined;
+        try {
+            if (typeof code !== 'string' || !code.trim()) throw new Error('The tests are empty.');
+            if (code.length > MAX_CODE) throw new Error('The tests are too long.');
+            defined = compile(code);
+        } catch (e) {
+            // A page whose Content Security Policy forbids eval can't run tests
+            // at all; that is the environment, not the tests.
+            var csp = /Content Security Policy|unsafe-eval|EvalError/i.test(messageOf(e) + ' ' + (e && e.name));
+            post({ type: 'puter-tests-done', unavailable: csp, setupError: csp ? null : clip('The tests could not be read: ' + messageOf(e), MAX_ERROR) });
+            return Promise.resolve();
+        }
+        var defineTimer;
+        return measureOffset().then(function (offset) {
+            lineOffset = offset;
+            return Promise.race([
+                defined.apply(null, API_NAMES.map(function (n) { return api[n]; })),
+                new Promise(function (resolve, reject) {
+                    defineTimer = setTimeout(function () { reject(new Error('The tests took too long to set up.')); }, DEFINE_MS);
+                })
+            ]);
+        }).then(function () {
+            clearTimeout(defineTimer);
+            registering = false;
+            var all = registry.slice(0, MAX_TESTS);
+            var groups = [];
+            all.forEach(function (t) {
+                if (!groups.some(function (g) { return g.page === t.page && g.mobile === t.mobile; })) groups.push({ page: t.page, mobile: t.mobile });
+            });
+            var mine = all.filter(function (t) { return t.page === group.page && t.mobile === group.mobile; });
+            // Told first, so the builder still knows the other pages to test
+            // if this one navigates away before it finishes.
+            post({ type: 'puter-tests-plan', groups: groups, total: all.length, dropped: Math.max(0, registry.length - MAX_TESTS) });
+            var results = [];
+            var chain = Promise.resolve();
+            mine.forEach(function (t) {
+                chain = chain.then(function () { return runOne(t); }).then(function (r) {
+                    results.push(r);
+                    post({ type: 'puter-tests-result', result: r });
+                });
+            });
+            return chain.then(function () {
+                post({ type: 'puter-tests-done', results: results, groups: groups, total: all.length, dropped: Math.max(0, registry.length - MAX_TESTS) });
+            });
+        }, function (e) {
+            clearTimeout(defineTimer);
+            registering = false;
+            post({ type: 'puter-tests-done', setupError: clip('The tests threw before any test ran: ' + messageOf(e) + where(e), MAX_ERROR) });
+        });
+    }
+
+    var started = false;
+    window.addEventListener('message', function (e) {
+        try {
+            if (!e || e.source !== window.parent) return;
+            var d = e.data;
+            if (!d || d.type !== 'puter-tests-run' || typeof d.runId !== 'string') return;
+            if (!isBuilderOrigin(e.origin)) return;
+            if (started) {
+                // The builder resends until it hears back; answer only the run it started.
+                if (d.runId === runId) post({ type: 'puter-tests-ack' });
+                return;
+            }
+            started = true;
+            builderOrigin = e.origin;
+            runId = d.runId;
+            post({ type: 'puter-tests-ack' });
+            sandboxPuter(); // puter.js may have loaded after this script
+            runAll(d.code, { page: normPage(d.page), mobile: !!d.mobile }).then(null, function (err) {
+                post({ type: 'puter-tests-done', setupError: clip('The test runner failed: ' + messageOf(err), MAX_ERROR) });
+            });
+        } catch (err) { /* never break the host page */ }
+    });
 })();
