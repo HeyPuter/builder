@@ -1464,6 +1464,14 @@
         return n ? ' (tests line ' + Math.max(1, n - (lineOffset || 0)) + ')' : '';
     }
 
+    // The file an error came from, as the AI knows it: without the address's
+    // query (the test frame loads the page with a ?__pv= cache-buster), and
+    // index.html for the site's root.
+    function fileName(src) {
+        var name = String(src).split(/[?#]/)[0].split('/').pop();
+        return name || 'index.html';
+    }
+
     // Uncaught errors while a test runs are the app breaking under it.
     var current = null;
     window.addEventListener('error', function (e) {
@@ -1472,7 +1480,7 @@
         var src = e.filename || '';
         if (!src && /^Script error\.?$/i.test(msg)) return; // unattributable, cross-origin
         if (/builder\.puter\.com/.test(src)) return;          // this runtime, not the app
-        current.errors.push(msg + (src ? ' (' + src.split('/').pop() + (e.lineno ? ':' + e.lineno : '') + ')' : ''));
+        current.errors.push(msg + (src ? ' (' + fileName(src) + (e.lineno ? ':' + e.lineno : '') + ')' : ''));
     }, true);
     window.addEventListener('unhandledrejection', function (e) {
         if (!current) return;

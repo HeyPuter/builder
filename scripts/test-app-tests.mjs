@@ -423,6 +423,8 @@ async function runtimeChecks(label, src) {
     const add = body.appendChild(new El('button', { id: 'add', _text: 'Add item', tabIndex: 0 }));
     const items = [];
     add.addEventListener('click', () => { if (input.value) { items.push(input.value); count.textContent = items.length + ' items'; } });
+    const inline = body.appendChild(new El('button', { id: 'inline', _text: 'Inline' }));
+    inline.addEventListener('click', () => env.raise('error', { message: 'Uncaught TypeError: x', filename: 'https://app.puter.site/?__pv=123_abc', lineno: 9, target: env.self }));
     const boom = body.appendChild(new El('button', { id: 'boom', _text: 'Boom' }));
     boom.addEventListener('click', () => env.raise('error', { message: 'Uncaught Error: kaboom', filename: 'https://app.puter.site/app.js', lineno: 3, target: env.self }));
     body.appendChild(new El('button', { id: 'gone', hidden: true }));
@@ -448,13 +450,14 @@ async function runtimeChecks(label, src) {
         "test('hangs', { timeout: 150 }, () => new Promise(() => {}));",
         "test('bad selector', async () => { await click('##'); });",
         "test('slider', async () => { await fill('#tip', 25); expect(await text('#count')).toBe('tip 25'); });",
+        "test('inline error', async () => { await click('#inline'); });",
         "test('svg click', async () => { await click('#cell'); expect(await text('#count')).toBe('cell clicked'); });",
         "test('other page', { page: 'about.html' }, async () => {});",
         "test('phone', { mobile: true }, async () => {});",
     ].join('\n'));
     const by = Object.fromEntries((done?.results || []).map(r => [r.name, r]));
     check(`[${label}] ack goes to the builder's origin only`, env.posted.every(p => p.origin === BUILDER) && env.posted[0].msg.type === 'puter-tests-ack');
-    check(`[${label}] plan announced before running`, env.posted.some(p => p.msg.type === 'puter-tests-plan' && p.msg.total === 10));
+    check(`[${label}] plan announced before running`, env.posted.some(p => p.msg.type === 'puter-tests-plan' && p.msg.total === 11));
     check(`[${label}] passing test passes`, by['adds an item']?.passed === true, by['adds an item']);
     check(`[${label}] assertion failure explained with its line`, /Expected "1 items" to be "9 items"\. \(tests line 8\)/.test(by['wrong count']?.error), by['wrong count']);
     check(`[${label}] an app error during a test fails it`, /threw an error during this test: Uncaught Error: kaboom \(app\.js:3\)/.test(by['app error']?.error), by['app error']);
@@ -463,10 +466,11 @@ async function runtimeChecks(label, src) {
     check(`[${label}] a bad selector fails at once`, /Invalid CSS selector/.test(by['bad selector']?.error), by['bad selector']);
     check(`[${label}] an SVG element is clicked`, by['svg click']?.passed === true, by['svg click']);
     check(`[${label}] fill sets a slider`, by.slider?.passed === true, by.slider);
-    check(`[${label}] only this page's tests ran`, !by['other page'] && !by.phone && done.results.length === 8);
+    check(`[${label}] an inline script's error names the page, not its cache-buster`, /\(index\.html:9\)$/.test(by['inline error']?.error || ''), by['inline error']);
+    check(`[${label}] only this page's tests ran`, !by['other page'] && !by.phone && done.results.length === 9);
     check(`[${label}] other pages and sizes reported as groups`,
         JSON.stringify(done.groups) === JSON.stringify([{ page: '', mobile: false }, { page: 'about.html', mobile: false }, { page: '', mobile: true }]), done.groups);
-    check(`[${label}] each result posted as it finished`, env.posted.filter(p => p.msg.type === 'puter-tests-result').length === 8);
+    check(`[${label}] each result posted as it finished`, env.posted.filter(p => p.msg.type === 'puter-tests-result').length === 9);
     check(`[${label}] a resend of the same run is only acked`, (() => {
         const before = env.posted.length;
         env.deliver({ type: 'puter-tests-run', runId: done.runId, code: 'x' });
