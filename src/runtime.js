@@ -478,8 +478,8 @@
 //     layer over the real data, AI calls get placeholder answers (no cost),
 //     puter.fs changes, sign-in and sign-out, hosting/app/worker/team
 //     management, email, notifications and requests that change data on the
-//     app's workers are refused, dialogs
-//     are answered without showing, and media plays muted. The frame itself
+//     app's workers are refused, BroadcastChannel stays inside the frame,
+//     dialogs are answered without showing, and media plays muted. The frame itself
 //     is sandboxed without popups, dialogs, downloads or device access.
 //     IndexedDB and cookies are the exception: an app usually opens its
 //     database before this deferred file runs, so writes there can't be
@@ -862,6 +862,7 @@
             if (El && typeof El.webkitRequestFullscreen === 'function') El.webkitRequestFullscreen = function () {};
             if (Doc && typeof Doc.exitFullscreen === 'function') Doc.exitFullscreen = ok;
         });
+        sandboxBroadcast();
         overlayWindowStorage('localStorage');
         overlayWindowStorage('sessionStorage');
         rerouteStorage();
@@ -956,6 +957,59 @@
                     if (!blockedPost) return submit.apply(this, arguments);
                 };
             }
+        });
+    }
+
+    // BroadcastChannel reaches every page of the app's origin, and the
+    // visible preview is one: an app that keeps its tabs in step would hand
+    // it what a test does, and the preview would save it to the user's real
+    // data. Channels opened here talk only to each other; one the app opened
+    // before this file ran still hears others but sends nothing out.
+    function sandboxBroadcast() {
+        attempt(function () {
+            var Real = window.BroadcastChannel;
+            if (typeof Real !== 'function' || typeof window.EventTarget !== 'function') return;
+            if (Real.prototype && typeof Real.prototype.postMessage === 'function') {
+                attempt(function () { Real.prototype.postMessage = function () {}; });
+            }
+            var open = Object.create(null); // name -> the channels open here
+            function copyOf(data) {
+                return typeof window.structuredClone === 'function' ? window.structuredClone(data) : data;
+            }
+            function messageEvent(data) {
+                try { return new MessageEvent('message', { data: data }); }
+                catch (e) { var ev = new Event('message'); ev.data = data; return ev; }
+            }
+            var Channel = function BroadcastChannel(name) {
+                var ch = new window.EventTarget();
+                var key = String(name);
+                var closed = false;
+                ch.name = key;
+                ch.onmessage = null;
+                ch.onmessageerror = null;
+                ch.postMessage = function (data) {
+                    if (closed) throw new Error('This BroadcastChannel is closed.');
+                    var copy = copyOf(data);
+                    (open[key] || []).forEach(function (other) {
+                        if (other !== ch) setTimeout(function () { other.__puterDeliver(copy); }, 0);
+                    });
+                };
+                ch.close = function () {
+                    closed = true;
+                    open[key] = (open[key] || []).filter(function (o) { return o !== ch; });
+                };
+                // onmessage as a listener, so an error in it is reported
+                // like any handler's, as it is on a real channel.
+                ch.addEventListener('message', function (ev) {
+                    if (typeof ch.onmessage === 'function') return ch.onmessage.call(ch, ev);
+                });
+                ch.__puterDeliver = function (data) {
+                    if (!closed) ch.dispatchEvent(messageEvent(data));
+                };
+                (open[key] = open[key] || []).push(ch);
+                return ch;
+            };
+            Object.defineProperty(window, 'BroadcastChannel', { configurable: true, writable: true, value: Channel });
         });
     }
 
