@@ -1067,6 +1067,11 @@
         return !!el.isContentEditable;
     }
 
+    // Fields fill() sets without typing: a slider and a color picker.
+    function isSetField(el) {
+        return el.tagName === 'INPUT' && /^(range|color)$/i.test(el.type || '');
+    }
+
     function focusFor(el) {
         var active = document.activeElement;
         if (isTextField(el) || el.tagName === 'BUTTON' || el.tagName === 'A' || el.tabIndex >= 0) {
@@ -1111,7 +1116,7 @@
                 if (el.checked !== !!value) el.click();
                 return settle();
             }
-            if (!isTextField(el)) throw fatal(describeEl(el) + ' is not a text field, select or checkbox, so fill() can\'t type into it.');
+            if (!isTextField(el) && !isSetField(el)) throw fatal(describeEl(el) + ' is not a text field, select, slider or checkbox, so fill() can\'t type into it.');
             if (el.readOnly) throw fatal(describeEl(el) + ' is read-only.');
             focusFor(el);
             var text = String(value == null ? '' : value);
