@@ -678,6 +678,17 @@ async function runtimeChecks(label, src) {
             by12['own reply']?.passed === true && by12['top reply again']?.passed === true, [by12['own reply'], by12['top reply again']]);
     }
 
+    {
+        // A button inside a disabled fieldset is disabled, though its own
+        // property says otherwise.
+        const e13 = makeRuntimeEnv(src);
+        const { El: El13, body: body13 } = e13.dom;
+        const inFieldset = body13.appendChild(new El13('button', { id: 'pay', tabIndex: 0 }));
+        inFieldset.matches = (sel) => sel === ':disabled';
+        const r = await runSuite(e13, "test('pay', async () => { await click('#pay', { timeout: 100 }); });");
+        check(`[${label}] a control in a disabled fieldset is reported disabled`, /be enabled \(it is disabled\)/.test(r?.results?.[0]?.error || ''), r?.results?.[0]);
+    }
+
     // Setup problems.
     const setup = await runSuite(makeRuntimeEnv(src), "throw new Error('bad setup');");
     check(`[${label}] a throwing setup is reported`, /threw before any test ran: bad setup/.test(setup?.setupError), setup);

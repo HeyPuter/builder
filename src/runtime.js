@@ -1259,6 +1259,14 @@
         return t > 0 ? Math.min(t, MAX_TEST_MS) : fallback;
     }
 
+    // Disabled as the browser sees it: a control inside a disabled fieldset
+    // is too, though its own disabled property says false (and a click on it
+    // does nothing).
+    function isDisabled(el) {
+        if (el.disabled) return true;
+        try { return typeof el.matches === 'function' && el.matches(':disabled'); } catch (e) { return false; }
+    }
+
     // Wait for a visible (and, for actions, enabled) element.
     function find(target, opts) {
         opts = opts || {};
@@ -1272,7 +1280,7 @@
             if (opts.visible === false) return shown[0] || els[0];
             if (!shown.length) { state = 'be visible (it exists but is hidden)'; return null; }
             if (opts.enabled) {
-                var on = shown.filter(function (el) { return !el.disabled; });
+                var on = shown.filter(function (el) { return !isDisabled(el); });
                 if (!on.length) { state = 'be enabled (it is disabled)'; return null; }
                 return on[0];
             }
