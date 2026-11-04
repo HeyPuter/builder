@@ -229,12 +229,18 @@
     // the active element and taking focus back works, so the check runs a few
     // times over the next moment. Removing a focused frame drops focus to the
     // page body, so stop() gives it back too.
+    //
+    // "Whatever had it" is followed on every check, not only on focusin: focus
+    // moving into the visible preview (the user trying their app while the
+    // tests run) fires no focusin here, and giving focus back to the composer
+    // then would send what they type for their app into the chat.
     function guardFocus(frame) {
-        let last = document.activeElement && document.activeElement !== frame && document.activeElement !== document.body
-            ? document.activeElement : null;
+        const usable = (el) => !!el && el !== frame && el !== document.body;
+        let last = usable(document.activeElement) ? document.activeElement : null;
         let stolen = false;
         const giveBack = () => {
-            if (document.activeElement !== frame) return;
+            const now = document.activeElement;
+            if (now !== frame) { if (usable(now)) last = now; return; }
             stolen = true;
             if (last && last.isConnected && typeof last.focus === 'function') {
                 try { last.focus({ preventScroll: true }); } catch (e) { /* ignore */ }
