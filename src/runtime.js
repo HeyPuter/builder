@@ -533,7 +533,26 @@
 
     // Storage whose writes stay in memory while reads fall through to the real
     // store, so the app (and puter.js, which keeps its session there) still
-    // sees what was there, and the user's data is never changed.
+    // sees what was there, and the user's data is never changed. The real
+    // store is read through Storage.prototype's own methods, saved before
+    // they are rerouted below.
+    var StorageProto = (window.Storage && window.Storage.prototype) || null;
+    var storageMethods = {};
+    var storageLength = null;
+    attempt(function () {
+        if (!StorageProto) return;
+        ['getItem', 'setItem', 'removeItem', 'clear', 'key'].forEach(function (n) {
+            if (typeof StorageProto[n] === 'function') storageMethods[n] = StorageProto[n];
+        });
+        var d = Object.getOwnPropertyDescriptor(StorageProto, 'length');
+        if (d && typeof d.get === 'function') storageLength = d.get;
+    });
+    function realCall(real, n, args) {
+        var f = storageMethods[n] || real[n];
+        return f.apply(real, args);
+    }
+    function realLength(real) { return storageLength ? storageLength.call(real) : real.length; }
+
     function overlayStorage(real) {
         var mem = Object.create(null); // key -> string, or null once removed
         var cleared = false;
@@ -542,14 +561,15 @@
             k = String(k);
             if (has(k)) return mem[k];
             if (cleared || !real) return null;
-            try { return real.getItem(k); } catch (e) { return null; }
+            try { return realCall(real, 'getItem', [k]); } catch (e) { return null; }
         }
         function keys() {
             var out = [];
             if (!cleared && real) {
                 try {
-                    for (var i = 0; i < real.length; i++) {
-                        var k = real.key(i);
+                    var n = realLength(real);
+                    for (var i = 0; i < n; i++) {
+                        var k = realCall(real, 'key', [i]);
                         if (k != null && !has(k)) out.push(k);
                     }
                 } catch (e) { /* unreadable store: memory only */ }
@@ -564,7 +584,7 @@
             clear: function () { mem = Object.create(null); cleared = true; },
             key: function (i) { var ks = keys(); return (i >= 0 && i < ks.length) ? ks[i] : null; }
         };
-        return new Proxy({}, {
+        var proxy = new Proxy({}, {
             get: function (t, p) {
                 if (p === 'length') return keys().length;
                 if (typeof p !== 'string') return undefined;
@@ -581,6 +601,41 @@
                 return v === null ? undefined : { value: v, writable: true, enumerable: true, configurable: true };
             }
         });
+        return { proxy: proxy, api: api, keys: keys };
+    }
+
+    // Each real store and its layer. An app (or a library it loads before this
+    // file, which is deferred) may have kept the real localStorage in a
+    // variable; its method calls go through Storage.prototype, so those are
+    // sent to the layer too and its writes still stay in memory.
+    var storageLayers = [];
+    function layerOf(store) {
+        for (var i = 0; i < storageLayers.length; i++) if (storageLayers[i].real === store) return storageLayers[i];
+        return null;
+    }
+    function rerouteStorage() {
+        attempt(function () {
+            if (!StorageProto) return;
+            Object.keys(storageMethods).forEach(function (n) {
+                var original = storageMethods[n];
+                attempt(function () {
+                    StorageProto[n] = function () {
+                        var layer = layerOf(this);
+                        return layer ? layer.api[n].apply(layer.api, arguments) : original.apply(this, arguments);
+                    };
+                });
+            });
+            if (storageLength) {
+                Object.defineProperty(StorageProto, 'length', {
+                    configurable: true,
+                    enumerable: true,
+                    get: function () {
+                        var layer = layerOf(this);
+                        return layer ? layer.keys().length : storageLength.call(this);
+                    }
+                });
+            }
+        });
     }
 
     function overlayWindowStorage(name) {
@@ -588,7 +643,8 @@
             var real = null;
             try { real = window[name]; } catch (e) { real = null; }
             var layer = overlayStorage(real);
-            Object.defineProperty(window, name, { configurable: true, enumerable: true, get: function () { return layer; } });
+            if (real) storageLayers.push({ real: real, api: layer.api, keys: layer.keys });
+            Object.defineProperty(window, name, { configurable: true, enumerable: true, get: function () { return layer.proxy; } });
         });
     }
 
@@ -747,6 +803,7 @@
         });
         overlayWindowStorage('localStorage');
         overlayWindowStorage('sessionStorage');
+        rerouteStorage();
         attempt(function () {
             var realFetch = window.fetch;
             if (typeof realFetch !== 'function') return;
