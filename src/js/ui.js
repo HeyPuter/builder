@@ -2068,8 +2068,8 @@ function keepPublishPanelFocus($panel) {
     const selector = cls ? '.' + cls + (action ? `[data-action="${action}"]` : '') : null;
     return () => {
         const el = selector ? $panel.find(selector).filter(':visible')[0] : null;
-        // A control that came back disabled (a domain's Check now while it
-        // checks) can't take focus, which would leave it on <body>.
+        // A control that came back disabled can't take focus, which would
+        // leave it on <body>.
         if (!el || el.disabled) { $panel.trigger('focus'); return; }
         el.focus({ preventScroll: true });
         if (el.classList.contains('publish-name-input')) {
@@ -3513,6 +3513,9 @@ $(document).on('click', '.publish-address-save', async function () {
 // with Puter's window open over it.
 const DOMAIN_CHECK_MS = 15000;
 // Projects whose connect dialog is open, so their button waits for it.
+// A waiting button is aria-disabled, not disabled, here and for Check now:
+// the render that marks it would otherwise drop the focus on it, and the
+// click handlers ignore it meanwhile.
 const _domainConnectBusy = new Set();
 // The checks in flight by hostname, the ones the user pressed Check now for,
 // and the ones that press found not working yet (the note under them).
@@ -3558,7 +3561,7 @@ function publishAddressHeadHtml() {
     return '<div class="publish-address-head">' +
         '<span class="publish-address-label">Site address</span>' +
         (offer
-            ? `<button type="button" class="publish-domain-action" data-action="${change ? 'change-domain' : 'use-domain'}"${busy ? ' disabled' : ''}>` +
+            ? `<button type="button" class="publish-domain-action" data-action="${change ? 'change-domain' : 'use-domain'}"${busy ? ' aria-disabled="true"' : ''}>` +
                 (busy ? 'Connecting…' : change ? 'Change domain' : 'Use custom domain') +
             '</button>'
             : '') +
@@ -3603,11 +3606,11 @@ function publishDomainCardHtml(domain, sub) {
                 '<span class="publish-domain-state">Not connected</span>' +
             '</div>' +
             `<p class="publish-domain-note">It was connected to ${htmlEscape(v.domain.site)}.puter.site, this site’s address before you changed it. Connect it again to use it here.</p>` +
-            `<button type="button" class="publish-domain-btn publish-domain-connect" data-action="reconnect-domain"${busy ? ' disabled' : ''}>${busy ? 'Connecting…' : 'Connect again'}</button>` +
+            `<button type="button" class="publish-domain-btn publish-domain-connect" data-action="reconnect-domain"${busy ? ' aria-disabled="true"' : ''}>${busy ? 'Connecting…' : 'Connect again'}</button>` +
         '</div>';
     }
     const checking = _domainManualChecks.has(v.hostname);
-    const checkBtn = `<button type="button" class="publish-domain-btn publish-domain-check" data-action="check-domain" data-host="${host}"${checking ? ' disabled' : ''}>` +
+    const checkBtn = `<button type="button" class="publish-domain-btn publish-domain-check" data-action="check-domain" data-host="${host}"${checking ? ' aria-disabled="true"' : ''}>` +
         (checking ? '<span class="publish-spinner" aria-hidden="true"></span><span>Checking…</span>' : '<span>Check now</span>') +
     '</button>';
     if (v.kind === 'lost') {
@@ -3622,7 +3625,7 @@ function publishDomainCardHtml(domain, sub) {
             (_domainNotYet.has(v.hostname) && !checking ? '<p class="publish-domain-note is-not-yet">Still not working.</p>' : '') +
             '<div class="publish-domain-actions">' +
                 checkBtn +
-                `<button type="button" class="publish-domain-btn publish-domain-connect" data-action="reconnect-domain"${busy ? ' disabled' : ''}>${busy ? 'Connecting…' : 'Connect again'}</button>` +
+                `<button type="button" class="publish-domain-btn publish-domain-connect" data-action="reconnect-domain"${busy ? ' aria-disabled="true"' : ''}>${busy ? 'Connecting…' : 'Connect again'}</button>` +
             '</div>' +
         '</div>';
     }
@@ -3873,6 +3876,7 @@ async function publishWithDomain() {
 $(document).on('click', '.preview-publish-panel .publish-domain-action', function (e) {
     e.preventDefault();
     e.stopPropagation();
+    if (this.getAttribute('aria-disabled') === 'true') return;
     useOwnDomain($(this).attr('data-action'));
 });
 
@@ -4012,6 +4016,7 @@ window.confirmAddressChangeKeepsDomains = confirmAddressChangeKeepsDomains;
 $(document).on('click', '.preview-publish-panel .publish-domain-connect', function (e) {
     e.preventDefault();
     e.stopPropagation();
+    if (this.getAttribute('aria-disabled') === 'true') return;
     connectCustomDomain(undefined, { from: 'reconnect' });
 });
 
@@ -4019,7 +4024,7 @@ $(document).on('click', '.preview-publish-panel .publish-domain-check', async fu
     e.preventDefault();
     e.stopPropagation();
     const host = $(this).attr('data-host');
-    if (!host || _domainManualChecks.has(host)) return;
+    if (!host || _domainManualChecks.has(host) || this.getAttribute('aria-disabled') === 'true') return;
     const chatId = currentChatId;
     _domainManualChecks.add(host);
     _domainNotYet.delete(host);
