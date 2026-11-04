@@ -950,6 +950,35 @@ await builderScenario('builder: flag off → nothing runs', {
     check('builder: focus goes back to the composer while the tests still run', soonAfter === true);
 }
 
+{
+    // The user moved into the visible preview to try their app (no focusin
+    // reaches the builder for that): focus a test takes goes back there, not
+    // to the composer, where their typing would become a chat message.
+    let preview = null, afterSteal = null;
+    const env = makeBuilderEnv({
+        scenario: (f) => ({
+            onRun(msg) {
+                f.reply({ type: 'puter-tests-ack', runId: msg.runId });
+                setTimeout(() => {
+                    preview = { id: 'preview', isConnected: true, focus() { env.document.activeElement = this; } };
+                    env.document.activeElement = preview;
+                    env.fire('blur', {});
+                    setTimeout(() => {
+                        env.document.activeElement = f;
+                        env.fire('blur', {});
+                        setTimeout(() => {
+                            afterSteal = env.document.activeElement;
+                            f.reply({ type: 'puter-tests-done', runId: msg.runId, results: [{ name: 'a', passed: true }] });
+                        }, 80);
+                    }, 30);
+                }, 10);
+            },
+        }),
+    });
+    await env.AT.run({ baseUrl: BASE, code: "test('x', () => {})" });
+    check('builder: focus taken from the visible preview goes back to the preview', afterSteal === preview && env.document.activeElement === preview,
+        { afterSteal: afterSteal && afterSteal.id, end: env.document.activeElement && env.document.activeElement.id });
+}
 // Storage through the real read/write/remove.
 {
     const env = makeBuilderEnv();
