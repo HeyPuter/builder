@@ -821,6 +821,17 @@ const BASE = 'https://preview-1.puter.site/';
     const merged = core.mergeRetry({ results: [{ name: 'a', passed: false, error: 'e' }, { name: 'b', passed: false, error: 'e' }] },
         { results: [{ name: 'a', passed: true }, { name: 'b', passed: false, error: 'e2' }] });
     check('core: a test passing on retry counts as passed', merged.results[0].passed === true && merged.results[1].passed === false);
+    {
+        // Two tests with one name: the one that passes doesn't stand in for
+        // the one that fails both times.
+        const run = () => ({ results: [{ name: 'adds', passed: true }, { name: 'adds', passed: false, error: 'e' }] });
+        const twin = core.mergeRetry(run(), run());
+        check('core: a repeated name can\'t hide a test that fails both times', twin.results[1].passed === false,
+            twin.results);
+        const shorter = core.mergeRetry({ results: [{ name: 'a', passed: false, error: 'e' }, { name: 'b', passed: false, error: 'e' }] },
+            { results: [{ name: 'a', passed: false, error: 'e' }] });
+        check('core: a test the retry never reached keeps its first result', shorter.results[1].passed === false && shorter.results[1].error === 'e');
+    }
     const s = core.summarize([{ group: { page: '', mobile: false }, results: Array.from({ length: 10 }, (_, i) => ({ name: 't' + i, passed: false, error: 'e' })) }]);
     check('core: failures capped for the AI', s.failures.length === 8 && s.moreFailures === 2 && s.total === 10);
 }

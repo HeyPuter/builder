@@ -163,16 +163,18 @@
     }
 
     // A first run and its retry: a test counts as failed only if it failed both
-    // times. A test the retry never reached keeps its first result.
+    // times. A test the retry never reached keeps its first result. Both runs
+    // go through the page's tests in the same order, so a test is matched by
+    // its place, not its name (two tests may share one, and a passing one
+    // must not stand in for the other).
     function mergeRetry(first, retry) {
         if (!retry) return first;
-        const retried = new Map();
-        for (const r of retry.results || []) if (!retried.has(r.name)) retried.set(r.name, r);
+        const again = retry.results || [];
         return Object.assign({}, first, {
-            results: (first.results || []).map(r => {
+            results: (first.results || []).map((r, i) => {
                 if (r.passed) return r;
-                const again = retried.get(r.name);
-                return again && again.passed ? again : r;
+                const a = again[i];
+                return a && a.name === r.name && a.passed ? a : r;
             }),
         });
     }
