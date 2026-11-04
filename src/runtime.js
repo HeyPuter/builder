@@ -1008,13 +1008,25 @@
             if (ns && (typeof ns === 'object' || typeof ns === 'function')) attempt(function () { ns[name] = fn; });
         }
         var ai = p.ai;
-        set(ai, 'chat', fakeChat);
-        set(ai, 'txt2img', fakeImage);
-        set(ai, 'txt2speech', fakeAudio);
-        set(ai, 'speech2speech', fakeAudio);
-        set(ai, 'txt2vid', fakeVideo);
-        set(ai, 'img2txt', fakeText);
-        set(ai, 'speech2txt', fakeTranscript);
+        // A fake that keeps what puter.js hangs on the real function
+        // (txt2speech.listVoices and listEngines), which are free reads.
+        function fakeOf(name, fake) {
+            var real = ai && ai[name];
+            if (typeof real !== 'function') return fake;
+            var f = function () { return fake.apply(this, arguments); };
+            attempt(function () { Object.keys(real).forEach(function (k) { f[k] = real[k]; }); });
+            return f;
+        }
+        set(ai, 'chat', fakeOf('chat', fakeChat));
+        set(ai, 'txt2img', fakeOf('txt2img', fakeImage));
+        set(ai, 'txt2speech', fakeOf('txt2speech', fakeAudio));
+        set(ai, 'speech2speech', fakeOf('speech2speech', fakeAudio));
+        set(ai, 'txt2vid', fakeOf('txt2vid', fakeVideo));
+        set(ai, 'img2txt', fakeOf('img2txt', fakeText));
+        set(ai, 'speech2txt', fakeOf('speech2txt', fakeTranscript));
+        // A live voice conversation is a billed realtime session with
+        // nothing to fake it with.
+        if (ai && typeof ai.convo === 'function') set(ai, 'convo', refuse('Live AI conversations'));
         if (p.kv) attempt(function () { overlayKv(p.kv); });
         ['write', 'mkdir', 'delete', 'rename', 'move', 'copy', 'upload'].forEach(function (n) {
             set(p.fs, n, refuse('Changing files with puter.fs'));

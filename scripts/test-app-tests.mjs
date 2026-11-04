@@ -211,7 +211,12 @@ function makeRuntimeEnv(src, { top = false, name = FRAME_NAME, before } = {}) {
     g.Image = function () { this.src = ''; };
     g.Audio = function (src) { this.src = src; };
     g.puter = {
-        ai: { chat: () => { real.ai++; return Promise.resolve('REAL'); }, txt2img: () => { real.ai++; return Promise.resolve(null); }, listModels: () => Promise.resolve(['m']) },
+        ai: {
+            chat: () => { real.ai++; return Promise.resolve('REAL'); }, txt2img: () => { real.ai++; return Promise.resolve(null); }, listModels: () => Promise.resolve(['m']),
+            // As in puter.js: free reads hang on txt2speech, and convo is a billed live session.
+            txt2speech: Object.assign(() => { real.ai++; return Promise.resolve(null); }, { listVoices: () => Promise.resolve(['v1']), listEngines: () => Promise.resolve(['e1']) }),
+            convo: () => { real.ai++; return Promise.resolve({}); },
+        },
         kv: {
             get: (k) => Promise.resolve(realKv.has(k) ? realKv.get(k) : null),
             set: () => { real.kvSets++; return Promise.resolve(true); },
@@ -344,6 +349,10 @@ async function runtimeChecks(label, src) {
     check(`[${label}] ai.chat streams a placeholder`, part.value.text.includes('placeholder') && (await streamed.next()).done === true);
     check(`[${label}] ai.txt2img gives a placeholder image`, String((await g.puter.ai.txt2img('x')).src).startsWith('data:image') && real.ai === 0);
     check(`[${label}] free AI calls pass through`, (await g.puter.ai.listModels())[0] === 'm');
+    check(`[${label}] ai.txt2speech is faked and keeps its voice list`,
+        (await g.puter.ai.txt2speech('hi')).muted === true && (await g.puter.ai.txt2speech.listVoices())[0] === 'v1' &&
+        (await g.puter.ai.txt2speech.listEngines())[0] === 'e1' && real.ai === 0);
+    check(`[${label}] a live AI conversation is refused`, /turned off/.test(await g.puter.ai.convo({}).then(() => 'resolved', e => e.message)) && real.ai === 0);
 
     // Refusals.
     const reason = (p) => p.then(() => 'resolved', e => e.message);
