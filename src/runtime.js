@@ -814,7 +814,88 @@
                 return realFetch.apply(window, arguments);
             };
         });
+        guardWorkerWrites();
         sandboxPuter();
+    }
+
+    // The other ways a page can send a write to its workers: XMLHttpRequest
+    // (axios and older code), navigator.sendBeacon, and a plain form posted
+    // to a worker's address. Each is refused like fetch above, and reads go
+    // through.
+    function guardWorkerWrites() {
+        attempt(function () {
+            var proto = window.XMLHttpRequest && window.XMLHttpRequest.prototype;
+            if (!proto || typeof proto.open !== 'function' || typeof proto.send !== 'function' || typeof WeakMap !== 'function') return;
+            var open = proto.open, send = proto.send;
+            var blocked = new WeakMap(); // request -> true when sync
+            proto.open = function (method, url, isAsync) {
+                try {
+                    if (isWorkerUrl(url) && changesData(method)) blocked.set(this, isAsync === false);
+                    else blocked['delete'](this);
+                } catch (e) { /* never break the page */ }
+                return open.apply(this, arguments);
+            };
+            proto.send = function () {
+                if (!blocked.has(this)) return send.apply(this, arguments);
+                var xhr = this;
+                if (blocked.get(xhr)) throw refused(WORKER_REFUSAL);
+                // What a request that never reached the server looks like:
+                // status 0, readyState 4, then error and loadend.
+                setTimeout(function () {
+                    attempt(function () { Object.defineProperty(xhr, 'readyState', { configurable: true, get: function () { return 4; } }); });
+                    ['readystatechange', 'error', 'loadend'].forEach(function (type) {
+                        attempt(function () {
+                            var ev;
+                            try { ev = type === 'readystatechange' ? new Event(type) : new ProgressEvent(type); }
+                            catch (e) { ev = new Event(type); }
+                            xhr.dispatchEvent(ev);
+                        });
+                    });
+                }, 0);
+            };
+        });
+        attempt(function () {
+            var nav = window.navigator;
+            var beacon = nav && nav.sendBeacon;
+            if (typeof beacon !== 'function') return;
+            nav.sendBeacon = function (url) {
+                if (isWorkerUrl(url)) return false; // a beacon is always a POST
+                return beacon.apply(nav, arguments);
+            };
+        });
+        attempt(function () {
+            var Form = window.HTMLFormElement;
+            if (!Form || !Form.prototype) return;
+            // Through the prototype: a control named "action" or "method"
+            // shadows the form's own property.
+            function prop(el, Ctor, name) {
+                var d = Ctor && Ctor.prototype && Object.getOwnPropertyDescriptor(Ctor.prototype, name);
+                return d && d.get ? d.get.call(el) : el[name];
+            }
+            function postsToWorker(form, submitter) {
+                var useSubmitter = submitter && submitter.hasAttribute;
+                var Btn = submitter && submitter.tagName === 'BUTTON' ? window.HTMLButtonElement : window.HTMLInputElement;
+                var method = useSubmitter && submitter.hasAttribute('formmethod') ? prop(submitter, Btn, 'formMethod') : prop(form, Form, 'method');
+                var action = useSubmitter && submitter.hasAttribute('formaction') ? prop(submitter, Btn, 'formAction') : prop(form, Form, 'action');
+                return String(method).toLowerCase() === 'post' && isWorkerUrl(action);
+            }
+            // Last, after the app's own handlers: a form the app sends with
+            // fetch has already been stopped by then.
+            window.addEventListener('submit', function (e) {
+                try {
+                    var form = e.target;
+                    if (!e.defaultPrevented && form && form.tagName === 'FORM' && postsToWorker(form, e.submitter)) e.preventDefault();
+                } catch (err) { /* never break the page */ }
+            });
+            var submit = Form.prototype.submit;
+            if (typeof submit === 'function') {
+                Form.prototype.submit = function () {
+                    var blockedPost = false;
+                    try { blockedPost = postsToWorker(this, null); } catch (e) { /* never break the page */ }
+                    if (!blockedPost) return submit.apply(this, arguments);
+                };
+            }
+        });
     }
 
     var sandboxedPuter = null;
