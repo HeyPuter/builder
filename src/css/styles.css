@@ -1515,6 +1515,11 @@ html.vv-sized .chat:not(.active) {
     resize: none;
 }
 .pasted-modal-text:focus { outline: none; border-color: #bbb; }
+/* Prevent iOS zoom-on-focus: the Edit dialog focuses its text itself, so the
+   page zoomed in the moment it opened (as .confirm-modal-input). */
+@media (max-width: 900px) {
+    .pasted-modal-text { font-size: 16px; }
+}
 .pasted-modal .properties-modal-actions { gap: 8px; }
 .pasted-modal-save { background: #1a1a1a; color: #fff; }
 .pasted-modal-save:hover { background: #333; }
