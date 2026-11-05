@@ -5762,12 +5762,17 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // composer is usable during a turn, so it may hold text by now (typed
         // meanwhile, or queued messages an error put back). This message goes
         // ahead of it. A queued message gets its files and picked element back
-        // too. The Resume banner comes down only when no newer turn has
+        // too. A composer send gets its pasted text cards back, since they are
+        // part of its text (and, unlike files, have no blob URL to expire).
+        // The Resume banner comes down only when no newer turn has
         // started, since one shown by then is that turn's own.
         let handedBack = false;
         if (!isResume && (consumedComposer || queued) && !turnAppended && turnChatId === currentChatId) {
             if (userBubbleMessageId) $(`.message[data-message-id="${userBubbleMessageId}"]`).remove();
-            window.MessageQueue?.returnToComposer?.([queued || { text: messageText }]);
+            window.MessageQueue?.returnToComposer?.([queued || {
+                text: messageText,
+                attachments: sendAttachments.filter(a => a.pastedText != null),
+            }]);
             handedBack = true;
             if (turnSeq === _turnSeq) clearResumeBanner();
         }

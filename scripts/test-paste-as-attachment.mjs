@@ -130,6 +130,9 @@ check('editing a pasted card saves the draft', /entry\.pastedText = next;[\s\S]{
 check('a send takes its pasted cards out of the tray right after clearing the draft',
     /clearComposerDraft\(preAuthDraftContext\);[\s\S]{0,400}const sentPastes = sendAttachments\.filter\(a => a\.pastedText != null\);\s*if \(sentPastes\.length\) clearAllAttachments\(\{ only: sentPastes \}\);/.test(APP));
 
+check('a composer send that never lands hands its pasted cards back with its text',
+    /returnToComposer\?\.\(\[queued \|\| \{\s*text: messageText,\s*attachments: sendAttachments\.filter\(a => a\.pastedText != null\),\s*\}\]\)/.test(APP));
+
 check('npm test runs this file', PKG.scripts.test.includes('node scripts/test-paste-as-attachment.mjs'));
 
 if (failures) { console.error(`\n${failures} check(s) FAILED`); process.exit(1); }
