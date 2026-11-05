@@ -8,9 +8,8 @@
 // - route: the Puter provider a request starts on. GPT-6.1 Sol needs OpenAI's
 //   Responses API for tool calls (Chat Completions refuses tools for it), so it
 //   is pinned there. Claude is pinned to Anthropic so a request doesn't start
-//   on a reseller, whose translation drops images and allows several tool
-//   calls per reply. A pin only picks the first route; Puter can still fall
-//   back after a failure.
+//   on a reseller, whose translation drops images. A pin only picks the first
+//   route; Puter can still fall back after a failure.
 // - reasoningEffort: Sonnet 5.5 at 'medium' scores far below Opus, so it runs
 //   at 'high'. 'medium' is Opus 5.5's own default.
 // - toolResultMedia / pdf / gif: only Claude takes images and PDFs inside a
@@ -94,10 +93,10 @@ window.ModelCore = (function () {
     }
 
     // The options for one puter.ai.chat build request. parallelToolCalls is
-    // camelCase because puter.js only forwards that spelling. For Claude it
-    // changes nothing on the wire (Puter already turns parallel calls off), so
-    // the prompt cache is unaffected. Gemini has no such switch, which is why
-    // handleMessageStream runs a whole reply's tool calls as one batch.
+    // camelCase because puter.js only forwards that spelling. It lets the model
+    // make several independent calls in one reply (reading five files at once,
+    // say), which handleMessageStream runs as one batch, so a turn needs fewer
+    // model rounds. Left unset, Puter allows one call per reply.
     // While compaction is on, it's asked for on every round, so a long build
     // can compact again. streamToolInput has Puter send a tool call's name the
     // moment the model starts it, and its arguments as they're written, ahead
@@ -112,7 +111,7 @@ window.ModelCore = (function () {
             stream: true,
             streamToolInput: true,
             reasoning_effort: m.reasoningEffort,
-            parallelToolCalls: false,
+            parallelToolCalls: true,
             provider: m.route,
             ...(m.compactAt && compactionOn() ? { compaction: { trigger_tokens: m.compactAt } } : {}),
             signal,

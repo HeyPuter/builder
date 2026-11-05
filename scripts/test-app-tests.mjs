@@ -93,6 +93,7 @@ check('publish: release drops the hidden tests before it is returned',
     check('status: failing tests → "Fixing a problem"', label(call, { x: { verification: { status: 'tests_failed' } } }) === 'Fixing a problem');
     check('status: tests that still fail → "Finishing up"', label(call, { x: { verification: { status: 'tests_persist' } } }) === 'Finishing up');
     check('status: runtime errors unchanged', label(call, { x: { verification: { status: 'errors_detected' } } }) === 'Fixing a problem');
+    check('a check that did not run says nothing', label(call, { x: { error: 'Not run, because an earlier call in this reply failed' } }) === '');
 }
 
 // ===========================================================================
