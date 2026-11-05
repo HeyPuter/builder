@@ -2795,6 +2795,11 @@ async function revealWhenReady() {
 }
 
 $(document).ready(async function(){
+    // A link that starts something (a template, a marketing page's prompt or
+    // send), read before those are taken out of the address bar. The What's
+    // new dialog stays out of its way.
+    const startedFromLink = /[?&](?:template|prompt|handoff)=/.test(window.location.search);
+
     // set the marked options
     marked.use(window.MARKED_OPTIONS);
 
@@ -2938,6 +2943,16 @@ $(document).ready(async function(){
     // it, otherwise show the template dialog. Not awaited: a fork takes a few
     // seconds and reports its own outcome, and nothing below depends on it.
     window.consumeTemplateDeepLink?.();
+
+    // The newest feature, once per account, for a user who has built
+    // something (js/whats-new.js). Not awaited: it waits on puter.kv, and
+    // checks again before it shows that no build has started meanwhile.
+    if (!startedFromLink) {
+        window.WhatsNew?.maybeShow({
+            hasProjects: savedChats.length > 0,
+            busy: () => isProcessing || _sendSetupInFlight,
+        }).catch((e) => console.warn('Could not show What’s new:', e));
+    }
 
     // Skip on mobile: autofocusing here pops the on-screen keyboard up over
     // the landing page before the user has touched anything.
