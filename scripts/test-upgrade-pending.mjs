@@ -24,7 +24,7 @@ const b = UI.indexOf('// ===== upgrade-pending (end) =====');
 if (a < 0 || b < 0) throw new Error('could not extract upgrade-pending block');
 const make = new Function('window', 'localStorage', 'Date', 'puter', 'navigator', 'document',
     'updateUserMenu', '_publishPanelOpen', 'renderPublishPanel', 'openUpgradeModal',
-    UI.slice(a, b) + '\nreturn { setUpgradePending, refreshSubscriptionAfterUpgrade, startUpgradeChecks, UPGRADE_PENDING_PREFIX };');
+    UI.slice(a, b) + '\nreturn { setUpgradePending, refreshSubscriptionAfterUpgrade, startUpgradeChecks, upgradeIsPending, UPGRADE_PENDING_PREFIX };');
 
 const HOUR = 36e5;
 const T0 = Date.UTC(2026, 9, 28, 12, 0, 0);
@@ -301,6 +301,35 @@ const completed = p => p.win._calls.filter(c => c[0] === 'Upgrade Completed');
     check('a focus during startup → no requests, the click kept', booting.win._fetches === 0 && storage._m.has(KEY));
     await booting.startUpgradeChecks();
     check('startup done → credited and the success dialog shown', completed(booting).length === 1 && booting.win._dialogs.length === 1);
+}
+
+// upgradeIsPending, which startup asks before the What's new dialog
+{
+    clock.now = T0;
+    const box = { subscribed: false };
+    const storage = memStorage();
+    const p = page(box, storage, { start: false });
+    check('nothing clicked → not pending', p.upgradeIsPending() === false);
+    p.setUpgradePending('custom_domain');
+    check('a click in this tab → pending', p.upgradeIsPending() === true);
+    clock.now = T0 + 2 * HOUR;
+    const reloaded = page(box, storage, { start: false });
+    check('the saved click after a reload → pending', reloaded.upgradeIsPending() === true);
+    clock.now = T0 + 25 * HOUR;
+    check('a saved click past its 24 hours → not pending', page(box, storage, { start: false }).upgradeIsPending() === false);
+    storage.setItem(KEY, JSON.stringify({ at: T0 + 25 * HOUR }));
+    check('a saved click with no source → not pending', page(box, storage, { start: false }).upgradeIsPending() === false);
+    storage.setItem(KEY, '{not json');
+    check('an unreadable saved click → not pending', page(box, storage, { start: false }).upgradeIsPending() === false);
+
+    clock.now = T0;
+    const store2 = memStorage();
+    page(box, store2).setUpgradePending('chat');
+    box.subscribed = true;
+    const done = page(box, store2);
+    await done.started;
+    check('once the upgrade is credited → not pending', completed(done).length === 1 && done.upgradeIsPending() === false);
+    check('signed out → not pending', page(box, store2, { signedIn: false, start: false }).upgradeIsPending() === false);
 }
 
 // Wiring
