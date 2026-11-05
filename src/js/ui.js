@@ -4977,6 +4977,9 @@ $(document).on('paste', '.chat-input-message', async function(e) {
         }
         return;
     }
+    // A read-only composer (locked while a send sets up) takes no text, so
+    // the browser drops a short paste; a long one must not slip in as a card.
+    if (this.readOnly || this.disabled) return;
     let text = '';
     try { text = cd.getData('text/plain') || ''; } catch (err) { return; }
     if (!isLongPaste(text) || typeof window.attachPastedText !== 'function') return; // the browser pastes the text

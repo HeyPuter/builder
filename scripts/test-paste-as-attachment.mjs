@@ -46,6 +46,8 @@ check('files still go to the file intake (unless it is a rich-text copy)',
     /files && files\.length && !isRichTextCopy\(cd, files\)[\s\S]*handleDroppedFiles\(files\)/.test(handler));
 check('a long text paste is taken over and attached',
     /isLongPaste\(text\)[\s\S]*e\.preventDefault\(\);\s*window\.attachPastedText\(text\)/.test(handler));
+check('a read-only composer takes no pasted card',
+    /if \(this\.readOnly \|\| this\.disabled\) return;[\s\S]*isLongPaste\(text\)/.test(handler));
 check('a short paste is left to the browser',
     /if \(!isLongPaste\(text\)[^\n]*\) return;/.test(handler));
 
