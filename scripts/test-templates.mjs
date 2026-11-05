@@ -753,7 +753,7 @@ if (built) {
     check('a turn reads its project\'s template once, from the history it saves to',
         send.includes('const turnTemplate = templateProp(turnSaveContext.chatHistory);'));
     check('Project Created and Build Started carry the template',
-        send.includes("if (isFirstBuildTurn) window.track?.('Project Created', turnTemplate);") &&
+        /if \(isFirstBuildTurn\) window\.track\?\.\('Project Created', \{[^\n]*\.\.\.turnTemplate \}\);/.test(send) &&
         /window\.track\?\.\('Build Started', \{[^\n]*\.\.\.turnTemplate \}\);/.test(send));
     check('Build Completed carries the template', /'Build Completed',[\s\S]{0,500}compacted: turnStats\.compactions > 0, \.\.\.turnTemplate \}/.test(send));
     check('Build Abandoned learns the template from the build it reports',
