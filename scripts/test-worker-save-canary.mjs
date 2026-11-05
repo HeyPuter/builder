@@ -233,6 +233,27 @@ FILES.set(API, v1);
     check('later calls that save other files, or only read this one, still get the wait', r2.worker && r2.worker.live === true, JSON.stringify(r2));
 }
 
+// A later save that fails leaves the earlier one live and unchecked, so the
+// tool loop runs the skipped check with the failure (skippedWorkerSaveResult).
+reset();
+FILES.set(API, v1);
+{
+    const failing = { name: 'edit', input: { path: API, old_content: 'no such text', new_content: 'y' } };
+    const turn = { appDir: ROOT, uncheckedWorkerSaves: new Map(), laterToolCalls: [failing] };
+    const r = await tool('edit').exec({ path: API, old_content: "'one'", new_content: "'two'" }, turn);
+    turn.laterToolCalls = [];
+    const threw = await tool('edit').exec(failing.input, turn).then(() => false, () => true);
+    check('a skipped check is kept for a later save to fall back on', r.worker && !('live' in r.worker) && threw && turn.uncheckedWorkerSaves.has(API), JSON.stringify(r));
+    turn.laterToolCalls = [{ name: 'write', input: { path: API } }];
+    check('…not used while another save of the file is still to come', await win.skippedWorkerSaveResult(failing, turn) === null);
+    turn.laterToolCalls = [];
+    const fallback = await win.skippedWorkerSaveResult(failing, turn);
+    check('…and run once the failed save was the last', fallback && fallback.live === true && /earlier save/.test(fallback.note), JSON.stringify(fallback));
+    check('…only once', await win.skippedWorkerSaveResult(failing, turn) === null);
+    check('a save of another file finds nothing to fall back on',
+        await win.skippedWorkerSaveResult({ name: 'edit', input: { path: `${ROOT}/index.html` } }, { appDir: ROOT, uncheckedWorkerSaves: new Map() }) === null);
+}
+
 // === a copy of a worker's source =============================================
 {
     FILES.set(`${ROOT}/backup/api.js`, FILES.get(API));
