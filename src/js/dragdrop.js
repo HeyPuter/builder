@@ -285,6 +285,8 @@ function attachPastedText(text) {
         id: nextAttachmentId++,
     });
     if (typeof window.updateAttachmentDisplay === 'function') window.updateAttachmentDisplay();
+    // The paste never reached the box, so a screen reader heard nothing.
+    window.announce?.(`Long paste attached as ${tray[tray.length - 1].name}.`);
     // It is part of the composer draft, like typed text (see draftPastes).
     window.saveComposerDraft?.();
     return true;

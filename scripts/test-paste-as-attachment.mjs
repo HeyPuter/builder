@@ -51,9 +51,10 @@ check('a short paste is left to the browser',
 
 // ---- attachPastedText -----------------------------------------------------
 function makeTray() {
-    const env = { alerts: [], toasts: [], renders: 0 };
+    const env = { alerts: [], toasts: [], renders: 0, announced: [] };
     const win = {
         attachedImages: [],
+        announce: (t) => env.announced.push(t),
         showToast: (msg) => env.toasts.push(msg),
         updateAttachmentDisplay: () => { env.renders++; },
     };
@@ -74,6 +75,7 @@ function makeTray() {
     check('it is not a file (nothing to save to assets/)', !('file' in a) && !('blobURL' in a));
     check('its size is the UTF-8 byte count', a.size === new Blob([text]).size);
     check('the tray is redrawn', env.renders === 1);
+    check('a screen reader hears that the paste became a card', env.announced[0] === 'Long paste attached as Pasted text.');
 
     check('the same text twice is not attached again', attach(text) === false && win.attachedImages.length === 1 && env.toasts.length === 1);
 
