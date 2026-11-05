@@ -271,9 +271,14 @@ function attachPastedText(text) {
         puter.ui.alert(`Attachments are limited to ${MAX_ATTACHMENTS} files — remove one to attach the pasted text.`);
         return false;
     }
-    const n = tray.filter(a => a.pastedText != null).length + 1;
+    // The lowest free name: counting the cards gave a second "Pasted text 2"
+    // once an earlier card was removed.
+    const nameOf = (n) => n === 1 ? 'Pasted text' : `Pasted text ${n}`;
+    const taken = new Set(tray.filter(a => a.pastedText != null).map(a => a.name));
+    let n = 1;
+    while (taken.has(nameOf(n))) n++;
     tray.push({
-        name: n === 1 ? 'Pasted text' : `Pasted text ${n}`,
+        name: nameOf(n),
         size: new Blob([text]).size,
         type: 'text/plain',
         pastedText: text,

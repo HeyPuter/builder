@@ -80,6 +80,13 @@ function makeTray() {
     attach('other\n'.repeat(40));
     check('a second paste is numbered', win.attachedImages[1].name === 'Pasted text 2');
     check('ids are distinct', win.attachedImages[0].id !== win.attachedImages[1].id);
+
+    win.attachedImages.splice(0, 1);
+    attach('third\n'.repeat(40));
+    attach('fourth\n'.repeat(40));
+    check('a new paste takes the lowest free name, never a taken one',
+        win.attachedImages.map(a => a.name).join('|') === 'Pasted text 2|Pasted text|Pasted text 3',
+        win.attachedImages.map(a => a.name).join('|'));
 }
 {
     const { win, env, attach } = makeTray();
