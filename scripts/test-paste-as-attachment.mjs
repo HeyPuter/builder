@@ -154,6 +154,30 @@ check('a tray file that isn\'t an image is drawn as a file card', /attachment-th
         && /window\.MessageQueue\?\.pastedText\?\.\(/.test(UI) && /pastedText,\n/.test(MQ));
 }
 
+// ---- Features that read what the user wrote ------------------------------
+// A long paste used to be the message's text. As a card it is a document
+// block, and the project title, the version label and the suggestion /
+// naming transcript must still read it.
+{
+    const pasteOnly = { role: 'user', content: [
+        { type: 'document', source: { type: 'text', media_type: 'text/plain', data: 'TypeError: boom\n  at x.js:1' }, _name: 'Pasted text', _pasted: true },
+    ] };
+    const a = HELP.indexOf('function generateChatTitle(');
+    const generateChatTitle = new Function(HELP.slice(a, HELP.indexOf('\n}\n', a) + 3) + '\nreturn generateChatTitle;')();
+    check('a paste-only first message titles the project from its paste',
+        generateChatTitle([{ role: 'system' }, pasteOnly]) === 'TypeError: boom at x.js:1');
+    check('typed text still wins the title',
+        generateChatTitle([{ role: 'system' }, { role: 'user', content: [{ type: 'text', text: 'fix it' }, ...pasteOnly.content] }]) === 'fix it');
+
+    const b = APP.indexOf('function suggestionMessageText(');
+    const suggestionMessageText = new Function(APP.slice(b, APP.indexOf('\n}\n', b) + 3) + '\nreturn suggestionMessageText;')();
+    check('the suggestion and naming transcript reads the paste after the typed text',
+        suggestionMessageText({ role: 'user', content: [{ type: 'text', text: 'fix it' }, ...pasteOnly.content, { type: 'image-ref', path: 'p' }] })
+            === 'fix it TypeError: boom\n  at x.js:1');
+    check('the version label and its AI context read the pastes',
+        /const turnRequest = \[messageText, \.\.\.sendAttachments\.filter\(a => a\.pastedText != null\)\.map\(a => a\.pastedText\)\][\s\S]{0,200}userMessage: turnRequest,[\s\S]{0,200}label: isResume \? 'Resumed build' : turnRequest,/.test(APP));
+}
+
 check('npm test runs this file', PKG.scripts.test.includes('node scripts/test-paste-as-attachment.mjs'));
 
 if (failures) { console.error(`\n${failures} check(s) FAILED`); process.exit(1); }

@@ -1694,6 +1694,13 @@ function generateChatTitle(history) {
                 if (textItem) {
                     return textItem.text.substring(0, 50) + (textItem.text.length > 50 ? '...' : '');
                 }
+                // A message that is only a long paste (a Pasted text card,
+                // see attachPastedText): its text is what the user wrote.
+                const pasted = content.find(item => item && item.type === 'document' && item._pasted && item.source?.type === 'text');
+                const pastedText = pasted ? String(pasted.source.data || '').replace(/\s+/g, ' ').trim() : '';
+                if (pastedText) {
+                    return pastedText.substring(0, 50) + (pastedText.length > 50 ? '...' : '');
+                }
             }
         }
     }

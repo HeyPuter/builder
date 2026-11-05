@@ -5817,12 +5817,16 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             // versions.js upgrade that label to a concise AI description in the
             // background. Skip the AI label for a resume (its message is the
             // builder-internal nudge, not a user request).
+            // Pasted text cards are part of what the user wrote: a paste-only
+            // message is labelled by its paste.
+            const turnRequest = [messageText, ...sendAttachments.filter(a => a.pastedText != null).map(a => a.pastedText)]
+                .filter(t => t && t.trim()).join('\n\n');
             const aiContext = isResume ? null : {
-                userMessage: messageText,
+                userMessage: turnRequest,
                 assistantSummary: lastAssistantSummary(turnSaveContext.chatHistory),
             };
             window.createProjectVersion?.({
-                label: isResume ? 'Resumed build' : messageText,
+                label: isResume ? 'Resumed build' : turnRequest,
                 chatId: turnChatId,
                 appDir: turnAppDir,
                 aiContext,
@@ -5990,9 +5994,13 @@ function suggestionMessageText(msg) {
     const c = msg.content;
     if (typeof c === 'string') return c.trim();
     if (Array.isArray(c)) {
+        // A Pasted text card (attachPastedText) is part of what the user wrote.
         return c
-            .filter(p => p && (p.type === 'text' || p.type === 'text-hidden') && typeof p.text === 'string')
-            .map(p => p.text)
+            .map(p => !p ? null
+                : (p.type === 'text' || p.type === 'text-hidden') ? p.text
+                : (p.type === 'document' && p._pasted && p.source?.type === 'text') ? p.source.data
+                : null)
+            .filter(t => typeof t === 'string')
             .join(' ')
             .trim();
     }
