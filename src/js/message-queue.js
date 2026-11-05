@@ -298,7 +298,7 @@
                 + pastes.map((a, i) => window.pastedCardHTML(a.pastedText, a.name, { index: i })).join('')
                 + others.map(a => (a.type || '').startsWith('image/') && a.blobURL
                     ? `<img src="${htmlEscape(a.blobURL)}" alt="${htmlEscape(a.name)}" class="message-image">`
-                    : `<div class="attached-document">📄 ${htmlEscape(a.relPath || a.name)}</div>`).join('')
+                    : window.fileCardHTML(a.relPath || a.name)).join('')
                 + '</div>';
         }
         if (item.editTarget) {

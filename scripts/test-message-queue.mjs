@@ -77,6 +77,7 @@ function makeEnv({ flag = true, clickToEdit = true } = {}) {
         window: {
             FEATURE_FLAGS: { messageQueue: flag, clickToEdit },
             attachedImages: [],
+            fileCardHTML: (n) => `[file ${n}]`,
             _pendingEditTarget: null,
             _activeClarification: null,
             shouldAutoScroll: false,
@@ -184,7 +185,7 @@ function makeEnv({ flag = true, clickToEdit = true } = {}) {
     check('a queued message takes the tray files', b.attachments.length === 2 && env.window.attachedImages.length === 0);
     check('…and the picked element', b.editTarget && b.editTarget.tag === 'button' && env.window._pendingEditTarget === null && s.clearedTargets === 1);
     check('…and shows them like a sent message does', s.listHTML.includes('<img src="blob:x/1" alt="shot.png" class="message-image">')
-        && s.listHTML.includes('📄 notes.pdf') && s.listHTML.includes('Editing <code>&lt;button&gt;</code>'));
+        && s.listHTML.includes('[file notes.pdf]') && s.listHTML.includes('Editing <code>&lt;button&gt;</code>'));
 
     env.window.attachedImages = [{ name: 'a.pdf' }];
     s.composer = '';

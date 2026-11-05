@@ -849,7 +849,6 @@ html.vv-sized .chat:not(.active) {
 .queued-message-bubble p { margin: 0 0 10px 0; }
 .queued-message-bubble > :last-child,
 .queued-message-bubble p:last-child { margin-bottom: 0; }
-.queued-message-bubble .attached-images:last-child .message-image { margin-bottom: 0; }
 .queued-message.sending .queued-message-bubble { opacity: 0.6; }
 .queued-message-target {
     display: flex;
@@ -1423,7 +1422,27 @@ html.vv-sized .chat:not(.active) {
     transition: border-color 0.15s ease;
 }
 .pasted-card:hover { border-color: rgba(11, 11, 11, 0.35); }
-.attached-images .pasted-card { margin-right: 8px; margin-bottom: 8px; }
+/* A file in a sent message: icon and name over its extension badge. */
+.file-card:hover { border-color: rgba(11, 11, 11, 0.2); }
+.file-card-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    overflow: hidden;
+}
+.file-card-icon { display: flex; color: rgba(0, 0, 0, 0.45); }
+.file-card-name {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    overflow: hidden;
+    font-size: 11px;
+    line-height: 14px;
+    color: #333;
+    word-break: break-word;
+}
 .pasted-card-open {
     flex: 1;
     min-height: 0;
@@ -1524,25 +1543,29 @@ html.vv-sized .chat:not(.active) {
 .pasted-modal-save { background: #1a1a1a; color: #fff; }
 .pasted-modal-save:hover { background: #333; }
 
+/* A message's attachments: one row of same-size cards, like the tray. Images
+   are cropped to fill theirs; files and pastes use .pasted-card. */
 .attached-images {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
     margin-top: 10px;
 }
 
 .attached-images .message-image {
-    margin-right: 8px;
-    margin-bottom: 8px;
-    width: 50px;
-}
-
-.image-placeholder {
-    display: inline-block;
-    padding: 8px 12px;
-    background: #f0f0f0;
-    border-radius: 4px;
-    margin-right: 8px;
-    margin-bottom: 8px;
-    font-size: 12px;
-    color: #666;
+    display: block;
+    width: 100px;
+    height: 100px;
+    max-width: none;
+    max-height: none;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    object-fit: cover;
+    background: #fff;
+    border: 1px solid rgba(11, 11, 11, 0.2);
+    border-radius: 8px;
+    box-shadow: 0 1px 2px rgba(11, 11, 11, 0.06), 0 2px 8px rgba(11, 11, 11, 0.08);
 }
 
 .message-content {
@@ -6888,10 +6911,7 @@ html[data-theme="dark"] .message-image {
     background: var(--surface);
     box-shadow: 0 0 2px rgba(0, 0, 0, 0.6);
 }
-html[data-theme="dark"] .image-placeholder {
-    background: var(--surface-hover);
-    color: var(--text-muted);
-}
+html[data-theme="dark"] .attached-images .message-image { border-color: var(--border); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); }
 
 /* Progress / status messages */
 html[data-theme="dark"] .progress-message {
@@ -7000,6 +7020,9 @@ html[data-theme="dark"] .attachment-thumbnail.is-file .attachment-info { color: 
 html[data-theme="dark"] .pasted-card { background: var(--surface); border-color: var(--border); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); }
 html[data-theme="dark"] .pasted-card:hover { border-color: var(--text-muted); }
 html[data-theme="dark"] .pasted-card-snippet { color: var(--text-muted); }
+html[data-theme="dark"] .file-card:hover { border-color: var(--border); }
+html[data-theme="dark"] .file-card-icon { color: var(--text-muted); }
+html[data-theme="dark"] .file-card-name { color: var(--text-secondary); }
 html[data-theme="dark"] .pasted-card-badge { background: transparent; border-color: var(--border); color: var(--text-secondary); }
 html[data-theme="dark"] .pasted-card-edit { color: var(--text-muted); }
 html[data-theme="dark"] .pasted-card-edit:hover { background: var(--surface-hover); color: var(--text); }
