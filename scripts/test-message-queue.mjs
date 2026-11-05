@@ -452,7 +452,7 @@ function fnSlice(src, header) {
         /\} else if \(queued && !window\.MessageQueue\?\.claim\?\.\(queued\)\) \{[\s\S]{0,400}?_sendSetupInFlight = false;[\s\S]{0,200}?return;/.test(send)
         && send.indexOf('window.MessageQueue?.claim?.(queued)') < send.indexOf('isProcessing = true;'));
     check('a queued send abandoned before its message lands goes back to the composer',
-        /if \(!isResume && \(consumedComposer \|\| queued\) && !turnAppended[^)]*\) \{[\s\S]{0,200}?window\.MessageQueue\?\.returnToComposer\?\.\(\[queued \|\| \{ text: messageText \}\]\);/.test(send));
+        /if \(!isResume && \(consumedComposer \|\| queued\) && !turnAppended[^)]*\) \{[\s\S]{0,200}?window\.MessageQueue\?\.returnToComposer\?\.\(\[queued \|\| \{\s*text: messageText,[^}]*\}\]\);/.test(send));
     const superseded = send.indexOf('if (supersededInChat) return;');
     const after = send.indexOf('window.MessageQueue?.afterTurn?.(');
     check('the queue moves on only after the turn has fully ended, and only if no newer one started',

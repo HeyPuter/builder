@@ -296,6 +296,8 @@ function fakes({ signedIn = true, signIn = () => Promise.resolve({ success: true
         find(m.thumbs.children[0], '.hero-composer-file-name').textContent === 'a.png');
     check('an image thumbnail shows the image, any other file the app\'s file icon',
         find(m.thumbs.children[0], 'img').src.startsWith('blob:') && find(m.thumbs.children[1], 'img').src === FILE_ICON_URL);
+    check('a file that isn\'t an image is drawn as a file card (icon over its name), like the app\'s',
+        m.thumbs.children[0].className === 'hero-composer-thumb' && m.thumbs.children[1].className === 'hero-composer-thumb is-file');
     check('a remove control names its file', find(m.thumbs.children[1], '.hero-composer-file-remove').getAttribute('aria-label') === 'Remove b.pdf' &&
         find(m.thumbs.children[1], '.hero-composer-file-remove').textContent === '×');
     check('a file-only send is allowed (send on, required off)', m.send.disabled === false && m.t.required === false);

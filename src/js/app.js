@@ -1204,6 +1204,7 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
                 } else if (Array.isArray(message.content)) {
                     let textContent = '';
                     let imageContent = '';
+                    let pasteIndex = 0;
 
                     for (const item of message.content) {
                         if (item.type === 'text') {
@@ -1211,6 +1212,8 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
                         } else if (item.type === 'image' && item.source?.type === 'base64') {
                             const dataURL = `data:${item.source.media_type};base64,${item.source.data}`;
                             imageContent += `<img src="${dataURL}" alt="${htmlEscape(item._name || 'Attached image')}" class="message-image">`;
+                        } else if (item.type === 'document' && item.source?.type === 'text' && item._pasted) {
+                            imageContent += pastedCardHTML(item.source.data || '', item._name || 'Pasted text', { index: pasteIndex++ });
                         } else if (item.type === 'document' && (item.source?.type === 'base64' || item.source?.type === 'text')) {
                             imageContent += `<div class="attached-document">📄 ${htmlEscape(item._name || 'document')}</div>`;
                         } else if (item.type === 'image-ref' && (item.thumb || item.path)) {
@@ -2971,6 +2974,35 @@ $(document).ready(async function(){
     // Drag and drop functionality moved to dragdrop.js
 });
 
+// "60 lines" — how a pasted text card describes its size.
+function pastedTextLines(text) {
+    const lines = String(text).split('\n').length;
+    return `${lines.toLocaleString()} line${lines === 1 ? '' : 's'}`;
+}
+
+const PENCIL_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+
+// A pasted text card: the opening lines of the text, faint and small, over a
+// PASTED badge. The tray's card (opts.trayId) also has an edit pencil and a
+// remove button; the sent message's card only opens the text. Clicking the
+// card opens the whole text (openPastedTextDialog in ui.js).
+function pastedCardHTML(text, name, opts = {}) {
+    const label = `${name}, ${pastedTextLines(text)}`;
+    const id = opts.trayId != null ? htmlEscape(opts.trayId) : null;
+    const where = id != null ? `data-id="${id}"` : `data-paste-index="${htmlEscape(opts.index)}"`;
+    return `<div class="pasted-card${id != null ? ' attachment-thumbnail' : ''}" ${where} title="${htmlEscape(label)}">
+            <button type="button" class="pasted-card-open" aria-label="${htmlEscape(label)}" aria-haspopup="dialog">
+                <span class="pasted-card-snippet" aria-hidden="true">${htmlEscape(String(text).slice(0, 300))}</span>
+            </button>
+            <div class="pasted-card-bar">
+                <span class="pasted-card-badge" aria-hidden="true">Pasted</span>
+                ${id != null ? `<button type="button" class="pasted-card-edit" title="Edit" aria-label="Edit ${htmlEscape(label)}" aria-haspopup="dialog">${PENCIL_SVG}</button>` : ''}
+            </div>
+            ${id != null ? `<button class="remove-attachment" data-id="${id}" title="Remove" aria-label="Remove ${htmlEscape(label)}">×</button>` : ''}
+        </div>`;
+}
+window.pastedCardHTML = pastedCardHTML;
+
 // Render the attachment preview row using each file's blob URL
 function updateAttachmentDisplay() {
     let $preview = $('.attachment-preview');
@@ -2988,16 +3020,22 @@ function updateAttachmentDisplay() {
     for (const img of attachedImages) {
         if ($thumbnails.find(`.attachment-thumbnail[data-id="${img.id}"]`).length) continue;
 
+        const label = img.relPath || img.name;
+
+        if (img.pastedText != null) {
+            $thumbnails.append(pastedCardHTML(img.pastedText, img.name, { trayId: img.id }));
+            continue;
+        }
+
         // Use blob URL for images; placeholder icon for PDFs/other
         const isImage = (img.type || '').startsWith('image/');
         const thumbSrc = isImage ? img.blobURL : NON_RENDERED_FILE_URL;
 
-        const label = img.relPath || img.name;
         // lazy/async: a folder drop can put dozens of full-resolution blob URLs
         // in the tray at once; don't decode them all up front.
         $thumbnails.append(`
-            <div class="attachment-thumbnail" data-id="${htmlEscape(img.id)}" title="${htmlEscape(label)}">
-                <img src="${thumbSrc}" alt="${htmlEscape(img.name)}" loading="lazy" decoding="async">
+            <div class="attachment-thumbnail${isImage ? '' : ' is-file'}" data-id="${htmlEscape(img.id)}" title="${htmlEscape(label)}">
+                <img src="${thumbSrc}" alt="${isImage ? htmlEscape(img.name) : ''}" loading="lazy" decoding="async">
                 <button class="remove-attachment" data-id="${htmlEscape(img.id)}" title="Remove" aria-label="Remove ${htmlEscape(label)}">×</button>
                 <div class="attachment-info">${htmlEscape(label)}</div>
             </div>
@@ -3029,6 +3067,8 @@ function removeAttachment(id) {
     attachedImages = attachedImages.filter(img => img.id !== id);
     window.attachedImages = attachedImages;
     updateAttachmentDisplay();
+    // A pasted text card is part of the composer draft (see draftPastes).
+    if (removed && removed.pastedText != null) saveComposerDraft();
 }
 
 // opts.deferRevoke: the send path has just rendered the user's bubble from
@@ -4469,7 +4509,8 @@ function composerDraftContext() {
     return isProject ? currentChatId : 'home';
 }
 
-// Parse a stored value into {t, at}, or null. Accepts the JSON envelope plus
+// Parse a stored value into {t, at} (plus p, its pasted text cards, when it
+// has any), or null. Accepts the JSON envelope plus
 // the pre-cloud local format — a raw string — which gets at:0 so any
 // timestamped copy beats it. (A legacy raw draft that happens to BE valid
 // envelope JSON would be misread; astronomically unlikely, and self-corrects
@@ -4481,9 +4522,37 @@ function parseDraftEnvelope(raw) {
         try { v = JSON.parse(v); } catch (e) { return { t: raw, at: 0 }; }
     }
     if (v && typeof v === 'object' && typeof v.t === 'string' && typeof v.at === 'number') {
-        return { t: v.t, at: v.at };
+        const p = Array.isArray(v.p)
+            ? v.p.filter(x => x && typeof x.t === 'string' && x.t).map(x => ({ n: typeof x.n === 'string' ? x.n : '', t: x.t }))
+            : [];
+        return p.length ? { t: v.t, at: v.at, p } : { t: v.t, at: v.at };
     }
     return typeof raw === 'string' ? { t: raw, at: 0 } : null;
+}
+
+// A long paste is a card in the tray (attachPastedText), not composer text,
+// but it is still what the user wrote: the draft keeps it, so a reload or a
+// trip to another project brings it back like typed text. Queued messages'
+// cards come first, as their text does (withQueuedText).
+function draftPastes() {
+    const queued = window.MessageQueue?.queuedPastes?.() || [];
+    const tray = (attachedImages || []).filter(a => a && a.pastedText != null);
+    return queued.concat(tray).map(a => ({ n: a.name, t: a.pastedText }));
+}
+
+// Text and pasted cards together, for the cloud mirror's size cap.
+function draftChars(envelope) {
+    return envelope.t.length + (envelope.p || []).reduce((n, p) => n + p.t.length, 0);
+}
+
+// Whether the composer holds anything the draft keeps: text or a pasted card.
+function composerHasDraft() {
+    return !!($('.chat-input-message').val() || '').trim() || draftPastes().length > 0;
+}
+
+// Put a stored draft's pasted cards in the tray, in place of the ones there.
+function applyDraftPastes(p) {
+    window.setDraftPastes?.(p || []);
 }
 
 // Every save/clear/restore bumps this. An async cloud read captures the value
@@ -4528,7 +4597,7 @@ function enqueueCloudDraftOp(op) {
 // those were that draft's final edits.
 function scheduleCloudDraftMirror(key, envelope) {
     if (!cloudDraftsEligible()) return;
-    if (envelope.t.length > COMPOSER_DRAFT_CLOUD_MAX_CHARS) return;
+    if (draftChars(envelope) > COMPOSER_DRAFT_CLOUD_MAX_CHARS) return;
     if (_cloudDraftPending) {
         if (_cloudDraftPending.key !== key) flushCloudDraftMirror();
         else clearTimeout(_cloudDraftPending.timer);
@@ -4563,7 +4632,8 @@ function saveComposerDraft() {
     const key = composerDraftKey(composerDraftContext());
     // Empty text still writes (a tombstone): the user emptying the box is an
     // edit that must beat older copies on other devices.
-    const envelope = { t: text, at: Date.now() };
+    const pastes = draftPastes();
+    const envelope = pastes.length ? { t: text, at: Date.now(), p: pastes } : { t: text, at: Date.now() };
     try { localStorage.setItem(key, JSON.stringify(envelope)); } catch (e) { /* quota/private mode — local is best-effort too */ }
     scheduleCloudDraftMirror(key, envelope);
 }
@@ -4624,6 +4694,7 @@ function restoreComposerDraft() {
     let local = null;
     try { local = parseDraftEnvelope(localStorage.getItem(key)); } catch (e) { /* ignore */ }
     applyDraftToComposer(local ? local.t : '');
+    applyDraftPastes(local && local.p);
     _composerRestoredFromKey = key;
     reconcileCloudDraft(key, local, _draftSeq);
 }
@@ -4643,8 +4714,9 @@ function reconcileCloudDraft(key, local, seq) {
             if (_draftSeq !== seq) return;
             try { localStorage.setItem(key, JSON.stringify(cloud)); } catch (e) { /* ignore */ }
             applyDraftToComposer(cloud.t);
+            applyDraftPastes(cloud.p);
             _composerRestoredFromKey = key;
-        } else if (local && (!cloud || local.at > cloud.at) && local.t.length <= COMPOSER_DRAFT_CLOUD_MAX_CHARS) {
+        } else if (local && (!cloud || local.at > cloud.at) && draftChars(local) <= COMPOSER_DRAFT_CLOUD_MAX_CHARS) {
             await puter.kv.set(key, JSON.stringify(local));
         }
     });
@@ -4658,14 +4730,14 @@ function reconcileCloudDraft(key, local, seq) {
 // wrote (both keys are the anon key).
 function rekeyAnonComposerDraft() {
     if (!window.user) return;
-    if (($('.chat-input-message').val() || '').trim()) saveComposerDraft();
+    if (composerHasDraft()) saveComposerDraft();
     try { localStorage.removeItem(composerDraftKey(composerDraftContext(), 'anon')); } catch (e) { /* ignore */ }
 }
 
 // Bring the composer in line with the identity auth just settled on — at boot,
 // and again on an in-session sign-in (the Sign In button), where the drafts on
-// screen and in the store were both keyed to the OLD identity. Text already in
-// the box wins and is re-keyed under the settled identity; an empty box refills
+// screen and in the store were both keyed to the OLD identity. Text (or a
+// pasted text card) already in the box wins and is re-keyed under the settled identity; an empty box refills
 // from that identity's own store (the 'anon' drafts a signed-out landing showed
 // are not this user's, and their own saved draft was invisible until now).
 //
@@ -4674,7 +4746,7 @@ function rekeyAnonComposerDraft() {
 // resolves — restoring a draft there would splice stored text into the message
 // being sent (worst case: an attachment-only send silently carrying it).
 function settleComposerDraftIdentity() {
-    if (($('.chat-input-message').val() || '').trim()) {
+    if (composerHasDraft()) {
         // The box already holds the settled identity's own stored draft,
         // verbatim — a deep-link restore that ran after auth resolved (loadChat
         // inside ensureAuthenticated, at boot or via the Sign In button). There
@@ -4722,10 +4794,16 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // (or being treated as a Stop). The agentic loop is paused inside the tool's
     // exec; resolving it here lets the model continue building with this reply.
     if (window._activeClarification) {
-        const text = (userInput ?? $('.chat-input-message').val() ?? '').trim();
+        const typed = (userInput ?? $('.chat-input-message').val() ?? '').trim();
+        // A long paste is a card in the tray (attachPastedText), but it is part
+        // of what the user wrote: it goes in the reply, after the typed text.
+        // Files can't travel in a reply, so they stay for the next message.
+        const pastes = userInput == null ? attachedImages.filter(a => a.pastedText != null) : [];
+        const text = [typed, ...pastes.map(a => a.pastedText)].filter(t => t.trim()).join('\n\n');
         if (text) {
             $('.chat-input-message').val('');
             autoResizeTextarea($('.chat-input-message')[0]);
+            if (pastes.length) clearAllAttachments({ only: pastes });
             // The reply was consumed — drop its persisted draft. Messages
             // queued during the turn are part of the draft and stay in it
             // (js/message-queue.js).
@@ -4965,6 +5043,11 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // a deep-link load during ensureAuthenticated moves the live context to
         // a project whose own stored draft was never consumed here.
         clearComposerDraft(preAuthDraftContext);
+        // Pasted text cards are part of the text (see draftPastes): they leave
+        // the tray with it, so a save while the files upload can't put them
+        // back in the draft.
+        const sentPastes = sendAttachments.filter(a => a.pastedText != null);
+        if (sentPastes.length) clearAllAttachments({ only: sentPastes });
     } else if (queued && !window.MessageQueue?.claim?.(queued)) {
         // The queue no longer holds it: a switch to another project emptied
         // the queue during the setup, and that project's draft keeps the text.
@@ -5167,7 +5250,10 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             // The tray belongs to the user's next composer send; a programmatic
             // send (auto-fix, Issues batch) leaves it — and the chip row — alone.
             // A queued message brings the files it took from the tray.
-            const atts = sendAttachments;
+            // Pasted text (see attachPastedText) is no file: it skips assets/
+            // and goes to the model inline, so `atts` is only the files.
+            const pastes = sendAttachments.filter(a => a.pastedText != null);
+            const atts = sendAttachments.filter(a => a.pastedText == null);
             const kindOf = (a) => classifyAttachment(a);
             const messageId = generateMessageId();
             userBubbleMessageId = messageId;
@@ -5184,18 +5270,24 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             // chat blank for seconds. Uses the thumbnails just generated; the rare
             // null-thumb image falls back to its in-memory blob URL.
             let imageHTML = '';
-            if (atts.length > 0) {
-                const parts = atts.map((a, i) => {
+            if (sendAttachments.length > 0) {
+                const pasteChips = pastes.map((a, i) => pastedCardHTML(a.pastedText, a.name, { index: i }));
+                const parts = pasteChips.concat(atts.map((a, i) => {
                     const isImage = (a.type || '').startsWith('image/');
                     if (!isImage) return `<div class="attached-document">📄 ${htmlEscape(a.relPath || a.name)}</div>`;
                     const src = thumbs[i] || a.blobURL;
                     return `<img src="${src}" alt="${htmlEscape(a.name)}" class="message-image">`;
-                });
+                }));
                 imageHTML = '<div class="attached-images">' + parts.join('') + '</div>';
             }
             const processedText = messageText ? nl_to_p(htmlEscape(messageText)) : '';
             appendMessageWithImages(processedText + imageHTML, true, messageId);
-            if (consumedComposer) clearAllAttachments({ deferRevoke: true, only: atts });
+            // The history entry lands after the asset writes below; until then
+            // a click on a pasted card reads the text from the card itself.
+            $(`.message[data-message-id="${messageId}"] .pasted-card`).each((i, el) => {
+                if (pastes[i]) $(el).data('pastedText', pastes[i].pastedText);
+            });
+            if (consumedComposer) clearAllAttachments({ deferRevoke: true, only: sendAttachments });
 
             // Build the model-facing content. EVERY attachment is saved to assets/
             // and referenced by path — nothing is embedded inline. The model pulls
@@ -5293,6 +5385,12 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
 
             const contentParts = [];
             if (messageText) contentParts.push({ type: "text", text: messageText });
+            // A text document block: the bubble draws it as a 📄 chip (here and
+            // on reload), and prepareHistoryForAI flattens it to plain text, so
+            // the model reads the paste as part of the message.
+            for (const a of pastes) {
+                contentParts.push({ type: 'document', source: { type: 'text', media_type: 'text/plain', data: a.pastedText }, _name: a.name, _pasted: true });
+            }
             for (const p of attachmentParts) if (p) contentParts.push(p);
 
             // Add a hidden text part listing every saved attachment with its path,
@@ -5386,7 +5484,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             // the copies people went on to change.
             // The developer starter test (ui.js) is read off Project Created.
             if (isFirstBuildTurn) window.track?.('Project Created', { ...window.starterTestProps?.(), ...turnTemplate });
-            window.track?.('Build Started', { first_build: isFirstBuildTurn, has_attachments: atts.length > 0, ...(queued && { queued: true }), ...turnTemplate });
+            window.track?.('Build Started', { first_build: isFirstBuildTurn, has_attachments: sendAttachments.length > 0, ...(queued && { queued: true }), ...turnTemplate });
             _activeBuild = { turnSeq, startedAt: turnStartedAt, firstBuild: isFirstBuildTurn, template: turnTemplate.template };
 
             const messageContent = contentParts.length > 0 ? contentParts : messageText;
@@ -5694,12 +5792,17 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // composer is usable during a turn, so it may hold text by now (typed
         // meanwhile, or queued messages an error put back). This message goes
         // ahead of it. A queued message gets its files and picked element back
-        // too. The Resume banner comes down only when no newer turn has
+        // too. A composer send gets its pasted text cards back, since they are
+        // part of its text (and, unlike files, have no blob URL to expire).
+        // The Resume banner comes down only when no newer turn has
         // started, since one shown by then is that turn's own.
         let handedBack = false;
         if (!isResume && (consumedComposer || queued) && !turnAppended && turnChatId === currentChatId) {
             if (userBubbleMessageId) $(`.message[data-message-id="${userBubbleMessageId}"]`).remove();
-            window.MessageQueue?.returnToComposer?.([queued || { text: messageText }]);
+            window.MessageQueue?.returnToComposer?.([queued || {
+                text: messageText,
+                attachments: sendAttachments.filter(a => a.pastedText != null),
+            }]);
             handedBack = true;
             if (turnSeq === _turnSeq) clearResumeBanner();
         }
@@ -5738,12 +5841,16 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             // versions.js upgrade that label to a concise AI description in the
             // background. Skip the AI label for a resume (its message is the
             // builder-internal nudge, not a user request).
+            // Pasted text cards are part of what the user wrote: a paste-only
+            // message is labelled by its paste.
+            const turnRequest = [messageText, ...sendAttachments.filter(a => a.pastedText != null).map(a => a.pastedText)]
+                .filter(t => t && t.trim()).join('\n\n');
             const aiContext = isResume ? null : {
-                userMessage: messageText,
+                userMessage: turnRequest,
                 assistantSummary: lastAssistantSummary(turnSaveContext.chatHistory),
             };
             window.createProjectVersion?.({
-                label: isResume ? 'Resumed build' : messageText,
+                label: isResume ? 'Resumed build' : turnRequest,
                 chatId: turnChatId,
                 appDir: turnAppDir,
                 aiContext,
@@ -5911,9 +6018,13 @@ function suggestionMessageText(msg) {
     const c = msg.content;
     if (typeof c === 'string') return c.trim();
     if (Array.isArray(c)) {
+        // A Pasted text card (attachPastedText) is part of what the user wrote.
         return c
-            .filter(p => p && (p.type === 'text' || p.type === 'text-hidden') && typeof p.text === 'string')
-            .map(p => p.text)
+            .map(p => !p ? null
+                : (p.type === 'text' || p.type === 'text-hidden') ? p.text
+                : (p.type === 'document' && p._pasted && p.source?.type === 'text') ? p.source.data
+                : null)
+            .filter(t => typeof t === 'string')
             .join(' ')
             .trim();
     }
