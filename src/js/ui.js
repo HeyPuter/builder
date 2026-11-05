@@ -29,6 +29,84 @@ const STARTER_PROMPTS = [
     { label: 'Personal finance tracker', prompt: 'Build a personal finance tracker where I can track my income, expenses, and savings, with a budget planner, a spending tracker, and a savings goal tracker.' },
 ];
 
+// Starter ideas for visitors from the Puter.js site and docs, taken from the
+// apps its tutorials build (developer.puter.com/tutorials/). Each one leans on
+// a Puter.js API the visitor was just reading about, such as AI chat, image and
+// speech generation, OCR, transcription, cloud storage and sign-in.
+const DEVELOPER_STARTER_PROMPTS = [
+    { label: 'AI chatbot', prompt: 'Build an AI chat app with streaming replies, a model picker to switch between GPT, Claude, and Gemini, rendered markdown and code blocks, and conversations saved between visits with a sidebar to switch between them.' },
+    { label: 'AI resume analyzer', prompt: 'Build an AI resume analyzer where I upload my resume as a PDF and paste a job description, and AI gives a match score, lists strengths and gaps, and suggests specific rewrites for weak bullet points.' },
+    { label: 'AI image generator', prompt: 'Build an AI image generator where I type a prompt, pick a style and aspect ratio, and get an image back, with a gallery of my past images saved between visits and a download button on each.' },
+    { label: 'Text to speech', prompt: 'Build a text-to-speech app where I paste text, pick a voice and language, play it back with a progress bar, and download the audio.' },
+    { label: 'AI interview coach', prompt: 'Build an AI interview coach where I pick a job role and level, AI asks me interview questions one at a time, scores each answer with feedback, and shows a summary of how I did at the end.' },
+    { label: 'AI code converter', prompt: 'Build an AI code converter where I paste code, pick the source and target languages, and get the converted code with syntax highlighting, a short explanation of what changed, and a copy button.' },
+    { label: 'AI text summarizer', prompt: 'Build an AI text summarizer where I paste an article or upload a document, pick a length (one line, a paragraph, or bullet points), and get a summary I can copy.' },
+    { label: 'Receipt scanner', prompt: 'Build a receipt scanner where I upload a photo of a receipt, OCR reads the store, date, items, and total, and every receipt is saved to a list I can search and export as CSV.' },
+    { label: 'File sharing app', prompt: 'Build a file sharing app where I sign in, drag and drop files to upload them to my cloud storage, see them in a list with sizes and dates, and copy a share link for each one.' },
+    { label: 'Voice notes', prompt: 'Build a voice notes app where I record audio in the browser, AI transcribes it to text, and my notes are saved between visits with search and a play button for the original recording.' },
+    { label: 'Chat with PDFs', prompt: 'Build an app where I upload PDF documents and ask questions about them in a chat, and the AI answers from the documents and names the one each answer came from.' },
+    { label: 'Applicant tracker', prompt: 'Build an applicant tracking system where I create job openings, add candidates with their resumes, move them through stages on a drag-and-drop board, and use AI to rank candidates against the job description.' },
+    { label: 'AI translator', prompt: 'Build an AI translator with a text box, automatic source language detection, a target language picker, a swap button, and a history of past translations saved between visits.' },
+];
+
+// ---- Developer starter test -------------------------------------------------
+// Visitors from developer.puter.com or docs.puter.com are split in half. The
+// 'developer' arm sees DEVELOPER_STARTER_PROMPTS, the 'default' arm the usual
+// STARTER_PROMPTS. Everyone else is outside the test and sees the usual ones.
+//
+// The source comes from the referrer (both sites send one), or from the docs
+// link's utm_source when a browser drops it. It is read once as this file loads,
+// before cleanLandingUtmParams (app.js) scrubs the URL, and kept for the tab's
+// session, so a reload or a trip to /what-to-build/ and back stays in the test.
+// The arm is drawn once per browser and kept, since most visitors arrive signed
+// out and there is no uuid to hash yet.
+//
+// 'Project Created' carries the arm as pill_variant. The arms are an even
+// split, so comparing its count per arm is the result.
+// To try it by hand, open "/?utm_source=developer.puter.com" and pick the arm
+// with `localStorage.debugStarterArm = 'developer'` (or 'default').
+const STARTER_TEST_SOURCES = ['developer.puter.com', 'docs.puter.com'];
+
+function starterTestSource(referrer, search) {
+    try {
+        const host = new URL(referrer).hostname;
+        if (STARTER_TEST_SOURCES.includes(host)) return host;
+    } catch (e) {}
+    try {
+        const utm = (new URLSearchParams(search).get('utm_source') || '').toLowerCase();
+        if (STARTER_TEST_SOURCES.includes(utm)) return utm;
+    } catch (e) {}
+    return null;
+}
+
+const starterTest = (function () {
+    let source = starterTestSource(document.referrer, window.location.search);
+    try {
+        if (source) sessionStorage.setItem('starterTestSource', source);
+        else source = sessionStorage.getItem('starterTestSource');
+    } catch (e) {}
+    if (!STARTER_TEST_SOURCES.includes(source)) return null;
+    const isArm = a => a === 'developer' || a === 'default';
+    let arm = null;
+    try {
+        const forced = localStorage.getItem('debugStarterArm');
+        arm = isArm(forced) ? forced : localStorage.getItem('starterTestArm');
+        if (!isArm(arm)) {
+            arm = Math.random() < 0.5 ? 'developer' : 'default';
+            localStorage.setItem('starterTestArm', arm);
+        }
+    } catch (e) {}
+    // Storage blocked: draw for this load only.
+    if (!isArm(arm)) arm = Math.random() < 0.5 ? 'developer' : 'default';
+    return { source, arm };
+})();
+
+// { pill_variant: arm } for a visitor in the test, {} otherwise.
+function starterTestProps() {
+    return starterTest ? { pill_variant: starterTest.arm } : {};
+}
+window.starterTestProps = starterTestProps;
+
 // Fill the empty-state starter-prompt row. Built once at skeleton time; the row
 // is shown/hidden purely via the `.chat.active` class (same mechanism as the
 // tagline), so it reappears on a new chat without re-rendering. Chips are built
@@ -41,7 +119,7 @@ function renderStarterPrompts() {
     // Shuffle a copy (Fisher-Yates) so both the order and which ideas surface
     // vary per page load, then show only the first few. The source array is
     // left untouched.
-    const prompts = STARTER_PROMPTS.slice();
+    const prompts = (starterTest && starterTest.arm === 'developer' ? DEVELOPER_STARTER_PROMPTS : STARTER_PROMPTS).slice();
     for (let i = prompts.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [prompts[i], prompts[j]] = [prompts[j], prompts[i]];
