@@ -5066,6 +5066,7 @@ $(document).on('click', '.attachment-preview .pasted-card-open, .attachment-prev
             if (next === entry.pastedText) return;
             entry.pastedText = next;
             entry.size = new Blob([next]).size;
+            window.saveComposerDraft?.();
             // Redraw the card; its pencil had focus, so hand focus to the new one.
             $(`.attachment-preview .attachment-thumbnail[data-id="${id}"]`).remove();
             window.updateAttachmentDisplay?.();
@@ -5102,7 +5103,10 @@ $(document).on('click', '.remove-attachment', function(e) {
 // Handle clear all attachments
 $(document).on('click', '.clear-attachments', function(e) {
     e.stopPropagation();
+    const hadPastes = (window.attachedImages || []).some(a => a.pastedText != null);
     clearAllAttachments();
+    // Pasted text cards are part of the composer draft (see draftPastes).
+    if (hadPastes) window.saveComposerDraft?.();
 });
 
 // Chat history sidebar event handlers

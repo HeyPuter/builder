@@ -3044,6 +3044,8 @@ function removeAttachment(id) {
     attachedImages = attachedImages.filter(img => img.id !== id);
     window.attachedImages = attachedImages;
     updateAttachmentDisplay();
+    // A pasted text card is part of the composer draft (see draftPastes).
+    if (removed && removed.pastedText != null) saveComposerDraft();
 }
 
 // opts.deferRevoke: the send path has just rendered the user's bubble from
@@ -4484,7 +4486,8 @@ function composerDraftContext() {
     return isProject ? currentChatId : 'home';
 }
 
-// Parse a stored value into {t, at}, or null. Accepts the JSON envelope plus
+// Parse a stored value into {t, at} (plus p, its pasted text cards, when it
+// has any), or null. Accepts the JSON envelope plus
 // the pre-cloud local format — a raw string — which gets at:0 so any
 // timestamped copy beats it. (A legacy raw draft that happens to BE valid
 // envelope JSON would be misread; astronomically unlikely, and self-corrects
@@ -4496,9 +4499,37 @@ function parseDraftEnvelope(raw) {
         try { v = JSON.parse(v); } catch (e) { return { t: raw, at: 0 }; }
     }
     if (v && typeof v === 'object' && typeof v.t === 'string' && typeof v.at === 'number') {
-        return { t: v.t, at: v.at };
+        const p = Array.isArray(v.p)
+            ? v.p.filter(x => x && typeof x.t === 'string' && x.t).map(x => ({ n: typeof x.n === 'string' ? x.n : '', t: x.t }))
+            : [];
+        return p.length ? { t: v.t, at: v.at, p } : { t: v.t, at: v.at };
     }
     return typeof raw === 'string' ? { t: raw, at: 0 } : null;
+}
+
+// A long paste is a card in the tray (attachPastedText), not composer text,
+// but it is still what the user wrote: the draft keeps it, so a reload or a
+// trip to another project brings it back like typed text. Queued messages'
+// cards come first, as their text does (withQueuedText).
+function draftPastes() {
+    const queued = window.MessageQueue?.queuedPastes?.() || [];
+    const tray = (attachedImages || []).filter(a => a && a.pastedText != null);
+    return queued.concat(tray).map(a => ({ n: a.name, t: a.pastedText }));
+}
+
+// Text and pasted cards together, for the cloud mirror's size cap.
+function draftChars(envelope) {
+    return envelope.t.length + (envelope.p || []).reduce((n, p) => n + p.t.length, 0);
+}
+
+// Whether the composer holds anything the draft keeps: text or a pasted card.
+function composerHasDraft() {
+    return !!($('.chat-input-message').val() || '').trim() || draftPastes().length > 0;
+}
+
+// Put a stored draft's pasted cards in the tray, in place of the ones there.
+function applyDraftPastes(p) {
+    window.setDraftPastes?.(p || []);
 }
 
 // Every save/clear/restore bumps this. An async cloud read captures the value
@@ -4543,7 +4574,7 @@ function enqueueCloudDraftOp(op) {
 // those were that draft's final edits.
 function scheduleCloudDraftMirror(key, envelope) {
     if (!cloudDraftsEligible()) return;
-    if (envelope.t.length > COMPOSER_DRAFT_CLOUD_MAX_CHARS) return;
+    if (draftChars(envelope) > COMPOSER_DRAFT_CLOUD_MAX_CHARS) return;
     if (_cloudDraftPending) {
         if (_cloudDraftPending.key !== key) flushCloudDraftMirror();
         else clearTimeout(_cloudDraftPending.timer);
@@ -4578,7 +4609,8 @@ function saveComposerDraft() {
     const key = composerDraftKey(composerDraftContext());
     // Empty text still writes (a tombstone): the user emptying the box is an
     // edit that must beat older copies on other devices.
-    const envelope = { t: text, at: Date.now() };
+    const pastes = draftPastes();
+    const envelope = pastes.length ? { t: text, at: Date.now(), p: pastes } : { t: text, at: Date.now() };
     try { localStorage.setItem(key, JSON.stringify(envelope)); } catch (e) { /* quota/private mode — local is best-effort too */ }
     scheduleCloudDraftMirror(key, envelope);
 }
@@ -4639,6 +4671,7 @@ function restoreComposerDraft() {
     let local = null;
     try { local = parseDraftEnvelope(localStorage.getItem(key)); } catch (e) { /* ignore */ }
     applyDraftToComposer(local ? local.t : '');
+    applyDraftPastes(local && local.p);
     _composerRestoredFromKey = key;
     reconcileCloudDraft(key, local, _draftSeq);
 }
@@ -4658,8 +4691,9 @@ function reconcileCloudDraft(key, local, seq) {
             if (_draftSeq !== seq) return;
             try { localStorage.setItem(key, JSON.stringify(cloud)); } catch (e) { /* ignore */ }
             applyDraftToComposer(cloud.t);
+            applyDraftPastes(cloud.p);
             _composerRestoredFromKey = key;
-        } else if (local && (!cloud || local.at > cloud.at) && local.t.length <= COMPOSER_DRAFT_CLOUD_MAX_CHARS) {
+        } else if (local && (!cloud || local.at > cloud.at) && draftChars(local) <= COMPOSER_DRAFT_CLOUD_MAX_CHARS) {
             await puter.kv.set(key, JSON.stringify(local));
         }
     });
@@ -4673,14 +4707,14 @@ function reconcileCloudDraft(key, local, seq) {
 // wrote (both keys are the anon key).
 function rekeyAnonComposerDraft() {
     if (!window.user) return;
-    if (($('.chat-input-message').val() || '').trim()) saveComposerDraft();
+    if (composerHasDraft()) saveComposerDraft();
     try { localStorage.removeItem(composerDraftKey(composerDraftContext(), 'anon')); } catch (e) { /* ignore */ }
 }
 
 // Bring the composer in line with the identity auth just settled on — at boot,
 // and again on an in-session sign-in (the Sign In button), where the drafts on
-// screen and in the store were both keyed to the OLD identity. Text already in
-// the box wins and is re-keyed under the settled identity; an empty box refills
+// screen and in the store were both keyed to the OLD identity. Text (or a
+// pasted text card) already in the box wins and is re-keyed under the settled identity; an empty box refills
 // from that identity's own store (the 'anon' drafts a signed-out landing showed
 // are not this user's, and their own saved draft was invisible until now).
 //
@@ -4689,7 +4723,7 @@ function rekeyAnonComposerDraft() {
 // resolves — restoring a draft there would splice stored text into the message
 // being sent (worst case: an attachment-only send silently carrying it).
 function settleComposerDraftIdentity() {
-    if (($('.chat-input-message').val() || '').trim()) {
+    if (composerHasDraft()) {
         // The box already holds the settled identity's own stored draft,
         // verbatim — a deep-link restore that ran after auth resolved (loadChat
         // inside ensureAuthenticated, at boot or via the Sign In button). There
@@ -4980,6 +5014,11 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // a deep-link load during ensureAuthenticated moves the live context to
         // a project whose own stored draft was never consumed here.
         clearComposerDraft(preAuthDraftContext);
+        // Pasted text cards are part of the text (see draftPastes): they leave
+        // the tray with it, so a save while the files upload can't put them
+        // back in the draft.
+        const sentPastes = sendAttachments.filter(a => a.pastedText != null);
+        if (sentPastes.length) clearAllAttachments({ only: sentPastes });
     } else if (queued && !window.MessageQueue?.claim?.(queued)) {
         // The queue no longer holds it: a switch to another project emptied
         // the queue during the setup, and that project's draft keeps the text.

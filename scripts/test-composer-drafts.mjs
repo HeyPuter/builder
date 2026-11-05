@@ -169,6 +169,53 @@ const kvSets = (env, key) => env.kvOps.filter(o => o[0] === 'set' && o[1] === ke
     check('signed-out typing never schedules cloud work', pendingTimers(env).length === 0 && env.kvOps.length === 0);
 }
 
+// --- Pasted text cards ----------------------------------------------------------
+// A long paste is a card in the tray (attachPastedText), not composer text, but
+// the draft keeps it the way it kept the pasted text before cards existed.
+{
+    const { env, x } = makeEnv();
+    const onInput = env.docHandlers['input .chat-input-message'];
+    env.attachedImages.push({ name: 'Pasted text', pastedText: 'log\n'.repeat(40), id: 1 }, { name: 'shot.png', file: {}, id: 2 });
+    env.input.value = 'fix this';
+    onInput();
+    const saved = localEnv(env, 'composerDraft:anon:home');
+    check('the draft keeps the pasted cards (and not the files)',
+        saved && saved.t === 'fix this' && saved.p.length === 1 && saved.p[0].n === 'Pasted text' && saved.p[0].t === 'log\n'.repeat(40));
+    check('the envelope round-trips its cards', x.parseDraftEnvelope(JSON.stringify(saved)).p[0].t === saved.p[0].t);
+    check('a draft without cards has no p', !('p' in x.parseDraftEnvelope('{"t":"hi","at":1,"p":[]}')));
+    check('malformed cards are dropped', !('p' in x.parseDraftEnvelope('{"t":"hi","at":1,"p":[null,{"t":5},{"t":""}]}')));
+
+    let applied = null;
+    env.window.setDraftPastes = (p) => { applied = p; };
+    x.restoreComposerDraft();
+    check('a restore puts the stored cards back in the tray', applied && applied.length === 1 && applied[0].t === 'log\n'.repeat(40));
+    env.store.set('composerDraft:anon:home', JSON.stringify({ t: 'no cards', at: 5 }));
+    x.restoreComposerDraft();
+    check('a restore without cards empties the tray of them', Array.isArray(applied) && applied.length === 0);
+}
+{
+    // Signed out with only a pasted card, then signing in: the card is the
+    // composer's content, so it is re-keyed, not replaced by the empty store.
+    const { env, x } = makeEnv();
+    env.attachedImages.push({ name: 'Pasted text', pastedText: 'spec '.repeat(500), id: 1 });
+    let replaced = false;
+    env.window.setDraftPastes = () => { replaced = true; };
+    signIn(env);
+    x.settleComposerDraftIdentity();
+    const rekeyed = localEnv(env, 'composerDraft:nj:home');
+    check('sign-in keeps a card-only composer and saves it under the user',
+        !replaced && rekeyed && rekeyed.p && rekeyed.p[0].t === 'spec '.repeat(500));
+}
+{
+    // Cards count toward the cloud mirror's size cap.
+    const { env } = makeEnv();
+    signIn(env);
+    env.attachedImages.push({ name: 'Pasted text', pastedText: 'x'.repeat(60000), id: 1 });
+    env.input.value = 'hi';
+    env.docHandlers['input .chat-input-message']();
+    check('a draft whose cards exceed the cap stays on this device', pendingTimers(env).length === 0);
+}
+
 // --- Debounced cloud mirror ------------------------------------------------------
 {
     const { env } = makeEnv();

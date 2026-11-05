@@ -15,10 +15,11 @@
 // fail the same way.
 //
 // The queue belongs to the open project and only lives while a turn runs
-// there. Its text is part of the project's composer draft (saveComposerDraft
-// reads withQueuedText), so a reload or a switch to another project mid-build
-// brings it back in the composer, the same way a Stop does. Files and the
-// picked element are kept in memory only, like the attachment tray.
+// there. Its text and pasted text cards are part of the project's composer
+// draft (saveComposerDraft reads withQueuedText and queuedPastes), so a reload
+// or a switch to another project mid-build brings them back in the composer,
+// the same way a Stop does. Files and the picked element are kept in memory
+// only, like the attachment tray.
 //
 // FEATURE_FLAGS.messageQueue turns it off. The composer is then locked for the
 // whole turn, as before (see lockComposerForTurn in helpers.js).
@@ -245,6 +246,11 @@
         return texts.join('\n\n');
     }
 
+    // Their pasted text cards are part of the draft too (draftPastes in app.js).
+    function queuedPastes() {
+        return waiting().flatMap(i => (i.attachments || []).filter(a => a && a.pastedText != null));
+    }
+
     function remove(id) {
         const i = queue.findIndex(item => item.id === id);
         if (i < 0) return;
@@ -420,6 +426,7 @@
         claim,
         reset,
         withQueuedText,
+        queuedPastes,
         syncButton,
         handleSendClick,
         // For tests.

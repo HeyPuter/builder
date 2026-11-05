@@ -280,9 +280,37 @@ function attachPastedText(text) {
         id: nextAttachmentId++,
     });
     if (typeof window.updateAttachmentDisplay === 'function') window.updateAttachmentDisplay();
+    // It is part of the composer draft, like typed text (see draftPastes).
+    window.saveComposerDraft?.();
     return true;
 }
 window.attachPastedText = attachPastedText;
+
+// A restored composer draft's pasted text cards ([{ n: name, t: text }], see
+// saveComposerDraft) take the place of the ones in the tray. Files stay. The
+// array is changed in place: app.js holds it under its own name too.
+function setDraftPastes(list) {
+    if (!Array.isArray(window.attachedImages)) window.attachedImages = [];
+    const tray = window.attachedImages;
+    const current = tray.filter(a => a.pastedText != null);
+    const wanted = (Array.isArray(list) ? list : []).filter(p => p && typeof p.t === 'string' && p.t);
+    const same = current.length === wanted.length
+        && current.every((a, i) => a.pastedText === wanted[i].t && a.name === (wanted[i].n || a.name));
+    if (same) return;
+    for (let i = tray.length - 1; i >= 0; i--) if (tray[i].pastedText != null) tray.splice(i, 1);
+    const room = Math.max(0, MAX_ATTACHMENTS - tray.length);
+    wanted.slice(0, room).forEach((p, i) => {
+        tray.push({
+            name: p.n || (i === 0 ? 'Pasted text' : `Pasted text ${i + 1}`),
+            size: new Blob([p.t]).size,
+            type: 'text/plain',
+            pastedText: p.t,
+            id: nextAttachmentId++,
+        });
+    });
+    if (typeof window.updateAttachmentDisplay === 'function') window.updateAttachmentDisplay();
+}
+window.setDraftPastes = setDraftPastes;
 
 function guessMimeType(name) {
     const ext = (name.split('.').pop() || '').toLowerCase();

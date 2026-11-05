@@ -121,6 +121,15 @@ check('a reloaded chat draws a pasted block as a card',
     /item\.type === 'document' && item\.source\?\.type === 'text' && item\._pasted\)[\s\S]{0,80}pastedCardHTML/.test(APP));
 check('the tray draws a paste as a card', /img\.pastedText != null[\s\S]{0,80}pastedCardHTML\(img\.pastedText, img\.name, \{ trayId: img\.id \}\)/.test(APP));
 
+// The draft keeps the cards (see test-composer-drafts): every change to them
+// saves it, and a send takes them out of the tray with the text it clears.
+check('attaching a paste saves the draft', /window\.saveComposerDraft\?\.\(\);\s*return true;/.test(slice(DD, 'function attachPastedText(text) {', 'window.attachPastedText')));
+check('removing a pasted card saves the draft',
+    /if \(removed && removed\.pastedText != null\) saveComposerDraft\(\);/.test(slice(APP, 'function removeAttachment(id) {', '\n}\n')));
+check('editing a pasted card saves the draft', /entry\.pastedText = next;[\s\S]{0,120}window\.saveComposerDraft\?\.\(\)/.test(UI));
+check('a send takes its pasted cards out of the tray right after clearing the draft',
+    /clearComposerDraft\(preAuthDraftContext\);[\s\S]{0,400}const sentPastes = sendAttachments\.filter\(a => a\.pastedText != null\);\s*if \(sentPastes\.length\) clearAllAttachments\(\{ only: sentPastes \}\);/.test(APP));
+
 check('npm test runs this file', PKG.scripts.test.includes('node scripts/test-paste-as-attachment.mjs'));
 
 if (failures) { console.error(`\n${failures} check(s) FAILED`); process.exit(1); }
