@@ -3011,8 +3011,8 @@ function updateAttachmentDisplay() {
         // lazy/async: a folder drop can put dozens of full-resolution blob URLs
         // in the tray at once; don't decode them all up front.
         $thumbnails.append(`
-            <div class="attachment-thumbnail" data-id="${htmlEscape(img.id)}" title="${htmlEscape(label)}">
-                <img src="${thumbSrc}" alt="${htmlEscape(img.name)}" loading="lazy" decoding="async">
+            <div class="attachment-thumbnail${isImage ? '' : ' is-file'}" data-id="${htmlEscape(img.id)}" title="${htmlEscape(label)}">
+                <img src="${thumbSrc}" alt="${isImage ? htmlEscape(img.name) : ''}" loading="lazy" decoding="async">
                 <button class="remove-attachment" data-id="${htmlEscape(img.id)}" title="Remove" aria-label="Remove ${htmlEscape(label)}">×</button>
                 <div class="attachment-info">${htmlEscape(label)}</div>
             </div>

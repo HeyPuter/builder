@@ -1308,18 +1308,49 @@ html.vv-sized .chat:not(.active) {
 
 .attachment-thumbnail {
     position: relative;
-    width: 60px;
-    height: 60px;
-    border-radius: 4px;
+    width: 100px;
+    height: 100px;
+    box-sizing: border-box;
+    border-radius: 8px;
     overflow: visible;
     background: white;
-    border: 1px solid #ddd;
+    border: 1px solid rgba(11, 11, 11, 0.2);
+    box-shadow: 0 1px 2px rgba(11, 11, 11, 0.06), 0 2px 8px rgba(11, 11, 11, 0.08);
 }
 
 .attachment-thumbnail img {
+    display: block;
     width: 100%;
     height: 100%;
     object-fit: cover;
+    /* Inside the 1px border; overflow stays visible for the × in the corner. */
+    border-radius: 7px;
+}
+
+/* A file that isn't an image: the file icon, small and centred, over its
+   name, instead of the icon stretched across the card. */
+.attachment-thumbnail.is-file img {
+    position: absolute;
+    top: 18px;
+    left: 50%;
+    width: 28px;
+    height: 28px;
+    transform: translateX(-50%);
+    object-fit: contain;
+    border-radius: 0;
+    opacity: 0.55;
+}
+.attachment-thumbnail.is-file .attachment-info {
+    bottom: 8px;
+    padding: 0 8px;
+    background: none;
+    color: #333;
+    line-height: 13px;
+    white-space: normal;
+    word-break: break-word;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
 }
 
 .remove-attachment {
@@ -1361,7 +1392,8 @@ html.vv-sized .chat:not(.active) {
     background: rgba(0, 0, 0, 0.7);
     color: white;
     font-size: 10px;
-    padding: 2px 4px;
+    padding: 3px 6px;
+    border-radius: 0 0 7px 7px;
     text-align: center;
     white-space: nowrap;
     overflow: hidden;
@@ -1391,7 +1423,6 @@ html.vv-sized .chat:not(.active) {
     transition: border-color 0.15s ease;
 }
 .pasted-card:hover { border-color: rgba(11, 11, 11, 0.35); }
-.attachment-thumbnail.pasted-card { width: 100px; height: 100px; }
 .attached-images .pasted-card { margin-right: 8px; margin-bottom: 8px; }
 .pasted-card-open {
     flex: 1;
@@ -6676,7 +6707,11 @@ html[data-theme="dark"] .clear-attachments:hover { background-color: var(--surfa
 html[data-theme="dark"] .attachment-thumbnail {
     background: var(--surface);
     border-color: var(--border);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
+/* The file icon is drawn in black. */
+html[data-theme="dark"] .attachment-thumbnail.is-file img { filter: invert(1); opacity: 0.6; }
+html[data-theme="dark"] .attachment-thumbnail.is-file .attachment-info { color: var(--text-secondary); }
 html[data-theme="dark"] .pasted-card { background: var(--surface); border-color: var(--border); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); }
 html[data-theme="dark"] .pasted-card:hover { border-color: var(--text-muted); }
 html[data-theme="dark"] .pasted-card-snippet { color: var(--text-muted); }

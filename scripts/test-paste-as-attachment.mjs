@@ -137,6 +137,8 @@ check('a reply to a clarifying question carries the pasted cards after the typed
     /const pastes = userInput == null \? attachedImages\.filter\(a => a\.pastedText != null\) : \[\];\s*const text = \[typed, \.\.\.pastes\.map\(a => a\.pastedText\)\]/.test(APP)
     && /if \(pastes\.length\) clearAllAttachments\(\{ only: pastes \}\);[\s\S]{0,600}submitDirectReply\(text\)/.test(APP));
 
+check('a tray file that isn\'t an image is drawn as a file card', /attachment-thumbnail\$\{isImage \? '' : ' is-file'\}/.test(APP));
+
 check('npm test runs this file', PKG.scripts.test.includes('node scripts/test-paste-as-attachment.mjs'));
 
 if (failures) { console.error(`\n${failures} check(s) FAILED`); process.exit(1); }

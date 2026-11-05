@@ -452,7 +452,10 @@ code {
     --c-tray-bg: #f8f9fa;
     --c-tray-border: #e9ecef;
     --c-thumb-bg: #ffffff;
-    --c-thumb-border: #ddd;
+    --c-thumb-border: rgba(11, 11, 11, 0.2);
+    --c-thumb-shadow: 0 1px 2px rgba(11, 11, 11, 0.06), 0 2px 8px rgba(11, 11, 11, 0.08);
+    --c-file-name: #333;
+    --c-file-icon-filter: none;
     --c-remove: #8a8a8a;
     --c-remove-hover: #000000;
     --c-remove-touch-bg: #fff;
@@ -487,6 +490,9 @@ code {
         --c-tray-border: #333b47;
         --c-thumb-bg: #1e242d;
         --c-thumb-border: #333b47;
+        --c-thumb-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+        --c-file-name: #b4bbc6;
+        --c-file-icon-filter: invert(1);
         --c-remove: #8b94a0;
         --c-remove-hover: #e7e9ec;
         --c-remove-touch-bg: #242b35;
@@ -513,6 +519,9 @@ code {
     --c-tray-border: #333b47;
     --c-thumb-bg: #1e242d;
     --c-thumb-border: #333b47;
+    --c-thumb-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --c-file-name: #b4bbc6;
+    --c-file-icon-filter: invert(1);
     --c-remove: #8b94a0;
     --c-remove-hover: #e7e9ec;
     --c-remove-touch-bg: #242b35;
@@ -641,18 +650,47 @@ code {
 /* .attachment-thumbnail */
 .hero-composer-thumb {
     position: relative;
-    width: 60px;
-    height: 60px;
-    border-radius: 4px;
+    width: 100px;
+    height: 100px;
+    box-sizing: border-box;
+    border-radius: 8px;
     overflow: visible;
     background: var(--c-thumb-bg);
     border: 1px solid var(--c-thumb-border);
+    box-shadow: var(--c-thumb-shadow);
 }
 .hero-composer-thumb img {
     display: block;
     width: 100%;
     height: 100%;
     object-fit: cover;
+    border-radius: 7px;
+}
+/* .attachment-thumbnail.is-file: the file icon small and centred over the
+   name, for a file that isn't an image. */
+.hero-composer-thumb.is-file img {
+    position: absolute;
+    top: 18px;
+    left: 50%;
+    width: 28px;
+    height: 28px;
+    transform: translateX(-50%);
+    object-fit: contain;
+    border-radius: 0;
+    opacity: 0.55;
+    filter: var(--c-file-icon-filter);
+}
+.hero-composer-thumb.is-file .hero-composer-file-name {
+    bottom: 8px;
+    padding: 0 8px;
+    background: none;
+    color: var(--c-file-name);
+    line-height: 13px;
+    white-space: normal;
+    word-break: break-word;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
 }
 /* .remove-attachment: hidden with opacity, not display:none, so it stays a
    real Tab stop. */
@@ -687,7 +725,8 @@ code {
     bottom: 0;
     left: 0;
     right: 0;
-    padding: 2px 4px;
+    padding: 3px 6px;
+    border-radius: 0 0 7px 7px;
     background: rgba(0, 0, 0, 0.7);
     color: white;
     font-size: 10px;
