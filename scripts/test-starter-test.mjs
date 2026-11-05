@@ -54,12 +54,12 @@ check('no referrer, no utm → not in the test', starterTestSource('', '') === n
 
 const outside = load({ referrer: 'https://www.google.com/' });
 check('a visitor from elsewhere is outside the test', outside.starterTest === null);
-check('…and their events get no starter_test prop', JSON.stringify(outside.starterTestProps()) === '{}');
+check('…and their events get no pill_variant prop', JSON.stringify(outside.starterTestProps()) === '{}');
 
 const first = load({ referrer: 'https://developer.puter.com/', random: 0.1 });
 check('a developer.puter.com visitor enters the test', first.starterTest && first.starterTest.source === 'developer.puter.com');
 check('random < 0.5 draws the developer arm', first.starterTest.arm === 'developer');
-check('the arm rides on events as starter_test', first.starterTestProps().starter_test === 'developer');
+check('the arm rides on events as pill_variant', first.starterTestProps().pill_variant === 'developer');
 check('the arm is kept in localStorage', first.local.getItem('starterTestArm') === 'developer');
 
 const reload = load({ referrer: 'https://builder.puter.com/what-to-build/', session: first.session, local: first.local, random: 0.9 });

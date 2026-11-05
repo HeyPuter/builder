@@ -61,7 +61,7 @@ const DEVELOPER_STARTER_PROMPTS = [
 // The arm is drawn once per browser and kept, since most visitors arrive signed
 // out and there is no uuid to hash yet.
 //
-// 'Project Created' carries the arm as starter_test. The arms are an even
+// 'Project Created' carries the arm as pill_variant. The arms are an even
 // split, so comparing its count per arm is the result.
 // To try it by hand, open "/?utm_source=developer.puter.com" and pick the arm
 // with `localStorage.debugStarterArm = 'developer'` (or 'default').
@@ -101,9 +101,9 @@ const starterTest = (function () {
     return { source, arm };
 })();
 
-// { starter_test: arm } for a visitor in the test, {} otherwise.
+// { pill_variant: arm } for a visitor in the test, {} otherwise.
 function starterTestProps() {
-    return starterTest ? { starter_test: starterTest.arm } : {};
+    return starterTest ? { pill_variant: starterTest.arm } : {};
 }
 window.starterTestProps = starterTestProps;
 
