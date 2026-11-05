@@ -51,6 +51,14 @@ const PREVIEW_SAFE_TOOLS = new Set(['stat', 'readdir', 'ReadTextFile', 'SearchFi
 // would fail on a missing field at best, and at worst write an empty file.
 const CUT_OFF_TOOL_ERROR = 'This call was cut off at the output limit before its arguments were complete, so it was not run. Send it again. If it was a large file, write it in smaller parts (a shorter write, then edits).';
 
+// The answer to an update_preview call that comes after a failed file change
+// in the same reply. The model wrote every call before any ran, so the check
+// would test a change that is only partly in, and a problem it found would use
+// up one of the turn's fix attempts (UPDATE_PREVIEW_MAX_ATTEMPTS). If the model
+// never checks again, the turn's end still refreshes the preview
+// (flushPreviewRefresh in ui.js).
+const SKIPPED_PREVIEW_ERROR = 'Not run, because an earlier call in this reply failed to change the files, so the preview would show only part of the change. Fix that call, then call update_preview again.';
+
 // Saving a deployed worker's source (workers/<name>.js, the file create_worker
 // deploys from) is how it is updated. Puter redeploys it from the saved file.
 // Every save of one, by the AI's edit, multi_edit and write, a Code view save
@@ -124,6 +132,8 @@ window.workerSaveResult = async function(target, code, state) {
     // A save the same reply makes again is checked there, once, so an edit
     // halfway through a change isn't compiled or waited on.
     if (savedAgainThisReply(state, target.path)) {
+        // Kept in case that later save fails (skippedWorkerSaveResult).
+        state.uncheckedWorkerSaves?.set(target.path, { target, code });
         return { name: target.name, url: target.url,
             note: "Not checked, since a later call in this reply saves this file again. That call's result says whether the worker is serving it." };
     }
@@ -148,6 +158,23 @@ window.workerSaveResult = async function(target, code, state) {
     }
     return { name: target.name, live: false,
         note: `The file is saved, but the worker wasn't serving it yet after ${Math.round(limitMs / 1000)} seconds. It may still be updating, or still running its previous code.` };
+};
+
+// The check workerSaveResult skipped for an earlier save of `call`'s file in
+// this reply, run once `call`, a later save of it, has failed and no other
+// save of the file is left in the reply. Otherwise nothing would say whether
+// the worker serves the earlier save. Null when there is none.
+window.skippedWorkerSaveResult = async function(call, state) {
+    const skipped = state?.uncheckedWorkerSaves;
+    if (!skipped || !skipped.size || !call || !call.input) return null;
+    let path;
+    try { path = window.assertPathInProject(call.input.path, state); } catch (e) { return null; }
+    const save = skipped.get(path);
+    if (!save || savedAgainThisReply(state, path)) return null;
+    skipped.delete(path);
+    const result = await window.workerSaveResult(save.target, save.code, state);
+    const note = 'This call changed nothing, so this is the check for the earlier save of this file in this reply.';
+    return { ...result, note: result.note ? note + ' ' + result.note : note };
 };
 
 window.findTool = function(name, state) {
@@ -211,6 +238,9 @@ function nextStepLabel(toolCalls, history) {
     if (!check) return '';
     let result = null;
     try { result = JSON.parse(findToolResult(history, check.id).content.content); } catch (e) { /* not a check's result */ }
+    // A check that failed or didn't run (SKIPPED_PREVIEW_ERROR) says nothing
+    // about what comes next.
+    if (result && result.error) return '';
     const status = result && result.verification && result.verification.status;
     return status === 'errors_detected' || status === 'tests_failed' ? 'Fixing a problem' : 'Finishing up';
 }
@@ -275,6 +305,11 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
         }
         c.readsThisRound = [];
     };
+    // This reply's skipped worker checks (see skippedWorkerSaveResult), and
+    // whether a call that changes files failed, which stops a later
+    // update_preview (SKIPPED_PREVIEW_ERROR).
+    c.uncheckedWorkerSaves = new Map();
+    let changeFailed = false;
 
     // Execute all tools and collect results
     for (const [index, toolCall] of toolCalls.entries()) {
@@ -289,6 +324,13 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
         if (cutOffIds.has(toolCall.id)) {
             if (!hasToolResultFor(c.chatHistory, toolCall.id)) {
                 addToolResultToHistory(c.chatHistory, toolCall.id, { error: CUT_OFF_TOOL_ERROR }, true);
+            }
+            continue;
+        }
+
+        if (toolCall.name === 'update_preview' && changeFailed) {
+            if (!hasToolResultFor(c.chatHistory, toolCall.id)) {
+                addToolResultToHistory(c.chatHistory, toolCall.id, { error: SKIPPED_PREVIEW_ERROR }, true);
             }
             continue;
         }
@@ -325,9 +367,15 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
         } catch (error) {
             // Extract error message
             const errorMessage = error.error?.message || error.message || error;
+            const failed = { error: errorMessage };
+            if (!window.isMutatingTool || window.isMutatingTool(toolCall.name)) {
+                changeFailed = true;
+                const worker = await window.skippedWorkerSaveResult?.(toolCall, c);
+                if (worker) failed.worker = worker;
+            }
             // Store error result in history (same guard as above)
             if (!hasToolResultFor(c.chatHistory, toolCall.id)) {
-                addToolResultToHistory(c.chatHistory, toolCall.id, { error: errorMessage }, true);
+                addToolResultToHistory(c.chatHistory, toolCall.id, failed, true);
             }
         } finally {
             window.noteToolExec?.(watchdogKey, false);

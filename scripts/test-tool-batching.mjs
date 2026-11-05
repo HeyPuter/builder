@@ -60,8 +60,13 @@ function setup(rounds, { model = 'gemini-4-argon' } = {}) {
     const makeTool = (name) => ({
         type: 'function',
         function: { name, parameters: { type: 'object', properties: {} } },
-        exec: async (args) => { executed.push(`${name}:${args && args.path}`); return { success: true }; },
+        exec: async (args) => {
+            executed.push(`${name}:${args && args.path}`);
+            if (args && args.path === 'fail') throw new Error('old_content not found in file.');
+            return { success: true };
+        },
     });
+    env.isMutatingTool = (n) => n === 'write';
     env.tools.push(makeTool('write'), makeTool('TodoWrite'), makeTool('update_preview'));
     const context = {
         currentChatId: 'one', abortController: new AbortController(), model,
@@ -142,6 +147,35 @@ await check('a reply cut off at the output limit: its last call is answered, not
     assert.ok(b && b.content.is_error, 'the cut-off call gets an error result');
     assert.ok(String(b.content.content).includes('cut off'));
     assert.ok(toolUseMessages(h.context.chatHistory)[0].content.every((x) => !('_cutOff' in x)), 'the marker is not stored');
+});
+
+await check('a preview check after a failed file change in its reply is answered, not run', async () => {
+    const h = setup([]);
+    await h.env.handleMessageStream(chunks(tool('write', 'fail'), tool('write', 'b'), tool('update_preview', 'u', {}), usage()), h.context);
+    assert.deepEqual(h.executed, ['write:fail', 'write:b'], 'the other change still runs');
+    const u = toolResults(h.context.chatHistory).find((m) => m.content.tool_use_id === 'u');
+    assert.ok(u && u.content.is_error, 'the check gets an error result');
+    assert.ok(String(u.content.content).includes('Not run'));
+});
+
+await check('a failed call that changes no files leaves the check alone', async () => {
+    const h = setup([]);
+    await h.env.handleMessageStream(chunks(tool('TodoWrite', 'fail'), tool('update_preview', 'u', {}), usage()), h.context);
+    assert.deepEqual(h.executed, ['TodoWrite:fail', 'update_preview:undefined']);
+});
+
+await check('a failed change in an earlier reply leaves a later check alone', async () => {
+    const h = setup([[tool('update_preview', 'u', {}), usage()]]);
+    await h.env.handleMessageStream(chunks(tool('write', 'fail'), usage()), h.context);
+    assert.deepEqual(h.executed, ['write:fail', 'update_preview:undefined']);
+});
+
+await check('a failed save carries the worker check an earlier save left to it', async () => {
+    const h = setup([]);
+    h.env.skippedWorkerSaveResult = async (call) => (call.input.path === 'fail' ? { name: 'api', live: true } : null);
+    await h.env.handleMessageStream(chunks(tool('write', 'fail'), usage()), h.context);
+    const r = JSON.parse(toolResults(h.context.chatHistory)[0].content.content);
+    assert.deepEqual(r, { error: 'old_content not found in file.', worker: { name: 'api', live: true } });
 });
 
 await check('finish_reason "length" counts as cut off too', async () => {

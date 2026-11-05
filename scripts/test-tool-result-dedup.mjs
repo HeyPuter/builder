@@ -91,7 +91,7 @@ const loop = slice(tools, 'for (const [index, toolCall] of toolCalls.entries()) 
 check('tools.js: the success push is gated on no result existing yet',
     /if \(!hasToolResultFor\(c\.chatHistory, toolCall\.id\)\) \{\s*addToolResultToHistory\(c\.chatHistory, toolCall\.id, toolResponse(?:,|\))/.test(loop));
 check('tools.js: the error push is gated the same way',
-    /if \(!hasToolResultFor\(c\.chatHistory, toolCall\.id\)\) \{\s*addToolResultToHistory\(c\.chatHistory, toolCall\.id, \{ error: errorMessage \}, true\)/.test(loop));
+    /if \(!hasToolResultFor\(c\.chatHistory, toolCall\.id\)\) \{\s*addToolResultToHistory\(c\.chatHistory, toolCall\.id, failed, true\)/.test(loop));
 check('helpers.js: prepareHistoryForAI dedupes before setting the cache breakpoint',
     helpers.indexOf('dropDuplicateToolResults(copy)') < helpers.indexOf("cache_control = { type: \"ephemeral\" }"));
 
