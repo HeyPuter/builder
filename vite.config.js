@@ -139,6 +139,9 @@ const SCRIPTS = [
   'js/github-sync.js',
   // The GitHub toolbar button and popover, on top of github-sync.js.
   'js/github-ui.js',
+  // The What's new dialog, opened by app.js at startup. Uses ui.js's dialog
+  // helpers (trapDialogFocus, keyIsForDialog).
+  'js/whats-new.js',
   // PWA runtime (SW registration + update/install UX). Last so window.showToast
   // and the rest of the app are already defined; runs its work after `load`.
   'js/pwa.js',
