@@ -180,6 +180,9 @@ check('a tray file that isn\'t an image is drawn as a file card', /attachment-th
         /const turnRequest = \[messageText, \.\.\.sendAttachments\.filter\(a => a\.pastedText != null\)\.map\(a => a\.pastedText\)\][\s\S]{0,200}userMessage: turnRequest,[\s\S]{0,200}label: isResume \? 'Resumed build' : turnRequest,/.test(APP));
 }
 
+check('a click outside the edit dialog keeps unsaved edits instead of discarding them',
+    /if \(editable && \$overlay\.find\('\.pasted-modal-text'\)\.val\(\) !== text\) \{[\s\S]{0,120}return;\s*\}\s*close\(\);/.test(UI));
+
 check('npm test runs this file', PKG.scripts.test.includes('node scripts/test-paste-as-attachment.mjs'));
 
 if (failures) { console.error(`\n${failures} check(s) FAILED`); process.exit(1); }

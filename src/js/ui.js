@@ -5027,9 +5027,19 @@ function openPastedTextDialog(text, opts = {}) {
         close();
         opts.onSave(next);
     });
-    // Same backdrop and key handling as the project Settings dialog.
+    // Same backdrop and key handling as the project Settings dialog, except
+    // that a click outside keeps unsaved edits: it would have thrown them away
+    // without a word. Cancel, ✕ and Escape still discard them on purpose.
     $overlay.on('click', (e) => e.stopPropagation());
-    $overlay.on('mousedown', (e) => { if (e.target === $overlay[0]) close(); });
+    $overlay.on('mousedown', (e) => {
+        if (e.target !== $overlay[0]) return;
+        if (editable && $overlay.find('.pasted-modal-text').val() !== text) {
+            e.preventDefault();
+            $overlay.find('.pasted-modal-text').trigger('focus');
+            return;
+        }
+        close();
+    });
     $(document).on('keydown.pastedModal', (e) => {
         if (window.isComposingKeyEvent(e) || !keyIsForDialog(e, $overlay[0])) return;
         if (e.key === 'Escape') { e.preventDefault(); close(); }
