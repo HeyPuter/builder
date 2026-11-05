@@ -1215,7 +1215,7 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
                         } else if (item.type === 'document' && item.source?.type === 'text' && item._pasted) {
                             imageContent += pastedCardHTML(item.source.data || '', item._name || 'Pasted text', { index: pasteIndex++ });
                         } else if (item.type === 'document' && (item.source?.type === 'base64' || item.source?.type === 'text')) {
-                            imageContent += `<div class="attached-document">📄 ${htmlEscape(item._name || 'document')}</div>`;
+                            imageContent += fileCardHTML(item._name || 'document');
                         } else if (item.type === 'image-ref' && (item.thumb || item.path)) {
                             // Attached image saved to assets/. Prefer the persisted
                             // lightweight thumbnail; fall back to reading the saved
@@ -1228,13 +1228,13 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
                                     if (superseded()) return chat;
                                     imageContent += `<img src="${readURL}" alt="${htmlEscape(item._name || 'Attached image')}" class="message-image">`;
                                 } catch (error) {
-                                    imageContent += `<div class="image-placeholder">📷 ${htmlEscape(item._name || 'Image')}</div>`;
+                                    imageContent += fileCardHTML(item._name || 'Image', { badge: 'Image' });
                                 }
                             }
                         } else if (item.type === 'file-ref') {
                             // Non-image attachment saved to assets/ (text/data, PDF,
                             // or other binary). Re-render as a document chip.
-                            imageContent += `<div class="attached-document">📄 ${htmlEscape(item._name || 'file')}</div>`;
+                            imageContent += fileCardHTML(item._name || 'file');
                         } else if (item.type === 'file' && item.puter_path) {
                             // Backward-compat: legacy Puter-storage attachments
                             try {
@@ -1242,7 +1242,7 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
                                 if (superseded()) return chat;
                                 imageContent += `<img src="${readURL}" alt="Attached image" class="message-image">`;
                             } catch (error) {
-                                imageContent += `<div class="image-placeholder">📷 Image</div>`;
+                                imageContent += fileCardHTML('Image', { badge: 'Image' });
                             }
                         }
                     }
@@ -3002,6 +3002,29 @@ function pastedCardHTML(text, name, opts = {}) {
         </div>`;
 }
 window.pastedCardHTML = pastedCardHTML;
+
+const FILE_CARD_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>';
+
+// A file in a sent or queued message: the same card as a pasted text card,
+// with a file icon and the name in place of the snippet, and the file's
+// extension (HTML, PDF…) in place of the PASTED badge. opts.badge overrides it.
+function fileCardHTML(name, opts = {}) {
+    const label = String(name || 'File');
+    const base = label.slice(label.lastIndexOf('/') + 1);
+    const dot = base.lastIndexOf('.');
+    const ext = dot > 0 && dot < base.length - 1 ? base.slice(dot + 1) : '';
+    const badge = opts.badge || (ext && ext.length <= 5 ? ext : 'File');
+    return `<div class="pasted-card file-card" title="${htmlEscape(label)}">
+            <div class="file-card-body">
+                <span class="file-card-icon">${FILE_CARD_SVG}</span>
+                <span class="file-card-name">${htmlEscape(base)}</span>
+            </div>
+            <div class="pasted-card-bar">
+                <span class="pasted-card-badge" aria-hidden="true">${htmlEscape(badge)}</span>
+            </div>
+        </div>`;
+}
+window.fileCardHTML = fileCardHTML;
 
 // Render the attachment preview row using each file's blob URL
 function updateAttachmentDisplay() {
@@ -5274,7 +5297,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                 const pasteChips = pastes.map((a, i) => pastedCardHTML(a.pastedText, a.name, { index: i }));
                 const parts = pasteChips.concat(atts.map((a, i) => {
                     const isImage = (a.type || '').startsWith('image/');
-                    if (!isImage) return `<div class="attached-document">📄 ${htmlEscape(a.relPath || a.name)}</div>`;
+                    if (!isImage) return fileCardHTML(a.relPath || a.name);
                     const src = thumbs[i] || a.blobURL;
                     return `<img src="${src}" alt="${htmlEscape(a.name)}" class="message-image">`;
                 }));
