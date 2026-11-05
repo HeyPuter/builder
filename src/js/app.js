@@ -5384,7 +5384,8 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             // In a project copied from a template, the first message is the
             // first change to it, so Project Created with a template counts
             // the copies people went on to change.
-            if (isFirstBuildTurn) window.track?.('Project Created', turnTemplate);
+            // The developer starter test (ui.js) is read off Project Created.
+            if (isFirstBuildTurn) window.track?.('Project Created', { ...window.starterTestProps?.(), ...turnTemplate });
             window.track?.('Build Started', { first_build: isFirstBuildTurn, has_attachments: atts.length > 0, ...(queued && { queued: true }), ...turnTemplate });
             _activeBuild = { turnSeq, startedAt: turnStartedAt, firstBuild: isFirstBuildTurn, template: turnTemplate.template };
 
