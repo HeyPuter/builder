@@ -15,10 +15,11 @@
 // fail the same way.
 //
 // The queue belongs to the open project and only lives while a turn runs
-// there. Its text is part of the project's composer draft (saveComposerDraft
-// reads withQueuedText), so a reload or a switch to another project mid-build
-// brings it back in the composer, the same way a Stop does. Files and the
-// picked element are kept in memory only, like the attachment tray.
+// there. Its text and pasted text cards are part of the project's composer
+// draft (saveComposerDraft reads withQueuedText and queuedPastes), so a reload
+// or a switch to another project mid-build brings them back in the composer,
+// the same way a Stop does. Files and the picked element are kept in memory
+// only, like the attachment tray.
 //
 // FEATURE_FLAGS.messageQueue turns it off. The composer is then locked for the
 // whole turn, as before (see lockComposerForTurn in helpers.js).
@@ -245,6 +246,18 @@
         return texts.join('\n\n');
     }
 
+    // Their pasted text cards are part of the draft too (draftPastes in app.js).
+    function queuedPastes() {
+        return waiting().flatMap(i => (i.attachments || []).filter(a => a && a.pastedText != null));
+    }
+
+    // The text of a queued message's pasted card, for its view dialog.
+    function pastedText(id, index) {
+        const item = waiting().find(i => i.id === id);
+        const pastes = ((item && item.attachments) || []).filter(a => a && a.pastedText != null);
+        return pastes[index] ? pastes[index].pastedText : null;
+    }
+
     function remove(id) {
         const i = queue.findIndex(item => item.id === id);
         if (i < 0) return;
@@ -277,10 +290,16 @@
         if (item.text) h += nl_to_p(htmlEscape(item.text));
         const files = item.attachments || [];
         if (files.length) {
-            // The same markup as the sent message's bubble (see sendChatMessage).
-            h += '<div class="attached-images">' + files.map(a => (a.type || '').startsWith('image/') && a.blobURL
-                ? `<img src="${htmlEscape(a.blobURL)}" alt="${htmlEscape(a.name)}" class="message-image">`
-                : `<div class="attached-document">📄 ${htmlEscape(a.relPath || a.name)}</div>`).join('') + '</div>';
+            // The same markup as the sent message's bubble (see sendChatMessage):
+            // pasted text cards first, then the files.
+            const pastes = files.filter(a => a.pastedText != null);
+            const others = files.filter(a => a.pastedText == null);
+            h += '<div class="attached-images">'
+                + pastes.map((a, i) => window.pastedCardHTML(a.pastedText, a.name, { index: i })).join('')
+                + others.map(a => (a.type || '').startsWith('image/') && a.blobURL
+                    ? `<img src="${htmlEscape(a.blobURL)}" alt="${htmlEscape(a.name)}" class="message-image">`
+                    : `<div class="attached-document">📄 ${htmlEscape(a.relPath || a.name)}</div>`).join('')
+                + '</div>';
         }
         if (item.editTarget) {
             const label = typeof editTargetLabel === 'function'
@@ -420,6 +439,8 @@
         claim,
         reset,
         withQueuedText,
+        queuedPastes,
+        pastedText,
         syncButton,
         handleSendClick,
         // For tests.

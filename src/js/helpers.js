@@ -1208,9 +1208,13 @@ function prepareHistoryForAI(historyArray, modelId, opts) {
                 // doesn't forward text-source document blocks.
                 if (part.type === "document" && part.source?.type === "text") {
                     const name = part._name || 'attached file';
+                    // A long paste the composer turned into a card (attachPastedText)
+                    // is part of what the user wrote, not a file.
                     msg.content[i] = {
                         type: "text",
-                        text: `Contents of attached file "${name}":\n\n${part.source.data}`,
+                        text: part._pasted
+                            ? `Text the user pasted ("${name}"):\n\n${part.source.data}`
+                            : `Contents of attached file "${name}":\n\n${part.source.data}`,
                     };
                     continue;
                 }
@@ -1689,6 +1693,13 @@ function generateChatTitle(history) {
                 const textItem = content.find(item => item.type === 'text');
                 if (textItem) {
                     return textItem.text.substring(0, 50) + (textItem.text.length > 50 ? '...' : '');
+                }
+                // A message that is only a long paste (a Pasted text card,
+                // see attachPastedText): its text is what the user wrote.
+                const pasted = content.find(item => item && item.type === 'document' && item._pasted && item.source?.type === 'text');
+                const pastedText = pasted ? String(pasted.source.data || '').replace(/\s+/g, ' ').trim() : '';
+                if (pastedText) {
+                    return pastedText.substring(0, 50) + (pastedText.length > 50 ? '...' : '');
                 }
             }
         }

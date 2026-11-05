@@ -898,13 +898,15 @@ export const COMPOSER_SCRIPT =
     `['focusin','pointerenter','touchstart'].forEach(function(ev){f.addEventListener(ev,loadPuter,{once:true,passive:true});});` +
     `function grow(){t.style.height='auto';t.style.height=Math.min(t.scrollHeight,240)+'px';}` +
     `function sync(){var has=!!t.value.trim()||files.length>0;send.disabled=busy||!has;t.required=files.length===0;}` +
-    // Tray: a 60px thumbnail per file (the image itself, or the app's file
-    // icon), the name along its bottom edge, a remove control in its corner.
+    // Tray: a 100px thumbnail per file (the image itself, or the app's file
+    // icon small over the name), the name along its bottom edge, a remove
+    // control in its corner.
     `function url(x){if(x._url)return x._url;try{x._url=URL.createObjectURL(x);}catch(err){x._url='';}return x._url;}` +
     `function drop(x){if(x._url){try{URL.revokeObjectURL(x._url);}catch(err){}x._url='';}}` +
     `function render(){if(!tray||!thumbs)return;thumbs.textContent='';files.forEach(function(x,i){var d=document.createElement('div');` +
-    `d.className='hero-composer-thumb';d.title=x.name;var im=document.createElement('img');` +
-    `im.src=((x.type||'').indexOf('image/')===0&&url(x))||${JSON.stringify(FILE_ICON_URL)};im.alt=x.name;im.loading='lazy';im.decoding='async';` +
+    `var pic=(x.type||'').indexOf('image/')===0&&url(x);` +
+    `d.className='hero-composer-thumb'+(pic?'':' is-file');d.title=x.name;var im=document.createElement('img');` +
+    `im.src=pic||${JSON.stringify(FILE_ICON_URL)};im.alt=pic?x.name:'';im.loading='lazy';im.decoding='async';` +
     `var rm=document.createElement('button');rm.type='button';rm.className='hero-composer-file-remove';rm.title='Remove';rm.setAttribute('aria-label','Remove '+x.name);rm.textContent='\u00d7';` +
     `rm.addEventListener('click',function(){drop(x);files.splice(i,1);render();sync();t.focus();});` +
     `var n=document.createElement('div');n.className='hero-composer-file-name';n.textContent=x.name;` +

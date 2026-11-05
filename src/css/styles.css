@@ -1308,18 +1308,49 @@ html.vv-sized .chat:not(.active) {
 
 .attachment-thumbnail {
     position: relative;
-    width: 60px;
-    height: 60px;
-    border-radius: 4px;
+    width: 100px;
+    height: 100px;
+    box-sizing: border-box;
+    border-radius: 8px;
     overflow: visible;
     background: white;
-    border: 1px solid #ddd;
+    border: 1px solid rgba(11, 11, 11, 0.2);
+    box-shadow: 0 1px 2px rgba(11, 11, 11, 0.06), 0 2px 8px rgba(11, 11, 11, 0.08);
 }
 
 .attachment-thumbnail img {
+    display: block;
     width: 100%;
     height: 100%;
     object-fit: cover;
+    /* Inside the 1px border; overflow stays visible for the × in the corner. */
+    border-radius: 7px;
+}
+
+/* A file that isn't an image: the file icon, small and centred, over its
+   name, instead of the icon stretched across the card. */
+.attachment-thumbnail.is-file img {
+    position: absolute;
+    top: 18px;
+    left: 50%;
+    width: 28px;
+    height: 28px;
+    transform: translateX(-50%);
+    object-fit: contain;
+    border-radius: 0;
+    opacity: 0.55;
+}
+.attachment-thumbnail.is-file .attachment-info {
+    bottom: 8px;
+    padding: 0 8px;
+    background: none;
+    color: #333;
+    line-height: 13px;
+    white-space: normal;
+    word-break: break-word;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
 }
 
 .remove-attachment {
@@ -1361,12 +1392,137 @@ html.vv-sized .chat:not(.active) {
     background: rgba(0, 0, 0, 0.7);
     color: white;
     font-size: 10px;
-    padding: 2px 4px;
+    padding: 3px 6px;
+    border-radius: 0 0 7px 7px;
     text-align: center;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
+
+/* ---- Pasted text card ----
+   A long paste becomes a card in the tray and in the sent message instead of
+   a wall of text (attachPastedText in dragdrop.js): its opening lines, faint
+   and tiny, over a PASTED badge. The tray's card adds an edit pencil and the
+   usual ×. Clicking the text opens the whole paste. */
+.pasted-card {
+    position: relative;
+    display: inline-flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100px;
+    height: 100px;
+    box-sizing: border-box;
+    padding: 7px 8px;
+    vertical-align: top;
+    background: #fff;
+    border: 1px solid rgba(11, 11, 11, 0.2);
+    border-radius: 8px;
+    box-shadow: 0 1px 2px rgba(11, 11, 11, 0.06), 0 2px 8px rgba(11, 11, 11, 0.08);
+    text-align: left;
+    transition: border-color 0.15s ease;
+}
+.pasted-card:hover { border-color: rgba(11, 11, 11, 0.35); }
+.attached-images .pasted-card { margin-right: 8px; margin-bottom: 8px; }
+.pasted-card-open {
+    flex: 1;
+    min-height: 0;
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    text-align: left;
+    color: inherit;
+    cursor: pointer;
+    overflow: hidden;
+}
+.pasted-card-snippet {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 5;
+    overflow: hidden;
+    font-size: 8px;
+    line-height: 12px;
+    color: rgba(0, 0, 0, 0.48);
+    word-break: break-all;
+    white-space: normal;
+}
+.pasted-card-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex: none;
+    height: 18px;
+}
+.pasted-card-badge {
+    display: inline-flex;
+    align-items: center;
+    height: 18px;
+    box-sizing: border-box;
+    padding: 0 4px;
+    border: 1px solid rgba(11, 11, 11, 0.2);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.7);
+    color: rgba(0, 0, 0, 0.6);
+    font-size: 10px;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+.pasted-card-edit {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    margin-right: -4px;
+    padding: 0;
+    border: none;
+    border-radius: 6px;
+    background: none;
+    color: #666;
+    cursor: pointer;
+}
+.pasted-card-edit:hover { background: #f0f0f0; color: #1a1a1a; }
+
+.pasted-modal { width: 560px; }
+.pasted-modal:focus,
+.pasted-modal:focus-visible { outline: none; }
+.pasted-modal .properties-modal-header { margin-bottom: 4px; }
+.pasted-modal-meta {
+    font-size: 12px;
+    color: #888;
+    margin-bottom: 14px;
+}
+.pasted-modal-text {
+    display: block;
+    width: 100%;
+    height: min(420px, 55vh);
+    box-sizing: border-box;
+    padding: 10px 12px;
+    border: 1px solid #e3e3e3;
+    border-radius: 8px;
+    background: #fafafa;
+    color: #222;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-break: break-word;
+    resize: none;
+}
+.pasted-modal-text:focus { outline: none; border-color: #bbb; }
+/* Prevent iOS zoom-on-focus: the Edit dialog focuses its text itself, so the
+   page zoomed in the moment it opened (as .confirm-modal-input). */
+@media (max-width: 900px) {
+    .pasted-modal-text { font-size: 16px; }
+}
+.pasted-modal .properties-modal-actions { gap: 8px; }
+.pasted-modal-save { background: #1a1a1a; color: #fff; }
+.pasted-modal-save:hover { background: #333; }
 
 .attached-images {
     margin-top: 10px;
@@ -6836,7 +6992,22 @@ html[data-theme="dark"] .clear-attachments:hover { background-color: var(--surfa
 html[data-theme="dark"] .attachment-thumbnail {
     background: var(--surface);
     border-color: var(--border);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
+/* The file icon is drawn in black. */
+html[data-theme="dark"] .attachment-thumbnail.is-file img { filter: invert(1); opacity: 0.6; }
+html[data-theme="dark"] .attachment-thumbnail.is-file .attachment-info { color: var(--text-secondary); }
+html[data-theme="dark"] .pasted-card { background: var(--surface); border-color: var(--border); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); }
+html[data-theme="dark"] .pasted-card:hover { border-color: var(--text-muted); }
+html[data-theme="dark"] .pasted-card-snippet { color: var(--text-muted); }
+html[data-theme="dark"] .pasted-card-badge { background: transparent; border-color: var(--border); color: var(--text-secondary); }
+html[data-theme="dark"] .pasted-card-edit { color: var(--text-muted); }
+html[data-theme="dark"] .pasted-card-edit:hover { background: var(--surface-hover); color: var(--text); }
+html[data-theme="dark"] .pasted-modal-meta { color: var(--text-muted); }
+html[data-theme="dark"] .pasted-modal-text { background: var(--surface-subtle); border-color: var(--border); color: var(--text); }
+html[data-theme="dark"] .pasted-modal-text:focus { border-color: var(--text-muted); }
+html[data-theme="dark"] .pasted-modal-save { background: var(--text); color: var(--surface); }
+html[data-theme="dark"] .pasted-modal-save:hover { opacity: 0.9; }
 html[data-theme="dark"] .remove-attachment { color: var(--text-muted); }
 html[data-theme="dark"] .remove-attachment:hover { color: var(--text); }
 /* The touch-device disc (≤900px / no hover) was hard-coded white. */

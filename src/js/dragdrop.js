@@ -257,6 +257,68 @@ async function handleDroppedFiles(browserFiles, meta = {}) {
     }
 }
 
+// Put a long text paste in the tray as a "Pasted text" chip (see isLongPaste in
+// ui.js). It carries the text itself, not a File: it isn't saved to assets/,
+// and the send path hands it to the model inline, as if it had been typed.
+function attachPastedText(text) {
+    if (!Array.isArray(window.attachedImages)) window.attachedImages = [];
+    const tray = window.attachedImages;
+    if (tray.some(a => a.pastedText === text)) {
+        window.showToast?.('That text is already attached.', { type: 'info', key: 'paste-duplicate', throttleMs: 2000 });
+        return false;
+    }
+    if (tray.length >= MAX_ATTACHMENTS) {
+        puter.ui.alert(`Attachments are limited to ${MAX_ATTACHMENTS} files — remove one to attach the pasted text.`);
+        return false;
+    }
+    // The lowest free name: counting the cards gave a second "Pasted text 2"
+    // once an earlier card was removed.
+    const nameOf = (n) => n === 1 ? 'Pasted text' : `Pasted text ${n}`;
+    const taken = new Set(tray.filter(a => a.pastedText != null).map(a => a.name));
+    let n = 1;
+    while (taken.has(nameOf(n))) n++;
+    tray.push({
+        name: nameOf(n),
+        size: new Blob([text]).size,
+        type: 'text/plain',
+        pastedText: text,
+        id: nextAttachmentId++,
+    });
+    if (typeof window.updateAttachmentDisplay === 'function') window.updateAttachmentDisplay();
+    // The paste never reached the box, so a screen reader heard nothing.
+    window.announce?.(`Long paste attached as ${tray[tray.length - 1].name}.`);
+    // It is part of the composer draft, like typed text (see draftPastes).
+    window.saveComposerDraft?.();
+    return true;
+}
+window.attachPastedText = attachPastedText;
+
+// A restored composer draft's pasted text cards ([{ n: name, t: text }], see
+// saveComposerDraft) take the place of the ones in the tray. Files stay. The
+// array is changed in place: app.js holds it under its own name too.
+function setDraftPastes(list) {
+    if (!Array.isArray(window.attachedImages)) window.attachedImages = [];
+    const tray = window.attachedImages;
+    const current = tray.filter(a => a.pastedText != null);
+    const wanted = (Array.isArray(list) ? list : []).filter(p => p && typeof p.t === 'string' && p.t);
+    const same = current.length === wanted.length
+        && current.every((a, i) => a.pastedText === wanted[i].t && a.name === (wanted[i].n || a.name));
+    if (same) return;
+    for (let i = tray.length - 1; i >= 0; i--) if (tray[i].pastedText != null) tray.splice(i, 1);
+    const room = Math.max(0, MAX_ATTACHMENTS - tray.length);
+    wanted.slice(0, room).forEach((p, i) => {
+        tray.push({
+            name: p.n || (i === 0 ? 'Pasted text' : `Pasted text ${i + 1}`),
+            size: new Blob([p.t]).size,
+            type: 'text/plain',
+            pastedText: p.t,
+            id: nextAttachmentId++,
+        });
+    });
+    if (typeof window.updateAttachmentDisplay === 'function') window.updateAttachmentDisplay();
+}
+window.setDraftPastes = setDraftPastes;
+
 function guessMimeType(name) {
     const ext = (name.split('.').pop() || '').toLowerCase();
     const map = {
