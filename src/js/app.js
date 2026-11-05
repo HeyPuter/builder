@@ -2797,7 +2797,18 @@ async function revealWhenReady() {
     }
 }
 
+// Whether the user has typed anywhere on the page since it loaded. 'input'
+// fires for typing, paste and the like, never for the app's own .val(). The
+// What's new dialog doesn't open over someone already at work.
+let _typedSinceLoad = false;
+document.addEventListener('input', () => { _typedSinceLoad = true; }, true);
+
 $(document).ready(async function(){
+    // A link that starts something (a template, a marketing page's prompt or
+    // send), read before those are taken out of the address bar. The What's
+    // new dialog stays out of its way.
+    const startedFromLink = /[?&](?:template|prompt|handoff)=/.test(window.location.search);
+
     // set the marked options
     marked.use(window.MARKED_OPTIONS);
 
@@ -2941,6 +2952,18 @@ $(document).ready(async function(){
     // it, otherwise show the template dialog. Not awaited: a fork takes a few
     // seconds and reports its own outcome, and nothing below depends on it.
     window.consumeTemplateDeepLink?.();
+
+    // The newest feature, once per account, for a user who has built
+    // something (js/whats-new.js). Not while an upgrade is pending, since its
+    // success dialog comes first. Not awaited: it waits on puter.kv, then
+    // checks again that no build has started, the user hasn't typed, and
+    // focus is still on the page or the chat box.
+    if (!startedFromLink && !upgradeIsPending()) {
+        window.WhatsNew?.maybeShow({
+            hasProjects: savedChats.length > 0,
+            busy: () => isProcessing || _sendSetupInFlight || _typedSinceLoad || !composerMayTakeFocus(),
+        }).catch((e) => console.warn('Could not show What’s new:', e));
+    }
 
     // Skip on mobile: autofocusing here pops the on-screen keyboard up over
     // the landing page before the user has touched anything.
@@ -5459,7 +5482,8 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             // In a project copied from a template, the first message is the
             // first change to it, so Project Created with a template counts
             // the copies people went on to change.
-            if (isFirstBuildTurn) window.track?.('Project Created', turnTemplate);
+            // The developer starter test (ui.js) is read off Project Created.
+            if (isFirstBuildTurn) window.track?.('Project Created', { ...window.starterTestProps?.(), ...turnTemplate });
             window.track?.('Build Started', { first_build: isFirstBuildTurn, has_attachments: sendAttachments.length > 0, ...(queued && { queued: true }), ...turnTemplate });
             _activeBuild = { turnSeq, startedAt: turnStartedAt, firstBuild: isFirstBuildTurn, template: turnTemplate.template };
 

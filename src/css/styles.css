@@ -6181,6 +6181,286 @@ a.upgrade-more-link:hover { background: none; color: #111; }
 .limit-body { margin: 0 0 10px; font-size: 14px; line-height: 1.5; color: #333; }
 .limit-lead { color: #1a1a1a; font-weight: 600; }
 
+/* What's new dialog (js/whats-new.js). The words and the button on the left,
+   a drawing of the feature on a coloured panel on the right. On a phone they
+   stack, words, drawing, then the button. Reuses .confirm-modal-overlay for
+   the backdrop. */
+.whats-new-modal {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: 1fr auto;
+    grid-template-areas: "text art" "actions art";
+    width: 820px;
+    max-width: 100%;
+    max-height: 100%;
+    min-height: 440px;
+    overflow-y: auto;
+    box-sizing: border-box;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 12px 44px rgba(0, 0, 0, 0.24);
+    text-align: left;
+    transform: translateY(8px) scale(0.98);
+    transition: transform 0.15s ease;
+}
+.confirm-modal-overlay.open .whats-new-modal { transform: translateY(0) scale(1); }
+.whats-new-modal:focus,
+.whats-new-modal:focus-visible { outline: none; }
+.whats-new-text { grid-area: text; padding: 32px 32px 0; }
+.whats-new-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #e8f1ff;
+    color: #0a6ae0;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+.whats-new-title {
+    margin: 14px 0 10px;
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    color: #1a1a1a;
+}
+.whats-new-body p { margin: 0 0 16px; font-size: 14.5px; line-height: 1.55; color: #333; }
+.whats-new-steps {
+    list-style: none;
+    margin: 0 0 16px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    counter-reset: whats-new-step;
+}
+/* The number sits in the padding, so the step's words wrap as one run. */
+.whats-new-steps li {
+    position: relative;
+    padding-left: 32px;
+    font-size: 14px;
+    line-height: 1.45;
+    color: #333;
+    counter-increment: whats-new-step;
+}
+.whats-new-steps li::before {
+    content: counter(whats-new-step);
+    position: absolute;
+    top: -1px;
+    left: 0;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f0f0f3;
+    color: #555;
+    font-size: 12px;
+    font-weight: 600;
+}
+.whats-new-steps strong { font-weight: 600; color: #1a1a1a; }
+.whats-new-body .whats-new-note { margin: 0; font-size: 13px; color: #76767f; }
+.whats-new-actions { grid-area: actions; padding: 20px 32px 32px; }
+.whats-new-continue { width: 100%; padding: 11px 18px; }
+.whats-new-x {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    z-index: 1;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.9);
+    color: #333;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+.whats-new-x:hover { background: #fff; color: #000; }
+.whats-new-x svg { width: 16px; height: 16px; }
+.whats-new-art {
+    grid-area: art;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: linear-gradient(155deg, #78b0ff 0%, #2f74ea 100%);
+}
+/* Two faint rings behind the drawing. */
+.whats-new-art::before,
+.whats-new-art::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.16);
+}
+.whats-new-art::before { width: 420px; height: 420px; top: -210px; left: -150px; }
+.whats-new-art::after { width: 300px; height: 300px; right: -130px; bottom: -120px; }
+@media (max-width: 640px) {
+    .whats-new-modal {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto;
+        grid-template-areas: "text" "art" "actions";
+        min-height: 0;
+        border-radius: 14px;
+    }
+    .whats-new-text { padding: 22px 20px 0; }
+    .whats-new-title { margin-top: 12px; font-size: 20px; }
+    .whats-new-body p { margin-bottom: 14px; }
+    .whats-new-art { height: 200px; margin: 18px 20px 0; border-radius: 12px; }
+    .whats-new-art .wn-domain { transform: scale(0.72); }
+    .whats-new-actions { padding: 16px 20px 20px; }
+    .whats-new-x { background: #f0f0f3; color: #555; }
+    .whats-new-x:hover { background: #e5e5e8; }
+}
+
+/* The custom domain drawing: a site in a browser, and its DNS records card
+   over the corner. The records' checks land one after the other, then the
+   address turns from the puter.site address to the domain. Each element's
+   resting style is the end state, so reduced motion shows just that. */
+.wn-domain { position: relative; flex: 0 0 auto; width: 304px; height: 264px; }
+.wn-browser {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 272px;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 10px 30px rgba(14, 42, 99, 0.25);
+    overflow: hidden;
+}
+.wn-browser-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+    background: #f4f5f8;
+    border-bottom: 1px solid #e9eaef;
+}
+.wn-dots { display: flex; gap: 4px; }
+.wn-dots i { width: 7px; height: 7px; border-radius: 50%; background: #d4d5dc; }
+.wn-url {
+    position: relative;
+    flex: 1 1 auto;
+    height: 22px;
+    border: 1px solid #e3e4ea;
+    border-radius: 999px;
+    background: #fff;
+    overflow: hidden;
+    font-size: 11px;
+    animation: wn-url-glow 1.2s ease 1.8s both;
+}
+.wn-url > span {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    white-space: nowrap;
+}
+.wn-url-old { color: #8a8b95; opacity: 0; animation: wn-url-out 0.4s ease 1.8s both; }
+.wn-url-new { color: #1a1a1a; font-weight: 600; animation: wn-url-in 0.4s ease 1.8s both; }
+.wn-url-new svg { width: 10px; height: 10px; color: #2d7d46; }
+.wn-page { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px 16px; }
+.wn-page-nav { display: flex; align-items: center; gap: 6px; }
+.wn-page-nav b { width: 36px; height: 7px; margin-right: auto; border-radius: 4px; background: #c9cbd4; }
+.wn-page-nav i { width: 18px; height: 5px; border-radius: 3px; background: #e3e4ea; }
+.wn-page-hero { height: 64px; border-radius: 8px; background: linear-gradient(135deg, #ffe3c9 0%, #ffbf9f 100%); }
+.wn-page-title { width: 60%; height: 9px; border-radius: 4px; background: #c9cbd4; }
+.wn-page-line { width: 85%; height: 6px; border-radius: 3px; background: #e6e7ec; }
+.wn-page-line.short { width: 55%; }
+.wn-page-btn { width: 64px; height: 16px; margin-top: 2px; border-radius: 6px; background: #1a1a1a; }
+.wn-dns {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 196px;
+    padding: 10px 12px 6px;
+    box-sizing: border-box;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 14px 34px rgba(14, 42, 99, 0.3);
+}
+.wn-dns-head { margin-bottom: 4px; font-size: 10.5px; font-weight: 600; color: #555; }
+.wn-dns-row { display: flex; align-items: center; gap: 8px; height: 26px; }
+.wn-dns-row + .wn-dns-row { border-top: 1px solid #f0f0f3; }
+.wn-dns-type { flex: 0 0 38px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.02em; color: #0a6ae0; }
+.wn-dns-val { flex: 1 1 auto; height: 6px; border-radius: 3px; background: #e6e7ec; }
+.wn-dns-state { position: relative; flex: 0 0 16px; height: 16px; }
+.wn-dns-wait {
+    position: absolute;
+    inset: 2px;
+    box-sizing: border-box;
+    border: 2px solid #d4d5dc;
+    border-top-color: #8a8b95;
+    border-radius: 50%;
+    opacity: 0;
+    animation: wn-spin 0.8s linear infinite, wn-fade-out 0.2s ease var(--d) both;
+}
+.wn-dns-ok {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: #2d7d46;
+    color: #fff;
+    animation: wn-pop 0.3s cubic-bezier(0.3, 1.6, 0.6, 1) var(--d) both;
+}
+.wn-dns-ok svg { width: 10px; height: 10px; }
+@keyframes wn-url-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-100%); } }
+@keyframes wn-url-in { from { opacity: 0; transform: translateY(100%); } to { opacity: 1; transform: none; } }
+@keyframes wn-url-glow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(45, 125, 70, 0); }
+    35% { box-shadow: 0 0 0 3px rgba(45, 125, 70, 0.25); }
+}
+@keyframes wn-spin { to { transform: rotate(360deg); } }
+@keyframes wn-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes wn-pop { from { opacity: 0; transform: scale(0.4); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+    .whats-new-art * { animation: none !important; }
+}
+html[data-theme="dark"] .whats-new-modal { background: var(--surface-raised); box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6); }
+html[data-theme="dark"] .whats-new-badge { background: var(--accent-soft); color: var(--accent); }
+html[data-theme="dark"] .whats-new-title,
+html[data-theme="dark"] .whats-new-steps strong { color: var(--text); }
+html[data-theme="dark"] .whats-new-body p,
+html[data-theme="dark"] .whats-new-steps li { color: var(--text-secondary); }
+html[data-theme="dark"] .whats-new-steps li::before { background: var(--surface-hover); color: var(--text-secondary); }
+html[data-theme="dark"] .whats-new-body .whats-new-note { color: var(--text-muted); }
+html[data-theme="dark"] .whats-new-x { background: rgba(255, 255, 255, 0.12); color: var(--text); }
+html[data-theme="dark"] .whats-new-x:hover { background: rgba(255, 255, 255, 0.2); }
+html[data-theme="dark"] .whats-new-art { background: linear-gradient(155deg, #2d5eae 0%, #163874 100%); }
+html[data-theme="dark"] .wn-browser,
+html[data-theme="dark"] .wn-dns { background: var(--surface); box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45); }
+html[data-theme="dark"] .wn-browser-bar { background: var(--surface-subtle); border-bottom-color: var(--border-subtle); }
+html[data-theme="dark"] .wn-dots i { background: var(--border-strong); }
+html[data-theme="dark"] .wn-url { background: var(--surface); border-color: var(--border); }
+html[data-theme="dark"] .wn-url-old { color: var(--text-muted); }
+html[data-theme="dark"] .wn-url-new { color: var(--text); }
+html[data-theme="dark"] .wn-url-new svg { color: var(--success); }
+html[data-theme="dark"] .wn-page-nav b,
+html[data-theme="dark"] .wn-page-title { background: var(--border-strong); }
+html[data-theme="dark"] .wn-page-nav i,
+html[data-theme="dark"] .wn-page-line,
+html[data-theme="dark"] .wn-dns-val { background: var(--surface-active); }
+html[data-theme="dark"] .wn-page-hero { opacity: 0.85; }
+html[data-theme="dark"] .wn-page-btn { background: #eef2f7; }
+html[data-theme="dark"] .wn-dns-head { color: var(--text-secondary); }
+html[data-theme="dark"] .wn-dns-type { color: var(--accent); }
+html[data-theme="dark"] .wn-dns-row + .wn-dns-row { border-top-color: var(--border-subtle); }
+html[data-theme="dark"] .wn-dns-wait { border-color: var(--border-strong); border-top-color: var(--text-muted); }
+
 /* Project Properties dialog — reuses .confirm-modal-overlay for the backdrop. */
 .properties-modal {
     width: 420px;
