@@ -4942,23 +4942,154 @@ function isRichTextCopy(cd, files) {
 }
 window.isRichTextCopy = isRichTextCopy;
 
+// A paste this long goes in the tray as a "Pasted text" chip instead of
+// filling the composer with a wall of text (a log, a spec, a file's contents).
+// Either bound is enough: a minified blob is one huge line, a list is many
+// short ones. The text still reaches the model whole (see sendChatMessage).
+const LONG_PASTE_CHARS = 2000;
+const LONG_PASTE_LINES = 30;
+function isLongPaste(text) {
+    if (typeof text !== 'string' || !text.trim()) return false;
+    if (text.length >= LONG_PASTE_CHARS) return true;
+    let lines = 1;
+    for (let i = 0; i < text.length && lines < LONG_PASTE_LINES; i++) if (text.charCodeAt(i) === 10) lines++;
+    return lines >= LONG_PASTE_LINES;
+}
+window.isLongPaste = isLongPaste;
+
 // Paste a file into the composer to attach it — a screenshot from the
-// clipboard, a copied image. Only FILE pastes are intercepted (a text paste
-// keeps the browser's default so typing is untouched); the files go through
-// the same intake as a drop or the picker, so every size/count/dedup rule
-// applies. Before this, pasting a screenshot silently did nothing.
+// clipboard, a copied image. A long text paste is attached too, as a
+// "Pasted text" chip. Any other text paste keeps the browser's default so
+// typing is untouched. Files go through the same intake as a drop or the
+// picker, so every size/count/dedup rule applies. Before this, pasting a
+// screenshot silently did nothing.
 $(document).on('paste', '.chat-input-message', async function(e) {
     const cd = e.originalEvent && e.originalEvent.clipboardData;
-    const files = cd && cd.files;
-    if (!files || !files.length) return;
-    if (isRichTextCopy(cd, files)) return; // the browser pastes the text
-    e.preventDefault();
-    try {
-        await handleDroppedFiles(files);
-    } catch (error) {
-        console.error('Error handling pasted files:', error);
-        puter.ui.alert(`Error processing pasted files: ${error.message || error}`);
+    if (!cd) return;
+    const files = cd.files;
+    if (files && files.length && !isRichTextCopy(cd, files)) {
+        e.preventDefault();
+        try {
+            await handleDroppedFiles(files);
+        } catch (error) {
+            console.error('Error handling pasted files:', error);
+            puter.ui.alert(`Error processing pasted files: ${error.message || error}`);
+        }
+        return;
     }
+    let text = '';
+    try { text = cd.getData('text/plain') || ''; } catch (err) { return; }
+    if (!isLongPaste(text) || typeof window.attachPastedText !== 'function') return; // the browser pastes the text
+    e.preventDefault();
+    window.attachPastedText(text);
+});
+
+// The whole text behind a pasted text card. opts.onSave makes it editable
+// (the tray's pencil): Save hands back the new text, Cancel and Escape drop
+// the changes. Without it the text is read-only but can still be selected.
+function openPastedTextDialog(text, opts = {}) {
+    const editable = typeof opts.onSave === 'function';
+    const size = typeof formatFileSize === 'function' ? formatFileSize(new Blob([text]).size) : '';
+    const lines = text.split('\n').length;
+    const $overlay = $(`
+        <div class="confirm-modal-overlay properties-modal-overlay">
+            <div class="properties-modal pasted-modal" role="dialog" aria-modal="true" aria-labelledby="pasted-modal-title" tabindex="-1">
+                <div class="properties-modal-header">
+                    <div class="properties-modal-title" id="pasted-modal-title">${editable ? 'Edit pasted text' : 'Pasted content'}</div>
+                    <button type="button" class="properties-modal-x" title="Close" aria-label="Close">✕</button>
+                </div>
+                <div class="pasted-modal-meta"></div>
+                <textarea class="pasted-modal-text" spellcheck="false" aria-labelledby="pasted-modal-title"></textarea>
+                <div class="properties-modal-actions">
+                    ${editable
+                        ? '<button type="button" class="confirm-modal-btn properties-modal-close pasted-modal-cancel">Cancel</button><button type="button" class="confirm-modal-btn pasted-modal-save">Save</button>'
+                        : '<button type="button" class="confirm-modal-btn properties-modal-close">Close</button>'}
+                </div>
+            </div>
+        </div>
+    `);
+    $overlay.find('.pasted-modal-meta').text([size, `${lines.toLocaleString()} line${lines === 1 ? '' : 's'}`].filter(Boolean).join(' · '));
+    $overlay.find('.pasted-modal-text').val(text).prop('readOnly', !editable);
+
+    let settled = false;
+    let releaseFocus = null;
+    const close = () => {
+        if (settled) return;
+        settled = true;
+        $(document).off('keydown.pastedModal');
+        $overlay.removeClass('open');
+        setTimeout(() => $overlay.remove(), 150);
+        if (releaseFocus) releaseFocus();
+    };
+    $overlay.find('.properties-modal-close, .properties-modal-x').on('click', close);
+    $overlay.find('.pasted-modal-save').on('click', () => {
+        const next = $overlay.find('.pasted-modal-text').val();
+        close();
+        opts.onSave(next);
+    });
+    // Same backdrop and key handling as the project Settings dialog.
+    $overlay.on('click', (e) => e.stopPropagation());
+    $overlay.on('mousedown', (e) => { if (e.target === $overlay[0]) close(); });
+    $(document).on('keydown.pastedModal', (e) => {
+        if (window.isComposingKeyEvent(e) || !keyIsForDialog(e, $overlay[0])) return;
+        if (e.key === 'Escape') { e.preventDefault(); close(); }
+    });
+
+    $('body').append($overlay);
+    releaseFocus = trapDialogFocus($overlay);
+    requestAnimationFrame(() => {
+        $overlay.addClass('open');
+        const $ta = $overlay.find('.pasted-modal-text');
+        if (editable) $ta.trigger('focus');
+        else $overlay.find('.pasted-modal').trigger('focus');
+        $ta.scrollTop(0);
+    });
+}
+window.openPastedTextDialog = openPastedTextDialog;
+
+// A pasted text card in the tray: open it to read, or the pencil to edit.
+// Saving empty text removes the card.
+$(document).on('click', '.attachment-preview .pasted-card-open, .attachment-preview .pasted-card-edit', function(e) {
+    e.stopPropagation();
+    const id = parseFloat($(this).closest('.pasted-card').data('id'));
+    const entry = (window.attachedImages || []).find(a => a.id === id);
+    if (!entry) return;
+    if (!$(this).hasClass('pasted-card-edit')) return openPastedTextDialog(entry.pastedText);
+    openPastedTextDialog(entry.pastedText, {
+        onSave(next) {
+            if (!(window.attachedImages || []).includes(entry)) return; // sent or removed meanwhile
+            if (!next.trim()) {
+                removeAttachment(id);
+                $('.chat-input-message').trigger('focus');
+                return;
+            }
+            if (next === entry.pastedText) return;
+            entry.pastedText = next;
+            entry.size = new Blob([next]).size;
+            // Redraw the card; its pencil had focus, so hand focus to the new one.
+            $(`.attachment-preview .attachment-thumbnail[data-id="${id}"]`).remove();
+            window.updateAttachmentDisplay?.();
+            $(`.attachment-preview .pasted-card[data-id="${id}"] .pasted-card-edit`).trigger('focus');
+        },
+    });
+});
+
+// A pasted text card in a sent message: show the text it carried. The live
+// bubble keeps it on the card; a reloaded one finds it in the history.
+$(document).on('click', '.message .pasted-card-open', function(e) {
+    e.stopPropagation();
+    const $card = $(this).closest('.pasted-card');
+    let text = $card.data('pastedText');
+    if (typeof text !== 'string') {
+        const messageId = $card.closest('.message').attr('data-message-id');
+        const msg = messageId && Array.isArray(chatHistory) ? chatHistory.find(m => m && m.messageId === messageId) : null;
+        const pasted = msg && Array.isArray(msg.content)
+            ? msg.content.filter(p => p && p.type === 'document' && p._pasted && p.source?.type === 'text')
+            : [];
+        const part = pasted[parseInt($card.attr('data-paste-index'), 10)];
+        text = part ? String(part.source.data || '') : null;
+    }
+    if (typeof text === 'string') openPastedTextDialog(text);
 });
 
 // Handle attachment removal

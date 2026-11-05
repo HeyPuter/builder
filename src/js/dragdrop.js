@@ -257,6 +257,33 @@ async function handleDroppedFiles(browserFiles, meta = {}) {
     }
 }
 
+// Put a long text paste in the tray as a "Pasted text" chip (see isLongPaste in
+// ui.js). It carries the text itself, not a File: it isn't saved to assets/,
+// and the send path hands it to the model inline, as if it had been typed.
+function attachPastedText(text) {
+    if (!Array.isArray(window.attachedImages)) window.attachedImages = [];
+    const tray = window.attachedImages;
+    if (tray.some(a => a.pastedText === text)) {
+        window.showToast?.('That text is already attached.', { type: 'info', key: 'paste-duplicate', throttleMs: 2000 });
+        return false;
+    }
+    if (tray.length >= MAX_ATTACHMENTS) {
+        puter.ui.alert(`Attachments are limited to ${MAX_ATTACHMENTS} files — remove one to attach the pasted text.`);
+        return false;
+    }
+    const n = tray.filter(a => a.pastedText != null).length + 1;
+    tray.push({
+        name: n === 1 ? 'Pasted text' : `Pasted text ${n}`,
+        size: new Blob([text]).size,
+        type: 'text/plain',
+        pastedText: text,
+        id: nextAttachmentId++,
+    });
+    if (typeof window.updateAttachmentDisplay === 'function') window.updateAttachmentDisplay();
+    return true;
+}
+window.attachPastedText = attachPastedText;
+
 function guessMimeType(name) {
     const ext = (name.split('.').pop() || '').toLowerCase();
     const map = {

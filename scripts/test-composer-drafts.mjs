@@ -519,12 +519,13 @@ check('the main-path clear is gated on consumedComposer (Resume + programmatic +
     /if \(consumedComposer\) \{[^}]*clearComposerDraft\(preAuthDraftContext\)/s.test(sendSrc));
 check('programmatic sends do not take or clear the attachment tray (a queued one brings its own files)',
     sendSrc.includes('const sendAttachments = consumedComposer ? preAuthAttachments : queued ? queued.attachments : [];') &&
-    sendSrc.includes('const atts = sendAttachments;') &&
+    // (Pasted text cards are split off the files, see test-paste-as-attachment.)
+    sendSrc.includes('const atts = sendAttachments.filter(a => a.pastedText == null);') &&
     // (deferRevoke: the bubble just rendered from these blob URLs may still be
     // loading them — see clearAllAttachments.)
     // (only: the files sent. Files attached during the send's uploads are
     // for the next message.)
-    /if \(consumedComposer\) clearAllAttachments\(\{ deferRevoke: true, only: atts \}\);/.test(sendSrc));
+    /if \(consumedComposer\) clearAllAttachments\(\{ deferRevoke: true, only: sendAttachments \}\);/.test(sendSrc));
 // The tray is snapshotted next to the composer text, before the sign-in gate:
 // a deep-link load inside ensureAuthenticated empties the tray, so reading it
 // afterwards dropped the files the user attached to the message being sent.

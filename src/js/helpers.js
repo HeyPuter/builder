@@ -1208,9 +1208,13 @@ function prepareHistoryForAI(historyArray, modelId, opts) {
                 // doesn't forward text-source document blocks.
                 if (part.type === "document" && part.source?.type === "text") {
                     const name = part._name || 'attached file';
+                    // A long paste the composer turned into a card (attachPastedText)
+                    // is part of what the user wrote, not a file.
                     msg.content[i] = {
                         type: "text",
-                        text: `Contents of attached file "${name}":\n\n${part.source.data}`,
+                        text: part._pasted
+                            ? `Text the user pasted ("${name}"):\n\n${part.source.data}`
+                            : `Contents of attached file "${name}":\n\n${part.source.data}`,
                     };
                     continue;
                 }

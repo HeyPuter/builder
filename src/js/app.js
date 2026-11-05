@@ -1204,6 +1204,7 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
                 } else if (Array.isArray(message.content)) {
                     let textContent = '';
                     let imageContent = '';
+                    let pasteIndex = 0;
 
                     for (const item of message.content) {
                         if (item.type === 'text') {
@@ -1211,6 +1212,8 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
                         } else if (item.type === 'image' && item.source?.type === 'base64') {
                             const dataURL = `data:${item.source.media_type};base64,${item.source.data}`;
                             imageContent += `<img src="${dataURL}" alt="${htmlEscape(item._name || 'Attached image')}" class="message-image">`;
+                        } else if (item.type === 'document' && item.source?.type === 'text' && item._pasted) {
+                            imageContent += pastedCardHTML(item.source.data || '', item._name || 'Pasted text', { index: pasteIndex++ });
                         } else if (item.type === 'document' && (item.source?.type === 'base64' || item.source?.type === 'text')) {
                             imageContent += `<div class="attached-document">📄 ${htmlEscape(item._name || 'document')}</div>`;
                         } else if (item.type === 'image-ref' && (item.thumb || item.path)) {
@@ -2948,6 +2951,35 @@ $(document).ready(async function(){
     // Drag and drop functionality moved to dragdrop.js
 });
 
+// "60 lines" — how a pasted text card describes its size.
+function pastedTextLines(text) {
+    const lines = String(text).split('\n').length;
+    return `${lines.toLocaleString()} line${lines === 1 ? '' : 's'}`;
+}
+
+const PENCIL_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+
+// A pasted text card: the opening lines of the text, faint and small, over a
+// PASTED badge. The tray's card (opts.trayId) also has an edit pencil and a
+// remove button; the sent message's card only opens the text. Clicking the
+// card opens the whole text (openPastedTextDialog in ui.js).
+function pastedCardHTML(text, name, opts = {}) {
+    const label = `${name}, ${pastedTextLines(text)}`;
+    const id = opts.trayId != null ? htmlEscape(opts.trayId) : null;
+    const where = id != null ? `data-id="${id}"` : `data-paste-index="${htmlEscape(opts.index)}"`;
+    return `<div class="pasted-card${id != null ? ' attachment-thumbnail' : ''}" ${where} title="${htmlEscape(label)}">
+            <button type="button" class="pasted-card-open" aria-label="${htmlEscape(label)}" aria-haspopup="dialog">
+                <span class="pasted-card-snippet" aria-hidden="true">${htmlEscape(String(text).slice(0, 300))}</span>
+            </button>
+            <div class="pasted-card-bar">
+                <span class="pasted-card-badge" aria-hidden="true">Pasted</span>
+                ${id != null ? `<button type="button" class="pasted-card-edit" title="Edit" aria-label="Edit ${htmlEscape(label)}" aria-haspopup="dialog">${PENCIL_SVG}</button>` : ''}
+            </div>
+            ${id != null ? `<button class="remove-attachment" data-id="${id}" title="Remove" aria-label="Remove ${htmlEscape(label)}">×</button>` : ''}
+        </div>`;
+}
+window.pastedCardHTML = pastedCardHTML;
+
 // Render the attachment preview row using each file's blob URL
 function updateAttachmentDisplay() {
     let $preview = $('.attachment-preview');
@@ -2965,11 +2997,17 @@ function updateAttachmentDisplay() {
     for (const img of attachedImages) {
         if ($thumbnails.find(`.attachment-thumbnail[data-id="${img.id}"]`).length) continue;
 
+        const label = img.relPath || img.name;
+
+        if (img.pastedText != null) {
+            $thumbnails.append(pastedCardHTML(img.pastedText, img.name, { trayId: img.id }));
+            continue;
+        }
+
         // Use blob URL for images; placeholder icon for PDFs/other
         const isImage = (img.type || '').startsWith('image/');
         const thumbSrc = isImage ? img.blobURL : NON_RENDERED_FILE_URL;
 
-        const label = img.relPath || img.name;
         // lazy/async: a folder drop can put dozens of full-resolution blob URLs
         // in the tray at once; don't decode them all up front.
         $thumbnails.append(`
@@ -5144,7 +5182,10 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             // The tray belongs to the user's next composer send; a programmatic
             // send (auto-fix, Issues batch) leaves it — and the chip row — alone.
             // A queued message brings the files it took from the tray.
-            const atts = sendAttachments;
+            // Pasted text (see attachPastedText) is no file: it skips assets/
+            // and goes to the model inline, so `atts` is only the files.
+            const pastes = sendAttachments.filter(a => a.pastedText != null);
+            const atts = sendAttachments.filter(a => a.pastedText == null);
             const kindOf = (a) => classifyAttachment(a);
             const messageId = generateMessageId();
             userBubbleMessageId = messageId;
@@ -5161,18 +5202,24 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             // chat blank for seconds. Uses the thumbnails just generated; the rare
             // null-thumb image falls back to its in-memory blob URL.
             let imageHTML = '';
-            if (atts.length > 0) {
-                const parts = atts.map((a, i) => {
+            if (sendAttachments.length > 0) {
+                const pasteChips = pastes.map((a, i) => pastedCardHTML(a.pastedText, a.name, { index: i }));
+                const parts = pasteChips.concat(atts.map((a, i) => {
                     const isImage = (a.type || '').startsWith('image/');
                     if (!isImage) return `<div class="attached-document">📄 ${htmlEscape(a.relPath || a.name)}</div>`;
                     const src = thumbs[i] || a.blobURL;
                     return `<img src="${src}" alt="${htmlEscape(a.name)}" class="message-image">`;
-                });
+                }));
                 imageHTML = '<div class="attached-images">' + parts.join('') + '</div>';
             }
             const processedText = messageText ? nl_to_p(htmlEscape(messageText)) : '';
             appendMessageWithImages(processedText + imageHTML, true, messageId);
-            if (consumedComposer) clearAllAttachments({ deferRevoke: true, only: atts });
+            // The history entry lands after the asset writes below; until then
+            // a click on a pasted card reads the text from the card itself.
+            $(`.message[data-message-id="${messageId}"] .pasted-card`).each((i, el) => {
+                if (pastes[i]) $(el).data('pastedText', pastes[i].pastedText);
+            });
+            if (consumedComposer) clearAllAttachments({ deferRevoke: true, only: sendAttachments });
 
             // Build the model-facing content. EVERY attachment is saved to assets/
             // and referenced by path — nothing is embedded inline. The model pulls
@@ -5270,6 +5317,12 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
 
             const contentParts = [];
             if (messageText) contentParts.push({ type: "text", text: messageText });
+            // A text document block: the bubble draws it as a 📄 chip (here and
+            // on reload), and prepareHistoryForAI flattens it to plain text, so
+            // the model reads the paste as part of the message.
+            for (const a of pastes) {
+                contentParts.push({ type: 'document', source: { type: 'text', media_type: 'text/plain', data: a.pastedText }, _name: a.name, _pasted: true });
+            }
             for (const p of attachmentParts) if (p) contentParts.push(p);
 
             // Add a hidden text part listing every saved attachment with its path,
@@ -5362,7 +5415,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             // first change to it, so Project Created with a template counts
             // the copies people went on to change.
             if (isFirstBuildTurn) window.track?.('Project Created', turnTemplate);
-            window.track?.('Build Started', { first_build: isFirstBuildTurn, has_attachments: atts.length > 0, ...(queued && { queued: true }), ...turnTemplate });
+            window.track?.('Build Started', { first_build: isFirstBuildTurn, has_attachments: sendAttachments.length > 0, ...(queued && { queued: true }), ...turnTemplate });
             _activeBuild = { turnSeq, startedAt: turnStartedAt, firstBuild: isFirstBuildTurn, template: turnTemplate.template };
 
             const messageContent = contentParts.length > 0 ? contentParts : messageText;
