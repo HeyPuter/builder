@@ -4771,10 +4771,16 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // (or being treated as a Stop). The agentic loop is paused inside the tool's
     // exec; resolving it here lets the model continue building with this reply.
     if (window._activeClarification) {
-        const text = (userInput ?? $('.chat-input-message').val() ?? '').trim();
+        const typed = (userInput ?? $('.chat-input-message').val() ?? '').trim();
+        // A long paste is a card in the tray (attachPastedText), but it is part
+        // of what the user wrote: it goes in the reply, after the typed text.
+        // Files can't travel in a reply, so they stay for the next message.
+        const pastes = userInput == null ? attachedImages.filter(a => a.pastedText != null) : [];
+        const text = [typed, ...pastes.map(a => a.pastedText)].filter(t => t.trim()).join('\n\n');
         if (text) {
             $('.chat-input-message').val('');
             autoResizeTextarea($('.chat-input-message')[0]);
+            if (pastes.length) clearAllAttachments({ only: pastes });
             // The reply was consumed — drop its persisted draft. Messages
             // queued during the turn are part of the draft and stay in it
             // (js/message-queue.js).

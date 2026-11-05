@@ -133,6 +133,10 @@ check('a send takes its pasted cards out of the tray right after clearing the dr
 check('a composer send that never lands hands its pasted cards back with its text',
     /returnToComposer\?\.\(\[queued \|\| \{\s*text: messageText,\s*attachments: sendAttachments\.filter\(a => a\.pastedText != null\),\s*\}\]\)/.test(APP));
 
+check('a reply to a clarifying question carries the pasted cards after the typed text',
+    /const pastes = userInput == null \? attachedImages\.filter\(a => a\.pastedText != null\) : \[\];\s*const text = \[typed, \.\.\.pastes\.map\(a => a\.pastedText\)\]/.test(APP)
+    && /if \(pastes\.length\) clearAllAttachments\(\{ only: pastes \}\);[\s\S]{0,600}submitDirectReply\(text\)/.test(APP));
+
 check('npm test runs this file', PKG.scripts.test.includes('node scripts/test-paste-as-attachment.mjs'));
 
 if (failures) { console.error(`\n${failures} check(s) FAILED`); process.exit(1); }
