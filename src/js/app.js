@@ -2794,6 +2794,12 @@ async function revealWhenReady() {
     }
 }
 
+// Whether the user has typed anywhere on the page since it loaded. 'input'
+// fires for typing, paste and the like, never for the app's own .val(). The
+// What's new dialog doesn't open over someone already at work.
+let _typedSinceLoad = false;
+document.addEventListener('input', () => { _typedSinceLoad = true; }, true);
+
 $(document).ready(async function(){
     // A link that starts something (a template, a marketing page's prompt or
     // send), read before those are taken out of the address bar. The What's
@@ -2945,12 +2951,14 @@ $(document).ready(async function(){
     window.consumeTemplateDeepLink?.();
 
     // The newest feature, once per account, for a user who has built
-    // something (js/whats-new.js). Not awaited: it waits on puter.kv, and
-    // checks again before it shows that no build has started meanwhile.
-    if (!startedFromLink) {
+    // something (js/whats-new.js). Not while an upgrade is pending, since its
+    // success dialog comes first. Not awaited: it waits on puter.kv, then
+    // checks again that no build has started, the user hasn't typed, and
+    // focus is still on the page or the chat box.
+    if (!startedFromLink && !upgradeIsPending()) {
         window.WhatsNew?.maybeShow({
             hasProjects: savedChats.length > 0,
-            busy: () => isProcessing || _sendSetupInFlight,
+            busy: () => isProcessing || _sendSetupInFlight || _typedSinceLoad || !composerMayTakeFocus(),
         }).catch((e) => console.warn('Could not show What’s new:', e));
     }
 

@@ -6007,6 +6007,8 @@ $(document).on('click', '.sign-in-btn', async function(e) {
 function openUpgradeModal(source, { justUpgraded = false } = {}) {
     if (document.querySelector('.upgrade-modal-overlay')) return;
     window.closePublishPanel?.();
+    // This comes first. What's new steps aside unseen, for a later load.
+    window.WhatsNew?.hide();
     const paid = window.Branding.isSubscribed(window.user);
     const plan = paid ? 'paid' : 'free';
     source = source || 'unknown';
@@ -6452,6 +6454,21 @@ function readSavedUpgrade(key) {
     try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) { return null; }
 }
 
+// A saved click with its source, made within the window.
+function savedUpgradeIsFresh(pending) {
+    const age = pending && typeof pending.at === 'number' ? Date.now() - pending.at : -1;
+    return !!pending && typeof pending.source === 'string' && age >= 0 && age < UPGRADE_PENDING_WINDOW_MS;
+}
+
+// Whether an Upgrade click is waiting to be confirmed, in this tab or saved.
+// Startup leaves the What's new dialog for a later load then (app.js), since
+// the success dialog may be about to open and it comes first.
+function upgradeIsPending() {
+    if (_upgradePending) return true;
+    const key = upgradePendingKey();
+    return !!key && savedUpgradeIsFresh(readSavedUpgrade(key));
+}
+
 // Back from Puter's upgrade page, or loaded again after it. Fetch the user
 // again, and if the plan is now paid, swap the Upgrade offers for the paid
 // state and show the success dialog. Runs once startup is done and each time
@@ -6487,12 +6504,9 @@ async function completeUpgrade(key) {
     // Read again under the lock. A tab that held it before may have credited
     // the saved click and removed it.
     let pending = readSavedUpgrade(key);
-    if (pending) {
-        const age = typeof pending.at === 'number' ? Date.now() - pending.at : -1;
-        if (typeof pending.source !== 'string' || age < 0 || age >= UPGRADE_PENDING_WINDOW_MS) {
-            localStorage.removeItem(key);
-            pending = null;
-        }
+    if (pending && !savedUpgradeIsFresh(pending)) {
+        localStorage.removeItem(key);
+        pending = null;
     }
     const mine = _upgradePending;
     if (!pending && !mine) return;

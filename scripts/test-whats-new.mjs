@@ -239,6 +239,23 @@ for (const junk of [1730000000000, true, { at: 1 }, '']) {
     check('paid plan: says they are part of the plan', /part of your Puter plan/.test(paid.shown()[0].html));
 }
 
+// --- Giving way to the upgrade dialog ---------------------------------------------
+{
+    const t = setup();
+    t.W.hide();
+    check('hide with nothing open does nothing', t.overlays.length === 0 && t.calls.kvSet.length === 0);
+    await t.W.maybeShow({ hasProjects: true });
+    t.W.hide();
+    await tick();
+    check('hide closes it and hands focus back', t.shown().length === 0 && t.calls.released === 1 && !t.docHandlers['keydown.whatsNew']);
+    check('… without marking it seen or counting a close',
+        t.calls.kvSet.length === 0 && !t.calls.track.some((c) => c.name === 'Whats New Closed'));
+    check('… so a later load shows it again', (await t.W.maybeShow({ hasProjects: true })) === true);
+    t.fire('.whats-new-continue click');
+    await tick();
+    check('closing it then records it as usual', t.kvStore.get(KV_KEY) === START);
+}
+
 // --- reset (console) ---------------------------------------------------------------
 {
     const t = setup({ kv: { [KV_KEY]: START } });
@@ -266,12 +283,24 @@ for (const junk of [1730000000000, true, { at: 1 }, '']) {
     check('startup notes a template/prompt/handoff link before those are taken out of the URL',
         linkAt >= 0 && linkAt < ready.indexOf('captureTemplateDeepLink') && linkAt < ready.indexOf('applyPromptDeepLink()'));
     const callAt = ready.indexOf('window.WhatsNew?.maybeShow(');
-    const call = ready.slice(ready.lastIndexOf('if (!startedFromLink)', callAt), ready.indexOf('.catch(', callAt));
-    check('startup calls maybeShow, but not after a link that starts something', callAt >= 0 && /^if \(!startedFromLink\)/.test(call));
+    const call = ready.slice(ready.lastIndexOf('if (!startedFromLink', callAt), ready.indexOf('.catch(', callAt));
+    check('startup calls maybeShow, but not after a link that starts something, nor while an upgrade is pending',
+        callAt >= 0 && /^if \(!startedFromLink && !upgradeIsPending\(\)\)/.test(call));
+    check('… after the upgrade checks have started (they read the same pending click)',
+        callAt > ready.indexOf('startUpgradeChecks();'));
     check('… after auth, the project list and the deep links are settled',
         callAt > ready.indexOf('await ensureAuthenticated()') && callAt > ready.indexOf('window.consumeTemplateDeepLink?.()'));
-    check('… with whether the user has projects, and a busy check covering a build',
-        /hasProjects: savedChats\.length > 0/.test(call) && /busy: \(\) => isProcessing \|\| _sendSetupInFlight/.test(call));
+    check('… with whether the user has projects',
+        /hasProjects: savedChats\.length > 0/.test(call));
+    check('… and a busy check covering a build, typing since load, and focus moved off the chat box',
+        /busy: \(\) => isProcessing \|\| _sendSetupInFlight \|\| _typedSinceLoad \|\| !composerMayTakeFocus\(\)/.test(call));
+    const typedAt = app.indexOf("document.addEventListener('input', () => { _typedSinceLoad = true; }, true);");
+    check('typing anywhere on the page is noted from the moment app.js loads, before startup runs',
+        typedAt >= 0 && typedAt < app.indexOf('$(document).ready(async function(){') && /let _typedSinceLoad = false;/.test(app));
+
+    const ui = read('../src/js/ui.js');
+    const upgrade = ui.slice(ui.indexOf('function openUpgradeModal('), ui.indexOf('const paid = window.Branding.isSubscribed(window.user);', ui.indexOf('function openUpgradeModal(')));
+    check('the upgrade dialog makes What’s new step aside before it opens', /window\.WhatsNew\?\.hide\(\);/.test(upgrade));
     check('… not awaited, with failures caught', !/await window\.WhatsNew/.test(ready) && /maybeShow\([\s\S]*?\}\)\.catch\(/.test(ready.slice(callAt)));
 
     const vite = read('../vite.config.js');

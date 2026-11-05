@@ -7,6 +7,10 @@
 // that every later announcement overwrites. A reload with the dialog still up
 // shows it again.
 //
+// The upgrade dialog comes first. Startup leaves this one out while an
+// upgrade is pending (app.js), and the upgrade dialog opening over it closes
+// it unseen (hide), so a later load shows it again.
+//
 // Only the newest announcement is ever shown. A new one replaces ANNOUNCEMENT
 // with a later start, and everyone sees it once, whether or not they saw the
 // last.
@@ -124,6 +128,9 @@
         `;
     }
 
+    // The open dialog's close, for hide().
+    let closeOpen = null;
+
     function open(a = ANNOUNCEMENT) {
         if (document.querySelector('.whats-new-overlay')) return false;
         const $overlay = $(modalHtml(a, !!window.Branding?.isSubscribed(window.user)));
@@ -132,13 +139,17 @@
         const close = (how) => {
             if (closed) return;
             closed = true;
+            closeOpen = null;
             $(document).off('keydown.whatsNew');
             $overlay.removeClass('open');
             setTimeout(() => $overlay.remove(), 150);
             if (releaseFocus) releaseFocus();
+            // Gave way to another dialog, so not seen.
+            if (how === 'hidden') return;
             markSeen(a);
             window.track?.('Whats New Closed', { id: a.id, how });
         };
+        closeOpen = close;
         $overlay.find('.whats-new-continue').on('click', () => close('continue'));
         $overlay.find('.whats-new-x').on('click', () => close('close'));
         $overlay.on('mousedown', (e) => { if (e.target === $overlay[0]) close('outside'); });
@@ -156,9 +167,15 @@
         return true;
     }
 
+    // Called by a dialog that comes first (the upgrade dialog). Closes this
+    // one without marking it seen.
+    function hide() {
+        if (closeOpen) closeOpen('hidden');
+    }
+
     async function reset() {
         await puter.kv.del(KV_KEY);
     }
 
-    window.WhatsNew = { maybeShow, open: () => open(ANNOUNCEMENT), reset };
+    window.WhatsNew = { maybeShow, open: () => open(ANNOUNCEMENT), hide, reset };
 })();
