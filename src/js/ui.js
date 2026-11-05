@@ -5075,13 +5075,17 @@ $(document).on('click', '.attachment-preview .pasted-card-open, .attachment-prev
     });
 });
 
-// A pasted text card in a sent message: show the text it carried. The live
-// bubble keeps it on the card; a reloaded one finds it in the history.
-$(document).on('click', '.message .pasted-card-open', function(e) {
+// A pasted text card in a sent or queued message: show the text it carried.
+// The live bubble keeps it on the card; a reloaded one finds it in the
+// history; a queued one asks the queue.
+$(document).on('click', '.message .pasted-card-open, .queued-message .pasted-card-open', function(e) {
     e.stopPropagation();
     const $card = $(this).closest('.pasted-card');
     let text = $card.data('pastedText');
-    if (typeof text !== 'string') {
+    const $queued = $card.closest('.queued-message');
+    if ($queued.length) {
+        text = window.MessageQueue?.pastedText?.(Number($queued.attr('data-id')), parseInt($card.attr('data-paste-index'), 10));
+    } else if (typeof text !== 'string') {
         const messageId = $card.closest('.message').attr('data-message-id');
         const msg = messageId && Array.isArray(chatHistory) ? chatHistory.find(m => m && m.messageId === messageId) : null;
         const pasted = msg && Array.isArray(msg.content)

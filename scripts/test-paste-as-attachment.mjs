@@ -139,6 +139,14 @@ check('a reply to a clarifying question carries the pasted cards after the typed
 
 check('a tray file that isn\'t an image is drawn as a file card', /attachment-thumbnail\$\{isImage \? '' : ' is-file'\}/.test(APP));
 
+{
+    const MQ = read('../src/js/message-queue.js');
+    check('a queued message draws its pasted text as the same card as a sent one',
+        /window\.pastedCardHTML\(a\.pastedText, a\.name, \{ index: i \}\)/.test(MQ));
+    check('a queued card opens its text', UI.includes("'.message .pasted-card-open, .queued-message .pasted-card-open'")
+        && /window\.MessageQueue\?\.pastedText\?\.\(/.test(UI) && /pastedText,\n/.test(MQ));
+}
+
 check('npm test runs this file', PKG.scripts.test.includes('node scripts/test-paste-as-attachment.mjs'));
 
 if (failures) { console.error(`\n${failures} check(s) FAILED`); process.exit(1); }
