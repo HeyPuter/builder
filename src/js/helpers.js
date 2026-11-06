@@ -62,11 +62,11 @@ window.FEATURE_FLAGS = {
     // with the default model, whatever it was set to. Disabled for now;
     // re-enable by setting true.
     modelPicker: false,
-    // The Code view: a Preview | Code toggle in the preview toolbar that shows
+    // The Code view: a View code button in the preview toolbar that shows
     // the project's files (js/code-editor.js, with the pure rules in
     // js/editor-core.js). Free users read, search and copy them, and a paid
     // Puter plan unlocks editing and saving. CodeMirror is fetched only when
-    // Code first opens (src/editor/). When false the toggle, the phone menu
+    // Code first opens (src/editor/). When false the buttons, the phone menu
     // row and every editor hook are gone, and OfferUpgrade only offers the
     // badge.
     codeEditor: true,
@@ -1933,6 +1933,32 @@ window.drainFileLocks = async function (prefix) {
         ]);
     }
 };
+
+// ---- Fresh file reads in WebKit ---------------------------------------------
+// puter.fs.read is a GET to <API origin>/read?file=… and asks for a fresh copy
+// with a `Cache-Control: no-cache` request header. WebKit (Safari, and every
+// browser on an iPhone) ignores that header and answers from its HTTP cache, so
+// a read right after a write returned the text from before it: a Code view save
+// "failed" writeFileVerified's read-back below though the bytes had landed, and
+// the AI could read an old copy of a file it had already changed. A parameter
+// unique to each read makes it a cache miss; the API ignores parameters it
+// doesn't know. Only those GETs are touched, at XMLHttpRequest.open, so
+// puter.js keeps its own sign-in renewal and error handling.
+window.addReadCacheBuster = function (method, url, apiOrigin, token) {
+    if (typeof url !== 'string' || !apiOrigin || !/^get$/i.test(method || '')) return url;
+    if (url.indexOf(apiOrigin + '/read?') !== 0) return url;
+    return url + '&_fresh=' + token;
+};
+if (typeof XMLHttpRequest !== 'undefined' && !XMLHttpRequest.prototype.open._freshReads) {
+    const open = XMLHttpRequest.prototype.open;
+    let reads = 0;
+    const freshOpen = function (method, url, ...rest) {
+        const token = Date.now().toString(36) + '.' + (++reads);
+        return open.call(this, method, window.addReadCacheBuster(method, url, window.puter?.APIOrigin, token), ...rest);
+    };
+    freshOpen._freshReads = true;
+    XMLHttpRequest.prototype.open = freshOpen;
+}
 
 // Write `data` to `path` and CONFIRM it actually persisted by reading it back.
 // `puter.fs.write` resolving does NOT guarantee the bytes are durable: eventual

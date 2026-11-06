@@ -5605,7 +5605,7 @@ body.preview-active.chat-hidden .chat {
 
     /* --- App preview ---
        The side-by-side dock can't fit on a phone, so the preview becomes a
-       layer over the chat, under the top toolbar, and the toolbar's Chat/View
+       layer over the chat, under the top toolbar, and the toolbar's Chat/Preview
        switcher flips between them. The toolbar stays put in both views, so
        switching never shifts anything vertically. Below the toolbar's layers
        (the account controls at 1000, an open sidebar at 1001) so the burger's
@@ -5657,13 +5657,10 @@ body.preview-active.chat-hidden .chat {
         height: 32px;
         flex: 0 0 auto;
     }
-    /* On the narrowest phones (360px) the select tool + chat⇄app switcher +
-       Reload + ⋯ + Publish come to ~368px, so Reload overlapped the ⋯ button
-       by 8px. Tuck Reload into the ⋯ menu there (the handler adds the row
-       whenever this button is hidden). */
-    @media (max-width: 374px) {
-        body.preview-active .preview-reload { display: none; }
-    }
+    /* One row of tools under the top switcher: select and Reload (or Back to
+       preview, in the code) at the front, "…" and Publish at the end. */
+    .preview-toolbar-left { flex: 0 0 auto; }
+    .preview-toolbar-center { flex: 1 1 auto; }
 
     /* Version-history panel stays inside a narrow screen. The taller mobile
        toolbar (32px buttons) pushes all four popovers down so their caret
@@ -5720,6 +5717,11 @@ body.preview-active.chat-hidden .chat {
     }
     /* (Segment sizing/padding is owned by the scoped `.view-seg .view-seg-btn`
        base rule, which already outranks `.preview-toolbar button`.) */
+    /* Inside a project the switcher needs the room more than the new-project
+       button does; New is one tap away in the burger's sidebar. */
+    body.preview-active .header-new-chat {
+        display: none;
+    }
     /* The switcher gets its own row under the toolbar's controls when the
        one-row layout below can't hold it: very narrow phones, and inside
        Puter, where the cluster can also hold Send feedback and the theme
@@ -5739,15 +5741,15 @@ body.preview-active.chat-hidden .chat {
         transform: translateX(-50%);
     }
     /* Otherwise the switcher shares the toolbar's one row, centred in the
-       space between the burger / new-chat pair (absolutely placed, so padded
-       around) and the right-hand cluster, which joins the flex row so the
-       space between them is known. The GitHub link steps aside to make room. */
+       space between the burger (absolutely placed, so padded around) and the
+       right-hand cluster, which joins the flex row so the space between them
+       is known. The GitHub link steps aside to make room. */
     @media (min-width: 360px) {
         body.preview-active:not(:has(.toolbar .feedback-btn)) {
             --toolbar-h: 44px;
         }
         body.preview-active .toolbar:not(:has(.feedback-btn)) {
-            padding: 0 8px 0 104px;
+            padding: 0 8px 0 56px;
             gap: 8px;
         }
         body.preview-active .toolbar:not(:has(.feedback-btn)) .user-menu-container {
@@ -8780,43 +8782,45 @@ body.media-lightbox-open { overflow: hidden; }
 }
 
 /* ==========================================================================
-   Code view (js/code-editor.js). The Preview | Code toggle in the preview
-   toolbar, and the editor that covers the preview while Code is chosen. The
+   Code view (js/code-editor.js). The View code and Back to preview buttons in
+   the preview toolbar, and the editor that covers the preview while open. The
    iframe stays mounted underneath at its real size (auto-fix, the in-turn
    check and the refresh all find it), only hidden. Editor colors are custom
    properties that src/editor/codemirror.mjs reads, so light and dark follow
    data-theme with no script.
    ========================================================================== */
 
-/* ---- The toggle ---- */
-.pane-mode {
+/* ---- The buttons ----
+   The code is for the few who want it, so View code is one icon among the
+   developer tools (the "…" menu holds it on phones) and stays pressed while
+   the code is open. Back to preview appears in the centre only then. */
+.preview-toolbar .pane-mode-back { display: none; }
+.preview-pane.code-mode .preview-toolbar .pane-mode-back {
     display: flex;
-    align-items: center;
-    gap: 2px;
-    padding: 2px;
-    background: #f0f0f0;
-    border-radius: 8px;
-    flex: 0 0 auto;
-}
-.preview-toolbar .pane-mode .pane-mode-btn {
     width: auto;
-    height: 26px;
+    height: 28px;
     padding: 0 11px;
     gap: 6px;
-    border-radius: 6px;
+    border: 1px solid #e0e0e0;
     font-family: inherit;
     font-size: 13px;
-    color: #555;
+    font-weight: 500;
+    color: #1f2328;
     white-space: nowrap;
 }
-.preview-toolbar .pane-mode .pane-mode-btn.active {
-    background: #fff;
-    color: #1f2328;
-    font-weight: 500;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.14);
+.preview-toolbar .pane-mode-code.active {
+    background: #e0e0e0;
+    color: #222;
 }
-.preview-toolbar .pane-mode .pane-mode-btn:not(.active):hover { background: transparent; color: #1f2328; }
 .pane-mode-dot { width: 6px; height: 6px; border-radius: 50%; background: #d4a72c; }
+/* On an icon button the unsaved dot sits on the corner, like a badge. */
+.preview-toolbar .pane-mode-code,
+.preview-toolbar .preview-overflow { position: relative; }
+.preview-toolbar button .pane-mode-dot {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+}
 
 .preview-pane.code-mode .preview-reload { display: none; }
 .preview-pane.code-mode .preview-frame { visibility: hidden; }
@@ -8837,8 +8841,6 @@ body.media-lightbox-open { overflow: hidden; }
     --ce-protected-bg: rgba(140, 149, 159, 0.11);
     --ce-fold-bg: #eaeef2;
     --ce-fold-fg: #57606a;
-    --ce-ai-line-bg: rgba(46, 160, 67, 0.15);
-    --ce-ai-line-bar: #1a7f37;
     --ce-user-line-bg: rgba(255, 212, 59, 0.3);
     --ce-user-line-bar: #d4a72c;
     --ce-error-line-bg: rgba(255, 129, 130, 0.18);
@@ -9250,10 +9252,8 @@ html[data-theme="dark"] .code-empty { color: var(--text-muted); }
 }
 
 /* ---- Dark theme ---- */
-html[data-theme="dark"] .pane-mode { background: var(--surface-subtle); }
-html[data-theme="dark"] .preview-toolbar .pane-mode .pane-mode-btn { color: var(--text-secondary); }
-html[data-theme="dark"] .preview-toolbar .pane-mode .pane-mode-btn.active { background: var(--surface-active); color: var(--text); box-shadow: none; }
-html[data-theme="dark"] .preview-toolbar .pane-mode .pane-mode-btn:not(.active):hover { color: var(--text); }
+html[data-theme="dark"] .preview-pane.code-mode .preview-toolbar .pane-mode-back { border-color: var(--border); color: var(--text); }
+html[data-theme="dark"] .preview-toolbar .pane-mode-code.active { background: var(--surface-active); color: var(--text); }
 html[data-theme="dark"] .code-view {
     --ce-bg: var(--surface);
     --ce-fg: var(--text);
@@ -9266,8 +9266,6 @@ html[data-theme="dark"] .code-view {
     --ce-protected-bg: rgba(0, 0, 0, 0.14);
     --ce-fold-bg: var(--surface-active);
     --ce-fold-fg: var(--text-secondary);
-    --ce-ai-line-bg: rgba(74, 222, 128, 0.12);
-    --ce-ai-line-bar: #3fb950;
     --ce-user-line-bg: rgba(210, 153, 34, 0.16);
     --ce-user-line-bar: #d29922;
     --ce-error-line-bg: rgba(255, 107, 117, 0.14);
@@ -9350,8 +9348,10 @@ html[data-theme="dark"] .upgrade-code-tag { background: #eef2f7; color: #0b1118;
 /* ---- Phones: the file list is a bottom sheet, one file shows at a time,
    and the editor font is 16px so iOS does not zoom in when typing. ---- */
 @media (max-width: 900px) {
-    .preview-toolbar .pane-mode .pane-mode-btn { height: 32px; padding: 0 12px; }
-    .preview-toolbar .pane-mode .pane-mode-btn svg { display: none; }
+    .preview-pane.code-mode .preview-toolbar .pane-mode-back { height: 32px; padding: 0 12px; }
+    /* The select tool is off while the code covers the app, so Back to
+       preview takes the front of the row. */
+    .preview-pane.code-mode .preview-select-element { display: none; }
     .code-view { --ce-font-size: 16px; border-radius: 0; }
     .code-tree {
         position: absolute;

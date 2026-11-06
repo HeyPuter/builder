@@ -1,9 +1,10 @@
 // code-editor.js — the Code view.
 //
-// A Preview | Code toggle in the preview toolbar swaps the preview for the
-// project's files. Everyone signed in can read them; a paid Puter plan unlocks
-// editing and saving (the pure rules live in js/editor-core.js, CodeMirror in
-// src/editor/, loaded the first time Code opens).
+// A View code button in the preview toolbar (in the "…" menu on phones) swaps
+// the preview for the project's files, and Back to preview swaps it back.
+// Everyone signed in can read them; a paid Puter plan unlocks editing and
+// saving (the pure rules live in js/editor-core.js, CodeMirror in src/editor/,
+// loaded the first time Code opens).
 //
 // Builder was written for one writer, the AI. Hand edits have to keep every
 // part of it coherent, which is most of this file:
@@ -316,10 +317,7 @@
         const code = S.mode === 'code';
         if (code && !wasCode) S.promptCounted = false;
         $('.preview-pane').toggleClass('code-mode', code);
-        $('.pane-mode-btn').each(function () {
-            const on = ($(this).attr('data-mode') === 'code') === code;
-            $(this).toggleClass('active', on).attr('aria-pressed', on ? 'true' : 'false');
-        });
+        $('.pane-mode-code').toggleClass('active', code).attr('aria-pressed', code ? 'true' : 'false');
         if (code) {
             ensureShell();
             $root.prop('hidden', false);
@@ -1110,18 +1108,18 @@
     // ---- Conflicts and changes from outside --------------------------------
 
     // Reread the open files of a project and follow the disk: a clean file
-    // reloads (its changed lines highlighted), a file with unsaved edits turns
-    // into a conflict. Coalesced, since one AI turn can write many times.
+    // reloads, a file with unsaved edits turns into a conflict. Coalesced,
+    // since one AI turn can write many times.
     let _reconcileTimer = null;
     let _reconcileChain = Promise.resolve();
-    function reconcileSoon(delay, opts) {
+    function reconcileSoon(delay) {
         clearTimeout(_reconcileTimer);
         _reconcileTimer = setTimeout(() => {
-            _reconcileChain = _reconcileChain.then(() => reconcile(opts || {})).catch(() => {});
+            _reconcileChain = _reconcileChain.then(() => reconcile()).catch(() => {});
         }, delay == null ? 400 : delay);
     }
 
-    async function reconcile(opts) {
+    async function reconcile() {
         const chatId = S.chatId;
         for (const file of [...S.files.values()]) {
             if (S.chatId !== chatId) return;
@@ -1156,9 +1154,7 @@
             }
             file.buf = next;
             if (next.text !== file.handle.getText()) {
-                const changed = C.changedLines(prev.text, next.text);
                 file.handle.setText(next.text);
-                if (opts.highlight !== false && changed.length && changed.length <= 2000) file.handle.markLines(changed, 'ai');
                 clearDraft(file.abs);
             }
             renderTabs();
@@ -1374,9 +1370,9 @@
     }
 
     function renderChrome() {
-        // The toolbar's Code button carries a dot while unsaved edits wait
-        // behind the preview.
-        $('.pane-mode-btn[data-mode="code"] .pane-mode-dot').prop('hidden', !(S.mode === 'preview' && (hasUnsaved() || strandedFiles().length > 0)));
+        // The toolbar's View code button carries a dot while unsaved edits wait
+        // behind the preview, and so does "…", which holds it on phones.
+        $('.pane-mode-code .pane-mode-dot, .preview-overflow .pane-mode-dot').prop('hidden', !(S.mode === 'preview' && (hasUnsaved() || strandedFiles().length > 0)));
         if (!$root) return;
         const file = activeFile();
         for (const f of S.files.values()) applyEditable(f);
@@ -1443,8 +1439,10 @@
 
     // ---- Events -----------------------------------------------------------
 
+    // View code toggles: a second press goes back to the app, as Back to
+    // preview does.
     $(document).on('click', '.pane-mode-btn', function () {
-        if ($(this).attr('data-mode') === 'code') openCode();
+        if ($(this).attr('data-mode') === 'code' && S.mode !== 'code') openCode();
         else closeCode();
     });
     $(document).on('click', '.code-tree-item', function () {
@@ -1547,7 +1545,7 @@
         if (document.visibilityState === 'hidden' || S.mode !== 'code' || !S.files.size) return;
         if (Date.now() - _lastFocusCheck < 5000) return;
         _lastFocusCheck = Date.now();
-        reconcileSoon(100, { highlight: false });
+        reconcileSoon(100);
     }
     window.addEventListener('focus', checkOnReturn);
     document.addEventListener('visibilitychange', checkOnReturn);
@@ -1632,10 +1630,7 @@
             disposeAll();
             S.mode = 'preview';
             $('.preview-pane').removeClass('code-mode');
-            $('.pane-mode-btn').each(function () {
-                const on = $(this).attr('data-mode') === 'preview';
-                $(this).toggleClass('active', on).attr('aria-pressed', on ? 'true' : 'false');
-            });
+            $('.pane-mode-code').removeClass('active').attr('aria-pressed', 'false');
             $('.preview-select-element, .preview-device-trigger').prop('disabled', false);
             if ($root) $root.prop('hidden', true);
             closeSheet();
@@ -1871,7 +1866,7 @@
         // The preview reloaded: the refresh may have restamped tokens or the
         // install block in open pages.
         onPreviewReloaded(chatId) {
-            if (chatId === S.chatId && S.files.size) reconcileSoon(300, { highlight: false });
+            if (chatId === S.chatId && S.files.size) reconcileSoon(300);
         },
 
         // doPublish, before it copies the files: unsaved edits are saved
@@ -1923,7 +1918,7 @@
                 savePending(chatId, p);
                 S.heldErrors.delete(chatId);
             }
-            if (chatId === S.chatId && S.files.size) reconcileSoon(0, { highlight: false });
+            if (chatId === S.chatId && S.files.size) reconcileSoon(0);
             renderChrome();
         },
         onPublishBusyChange() { renderChrome(); },

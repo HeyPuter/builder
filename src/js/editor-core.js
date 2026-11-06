@@ -11,7 +11,7 @@
 //     the generated install block), which the editor keeps read only;
 //   * the state of one open file (clean, dirty, saving, conflict) as events
 //     arrive from the editor, the disk and saves;
-//   * the line diff behind change highlights and the hidden note that tells
+//   * the line diff behind the unsaved-line marks and the hidden note that tells
 //     the AI which files the user edited, so it rereads them instead of
 //     working from a stale copy.
 //

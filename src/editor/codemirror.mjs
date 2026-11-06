@@ -111,7 +111,6 @@ const baseTheme = EditorView.theme({
         backgroundColor: 'var(--ce-panel-bg, #f6f8fa)', color: 'var(--ce-fg, #1f2328)', border: '1px solid var(--ce-border, #eaeef2)',
     },
     '.cm-protected-line': { backgroundColor: 'var(--ce-protected-bg, rgba(140, 149, 159, 0.11))' },
-    '.cm-line-ai': { backgroundColor: 'var(--ce-ai-line-bg, rgba(46, 160, 67, 0.15))', boxShadow: 'inset 3px 0 0 var(--ce-ai-line-bar, #1a7f37)' },
     '.cm-line-user': { backgroundColor: 'var(--ce-user-line-bg, rgba(255, 212, 59, 0.3))', boxShadow: 'inset 3px 0 0 var(--ce-user-line-bar, #d4a72c)' },
     '.cm-line-error': { backgroundColor: 'var(--ce-error-line-bg, rgba(255, 129, 130, 0.18))', boxShadow: 'inset 3px 0 0 var(--ce-error-line-bar, #cf222e)' },
     '.cm-lock-gutter': { width: '18px' },
@@ -306,7 +305,7 @@ const lockGutter = gutter({
     },
 });
 
-// ---- Line marks (AI changes, the user's unsaved lines, an error line) -------
+// ---- Line marks (the user's unsaved lines, an error line) ------------------
 
 const setLineMarks = StateEffect.define();
 const lineMarkField = StateField.define({
@@ -509,7 +508,7 @@ export function createEditor(parent, opts = {}) {
             view.dispatch({ selection: { anchor: pos }, effects: EditorView.scrollIntoView(pos, { y: 'center' }) });
         },
         markLines(lines, kind) {
-            view.dispatch({ effects: setLineMarks.of({ lines: Array.isArray(lines) ? lines : [], kind: kind || 'ai' }) });
+            view.dispatch({ effects: setLineMarks.of({ lines: Array.isArray(lines) ? lines : [], kind: kind || 'user' }) });
         },
         clearMarks() {
             view.dispatch({ effects: setLineMarks.of(null) });

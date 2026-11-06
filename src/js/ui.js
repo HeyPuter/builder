@@ -498,9 +498,10 @@ window.DEVICE_LABELS = { desktop: 'Desktop', tablet: 'Tablet', mobile: 'Mobile' 
 // and the preview toolbar's overflow ("…") menu. Globals because the switcher is
 // rendered into two different toolbars built by separate functions.
 window.monitor_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`;
-// The preview toolbar's Preview | Code toggle (see js/code-editor.js).
-window.eye_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>`;
-window.code_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>`;
+// The preview toolbar's View code button and the Back to preview button shown
+// while the code covers the app (see js/code-editor.js).
+window.back_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>`;
+window.code_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>`;
 window.bubble_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
 window.more_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>`;
 
@@ -516,7 +517,7 @@ window.viewSegHtml = function(extraClass) {
     // control shows a correct selection rather than a no-segment-active blob.
     return `<div class="view-seg ${extraClass || ''}" role="group" aria-label="Switch between chat and app">`
         + `<button type="button" class="view-seg-btn" data-view="chat" aria-pressed="false">${window.bubble_svg}<span>Chat</span></button>`
-        + `<button type="button" class="view-seg-btn active" data-view="app" aria-pressed="true">${window.monitor_svg}<span>View</span></button>`
+        + `<button type="button" class="view-seg-btn active" data-view="app" aria-pressed="true">${window.monitor_svg}<span>Preview</span></button>`
         + `</div>`;
 };
 
@@ -1245,7 +1246,10 @@ window.showAppPreview = function(url, opts) {
                     </div>
                     <div class="preview-toolbar-center">
                         ${window.viewSegHtml('view-seg-preview')}
-                        ${window.FEATURE_FLAGS.codeEditor ? `<div class="pane-mode" role="group" aria-label="Show the app or its code"><button type="button" class="pane-mode-btn active" data-mode="preview" aria-pressed="true">${window.eye_svg}<span>Preview</span></button><button type="button" class="pane-mode-btn" data-mode="code" aria-pressed="false">${window.code_svg}<span>Code</span><span class="pane-mode-dot" aria-label="Unsaved changes" hidden></span></button></div>` : ''}
+                        <!-- The code is for the few who want it, so it opens from the
+                             View code button among the tools (the "…" menu on phones),
+                             and this is the way back while it covers the app. -->
+                        ${window.FEATURE_FLAGS.codeEditor ? `<button type="button" class="pane-mode-btn pane-mode-back" data-mode="preview">${window.back_svg}<span>Back to preview</span></button>` : ''}
                         <button class="preview-reload" title="Reload">${window.reload_svg}</button>
                     </div>
                     <div class="preview-toolbar-right">
@@ -1253,15 +1257,17 @@ window.showAppPreview = function(url, opts) {
                             ${window.FEATURE_FLAGS.undoRedo ? `<button class="preview-undo" title="Undo (previous version)" disabled>${window.undo_svg}</button><button class="preview-redo" title="Redo (next version)" disabled>${window.redo_svg}</button>` : ''}
                             ${window.FEATURE_FLAGS.issues ? `<button class="preview-issues" title="Issues" aria-haspopup="dialog" aria-expanded="false">${window.issues_svg}<span class="issues-count-badge" aria-hidden="true" hidden></span></button>` : ''}
                             <button class="preview-versions" title="Version history" aria-haspopup="dialog" aria-expanded="false">${window.history_svg}</button>
-                            ${window.FEATURE_FLAGS.downloadProject ? `<button class="preview-download" title="Download project">${window.download_svg}</button>` : ''}
                             ${window.FEATURE_FLAGS.shareDraftLink ? `<button class="preview-share" title="Share draft" aria-haspopup="dialog" aria-expanded="false">${window.link_svg}</button>` : ''}
+                            <!-- Developer tools: the code, the download, and source control. -->
+                            ${window.FEATURE_FLAGS.codeEditor ? `<span class="preview-toolbar-divider"></span><button type="button" class="pane-mode-btn pane-mode-code" data-mode="code" title="View code" aria-pressed="false">${window.code_svg}<span class="sr-only">View code</span><span class="pane-mode-dot" aria-label="Unsaved changes" hidden></span></button>` : ''}
+                            ${window.FEATURE_FLAGS.downloadProject ? `<button class="preview-download" title="Download project">${window.download_svg}</button>` : ''}
                             ${window.GitHubSync ? `<button class="preview-github-btn" title="Source control" aria-label="Source control" aria-haspopup="dialog" aria-expanded="false">${window.source_control_svg || ''}<span class="preview-github-dot" aria-hidden="true" hidden></span></button>` : ''}
                         </div>
                         <!-- Phones don't have room for the history/download buttons next to the
                              centered switcher + Publish, so they collapse into this overflow
                              menu (shown only on mobile via CSS); the buttons above stay in the
                              DOM, hidden, so the menu can drive their existing handlers. -->
-                        <button class="preview-overflow" title="More" aria-haspopup="true" aria-expanded="false">${window.more_svg}</button>
+                        <button class="preview-overflow" title="More" aria-haspopup="true" aria-expanded="false">${window.more_svg}<span class="pane-mode-dot" aria-hidden="true" hidden></span></button>
                         <span class="preview-toolbar-divider"></span>
                         <button class="preview-publish-btn" data-state="unpublished" title="Publish your site" aria-haspopup="dialog" aria-expanded="false">
                             <span class="preview-publish-label">Publish</span>
@@ -4375,16 +4381,6 @@ $(document).on('click', '.preview-overflow', function(e) {
 
     const rect = this.getBoundingClientRect();
     const items = [];
-    // On the narrowest phones the toolbar's Reload button is hidden to make
-    // room (see the ≤374px rule in styles.css); it lives here instead. The
-    // Code view hides it too, with nothing to reload there.
-    if (!$('.preview-reload').is(':visible') && !$('.preview-pane').hasClass('code-mode')) {
-        items.push({
-            icon: svgDataUri(window.reload_svg),
-            label: 'Reload',
-            action: () => reloadPreviewFrame(undefined, { keepPendingUpdate: true }),
-        });
-    }
     if (window.FEATURE_FLAGS.issues) {
         // The toolbar button's count badge is hidden with it on mobile, so the
         // open-issue count rides the menu label instead.
@@ -4400,18 +4396,29 @@ $(document).on('click', '.preview-overflow', function(e) {
         label: 'Version history',
         action: () => $('.preview-versions').trigger('click'),
     });
-    if (window.FEATURE_FLAGS.downloadProject) {
-        items.push({
-            icon: svgDataUri(window.download_svg),
-            label: 'Download project',
-            action: () => $('.preview-download').trigger('click'),
-        });
-    }
     if (window.FEATURE_FLAGS.shareDraftLink) {
         items.push({
             icon: svgDataUri(window.link_svg),
             label: 'Share draft',
             action: () => $('.preview-share').trigger('click'),
+        });
+    }
+    // The code view opens from here on phones; while it is open, the toolbar's
+    // Back to preview button is the way out, so the row goes.
+    if (window.FEATURE_FLAGS.codeEditor && !$('.preview-pane').hasClass('code-mode')) {
+        // The dot on "…" means unsaved code edits; the label says so in words.
+        const unsaved = !$('.pane-mode-code .pane-mode-dot').prop('hidden');
+        items.push({
+            icon: svgDataUri(window.code_svg),
+            label: unsaved ? 'View code (unsaved changes)' : 'View code',
+            action: () => $('.pane-mode-code').trigger('click'),
+        });
+    }
+    if (window.FEATURE_FLAGS.downloadProject) {
+        items.push({
+            icon: svgDataUri(window.download_svg),
+            label: 'Download project',
+            action: () => $('.preview-download').trigger('click'),
         });
     }
     if (window.GitHubSync && window.source_control_svg) {
