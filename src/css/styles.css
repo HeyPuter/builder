@@ -164,9 +164,10 @@ html.vv-sized .chat:not(.active) {
     gap: 15px;
 }
 
-/* Quiet toolbar icons for the theme toggle and GitHub link. */
+/* Quiet toolbar icons for the theme toggle, GitHub link and apps launcher. */
 .theme-toggle-btn,
-.github-link {
+.github-link,
+.apps-btn {
     background: none;
     border: none;
     cursor: pointer;
@@ -180,7 +181,9 @@ html.vv-sized .chat:not(.active) {
 }
 
 .theme-toggle-btn:hover,
-.github-link:hover {
+.github-link:hover,
+.apps-btn:hover,
+.apps-btn[aria-expanded="true"] {
     background: rgba(0,0,0,0.08);
 }
 
@@ -494,6 +497,162 @@ html.vv-sized .chat:not(.active) {
     color: #111;
     font-weight: 600;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+/* ---- Apps panel (toolbar launcher) ----
+   The account panel's card + ▲ caret, sized for the puter.com/embed/apps
+   iframe. Lives on <body>, fixed under the trigger; positionAppsPanel() sets
+   --apps-panel-top from the live button rect so the height fits whatever
+   space is left below the toolbar. On phones it becomes an edge-to-edge
+   sheet. Built once, then toggled with [hidden]. */
+.apps-panel {
+    position: fixed;
+    top: var(--apps-panel-top, 46px);
+    right: 8px;
+    width: 400px;
+    max-width: calc(100vw - 16px);
+    height: min(580px, calc(100vh - var(--apps-panel-top, 46px) - 12px));
+    height: min(580px, calc(100dvh - var(--apps-panel-top, 46px) - 12px));
+    min-height: 240px;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16), 0 2px 6px rgba(0, 0, 0, 0.06);
+    z-index: 1001;
+    overflow: visible;
+    transform-origin: top right;
+    animation: apps-panel-in 0.14s ease-out;
+    --panel-caret-border: #ddd;
+    --panel-caret-fill: #fff;
+}
+.apps-panel[hidden] { display: none; }
+.apps-panel:focus,
+.apps-panel:focus-visible { outline: none; }
+@keyframes apps-panel-in {
+    from { opacity: 0; transform: translateY(-4px) scale(0.985); }
+    to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .apps-panel { animation: none; }
+}
+/* Bordered ▲ caret pointing at the apps button (see positionPanelCaret). */
+.apps-panel::before,
+.apps-panel::after {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: var(--panel-caret-x, calc(100% - 60px));
+    transform: translateX(-50%);
+    border: 8px solid transparent;
+    border-top: none;
+    border-bottom-color: var(--panel-caret-border);
+    pointer-events: none;
+}
+.apps-panel::after {
+    top: -7px;
+    border-bottom-color: var(--panel-caret-fill);
+}
+.apps-panel.caret-hidden::before,
+.apps-panel.caret-hidden::after { display: none; }
+
+.apps-panel-header {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 8px 8px 14px;
+    border-bottom: 1px solid #eee;
+}
+.apps-panel-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #222;
+}
+.apps-panel-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+.apps-panel-action {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: #555;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    transition: background 0.15s, color 0.15s;
+}
+.apps-panel-action:hover {
+    background: #f0f0f0;
+    color: #222;
+    text-decoration: none;
+}
+.apps-panel-action svg { width: 15px; height: 15px; }
+
+/* The iframe fills the rest of the card; the body clips it to the card's
+   bottom corners. */
+.apps-panel-body {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    border-radius: 0 0 11px 11px;
+}
+.apps-frame {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: transparent;
+}
+/* Spinner over the (still blank) frame until its load event. */
+.apps-panel-loading {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+.apps-panel-body.is-loading .apps-panel-loading { display: flex; }
+.apps-panel-body.is-loading .apps-frame { visibility: hidden; }
+.apps-panel-spinner {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid rgba(0, 0, 0, 0.12);
+    border-top-color: #555;
+    animation: apps-panel-spin 0.7s linear infinite;
+}
+@keyframes apps-panel-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+    .apps-panel-spinner { animation-duration: 1.6s; }
+}
+
+/* Phones: an edge-to-edge sheet under the toolbar, down to near the bottom.
+   The caret still points at the button (measured against the wider card). */
+@media (max-width: 600px) {
+    .apps-panel {
+        left: 8px;
+        right: 8px;
+        width: auto;
+        max-width: none;
+        height: calc(100vh - var(--apps-panel-top, 54px) - 8px);
+        height: calc(100dvh - var(--apps-panel-top, 54px) - 8px);
+    }
+    .apps-panel-header { padding: 6px 6px 6px 16px; }
+    .apps-panel-title { font-size: 15px; }
+    .apps-panel-action { width: 40px; height: 40px; border-radius: 10px; }
+    .apps-panel-action svg { width: 18px; height: 18px; }
 }
 
 .chat-header{
@@ -5351,10 +5510,17 @@ body.preview-active.chat-hidden .chat {
     }
     .theme-toggle-btn,
     .github-link,
+    .apps-btn,
     .user-menu-btn {
         width: 44px;
         height: 44px;
         padding: 0;
+    }
+    /* With the apps launcher the cluster holds three 44px icon boxes; their
+       own padding already spaces the glyphs, so close the gaps to keep the
+       row clear of the burger / new-chat pair on narrow phones. */
+    .user-menu-container:has(.apps-btn) {
+        gap: 4px;
     }
     .sign-in-btn,
     .feedback-btn,
@@ -5588,7 +5754,8 @@ body.preview-active.chat-hidden .chat {
             right: auto;
             transform: none;
         }
-        body.preview-active .toolbar:not(:has(.feedback-btn)) .github-link {
+        body.preview-active .toolbar:not(:has(.feedback-btn)) .github-link,
+        body.preview-active .toolbar:not(:has(.feedback-btn)) .apps-btn {
             display: none;
         }
         body.preview-active .toolbar:not(:has(.feedback-btn)) .view-seg-toolbar {
@@ -5618,6 +5785,9 @@ body.preview-active.chat-hidden .chat {
 
 /* Very small phones (≤380px): trim chrome a touch more. */
 @media (max-width: 380px) {
+    /* Upgrade + GitHub + apps + avatar overruns the new-chat button here;
+       the GitHub link is the one to go. */
+    .user-menu-container:has(.apps-btn) .github-link { display: none; }
     .chat {
         padding-left: 10px;
         padding-right: 10px;
@@ -6766,9 +6936,12 @@ html[data-theme="dark"] .chat-box .message-content ::marker { color: var(--text-
 
 /* ---- Toolbar / user menu / theme toggle ---- */
 html[data-theme="dark"] .theme-toggle-btn,
-html[data-theme="dark"] .github-link { color: var(--text-secondary); }
+html[data-theme="dark"] .github-link,
+html[data-theme="dark"] .apps-btn { color: var(--text-secondary); }
 html[data-theme="dark"] .theme-toggle-btn:hover,
-html[data-theme="dark"] .github-link:hover { background: rgba(255, 255, 255, 0.08); }
+html[data-theme="dark"] .github-link:hover,
+html[data-theme="dark"] .apps-btn:hover,
+html[data-theme="dark"] .apps-btn[aria-expanded="true"] { background: rgba(255, 255, 255, 0.08); }
 html[data-theme="dark"] .user-menu-btn:hover .user-avatar,
 html[data-theme="dark"] .user-menu-btn[aria-expanded="true"] .user-avatar {
     box-shadow: 0 0 0 3px rgba(108, 176, 245, 0.35);
@@ -6804,6 +6977,23 @@ html[data-theme="dark"] .user-theme-opt.active {
 html[data-theme="dark"] .user-panel-logout { color: #f08a80; }
 html[data-theme="dark"] .user-panel-logout .user-item-icon { color: inherit; }
 html[data-theme="dark"] .user-panel-logout:hover { background: rgba(240, 138, 128, 0.12); }
+
+/* ---- Apps panel ---- */
+html[data-theme="dark"] .apps-panel {
+    background: var(--surface);
+    border-color: var(--border);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+    --panel-caret-border: var(--border);
+    --panel-caret-fill: var(--surface);
+}
+html[data-theme="dark"] .apps-panel-header { border-bottom-color: var(--border); }
+html[data-theme="dark"] .apps-panel-title { color: var(--text); }
+html[data-theme="dark"] .apps-panel-action { color: var(--text-secondary); }
+html[data-theme="dark"] .apps-panel-action:hover { background: var(--surface-hover); color: var(--text); }
+html[data-theme="dark"] .apps-panel-spinner {
+    border-color: rgba(255, 255, 255, 0.14);
+    border-top-color: var(--text-secondary);
+}
 
 html[data-theme="dark"] .sign-in-btn,
 html[data-theme="dark"] .feedback-btn,
