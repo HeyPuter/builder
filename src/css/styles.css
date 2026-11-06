@@ -5718,9 +5718,12 @@ body.preview-active.chat-hidden .chat {
     /* (Segment sizing/padding is owned by the scoped `.view-seg .view-seg-btn`
        base rule, which already outranks `.preview-toolbar button`.) */
     /* Inside a project the switcher needs the room more than the new-project
-       button does; New is one tap away in the burger's sidebar. */
-    body.preview-active .header-new-chat {
-        display: none;
+       button does on a phone; New is one tap away in the burger's sidebar.
+       A tablet has room for both. */
+    @media (max-width: 600px) {
+        body.preview-active .header-new-chat {
+            display: none;
+        }
     }
     /* The switcher gets its own row under the toolbar's controls when the
        one-row layout below can't hold it: very narrow phones, and inside

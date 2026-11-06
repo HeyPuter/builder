@@ -1943,13 +1943,21 @@ window.drainFileLocks = async function (prefix) {
 // the AI could read an old copy of a file it had already changed. A parameter
 // unique to each read makes it a cache miss; the API ignores parameters it
 // doesn't know. Only those GETs are touched, at XMLHttpRequest.open, so
-// puter.js keeps its own sign-in renewal and error handling.
+// puter.js keeps its own sign-in renewal and error handling. Other engines
+// honor the header and are left alone: a URL unique to each read also costs a
+// CORS preflight per read, since browsers cache preflights by URL.
 window.addReadCacheBuster = function (method, url, apiOrigin, token) {
     if (typeof url !== 'string' || !apiOrigin || !/^get$/i.test(method || '')) return url;
     if (url.indexOf(apiOrigin + '/read?') !== 0) return url;
     return url + '&_fresh=' + token;
 };
-if (typeof XMLHttpRequest !== 'undefined' && !XMLHttpRequest.prototype.open._freshReads) {
+// Safari, and every iPhone browser (CriOS, FxiOS, …); Chrome and its
+// derivatives also say AppleWebKit but carry a Chrome/ token.
+window.isWebKitEngine = function (ua) {
+    return /AppleWebKit\//.test(ua || '') && !/(Chrome|Chromium)\//.test(ua || '');
+};
+if (typeof XMLHttpRequest !== 'undefined' && typeof navigator !== 'undefined'
+    && window.isWebKitEngine(navigator.userAgent) && !XMLHttpRequest.prototype.open._freshReads) {
     const open = XMLHttpRequest.prototype.open;
     let reads = 0;
     const freshOpen = function (method, url, ...rest) {

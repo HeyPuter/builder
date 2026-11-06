@@ -544,7 +544,7 @@
         return [...S.files.values()].filter((f) => f.buf && f.buf.status === 'deleted' && !C.sameContent(f.buf.text, f.buf.base));
     }
     // Whether a file's editor holds text that is not on disk, stranded or not
-    // (the unsaved dots on its tab, in the file list and on the Code button).
+    // (the unsaved dots on its tab, in the file list and on the View code button).
     function holdsUnsaved(f) {
         return !!(f && f.buf && (C.isDirtyStatus(f.buf.status)
             || (f.buf.status === 'deleted' && !C.sameContent(f.buf.text, f.buf.base))));
@@ -1604,7 +1604,7 @@
                 if (!await whileSettling(S.chatId, () => saveAll())) {
                     // The save failed: show why, in the code, and stay.
                     const failed = dirtyFiles();
-                    toast(`Couldn’t save ${nameList(failed)}, so you’re still in this project. Open Code to see why.`, { type: 'error', duration: 8000 });
+                    toast(`Couldn’t save ${nameList(failed)}, so you’re still in this project. Open View code to see why.`, { type: 'error', duration: 8000 });
                     if (S.mode !== 'code') openCode({ focus: false });
                     return false;
                 }
@@ -1621,7 +1621,10 @@
         onProjectSwitch() {
             if (S.chatId) { checkpoint(S.chatId, S.appDir); saveTabs(); }
             disposeAll();
+            // Redraw either way: the unsaved dot must not follow into the next
+            // project.
             if (S.mode === 'code') setMode('preview');
+            else renderChrome();
         },
         // hideAppPreview: the pane is going away (a new project, or one with
         // no preview).
@@ -1634,6 +1637,7 @@
             $('.preview-select-element, .preview-device-trigger').prop('disabled', false);
             if ($root) $root.prop('hidden', true);
             closeSheet();
+            renderChrome();
         },
         // deleteChat, before anything is removed: the open files close and can
         // never be saved again (saves check _deletedChatIds too). The records
@@ -1950,7 +1954,7 @@
             });
             if (chatId === S.chatId) renderChrome();
             if (first && S.mode !== 'code') {
-                toast('Your app reported an error after your code change. Open Code to see it, or ask the AI to fix it.', { type: 'warning', key: 'code-held-error', throttleMs: 10000, duration: 8000 });
+                toast('Your app reported an error after your code change. Open View code to see it, or ask the AI to fix it.', { type: 'warning', key: 'code-held-error', throttleMs: 10000, duration: 8000 });
             }
             return true;
         },

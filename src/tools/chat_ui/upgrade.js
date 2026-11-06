@@ -27,7 +27,7 @@
 
     const CARDS = {
         badge: { text: 'Remove the “Made with Puter” badge with a paid Puter subscription.', source: 'chat' },
-        code_editor: { text: 'Edit your app’s code yourself with a paid Puter subscription. You can already read every file in Code.', source: 'chat_code_editor' },
+        code_editor: { text: 'Edit your app’s code yourself with a paid Puter subscription. You can already read every file with View code.', source: 'chat_code_editor' },
     };
 
     function renderUpgradeCard({ append = true, feature = 'badge' } = {}) {
@@ -103,7 +103,7 @@
                         __upgrade_offer: true,
                         feature,
                         subscribed: true,
-                        instruction: "The user has a paid Puter subscription, so they can edit the code themselves. Tell them in one or two short sentences to click Code in the preview toolbar, open a file, edit it, and save with the Save button or Cmd+S (Ctrl+S on Windows). Mention that you will see their saved changes, and that you can still make changes for them in chat.",
+                        instruction: "The user has a paid Puter subscription, so they can edit the code themselves. Tell them in one or two short sentences to click View code in the preview toolbar (in the \"…\" menu on a phone), open a file, edit it, and save with the Save button or Cmd+S (Ctrl+S on Windows). Mention that you will see their saved changes, and that you can still make changes for them in chat.",
                     };
             }
             // The turn may have been stopped, or the chat switched, while the
@@ -122,7 +122,7 @@
                     __upgrade_offer: true,
                     feature,
                     subscribed: false,
-                    instruction: "An Upgrade button is now showing in the chat. Tell the user in one or two short sentences that they can already read every file by clicking Code in the preview toolbar, and that editing the code themselves needs a paid Puter subscription. Offer to make the change they want for them now in chat, which works on any plan.",
+                    instruction: "An Upgrade button is now showing in the chat. Tell the user in one or two short sentences that they can already read every file with View code in the preview toolbar (in the \"…\" menu on a phone), and that editing the code themselves needs a paid Puter subscription. Offer to make the change they want for them now in chat, which works on any plan.",
                 };
         }
     });
