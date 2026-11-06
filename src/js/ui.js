@@ -306,6 +306,11 @@ function renderSkeleton() {
 // toolbar avatar can render its held-open state across re-renders and a second
 // click on it toggles the panel closed.
 let userPanelOpen = false;
+// Same for the apps launcher panel (see openAppsPanel).
+let appsPanelOpen = false;
+
+// The classic "more apps" 3×3 dot grid for the toolbar's apps button.
+const apps_grid_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><circle cx="5" cy="5" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="12" cy="19" r="2"/><circle cx="19" cy="19" r="2"/></svg>`;
 
 // Speech bubble for the account panel's "Send feedback" row — 1.5-stroke to
 // match the panel's glyph family. (The toolbar's counterpart is a labelled
@@ -359,6 +364,8 @@ function updateUserMenu() {
     let h = upgradeBtn;
     if (loggedIn && !isApp) {
         h += githubLink;
+        // Apps launcher (see openAppsPanel), just left of the avatar.
+        h += `<button class="apps-btn" title="Apps" aria-label="Apps" aria-haspopup="dialog" aria-expanded="${appsPanelOpen ? 'true' : 'false'}">${apps_grid_svg}</button>`;
         // Signed in: a single avatar button opens the account panel — the
         // theme toggle lives inside the panel, so no toolbar toggle here.
         h += `<button class="user-menu-btn" title="Account" aria-haspopup="dialog" aria-expanded="${userPanelOpen ? 'true' : 'false'}">`;
@@ -390,7 +397,7 @@ function updateUserMenu() {
     // focus and hand it to the replacement.
     const active = document.activeElement;
     const focusedControl = (active && $container[0] && $container[0].contains(active))
-        ? ['upgrade-btn', 'github-link', 'theme-toggle-btn', 'user-menu-btn', 'feedback-btn', 'sign-in-btn'].find((c) => active.classList.contains(c))
+        ? ['upgrade-btn', 'github-link', 'theme-toggle-btn', 'apps-btn', 'user-menu-btn', 'feedback-btn', 'sign-in-btn'].find((c) => active.classList.contains(c))
         : null;
     $container.html(h);
     if (focusedControl) {
@@ -407,6 +414,10 @@ function updateUserMenu() {
     // Keep an open account panel's theme control in sync — setThemeChoice(),
     // toggleTheme() and the OS-preference listener all route through here.
     window.syncUserPanelTheme?.();
+    // The apps launcher only exists for signed-in web users; drop an open
+    // panel if that stopped being true, else keep its embed on our theme.
+    if (!(loggedIn && !isApp)) window.closeAppsPanel?.();
+    window.syncAppsPanelTheme?.();
 }
 window.updateUserMenu = updateUserMenu;
 
@@ -6840,6 +6851,7 @@ function openUserPanel() {
     window.closeGitHubPanel?.();
     window.closeIssuesPanel?.();
     window.closeDevicePanel?.();
+    closeAppsPanel();
     userPanelOpen = true;
     $('.user-menu-btn').attr('aria-expanded', 'true');
     // Rebuilt per open — the theme control must reflect the current choice.
@@ -7018,6 +7030,140 @@ $(document).on('pointerdown', function(e) {
 // the toolbar height, moving the trigger).
 $(window).on('resize', function() {
     if (userPanelOpen) positionUserPanel();
+});
+
+// ---- Apps panel (toolbar launcher, left of the avatar) ---------------------
+// Shows the user's Puter apps (puter.com/embed/apps) in an iframe. Same card +
+// ▲ caret and dismissal rules as the account panel, and likewise lives on
+// <body> so toolbar re-renders can't tear it down. Built on first open and then
+// only hidden, so reopening is instant and keeps the embed's scroll and search.
+// Apps launched inside the embed open in new tabs (it calls window.open).
+const APPS_EMBED_URL = 'https://puter.com/embed/apps';
+
+function positionAppsPanel() {
+    const btn = document.querySelector('.apps-btn');
+    const panel = document.querySelector('.apps-panel');
+    if (!panel) return;
+    // The phone toolbar hides the button in some layouts; a panel with
+    // nothing to hang from (the caret would point elsewhere) just closes.
+    if (!btn || !btn.getClientRects().length) { closeAppsPanel(); return; }
+    // 10px below the trigger so the 8px ▲ caret clears it with a 2px gap. CSS
+    // reads --apps-panel-top to size the panel to the space left below.
+    const top = Math.round(btn.getBoundingClientRect().bottom + 10);
+    panel.style.setProperty('--apps-panel-top', top + 'px');
+    window.positionPanelCaret('.apps-panel', '.apps-btn');
+}
+
+// The embed styles itself from prefers-color-scheme, which inside an iframe
+// follows the frame element's color-scheme. Pin it to the app's theme so the
+// embed matches an explicit Light/Dark choice instead of the OS.
+function syncAppsPanelTheme() {
+    const frame = document.querySelector('.apps-panel .apps-frame');
+    if (frame) frame.style.colorScheme = getEffectiveTheme();
+}
+window.syncAppsPanelTheme = syncAppsPanelTheme;
+
+function buildAppsPanel() {
+    const $panel = $(
+        '<div class="apps-panel" role="dialog" aria-label="Apps" tabindex="-1" hidden>' +
+            '<div class="apps-panel-header">' +
+                '<span class="apps-panel-title">Apps</span>' +
+                '<div class="apps-panel-actions">' +
+                    `<a class="apps-panel-action apps-panel-newtab" href="${APPS_EMBED_URL}" target="_blank" rel="noopener noreferrer" title="Open in new tab" aria-label="Open apps in a new tab">${external_link_svg}</a>` +
+                    `<button class="apps-panel-action apps-panel-close" title="Close" aria-label="Close">${window.x_svg}</button>` +
+                '</div>' +
+            '</div>' +
+            '<div class="apps-panel-body is-loading">' +
+                '<div class="apps-panel-loading" role="status" aria-label="Loading apps"><span class="apps-panel-spinner"></span></div>' +
+                '<iframe class="apps-frame" title="Your Puter apps" referrerpolicy="strict-origin-when-cross-origin" allow="clipboard-read; clipboard-write"></iframe>' +
+            '</div>' +
+        '</div>');
+    const frame = $panel.find('.apps-frame')[0];
+    // Bind before setting src so a fast (cached) load can't slip past.
+    frame.addEventListener('load', () => {
+        $panel.find('.apps-panel-body').removeClass('is-loading');
+    }, { once: true });
+    frame.style.colorScheme = getEffectiveTheme();
+    frame.src = APPS_EMBED_URL;
+    $('body').append($panel);
+    return $panel;
+}
+
+function openAppsPanel() {
+    // Right-anchored like the account panel and preview popovers — close them
+    // so they never stack. (Opening any of those dismisses this one through the
+    // outside-press handler below.)
+    window.closeVersionsPanel?.();
+    window.closePublishPanel?.();
+    window.closeSharePanel?.();
+    window.closeGitHubPanel?.();
+    window.closeIssuesPanel?.();
+    window.closeDevicePanel?.();
+    closeUserPanel();
+    let $panel = $('.apps-panel');
+    if (!$panel.length) $panel = buildAppsPanel();
+    appsPanelOpen = true;
+    $('.apps-btn').attr('aria-expanded', 'true');
+    syncAppsPanelTheme();
+    $panel.prop('hidden', false);
+    positionAppsPanel();
+    // Focus the dialog container so Escape works and Tab reaches the header
+    // controls and the embed, without a focus ring from a mouse-open.
+    $panel.trigger('focus');
+}
+
+function closeAppsPanel() {
+    if (!appsPanelOpen) return;
+    appsPanelOpen = false;
+    $('.apps-btn').attr('aria-expanded', 'false');
+    $('.apps-panel').prop('hidden', true);
+}
+window.closeAppsPanel = closeAppsPanel;
+
+$(document).on('click', '.apps-btn', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (appsPanelOpen) closeAppsPanel();
+    else openAppsPanel();
+});
+
+// ✕ and Escape close the panel and hand focus back to the toolbar button
+// (focus would otherwise fall to <body> with the hidden panel).
+$(document).on('click', '.apps-panel-close', function(e) {
+    e.preventDefault();
+    closeAppsPanel();
+    $('.apps-btn').trigger('focus');
+});
+$(document).on('keydown', '.apps-panel', function(e) {
+    if (e.key === 'Escape') {
+        e.preventDefault();
+        closeAppsPanel();
+        $('.apps-btn').trigger('focus');
+    }
+});
+
+// Any press outside the panel/trigger closes it — pointerdown, as for the
+// account panel. A press inside the embed never reaches this document, and the
+// iframe-focus replay (dismissOverlaysForIframeFocus) only fires for the
+// preview frame, so using the embed keeps the panel open.
+$(document).on('pointerdown', function(e) {
+    if (!appsPanelOpen) return;
+    const $t = $(e.target);
+    if ($t.closest('.apps-panel').length) return;
+    if ($t.closest('.apps-btn').length) return;
+    if (isInPuterDialog(e.target)) return;
+    closeAppsPanel();
+});
+
+// Re-glue on resize, and when a preview opens or closes under it (on phones
+// that reshapes the toolbar, and can hide the button).
+$(window).on('resize', function() {
+    if (appsPanelOpen) positionAppsPanel();
+});
+$(function() {
+    if (typeof MutationObserver === 'undefined') return;
+    new MutationObserver(() => { if (appsPanelOpen) positionAppsPanel(); })
+        .observe(document.body, { attributes: true, attributeFilter: ['class'] });
 });
 
 // Keep an open puter context menu glued to its trigger when the window resizes.
