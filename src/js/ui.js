@@ -7039,6 +7039,7 @@ $(window).on('resize', function() {
 // only hidden, so reopening is instant and keeps the embed's scroll and search.
 // Apps launched inside the embed open in new tabs (it calls window.open).
 const APPS_EMBED_URL = 'https://puter.com/embed/apps';
+const APPS_NEWTAB_URL = 'https://puter.com/#apps';
 
 function positionAppsPanel() {
     const btn = document.querySelector('.apps-btn');
@@ -7069,7 +7070,7 @@ function buildAppsPanel() {
             '<div class="apps-panel-header">' +
                 '<span class="apps-panel-title">Apps</span>' +
                 '<div class="apps-panel-actions">' +
-                    `<a class="apps-panel-action apps-panel-newtab" href="${APPS_EMBED_URL}" target="_blank" rel="noopener noreferrer" title="Open in new tab" aria-label="Open apps in a new tab">${external_link_svg}</a>` +
+                    `<a class="apps-panel-action apps-panel-newtab" href="${APPS_NEWTAB_URL}" target="_blank" rel="noopener noreferrer" title="Open in new tab" aria-label="Open apps in a new tab">${external_link_svg}</a>` +
                     `<button class="apps-panel-action apps-panel-close" title="Close" aria-label="Close">${window.x_svg}</button>` +
                 '</div>' +
             '</div>' +
