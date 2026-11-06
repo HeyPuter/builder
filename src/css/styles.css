@@ -5787,8 +5787,8 @@ body.preview-active.chat-hidden .chat {
 
 /* Very small phones (≤380px): trim chrome a touch more. */
 @media (max-width: 380px) {
-    /* Upgrade + GitHub + apps + avatar overruns the new-chat button here;
-       the GitHub link is the one to go. */
+    /* Upgrade + GitHub + apps + avatar (or GitHub + apps + Sign In) overruns
+       the new-chat button here; the GitHub link is the one to go. */
     .user-menu-container:has(.apps-btn) .github-link { display: none; }
     .chat {
         padding-left: 10px;

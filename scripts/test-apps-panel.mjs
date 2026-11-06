@@ -1,9 +1,10 @@
 import fs from 'node:fs';
 
 // ---- Regression guard: the toolbar's Apps launcher ---------------------------
-// Signed-in web users get a 3×3 "apps" button just left of the avatar that
-// opens a panel showing puter.com/embed/apps in an iframe. Text-level checks
-// that it is rendered only where the avatar is, sits right before it, behaves
+// Web users, signed in or out, get a 3×3 "apps" button just left of the avatar
+// (or of Sign In) that opens a panel showing puter.com/embed/apps in an iframe.
+// Text-level checks that it is rendered on the web only, sits right before the
+// avatar / Sign In, is rebuilt when the account changes, behaves
 // like the account panel (one open at a time, Escape / ✕ hand focus back,
 // outside press closes) and that the stylesheet gives it its phone layout.
 
@@ -31,14 +32,27 @@ function fnBody(name) {
 {
     const menu = fnBody('updateUserMenu');
     const signedIn = menu.slice(menu.indexOf('if (loggedIn && !isApp) {'), menu.indexOf('} else {'));
-    const apps = signedIn.indexOf('class="apps-btn"');
-    const avatar = signedIn.indexOf('class="user-menu-btn"');
-    check('the apps button is rendered only in the signed-in web branch', apps > 0 && menu.split('class="apps-btn"').length === 2);
-    check('…immediately left of the avatar', apps > 0 && avatar > apps && signedIn.lastIndexOf('h += githubLink;') < apps);
+    const signedOut = menu.slice(menu.indexOf('} else {'), menu.indexOf('$container.html(h);'));
+    check('the apps button markup is defined once', menu.split('class="apps-btn"').length === 2);
     check('…announces a dialog and its open state',
-        /class="apps-btn" title="Apps" aria-label="Apps" aria-haspopup="dialog" aria-expanded="\$\{appsPanelOpen \? 'true' : 'false'\}"/.test(signedIn));
+        /const appsBtn = `<button class="apps-btn" title="Apps" aria-label="Apps" aria-haspopup="dialog" aria-expanded="\$\{appsPanelOpen \? 'true' : 'false'\}"/.test(menu));
+    {
+        const apps = signedIn.indexOf('h += appsBtn;');
+        const avatar = signedIn.indexOf('class="user-menu-btn"');
+        check('signed in: it sits immediately left of the avatar', apps > 0 && avatar > apps && signedIn.lastIndexOf('h += githubLink;') < apps);
+    }
+    {
+        const web = signedOut.indexOf('if (!isApp) {');
+        const apps = signedOut.indexOf('h += appsBtn;');
+        const signIn = signedOut.indexOf('class="sign-in-btn"');
+        check('signed out: it is rendered on the web, immediately left of Sign In',
+            web > 0 && apps > web && signIn > apps && signedOut.split('h += appsBtn;').length === 2);
+    }
     check('a re-render keeps focus on it', menu.includes("'theme-toggle-btn', 'apps-btn', 'user-menu-btn'"));
-    check('losing the signed-in web state closes an open panel', /if \(!\(loggedIn && !isApp\)\) window\.closeAppsPanel\?\.\(\);/.test(menu));
+    check('being hosted inside Puter closes an open panel', /if \(isApp\) window\.closeAppsPanel\?\.\(\);/.test(menu));
+    check('an account change rebuilds the embed',
+        menu.includes('window.resetAppsPanelForAccount?.(loggedIn ? window.user.username : null);')
+        && /closeAppsPanel\(\);\s*\$\('\.apps-panel'\)\.remove\(\);/.test(fnBody('resetAppsPanelForAccount')));
 }
 
 // ---- Panel -------------------------------------------------------------------

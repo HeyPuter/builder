@@ -361,11 +361,13 @@ function updateUserMenu() {
     const paidPlan = !!window.Branding?.isSubscribed(window.user);
     const upgradeBtn = loggedIn
         ? `<button class="upgrade-btn${paidPlan ? ' is-paid' : ''}" aria-haspopup="dialog">${paidPlan ? 'Benefits' : 'Upgrade'}</button>` : '';
+    // Apps launcher (see openAppsPanel) for every web user, signed in or not —
+    // just left of the avatar, or of Sign In.
+    const appsBtn = `<button class="apps-btn" title="Apps" aria-label="Apps" aria-haspopup="dialog" aria-expanded="${appsPanelOpen ? 'true' : 'false'}">${apps_grid_svg}</button>`;
     let h = upgradeBtn;
     if (loggedIn && !isApp) {
         h += githubLink;
-        // Apps launcher (see openAppsPanel), just left of the avatar.
-        h += `<button class="apps-btn" title="Apps" aria-label="Apps" aria-haspopup="dialog" aria-expanded="${appsPanelOpen ? 'true' : 'false'}">${apps_grid_svg}</button>`;
+        h += appsBtn;
         // Signed in: a single avatar button opens the account panel — the
         // theme toggle lives inside the panel, so no toolbar toggle here.
         h += `<button class="user-menu-btn" title="Account" aria-haspopup="dialog" aria-expanded="${userPanelOpen ? 'true' : 'false'}">`;
@@ -388,7 +390,10 @@ function updateUserMenu() {
             h += `<button class="feedback-btn" title="Send feedback">Send feedback</button>`;
         }
         h += githubLink;
-        if (!isApp) h += `<button class="sign-in-btn">Sign In</button>`;
+        if (!isApp) {
+            h += appsBtn;
+            h += `<button class="sign-in-btn">Sign In</button>`;
+        }
     }
     // Re-rendering replaces the toolbar's buttons. The hosted-app theme toggle
     // is re-rendered BY its own activation (toggleTheme → here), so a keyboard
@@ -414,9 +419,12 @@ function updateUserMenu() {
     // Keep an open account panel's theme control in sync — setThemeChoice(),
     // toggleTheme() and the OS-preference listener all route through here.
     window.syncUserPanelTheme?.();
-    // The apps launcher only exists for signed-in web users; drop an open
-    // panel if that stopped being true, else keep its embed on our theme.
-    if (!(loggedIn && !isApp)) window.closeAppsPanel?.();
+    // The apps launcher only exists on the web (not hosted inside Puter); drop
+    // an open panel if that stopped being true. A sign-in or sign-out changes
+    // whose apps the embed shows, so a panel built under the other state is
+    // discarded and rebuilt on next open. Else keep its embed on our theme.
+    if (isApp) window.closeAppsPanel?.();
+    window.resetAppsPanelForAccount?.(loggedIn ? window.user.username : null);
     window.syncAppsPanelTheme?.();
 }
 window.updateUserMenu = updateUserMenu;
@@ -7120,6 +7128,19 @@ function closeAppsPanel() {
     $('.apps-panel').prop('hidden', true);
 }
 window.closeAppsPanel = closeAppsPanel;
+
+// The account the built panel's embed was loaded under (null = signed out,
+// undefined = no panel yet). When it changes, close and remove the panel so the
+// next open loads the embed fresh for the new account.
+let appsPanelAccount;
+function resetAppsPanelForAccount(account) {
+    if (appsPanelAccount === undefined) { appsPanelAccount = account; return; }
+    if (appsPanelAccount === account) return;
+    appsPanelAccount = account;
+    closeAppsPanel();
+    $('.apps-panel').remove();
+}
+window.resetAppsPanelForAccount = resetAppsPanelForAccount;
 
 $(document).on('click', '.apps-btn', function(e) {
     e.preventDefault();
