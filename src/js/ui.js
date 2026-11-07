@@ -322,6 +322,9 @@ const apps_grid_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height
 // Speech bubble for the account panel's "Send feedback" row — 1.5-stroke to
 // match the panel's glyph family. (The toolbar's counterpart is a labelled
 // pill button, no icon.)
+// Gear for the toolbar's Settings button, beside <puter-user-menu>.
+const settings_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>`;
+
 window.feedback_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>`;
 
 // Whether Puter's feedback dialog is reachable. It arrived in a later puter.js
@@ -412,6 +415,11 @@ function updateUserMenu() {
             h += appsBtn;
             h += `<button class="sign-in-btn">Sign In</button>`;
         }
+        // The account panel's settings (MCP connections, for now) have no row
+        // in <puter-user-menu>, so a gear just left of it opens them instead.
+        if (loggedIn && sdkMenu && !isApp) {
+            h += `<button class="settings-btn" title="Settings" aria-label="Settings" aria-haspopup="dialog">${settings_svg}</button>`;
+        }
     }
     // Re-rendering replaces the toolbar's buttons. The hosted-app theme toggle
     // is re-rendered BY its own activation (toggleTheme → here), so a keyboard
@@ -420,7 +428,7 @@ function updateUserMenu() {
     // focus and hand it to the replacement.
     const active = document.activeElement;
     const focusedControl = (active && $container[0] && $container[0].contains(active))
-        ? ['upgrade-btn', 'github-link', 'theme-toggle-btn', 'apps-btn', 'user-menu-btn', 'feedback-btn', 'sign-in-btn'].find((c) => active.classList.contains(c))
+        ? ['upgrade-btn', 'github-link', 'theme-toggle-btn', 'apps-btn', 'user-menu-btn', 'feedback-btn', 'settings-btn', 'sign-in-btn'].find((c) => active.classList.contains(c))
         : null;
     $container.html(h);
     if (focusedControl) {
@@ -6847,6 +6855,14 @@ document.addEventListener('visibilitychange', refreshSubscriptionAfterUpgrade);
 $(document).on('click', '.theme-toggle-btn', function(e) {
     e.stopPropagation();
     toggleTheme();
+});
+
+// Toolbar Settings gear (beside <puter-user-menu>): the centered Settings
+// modal, which holds what the account panel's MCP row opens.
+$(document).on('click', '.settings-btn', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    window.openSettings?.();
 });
 
 // Toolbar feedback button — the standalone counterpart to the account panel's

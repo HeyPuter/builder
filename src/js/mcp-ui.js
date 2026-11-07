@@ -1,8 +1,11 @@
+// The Settings modal, opened by the toolbar's gear (beside <puter-user-menu>)
+// and by the account panel's MCP connections row. For now it holds only the
+// MCP connections section.
 // The SDK is an ordinary Vite module; this UI follows the app's classic-script
 // and jQuery conventions. Server names, URLs, and tool names are always text.
 (function () {
     let closePanel;
-    window.openMcpConnections = function () {
+    window.openSettings = function () {
         closePanel?.();
         window.closeUserPanel?.();
         document.querySelector('.user-menu-btn')?.focus();
@@ -10,13 +13,15 @@
         if (!manager) { window.showToast?.('Connections are still loading. Please try again.'); return; }
         const $overlay = $(`
             <div class="confirm-modal-overlay mcp-overlay">
-                <section class="properties-modal mcp-modal" role="dialog" aria-modal="true" aria-labelledby="mcp-title" tabindex="-1">
-                    <div class="mcp-heading"><h2 id="mcp-title">MCP connections</h2><button type="button" class="mcp-close" aria-label="Close connections">×</button></div>
+                <section class="properties-modal mcp-modal settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title" tabindex="-1">
+                    <div class="mcp-heading"><h2 id="settings-title">Settings</h2><button type="button" class="mcp-close" aria-label="Close settings">×</button></div>
+                    <section class="settings-section" aria-labelledby="settings-mcp-title">
+                    <h3 class="settings-section-title" id="settings-mcp-title">MCP connections</h3>
                     <p class="mcp-intro">Connect tools your AI can use across your projects. Only connect servers you trust to receive tool inputs and perform actions.</p>
                     <div class="mcp-list"></div>
                     <p class="mcp-announce" role="status"></p>
                     <form class="mcp-add">
-                        <h3>Add a server</h3>
+                        <h4>Add a server</h4>
                         <label>Name <input name="serverName" maxlength="80" placeholder="My service" autocomplete="off"></label>
                         <label>Server URL <input name="serverUrl" type="url" required placeholder="https://example.com/mcp" autocomplete="off" spellcheck="false"></label>
                         <label>Bearer token <span class="mcp-optional">(optional)</span><input name="serverToken" type="password" autocomplete="off" spellcheck="false" placeholder="Kept only until disconnected or reloaded"></label>
@@ -24,6 +29,7 @@
                         <button type="submit" class="mcp-primary">Add and connect</button>
                         <p class="mcp-form-error" role="alert"></p>
                     </form>
+                    </section>
                 </section>
             </div>`);
         $('body').append($overlay);
@@ -50,11 +56,11 @@
             const connections = manager.list();
             if (!connections.length) $('<p class="mcp-empty">No servers connected yet.</p>').appendTo($list);
             for (const record of connections) {
-                const $row = $('<article class="mcp-server"><h3></h3><p class="mcp-url"></p><p class="mcp-status"></p><div class="mcp-actions"></div></article>');
+                const $row = $('<article class="mcp-server"><h4></h4><p class="mcp-url"></p><p class="mcp-status"></p><div class="mcp-actions"></div></article>');
                 // Every row has the same controls, so name each one after its
                 // server: a screen reader otherwise lists "Remove, Remove, …".
                 $row.data('id', record.id).attr({ 'data-status': record.status, 'aria-labelledby': `mcp-name-${record.id}` });
-                $row.find('h3').attr('id', `mcp-name-${record.id}`).text(record.name);
+                $row.find('h4').attr('id', `mcp-name-${record.id}`).text(record.name);
                 $row.find('.mcp-url').text(record.url);
                 const status = record.error || (record.status === 'connected'
                     ? `Connected · ${record.tools.length} ${record.tools.length === 1 ? 'tool' : 'tools'}${record.viaRelay ? ' · using Puter after a browser CORS check' : ''}`
@@ -114,11 +120,20 @@
             closePanel = null;
         };
         $overlay.on('click', '.mcp-close', () => closePanel?.());
-        // Close only when the press also began on the backdrop: a text
-        // selection dragged out of a field ends in a click on the overlay.
+        // A click on the backdrop doesn't close Settings (a stray click would
+        // lose a half-typed server); the modal jolts to say it's still open.
+        // Only when the press also began on the backdrop: a text selection
+        // dragged out of a field ends in a click on the overlay.
         let pressedBackdrop = false;
         $overlay.on('pointerdown', e => { pressedBackdrop = e.target === $overlay[0]; });
-        $overlay.on('click', e => { if (pressedBackdrop && e.target === $overlay[0]) closePanel?.(); });
+        $overlay.on('click', e => {
+            if (!pressedBackdrop || e.target !== $overlay[0]) return;
+            const modal = $overlay.find('.settings-modal')[0];
+            modal.classList.remove('is-jolting');
+            void modal.offsetWidth; // restart the animation on a quick second click
+            modal.classList.add('is-jolting');
+        });
+        $overlay.on('animationend', '.settings-modal', function (e) { if (e.target === this) this.classList.remove('is-jolting'); });
         $(document).on('keydown.mcpConnections', e => {
             if (window.isComposingKeyEvent(e)) return; // Escape cancels the IME, not the dialog
             if (!window.keyIsForDialog(e, $overlay[0])) return; // e.g. a Puter dialog above this one
@@ -139,5 +154,5 @@
         render();
         requestAnimationFrame(() => { $overlay.addClass('open'); $overlay.find('section').trigger('focus'); });
     };
-    $(document).on('click', '.user-panel-mcp', () => window.openMcpConnections());
+    $(document).on('click', '.user-panel-mcp', () => window.openSettings());
 })();
