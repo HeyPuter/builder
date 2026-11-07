@@ -6775,8 +6775,34 @@ html[data-theme="dark"] .wn-dns-wait { border-color: var(--border-strong); borde
 .mcp-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .mcp-heading h2 { font-size: 19px; margin: 0; }
 .mcp-modal h4 { font-size: 14px; margin: 0 0 8px; overflow-wrap: anywhere; }
-.settings-section-title { font-size: 15px; margin: 18px 0 0; }
-.settings-section-title + .mcp-intro { margin-top: 6px; }
+/* Settings tabs: an underlined strip under the title. Selectors go through
+   .mcp-modal so they outrank its generic button look. */
+.settings-tabs { display: flex; gap: 4px; margin: 14px 0 4px; border-bottom: 1px solid #e3e5e8; }
+.mcp-modal .settings-tab {
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    background: none;
+    margin-bottom: -1px;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #62676e;
+}
+.mcp-modal .settings-tab:hover { background: none; color: #202124; }
+.mcp-modal .settings-tab[aria-selected="true"] { color: #202124; border-bottom-color: #2563eb; }
+.mcp-modal .settings-tab:focus-visible { outline: 2px solid #2563eb; outline-offset: -2px; border-radius: 4px 4px 0 0; }
+.settings-panel[hidden] { display: none; }
+/* One height for every tab, so switching doesn't re-center the modal and
+   shift the tab strip; a longer server list scrolls inside, as on a short
+   screen. */
+.settings-modal { height: min(560px, 100%); }
+/* Appearance: the account panel's Light / Dark / Device control, roomier. */
+.settings-theme { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+.settings-theme .user-theme-seg { max-width: 360px; }
+.mcp-modal .user-theme-opt { border: none; border-radius: 6px; background: transparent; padding: 7px 0; font-size: 13px; }
+.mcp-modal .user-theme-opt:hover { background: transparent; }
+.mcp-modal .user-theme-opt.active { background: #fff; }
 /* A backdrop click doesn't close Settings; the modal jolts instead. */
 .confirm-modal-overlay.open .settings-modal.is-jolting { animation: settings-jolt 0.3s ease; }
 @keyframes settings-jolt {
@@ -6824,8 +6850,12 @@ html[data-theme="dark"] .wn-dns-wait { border-color: var(--border-strong); borde
 }
 html[data-theme="dark"] .mcp-modal { color: var(--text); }
 html[data-theme="dark"] .mcp-modal input { background: var(--surface); border-color: var(--border); }
-html[data-theme="dark"] .mcp-modal button:not(.mcp-primary, .mcp-close) { background: var(--surface-hover); border-color: var(--border); }
-html[data-theme="dark"] .mcp-modal button:not(.mcp-primary, .mcp-close):hover { background: var(--surface-active); }
+html[data-theme="dark"] .mcp-modal button:not(.mcp-primary, .mcp-close, .settings-tab, .user-theme-opt) { background: var(--surface-hover); border-color: var(--border); }
+html[data-theme="dark"] .mcp-modal button:not(.mcp-primary, .mcp-close, .settings-tab, .user-theme-opt):hover { background: var(--surface-active); }
+html[data-theme="dark"] .settings-tabs { border-color: var(--border); }
+html[data-theme="dark"] .mcp-modal .settings-tab { color: var(--text-secondary); }
+html[data-theme="dark"] .mcp-modal .settings-tab:hover,
+html[data-theme="dark"] .mcp-modal .settings-tab[aria-selected="true"] { color: var(--text); }
 html[data-theme="dark"] .mcp-modal .mcp-close:hover { background: var(--surface-hover); }
 html[data-theme="dark"] .mcp-intro, html[data-theme="dark"] .mcp-note, html[data-theme="dark"] .mcp-empty,
 html[data-theme="dark"] .mcp-url, html[data-theme="dark"] .mcp-optional { color: var(--text-secondary); }
