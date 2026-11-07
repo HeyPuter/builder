@@ -31,7 +31,7 @@ function fnBody(name) {
 // ---- Toolbar button ----------------------------------------------------------
 {
     const menu = fnBody('updateUserMenu');
-    const signedIn = menu.slice(menu.indexOf('if (loggedIn && !isApp) {'), menu.indexOf('} else {'));
+    const signedIn = menu.slice(menu.indexOf('if (loggedIn && ownMenu) {'), menu.indexOf('} else {'));
     const signedOut = menu.slice(menu.indexOf('} else {'), menu.indexOf('$container.html(h);'));
     check('the apps button markup is defined once', menu.split('class="apps-btn"').length === 2);
     check('…announces a dialog and its open state',
@@ -42,14 +42,14 @@ function fnBody(name) {
         check('signed in: it sits immediately left of the avatar', apps > 0 && avatar > apps && signedIn.lastIndexOf('h += githubLink;') < apps);
     }
     {
-        const web = signedOut.indexOf('if (!isApp) {');
+        const web = signedOut.indexOf('if (ownMenu) {');
         const apps = signedOut.indexOf('h += appsBtn;');
         const signIn = signedOut.indexOf('class="sign-in-btn"');
         check('signed out: it is rendered on the web, immediately left of Sign In',
             web > 0 && apps > web && signIn > apps && signedOut.split('h += appsBtn;').length === 2);
     }
     check('a re-render keeps focus on it', menu.includes("'theme-toggle-btn', 'apps-btn', 'user-menu-btn'"));
-    check('being hosted inside Puter closes an open panel', /if \(isApp\) window\.closeAppsPanel\?\.\(\);/.test(menu));
+    check('being hosted inside Puter, or having <puter-user-menu>, closes an open panel', /if \(!ownMenu\) window\.closeAppsPanel\?\.\(\);/.test(menu));
     check('an account change rebuilds the embed',
         menu.includes('window.resetAppsPanelForAccount?.(loggedIn ? window.user.uuid : null);')
         && /closeAppsPanel\(\);\s*\$\('\.apps-panel'\)\.remove\(\);/.test(fnBody('resetAppsPanelForAccount')));

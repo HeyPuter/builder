@@ -367,8 +367,10 @@ function load({ storage = memoryStorage(), user = { username: 'ada' }, api = tru
     check('a broken painted image falls back to the initial and is invalidated',
         /img\.addEventListener\('error'[\s\S]{0,200}profilePicture\?\.invalidate\(username, picture\)/.test(ui));
     const logout = ui.slice(ui.indexOf("$(document).on('click', '.user-panel-logout'"));
+    const forget = ui.slice(ui.indexOf('function forgetAccountOnDevice('), ui.indexOf('\n}\n', ui.indexOf('function forgetAccountOnDevice(')));
     check('logging out forgets cached pictures before the reload',
-        logout.indexOf('profilePicture?.clear()') > 0 && logout.indexOf('profilePicture?.clear()') < logout.indexOf('location.reload()'));
+        forget.includes('profilePicture?.clear()')
+        && logout.indexOf('forgetAccountOnDevice()') > 0 && logout.indexOf('forgetAccountOnDevice()') < logout.indexOf('location.reload()'));
 }
 
 if (failures) { console.error(`\n${failures} check(s) FAILED`); process.exit(1); }

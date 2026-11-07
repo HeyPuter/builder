@@ -173,8 +173,15 @@ function renderSkeleton() {
         // moves (the preview toolbar's copy is hidden on phones).
         h += window.viewSegHtml('view-seg-toolbar');
         // Top-right GitHub link and user menu, populated by updateUserMenu():
-        // an account avatar when signed in, otherwise a Sign In button.
-        h += `<div class="user-menu-container"></div>`;
+        // an account avatar when signed in, otherwise a Sign In button. When
+        // the running puter.js has <puter-user-menu>, it holds the apps
+        // launcher and the account button. It sits outside the controls that
+        // updateUserMenu() re-renders, so a re-render never resets it.
+        h += `<div class="user-menu-container"><div class="user-menu-controls"></div>`;
+            if (window.customElements?.get('puter-user-menu')) {
+                h += `<puter-user-menu sign-in-label="Sign In" sign-out-label="Log out"></puter-user-menu>`;
+            }
+        h += `</div>`;
     h += `</header>`;
     
     h += `<nav class="chat-history-sidebar" id="chat-history-sidebar" aria-label="Projects">`;
@@ -337,8 +344,10 @@ function openFeedbackDialog() {
 // Render the GitHub link and top-right user control based on auth state: an avatar button
 // (the username's initial) opening the account panel when the user is signed
 // in with a real account, otherwise a Sign In button. Signed-in users hosted
-// inside Puter get theme and feedback controls in the toolbar. Temp/anonymous
-// users are treated as signed out (matches ensureAuthenticated). Safe to call
+// inside Puter get theme and feedback controls in the toolbar, and so do web
+// users whose apps launcher and account button come from puter.js's
+// <puter-user-menu>, which has no room for them. Temp/anonymous users are
+// treated as signed out (matches ensureAuthenticated). Safe to call
 // repeatedly.
 function updateUserMenu() {
     // Reconcile the theme when auth resolves or changes. Signed-out users
@@ -347,13 +356,17 @@ function updateUserMenu() {
     // The composer's model picker follows the account too (hidden, locked or
     // open), including when a plan changes.
     window.ModelPicker?.render?.();
-    const $container = $('.user-menu-container');
+    const $container = $('.user-menu-controls');
     if (!$container.length) return;
     const loggedIn = !!(window.user && !window.user.is_temp);
 
     // Inside a Puter app (puter.env === 'app') the account is managed by the
     // host environment, so the account control is redundant — hide it there.
     const isApp = !!(window.puter && puter.env === 'app');
+    // On the web, puter.js's <puter-user-menu> (see the toolbar markup) stands
+    // in for the builder's own apps launcher and account button.
+    const sdkMenu = document.querySelector('puter-user-menu');
+    const ownMenu = !isApp && !sdkMenu;
 
     const githubLink = `<a class="github-link" href="https://github.com/HeyPuter/builder" target="_blank" rel="noopener noreferrer" title="View source on GitHub" aria-label="View source on GitHub (opens in a new tab)"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 .5C5.37.5 0 5.87 0 12.5c0 5.3 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.725-4.043-1.61-4.043-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.09-.745.083-.73.083-.73 1.205.085 1.838 1.237 1.838 1.237 1.07 1.835 2.807 1.305 3.492.998.108-.776.42-1.305.763-1.605-2.665-.305-5.467-1.333-5.467-5.93 0-1.31.468-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23A11.5 11.5 0 0 1 12 6.3c1.02.005 2.045.138 3.005.405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.295 24 17.795 24 12.5c0-6.63-5.37-12-12-12Z"/></svg></a>`;
     // Signed-in users get the plan button (see openUpgradeModal): Upgrade on
@@ -365,7 +378,7 @@ function updateUserMenu() {
     // just left of the avatar, or of Sign In.
     const appsBtn = `<button class="apps-btn" title="Apps" aria-label="Apps" aria-haspopup="dialog" aria-expanded="${appsPanelOpen ? 'true' : 'false'}">${apps_grid_svg}</button>`;
     let h = upgradeBtn;
-    if (loggedIn && !isApp) {
+    if (loggedIn && ownMenu) {
         h += githubLink;
         h += appsBtn;
         // Signed in: a single avatar button opens the account panel — the
@@ -374,8 +387,9 @@ function updateUserMenu() {
             h += `<span class="user-avatar" aria-hidden="true"></span>`;
         h += `</button>`;
     } else {
-        // Signed-in users hosted inside Puter have no account panel, so keep
-        // their theme control here. Signed-out users always follow the system.
+        // Signed-in users with no account panel (hosted inside Puter, or with
+        // <puter-user-menu>) keep their theme control here. Signed-out users
+        // always follow the system.
         if (loggedIn) {
             const dark = getEffectiveTheme() === 'dark';
             // A toggle button: the name stays "Dark mode" and aria-pressed says
@@ -384,13 +398,17 @@ function updateUserMenu() {
             h += `<button class="theme-toggle-btn" title="${dark ? 'Switch to light mode' : 'Switch to dark mode'}" aria-label="Dark mode" aria-pressed="${dark ? 'true' : 'false'}">${dark ? sun_svg : moon_svg}</button>`;
         }
         // Feedback is tied to an account (it's how we reply), so it's offered
-        // only to signed-in users — here that means hosted inside Puter, where
-        // there's no account panel to hold the row.
+        // only to signed-in users — here that means ones with no account panel
+        // to hold the row.
         if (loggedIn && feedbackAvailable()) {
-            h += `<button class="feedback-btn" title="Send feedback">Send feedback</button>`;
+            // Beside <puter-user-menu>'s two icons it's an icon too, or the
+            // row overruns a phone's toolbar.
+            h += sdkMenu && !isApp
+                ? `<button class="feedback-btn feedback-icon-btn" title="Send feedback" aria-label="Send feedback">${window.feedback_svg}</button>`
+                : `<button class="feedback-btn" title="Send feedback">Send feedback</button>`;
         }
         h += githubLink;
-        if (!isApp) {
+        if (ownMenu) {
             h += appsBtn;
             h += `<button class="sign-in-btn">Sign In</button>`;
         }
@@ -412,9 +430,15 @@ function updateUserMenu() {
     // The username is user-controlled — paintAvatar sets the initial as text,
     // never into the HTML string. Then make sure the picture is fresh (a no-op
     // while the cache is; a change repaints through the onChange hook below).
-    if (loggedIn && !isApp) {
+    if (loggedIn && ownMenu) {
         paintAvatar($container.find('.user-avatar')[0], window.user.username);
         window.profilePicture?.refresh(window.user.username);
+    }
+    if (sdkMenu) {
+        // It renders nothing inside Puter, but would still take a gap in the row.
+        sdkMenu.hidden = isApp;
+        // It and the app browser in it follow the builder's theme, not just the OS.
+        sdkMenu.setAttribute('theme', getEffectiveTheme());
     }
     // Keep an open account panel's theme control in sync — setThemeChoice(),
     // toggleTheme() and the OS-preference listener all route through here.
@@ -423,7 +447,7 @@ function updateUserMenu() {
     // an open panel if that stopped being true. A sign-in or sign-out changes
     // whose apps the embed shows, so a panel built under the other state is
     // discarded and rebuilt on next open. Else keep its embed on our theme.
-    if (isApp) window.closeAppsPanel?.();
+    if (!ownMenu) window.closeAppsPanel?.();
     window.resetAppsPanelForAccount?.(loggedIn ? window.user.uuid : null);
     window.syncAppsPanelTheme?.();
 }
@@ -6252,6 +6276,23 @@ $(document).on('click', '.sign-in-btn', async function(e) {
     }
 });
 
+// <puter-user-menu>'s Sign In has already signed in by the time it says so, and
+// hands over the user; set it first so ensureAuthenticated doesn't ask again.
+$(document).on('signin', 'puter-user-menu', async function(e) {
+    window.user = e.originalEvent?.detail?.user || await initializeUser();
+    updateUserMenu();
+    if (!window.user || window.user.is_temp) return;
+    try {
+        await ensureAuthenticated();
+    } catch (err) {
+        console.error('Could not finish setting up the session:', err);
+        window.showToast?.("Couldn't load your projects — check your connection and try again.",
+            { type: 'error', key: 'auth-init-failed', throttleMs: 5000 });
+    }
+    updateUserMenu();
+    window.settleComposerDraftIdentity?.();
+});
+
 // ---- Upgrade (paid Puter subscription) ---------------------------------------
 // Billing lives on puter.com; the builder only explains what a subscription
 // adds here and links out. One dialog, two faces:
@@ -7011,12 +7052,20 @@ $(document).on('click', '.user-panel-feedback', function(e) {
 // Log out: drop the cached returning-user greeting so the post-reload landing
 // shows the default hero immediately (no personalised flash before auth
 // re-resolves to signed-out).
-$(document).on('click', '.user-panel-logout', function() {
+function forgetAccountOnDevice() {
     window.mcpManager?.reset();
     try { localStorage.removeItem('homeGreetingName'); } catch (e) {}
     // Nor should the next person on this device see this account's picture.
     window.profilePicture?.clear();
+}
+$(document).on('click', '.user-panel-logout', function() {
+    forgetAccountOnDevice();
     puter.auth.signOut();
+    location.reload();
+});
+// <puter-user-menu> has already signed out by the time it says so.
+$(document).on('signout', 'puter-user-menu', function() {
+    forgetAccountOnDevice();
     location.reload();
 });
 
