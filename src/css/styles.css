@@ -164,10 +164,12 @@ html.vv-sized .chat:not(.active) {
     gap: 15px;
 }
 
-/* Quiet toolbar icons for the theme toggle, GitHub link and apps launcher. */
+/* Quiet toolbar icons for the theme toggle, GitHub link, apps launcher and
+   Settings gear. */
 .theme-toggle-btn,
 .github-link,
-.apps-btn {
+.apps-btn,
+.settings-btn {
     background: none;
     border: none;
     cursor: pointer;
@@ -183,7 +185,8 @@ html.vv-sized .chat:not(.active) {
 .theme-toggle-btn:hover,
 .github-link:hover,
 .apps-btn:hover,
-.apps-btn[aria-expanded="true"] {
+.apps-btn[aria-expanded="true"],
+.settings-btn:hover {
     background: rgba(0,0,0,0.08);
 }
 
@@ -5573,6 +5576,7 @@ body.preview-active.chat-hidden .chat {
     .theme-toggle-btn,
     .github-link,
     .apps-btn,
+    .settings-btn,
     .user-menu-btn {
         width: 44px;
         height: 44px;
@@ -6770,7 +6774,24 @@ html[data-theme="dark"] .wn-dns-wait { border-color: var(--border-strong); borde
 .mcp-modal:focus-visible { outline: none; }
 .mcp-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .mcp-heading h2 { font-size: 19px; margin: 0; }
-.mcp-modal h3 { font-size: 14px; margin: 0 0 8px; overflow-wrap: anywhere; }
+.mcp-modal h4 { font-size: 14px; margin: 0 0 8px; overflow-wrap: anywhere; }
+.settings-section-title { font-size: 15px; margin: 18px 0 0; }
+.settings-section-title + .mcp-intro { margin-top: 6px; }
+/* A backdrop click doesn't close Settings; the modal jolts instead. */
+.confirm-modal-overlay.open .settings-modal.is-jolting { animation: settings-jolt 0.3s ease; }
+@keyframes settings-jolt {
+    0%, 100% { transform: scale(1); }
+    40% { transform: scale(1.025); }
+    70% { transform: scale(0.995); }
+}
+/* Without motion, a brief ring says the same. */
+@keyframes settings-jolt-still {
+    0%, 100% { outline: 3px solid transparent; }
+    40% { outline: 3px solid rgba(37, 99, 235, 0.5); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .confirm-modal-overlay.open .settings-modal.is-jolting { animation: settings-jolt-still 0.4s ease; }
+}
 .mcp-intro, .mcp-note, .mcp-empty { font-size: 13px; line-height: 1.5; color: #62676e; }
 .mcp-modal label { display: block; font-size: 13px; margin: 10px 0; }
 .mcp-modal input { display: block; width: 100%; box-sizing: border-box; border: 1px solid #d7d9dd; border-radius: 7px; padding: 9px 10px; margin-top: 5px; background: #fff; color: inherit; font-size: 14px; }
@@ -7028,10 +7049,12 @@ html[data-theme="dark"] .chat-box .message-content ::marker { color: var(--text-
 /* ---- Toolbar / user menu / theme toggle ---- */
 html[data-theme="dark"] .theme-toggle-btn,
 html[data-theme="dark"] .github-link,
-html[data-theme="dark"] .apps-btn { color: var(--text-secondary); }
+html[data-theme="dark"] .apps-btn,
+html[data-theme="dark"] .settings-btn { color: var(--text-secondary); }
 html[data-theme="dark"] .theme-toggle-btn:hover,
 html[data-theme="dark"] .github-link:hover,
 html[data-theme="dark"] .apps-btn:hover,
+html[data-theme="dark"] .settings-btn:hover,
 html[data-theme="dark"] .apps-btn[aria-expanded="true"] { background: rgba(255, 255, 255, 0.08); }
 html[data-theme="dark"] .user-menu-btn:hover .user-avatar,
 html[data-theme="dark"] .user-menu-btn[aria-expanded="true"] .user-avatar {
