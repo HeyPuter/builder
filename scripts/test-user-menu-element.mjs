@@ -59,10 +59,12 @@ function loadHandler(event, selector, globals) {
         && menu.includes('if (loggedIn && ownMenu) {')
         && /if \(ownMenu\) \{\s*h \+= appsBtn;\s*h \+= `<button class="sign-in-btn">Sign In<\/button>`;/.test(menu));
     {
-        // With the element, a signed-in user takes the else branch: theme
-        // toggle and Send feedback in the toolbar, as when hosted inside Puter.
+        // With the element, a signed-in user takes the else branch: Send
+        // feedback in the toolbar, as when hosted inside Puter. The theme
+        // toggle stays only inside Puter; with the element it is in Settings.
         const other = menu.slice(menu.indexOf('} else {'), menu.indexOf('$container.html(h);'));
-        check('signed in with the element: the theme toggle stays in the toolbar', /if \(loggedIn\) \{[\s\S]*class="theme-toggle-btn"/.test(other));
+        check('the toolbar theme toggle is only for signed-in users without the Settings gear',
+            /if \(loggedIn && !\(sdkMenu && !isApp\)\) \{[\s\S]*class="theme-toggle-btn"/.test(other));
         check('…and so does Send feedback', other.includes('if (loggedIn && feedbackAvailable()) {'));
         check('…as an icon beside the element, and as the labelled pill inside Puter',
             /h \+= sdkMenu && !isApp\s*\? `<button class="feedback-btn feedback-icon-btn" title="Send feedback" aria-label="Send feedback">\$\{window\.feedback_svg\}<\/button>`\s*: `<button class="feedback-btn" title="Send feedback">Send feedback<\/button>`;/.test(other));
@@ -128,11 +130,26 @@ function loadHandler(event, selector, globals) {
     check('…and keeps focus across re-renders', menu.includes("'settings-btn'"));
     check('the gear opens Settings', /\$\(document\)\.on\('click', '\.settings-btn'[\s\S]{0,120}window\.openSettings\?\.\(\);/.test(ui));
     const mcp = read('../src/js/mcp-ui.js');
-    check('Settings is a dialog named "Settings" holding the MCP connections section',
+    check('Settings is a dialog named "Settings" with MCP connections and Appearance tabs',
         mcp.includes('aria-labelledby="settings-title"') && mcp.includes('<h2 id="settings-title">Settings</h2>')
-        && mcp.includes('id="settings-mcp-title">MCP connections</h3>'));
-    check('the account panel\'s MCP row opens the same Settings',
-        mcp.includes("$(document).on('click', '.user-panel-mcp', () => window.openSettings());"));
+        && mcp.includes('role="tablist" aria-label="Settings sections"')
+        && mcp.includes('role="tab" id="settings-tab-mcp" aria-controls="settings-panel-mcp" data-tab="mcp">MCP connections</button>')
+        && mcp.includes('role="tab" id="settings-tab-appearance" aria-controls="settings-panel-appearance" data-tab="appearance">Appearance</button>')
+        && mcp.includes('role="tabpanel" id="settings-panel-mcp" aria-labelledby="settings-tab-mcp"')
+        && mcp.includes('role="tabpanel" id="settings-panel-appearance" aria-labelledby="settings-tab-appearance"'));
+    check('Appearance holds the shared Light / Dark / Device radio group',
+        mcp.includes('<span class="user-theme-label" id="settings-theme-label">Theme</span>')
+        && mcp.includes("${window.themeSegmentHtml('settings-theme-label')}")
+        && ui.includes("themeSegmentHtml('user-theme-label')"));
+    check('…kept in sync wherever it is open', /window\.syncUserPanelTheme = function\(\) \{\s*const \$seg = \$\('\.user-theme-seg'\);/.test(ui));
+    check('only the selected tab is a Tab stop; arrows and Home/End move between tabs',
+        mcp.includes("$(this).attr({ 'aria-selected': selected ? 'true' : 'false', tabindex: selected ? '0' : '-1' });")
+        && mcp.includes("const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];")
+        && mcp.includes("this.hidden = this.dataset.tab !== key;"));
+    check('closing after a theme change refocuses the re-rendered gear',
+        mcp.includes("document.querySelector('.settings-btn')?.focus({ preventScroll: true });"));
+    check('the account panel\'s MCP row opens Settings on the MCP tab',
+        mcp.includes("$(document).on('click', '.user-panel-mcp', () => window.openSettings('mcp'));"));
     check('a backdrop click jolts Settings instead of closing it',
         /\$overlay\.on\('click', e => \{\s*if \(!pressedBackdrop \|\| e\.target !== \$overlay\[0\]\) return;[\s\S]*?classList\.add\('is-jolting'\);\s*\}\);/.test(mcp)
         && !/\$overlay\.on\('click', e => \{[^}]*closePanel/.test(mcp));

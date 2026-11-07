@@ -1,11 +1,14 @@
 // The Settings modal, opened by the toolbar's gear (beside <puter-user-menu>)
-// and by the account panel's MCP connections row. For now it holds only the
-// MCP connections section.
+// and by the account panel's MCP connections row. Two tabs: MCP connections
+// and Appearance (the Light / Dark / Device theme control).
 // The SDK is an ordinary Vite module; this UI follows the app's classic-script
 // and jQuery conventions. Server names, URLs, and tool names are always text.
 (function () {
     let closePanel;
-    window.openSettings = function () {
+    // The gear reopens the tab last shown; the MCP row asks for its own.
+    let lastTab = 'mcp';
+    window.openSettings = function (tab) {
+        if (tab === 'mcp' || tab === 'appearance') lastTab = tab;
         closePanel?.();
         window.closeUserPanel?.();
         document.querySelector('.user-menu-btn')?.focus();
@@ -15,8 +18,11 @@
             <div class="confirm-modal-overlay mcp-overlay">
                 <section class="properties-modal mcp-modal settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title" tabindex="-1">
                     <div class="mcp-heading"><h2 id="settings-title">Settings</h2><button type="button" class="mcp-close" aria-label="Close settings">×</button></div>
-                    <section class="settings-section" aria-labelledby="settings-mcp-title">
-                    <h3 class="settings-section-title" id="settings-mcp-title">MCP connections</h3>
+                    <div class="settings-tabs" role="tablist" aria-label="Settings sections">
+                        <button type="button" class="settings-tab" role="tab" id="settings-tab-mcp" aria-controls="settings-panel-mcp" data-tab="mcp">MCP connections</button>
+                        <button type="button" class="settings-tab" role="tab" id="settings-tab-appearance" aria-controls="settings-panel-appearance" data-tab="appearance">Appearance</button>
+                    </div>
+                    <div class="settings-panel" role="tabpanel" id="settings-panel-mcp" aria-labelledby="settings-tab-mcp" data-tab="mcp">
                     <p class="mcp-intro">Connect tools your AI can use across your projects. Only connect servers you trust to receive tool inputs and perform actions.</p>
                     <div class="mcp-list"></div>
                     <p class="mcp-announce" role="status"></p>
@@ -29,11 +35,45 @@
                         <button type="submit" class="mcp-primary">Add and connect</button>
                         <p class="mcp-form-error" role="alert"></p>
                     </form>
-                    </section>
+                    </div>
+                    <div class="settings-panel" role="tabpanel" id="settings-panel-appearance" aria-labelledby="settings-tab-appearance" data-tab="appearance">
+                        <div class="settings-theme">
+                            <span class="user-theme-label" id="settings-theme-label">Theme</span>
+                            ${window.themeSegmentHtml('settings-theme-label')}
+                        </div>
+                        <p class="mcp-note">Device follows your system’s light or dark setting.</p>
+                    </div>
                 </section>
             </div>`);
         $('body').append($overlay);
+        // A theme change re-renders the toolbar, replacing the gear that opened
+        // Settings; closing hands focus to its replacement instead of <body>.
+        const fromGear = !!document.activeElement?.classList.contains('settings-btn');
         const releaseFocus = trapDialogFocus($overlay);
+        // Tabs: only the selected one is a Tab stop, and the arrow keys (with
+        // Home/End) move between them, selecting as they go.
+        const $tabs = $overlay.find('.settings-tab');
+        function selectTab(key, focus) {
+            lastTab = key;
+            $tabs.each(function () {
+                const selected = this.dataset.tab === key;
+                $(this).attr({ 'aria-selected': selected ? 'true' : 'false', tabindex: selected ? '0' : '-1' });
+                if (selected && focus) this.focus();
+            });
+            $overlay.find('.settings-panel').each(function () { this.hidden = this.dataset.tab !== key; });
+        }
+        selectTab(lastTab, false);
+        $tabs.on('click', function () { selectTab(this.dataset.tab, true); });
+        $tabs.on('keydown', function (e) {
+            const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
+            let i = $tabs.index(this);
+            if (step) i = (i + step + $tabs.length) % $tabs.length;
+            else if (e.key === 'Home') i = 0;
+            else if (e.key === 'End') i = $tabs.length - 1;
+            else return;
+            e.preventDefault();
+            selectTab($tabs[i].dataset.tab, true);
+        });
         // The list is rebuilt on every change, so it is not a live region (that
         // re-read every row). Only a row whose status changed is announced.
         const announced = new Map();
@@ -118,6 +158,9 @@
             releaseFocus();
             $overlay.remove();
             closePanel = null;
+            if (fromGear && (!document.activeElement || document.activeElement === document.body)) {
+                document.querySelector('.settings-btn')?.focus({ preventScroll: true });
+            }
         };
         $overlay.on('click', '.mcp-close', () => closePanel?.());
         // A click on the backdrop doesn't close Settings (a stray click would
@@ -154,5 +197,5 @@
         render();
         requestAnimationFrame(() => { $overlay.addClass('open'); $overlay.find('section').trigger('focus'); });
     };
-    $(document).on('click', '.user-panel-mcp', () => window.openSettings());
+    $(document).on('click', '.user-panel-mcp', () => window.openSettings('mcp'));
 })();

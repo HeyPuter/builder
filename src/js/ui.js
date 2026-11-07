@@ -390,10 +390,10 @@ function updateUserMenu() {
             h += `<span class="user-avatar" aria-hidden="true"></span>`;
         h += `</button>`;
     } else {
-        // Signed-in users with no account panel (hosted inside Puter, or with
-        // <puter-user-menu>) keep their theme control here. Signed-out users
-        // always follow the system.
-        if (loggedIn) {
+        // Signed-in users hosted inside Puter keep their theme control here;
+        // with <puter-user-menu> it lives in Settings (the gear below).
+        // Signed-out users always follow the system.
+        if (loggedIn && !(sdkMenu && !isApp)) {
             const dark = getEffectiveTheme() === 'dark';
             // A toggle button: the name stays "Dark mode" and aria-pressed says
             // whether it is on — the fixed "Toggle dark mode" never said which
@@ -415,8 +415,8 @@ function updateUserMenu() {
             h += appsBtn;
             h += `<button class="sign-in-btn">Sign In</button>`;
         }
-        // The account panel's settings (MCP connections, for now) have no row
-        // in <puter-user-menu>, so a gear just left of it opens them instead.
+        // The account panel's settings (MCP connections and the theme) have no
+        // row in <puter-user-menu>, so a gear just left of it opens them instead.
         if (loggedIn && sdkMenu && !isApp) {
             h += `<button class="settings-btn" title="Settings" aria-label="Settings" aria-haspopup="dialog">${settings_svg}</button>`;
         }
@@ -6898,6 +6898,20 @@ const THEME_CHOICES = [
     { key: 'dark',   label: 'Dark',   icon: window.moon_svg },
     { key: 'device', label: 'Device', icon: panel_device_svg },
 ];
+// The Light / Dark / Device radio group, labelled by the element `labelId`.
+// Shared by the account panel and Settings' Appearance tab; the click and
+// keydown handlers below and syncUserPanelTheme work on any copy of it.
+function themeSegmentHtml(labelId) {
+    const choice = getStoredTheme() || 'device';
+    const seg = (c) => {
+        const active = c.key === choice;
+        return `<button type="button" class="user-theme-opt${active ? ' active' : ''}" data-theme-choice="${c.key}" role="radio" aria-checked="${active ? 'true' : 'false'}" tabindex="${active ? '0' : '-1'}">` +
+            `${c.icon}<span>${c.label}</span>` +
+        '</button>';
+    };
+    return `<div class="user-theme-seg" role="radiogroup" aria-labelledby="${labelId}">${THEME_CHOICES.map(seg).join('')}</div>`;
+}
+window.themeSegmentHtml = themeSegmentHtml;
 
 // Keep the fixed-position panel glued under the trigger: the toolbar is taller
 // on phones, so the top offset is measured from the live trigger rect rather
@@ -6928,13 +6942,6 @@ function openUserPanel() {
     $('.user-menu-btn').attr('aria-expanded', 'true');
     // Rebuilt per open — the theme control must reflect the current choice.
     $('.user-panel').remove();
-    const choice = getStoredTheme() || 'device';
-    const seg = (c) => {
-        const active = c.key === choice;
-        return `<button class="user-theme-opt${active ? ' active' : ''}" data-theme-choice="${c.key}" role="radio" aria-checked="${active ? 'true' : 'false'}" tabindex="${active ? '0' : '-1'}">` +
-            `${c.icon}<span>${c.label}</span>` +
-        '</button>';
-    };
     const $panel = $(
         '<div class="user-panel" role="dialog" aria-label="Account" tabindex="-1">' +
             '<div class="user-panel-header">' +
@@ -6947,7 +6954,7 @@ function openUserPanel() {
             '<div class="user-panel-body">' +
                 '<div class="user-panel-theme">' +
                     '<span class="user-theme-label" id="user-theme-label">Theme</span>' +
-                    `<div class="user-theme-seg" role="radiogroup" aria-labelledby="user-theme-label">${THEME_CHOICES.map(seg).join('')}</div>` +
+                    themeSegmentHtml('user-theme-label') +
                 '</div>' +
                 '<button class="user-panel-item user-panel-mcp">' +
                     `<span class="user-item-icon" aria-hidden="true">${panel_mcp_svg}</span>` +
@@ -6991,12 +6998,12 @@ function closeUserPanel() {
 }
 window.closeUserPanel = closeUserPanel;
 
-// Reflect the current theme choice on an open panel's segmented control
-// (no-op when closed). Routed through updateUserMenu so every path — this
-// panel's segments, the signed-out toolbar toggle, a live OS-preference
-// change — lands here.
+// Reflect the current theme choice on every open theme control — the account
+// panel's and Settings' Appearance tab (no-op when neither is open). Routed
+// through updateUserMenu so every path — these segments, the hosted-app
+// toolbar toggle, a live OS-preference change — lands here.
 window.syncUserPanelTheme = function() {
-    const $seg = $('.user-panel .user-theme-seg');
+    const $seg = $('.user-theme-seg');
     if (!$seg.length) return;
     const choice = getStoredTheme() || 'device';
     $seg.find('.user-theme-opt').each(function() {
