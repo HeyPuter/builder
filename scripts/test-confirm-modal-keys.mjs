@@ -33,7 +33,7 @@ check('the Delete button still resolves true only on a match', /\$confirm\.on\('
 
 // ---- The dialogs' focus trap holds from wherever focus starts -----------------
 // trapDialogFocus listened on the overlay, so it heard nothing once focus had
-// left it — and the Settings/MCP dialogs open with focus on their own container
+// left it — and the Settings dialog opens with focus on its own container
 // (tabindex -1, not a Tab stop), from which Shift+Tab is the browser's to take
 // to the page behind the backdrop. A re-render that removed the focused control
 // dropped focus to <body>, outside the trap's hearing too. Runs the real
@@ -137,9 +137,6 @@ check('the Delete button still resolves true only on a match', /\$confirm\.on\('
         /keydown\.propertiesModal', \(e\) => \{\s*if \(window\.isComposingKeyEvent\(e\) \|\| !keyIsForDialog\(e, \$overlay\[0\]\)\) return;\s*if \(e\.key === 'Escape'\)/.test(props));
     check('typed-word confirm: its Escape/Enter ignore keys aimed elsewhere',
         /keydown\.confirmModal', \(e\) => \{\s*if \(window\.isComposingKeyEvent\(e\) \|\| !keyIsForDialog\(e, \$overlay\[0\]\)\) return;/.test(handler));
-    const mcp = fs.readFileSync(new URL('../src/js/mcp-ui.js', import.meta.url), 'utf8');
-    check('MCP connections: its Escape ignores keys aimed elsewhere',
-        /if \(!window\.keyIsForDialog\(e, \$overlay\[0\]\)\) return;[^\n]*\n\s*if \(e\.key === 'Escape'\)/.test(mcp));
 }
 
 if (failures) { console.error(`\n${failures} confirm-modal check(s) failed.`); process.exit(1); }

@@ -5533,8 +5533,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // partial bubble. See the MAX_TURN_RETRIES / isTransientTurnError block.
         // A plan that ended since the page loaded must not keep a paid model.
         if (window.ModelPicker) turnModel = await window.ModelPicker.allowedForTurn(chosenModel);
-        const turnTools = window.getTurnTools(turnModel);
-        const turnUnavailableTools = window.getUnavailableTools?.(turnModel) || [];
+        const turnTools = window.builtinTools();
         turnAccountRead = readTurnAccount().then(a => { turnAccount = a; }, () => {});
         while (true) {
             // A fresh AbortController per attempt. This is also the guard for a chat
@@ -5558,7 +5557,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                 // against the signal locally (abortableAwait) — otherwise an
                 // abort couldn't unstick a connection that dies mid-open.
                 const stream = await abortableAwait(puter.ai.chat(
-                    prepareHistoryForAI(turnSaveContext.chatHistory, turnModel, { unavailableTools: turnUnavailableTools }),
+                    prepareHistoryForAI(turnSaveContext.chatHistory, turnModel),
                     window.ModelCore.buildChatOptions(turnModel, { tools: turnTools, signal: abortController.signal })
                 ), abortController.signal);
 
@@ -5572,7 +5571,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                 // (handleToolCalls) keep the chat flagged in-progress until the
                 // end-of-turn save clears it — this is what makes a refresh during a
                 // long multi-round build resumable.
-                context = {abortController, tools: turnTools, model: turnModel, unavailableTools: turnUnavailableTools, chatHistory: turnSaveContext.chatHistory, currentMessage: null, currentMessageContent: '', currentChatId: turnChatId, appDir: turnAppDir, interrupted: true, turnStats};
+                context = {abortController, tools: turnTools, model: turnModel, chatHistory: turnSaveContext.chatHistory, currentMessage: null, currentMessageContent: '', currentChatId: turnChatId, appDir: turnAppDir, interrupted: true, turnStats};
                 await handleMessageStream(stream, context);
                 if (abortController === attemptController) _turnAwaitingStream = false;
                 break; // stream drained (completed, or aborted/switched — handled below)

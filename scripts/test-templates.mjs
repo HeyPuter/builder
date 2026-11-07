@@ -717,7 +717,7 @@ if (built) {
         HELPERS.match(/^const _SURROGATE_RE = .*$/m)[0],
         extract(HELPERS, 'function wellFormedText(s) {'),
         extract(HELPERS, 'function wellFormedDeep(value) {'),
-        extract(HELPERS, 'function prepareHistoryForAI(historyArray, modelId, opts) {'),
+        extract(HELPERS, 'function prepareHistoryForAI(historyArray, modelId) {'),
         extract(HELPERS, 'function dropDuplicateToolResults(messages) {'),
         ...HELPERS.match(/^const (RETIRED_SUGGEST_\w+|OPTIONAL_OPENING_RULE|OPENING_LINE_\w+|OLD_PUBLISH_RULE|PUBLISH_TOOLS_\w+) = .*$/gm),
         extract(HELPERS, 'function retireSuggestNextSteps(messages) {'),

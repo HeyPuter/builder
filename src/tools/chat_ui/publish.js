@@ -485,7 +485,7 @@
                 additionalProperties: false
             },
             // A simple input: strict mode is kept for mutations and complex
-            // inputs (Claude allows 20 strict tools, see test-mcp.mjs).
+            // inputs (Claude allows 20 strict tools, see test-strict-tools.mjs).
             strict: false
         },
         exec: async function (args, state) {

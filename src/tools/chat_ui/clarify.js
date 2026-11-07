@@ -289,7 +289,7 @@
                     // it is usually on <body> here) or it is already in the
                     // card: pulling it from whatever the user was in — renaming
                     // a project (whose blur cancelled the rename and lost the
-                    // typed name), searching the sidebar, a Settings or MCP
+                    // typed name), searching the sidebar, a Settings
                     // dialog — was worse than a click away.
                     const active = document.activeElement;
                     if (!active || active === document.body || active === document.documentElement || $card[0].contains(active)) {

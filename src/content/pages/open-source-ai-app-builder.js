@@ -68,8 +68,8 @@ export default {
                 },
                 {
                     icon: 'globe',
-                    title: 'Publish and extend from one place',
-                    body: 'Publish to a public URL on Puter, and connect remote MCP servers to add tools from other services.',
+                    title: 'Publish from the same place',
+                    body: 'Publish to a public URL on Puter without leaving the builder.',
                 },
             ],
         },

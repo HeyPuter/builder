@@ -117,34 +117,6 @@ function loadHandler(event, selector, globals) {
         calls.join(',') === 'forget,reload', calls.join(','));
 }
 
-// ---- Settings gear ---------------------------------------------------------------
-{
-    const menu = fnBody('updateUserMenu');
-    const other = menu.slice(menu.indexOf('} else {'), menu.indexOf('$container.html(h);'));
-    check('signed in with the element, a Settings gear is offered (not inside Puter)',
-        /if \(loggedIn && sdkMenu && !isApp\) \{\s*h \+= `<button class="settings-btn" title="Settings" aria-label="Settings" aria-haspopup="dialog">\$\{settings_svg\}<\/button>`;/.test(other));
-    check('…last in the controls, so it sits just left of the element',
-        other.lastIndexOf('h +=') === other.indexOf('h += `<button class="settings-btn"'));
-    check('…and keeps focus across re-renders', menu.includes("'settings-btn'"));
-    check('the gear opens Settings', /\$\(document\)\.on\('click', '\.settings-btn'[\s\S]{0,120}window\.openSettings\?\.\(\);/.test(ui));
-    const mcp = read('../src/js/mcp-ui.js');
-    check('Settings is a dialog named "Settings" holding the MCP connections section',
-        mcp.includes('aria-labelledby="settings-title"') && mcp.includes('<h2 id="settings-title">Settings</h2>')
-        && mcp.includes('id="settings-mcp-title">MCP connections</h3>'));
-    check('the account panel\'s MCP row opens the same Settings',
-        mcp.includes("$(document).on('click', '.user-panel-mcp', () => window.openSettings());"));
-    check('a backdrop click jolts Settings instead of closing it',
-        /\$overlay\.on\('click', e => \{\s*if \(!pressedBackdrop \|\| e\.target !== \$overlay\[0\]\) return;[\s\S]*?classList\.add\('is-jolting'\);\s*\}\);/.test(mcp)
-        && !/\$overlay\.on\('click', e => \{[^}]*closePanel/.test(mcp));
-    check('the jolt animates, with a still ring under reduced motion',
-        css.includes('.confirm-modal-overlay.open .settings-modal.is-jolting { animation: settings-jolt 0.3s ease; }')
-        && /@media \(prefers-reduced-motion: reduce\) \{\s*\.confirm-modal-overlay\.open \.settings-modal\.is-jolting \{ animation: settings-jolt-still/.test(css));
-    check('the gear takes the toolbar icons\' looks, in both themes and on phones',
-        /\.apps-btn,\s*\.settings-btn \{\s*background: none;/.test(css)
-        && css.includes('html[data-theme="dark"] .settings-btn { color: var(--text-secondary); }')
-        && /\.settings-btn,\s*\.user-menu-btn \{\s*width: 44px;/.test(css));
-}
-
 // ---- Styles --------------------------------------------------------------------
 {
     check('the controls wrapper joins the container\'s row', /\.user-menu-controls \{ display: contents; \}/.test(css));

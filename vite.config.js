@@ -76,7 +76,6 @@ const SCRIPTS = [
   'js/ui.js',
   // The composer's AI model picker (premium); its rules are in model-core.js.
   'js/model-picker.js',
-  'js/mcp-ui.js',
   'js/featured.js',
   'js/templates.js',
   'tools/fs/stat.js',

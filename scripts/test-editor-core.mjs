@@ -217,8 +217,8 @@ check('editor-core ships in the bundle', scripts.includes("'js/editor-core.js'")
 check('the Code view UI ships after app.js and versions.js',
     scripts.indexOf("'js/code-editor.js'") > scripts.indexOf("'js/versions.js'")
     && scripts.indexOf("'js/versions.js'") > scripts.indexOf("'js/app.js'"));
-check('the editor loader is a module script before the MCP entry',
-    html.indexOf('/editor/entry.mjs') > 0 && html.indexOf('/editor/entry.mjs') < html.indexOf('/mcp/entry.mjs'));
+check('the editor loader is a module script',
+    html.includes('<script type="module" src="/editor/entry.mjs"></script>'));
 check('the loader imports CodeMirror lazily, never statically',
     entry.includes("import('./codemirror.mjs')") && !/^\s*import\s/m.test(entry));
 check('the loader retries after a failed fetch', /editorModule\s*=\s*null/.test(entry));

@@ -62,7 +62,7 @@ function setup(rounds) {
         function: { name, parameters: { type: 'object', properties: {} } },
         exec: async () => { events.push(name); return { success: true }; },
     });
-    for (const name of ['edit', 'write', 'TodoWrite', 'ReadTextFile', 'update_preview', 'GenerateImage', 'mcp_files_write']) {
+    for (const name of ['edit', 'write', 'TodoWrite', 'ReadTextFile', 'update_preview', 'GenerateImage', 'copy']) {
         env.tools.push(makeTool(name));
     }
     const context = {
@@ -97,10 +97,10 @@ await check('a second edit drops the first clear and starts another', async () =
     assert.deepEqual(h.events, ['drop', 'edit', 'start', 'drop', 'write', 'start', 'update_preview']);
 });
 
-await check('tools that save into the project, MCP tools included, count as writes', async () => {
-    const h = setup([[tool('mcp_files_write', 'm1'), usage()], [text('Done.'), usage()]]);
+await check('tools that save into the project count as writes', async () => {
+    const h = setup([[tool('copy', 'c1'), usage()], [text('Done.'), usage()]]);
     await h.env.handleMessageStream(chunks(tool('GenerateImage', 'g1'), usage()), h.context);
-    assert.deepEqual(h.events, ['drop', 'GenerateImage', 'start', 'drop', 'mcp_files_write', 'start']);
+    assert.deepEqual(h.events, ['drop', 'GenerateImage', 'start', 'drop', 'copy', 'start']);
 });
 
 await check('a round that already ran update_preview starts no clear', async () => {

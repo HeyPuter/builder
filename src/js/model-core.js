@@ -188,110 +188,6 @@ window.ModelCore = (function () {
         return [...head, { role: 'assistant', content: [item] }, ...rest];
     }
 
-    // MCP tool schemas are written by whatever server the user connected.
-    // Claude takes them as they are (client.mjs already flattens the one shape
-    // it rejects). OpenAI and Google each refuse some JSON Schema features, and
-    // a refused tool fails the whole request, not just its own calls. So for
-    // them each schema is simplified first where that loses nothing the model
-    // needs: local references ($ref into $defs, common from Python servers) are
-    // inlined, and "type or null" fields (common from TypeScript servers) keep
-    // their one real type. The server still validates the arguments it gets.
-    // A schema that still has a reference or a field of several types is left
-    // out of the turn, and the model is told (unavailableToolsNote).
-    const MAX_INLINE_DEPTH = 8;
-    // Where a schema holds other schemas. Only these are walked: everything
-    // else is data (a parameter's name inside `properties`, an enum value, a
-    // default, an example) and is copied as it is, so a parameter named
-    // `definitions` or `$id`, or an example object holding a `$ref` key, is
-    // never mistaken for a keyword.
-    const SCHEMA_MAPS = new Set(['properties', 'patternProperties', 'dependentSchemas']);
-    const SCHEMA_ONE = new Set(['items', 'additionalProperties', 'additionalItems', 'contains', 'not', 'if', 'then', 'else', 'propertyNames', 'unevaluatedProperties', 'unevaluatedItems']);
-    const SCHEMA_LIST = new Set(['anyOf', 'oneOf', 'allOf', 'prefixItems']);
-    // Keywords dropped from a schema node: the reference store, now inlined,
-    // and identifiers the model doesn't need.
-    const DROPPED = new Set(['$defs', 'definitions', '$schema', '$id']);
-    const isObject = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
-
-    function portableSchema(schema) {
-        if (!isObject(schema)) return null;
-        const defs = { ...(isObject(schema.definitions) ? schema.definitions : {}), ...(isObject(schema.$defs) ? schema.$defs : {}) };
-        let ok = true;
-        const walk = (node, depth, seen) => {
-            // true / false schemas and anything malformed pass through as they are.
-            if (!isObject(node)) return node;
-            if (typeof node.$ref === 'string') {
-                const m = /^#\/(?:\$defs|definitions)\/([^/]+)$/.exec(node.$ref);
-                const name = m ? m[1] : null;
-                if (!name || !Object.prototype.hasOwnProperty.call(defs, name) || seen.has(name) || depth >= MAX_INLINE_DEPTH) {
-                    ok = false;
-                    return node;
-                }
-                const { $ref, ...siblings } = node;
-                // A description next to the reference describes this use of it.
-                return { ...walk(defs[name], depth + 1, new Set([...seen, name])), ...walk(siblings, depth, seen) };
-            }
-            const out = {};
-            for (const [key, value] of Object.entries(node)) {
-                if (DROPPED.has(key)) continue;
-                if (key === 'type' && Array.isArray(value)) {
-                    const types = value.filter((t) => t !== 'null');
-                    if (types.length > 1) ok = false;
-                    out.type = types.length === 1 ? types[0] : (types.length ? value : 'null');
-                } else if (SCHEMA_MAPS.has(key) && isObject(value)) {
-                    const map = {};
-                    for (const [name, sub] of Object.entries(value)) map[name] = walk(sub, depth, seen);
-                    out[key] = map;
-                } else if (SCHEMA_ONE.has(key)) {
-                    out[key] = Array.isArray(value) ? value.map((v) => walk(v, depth, seen)) : walk(value, depth, seen);
-                } else if (SCHEMA_LIST.has(key) && Array.isArray(value)) {
-                    out[key] = value.map((v) => walk(v, depth, seen));
-                } else {
-                    out[key] = value;
-                }
-            }
-            return out;
-        };
-        const result = walk(schema, 0, new Set());
-        return ok ? result : null;
-    }
-
-    // The MCP tools a model can take, schemas simplified for it, and the ones
-    // left out ({label, server}).
-    function sortMcpTools(modelId, mcp) {
-        if (isClaude(modelId)) return { tools: [...(mcp || [])], skipped: [] };
-        const tools = [];
-        const skipped = [];
-        for (const t of mcp || []) {
-            const schema = portableSchema(t && t.function && t.function.parameters);
-            if (schema) tools.push({ ...t, function: { ...t.function, parameters: schema } });
-            else skipped.push({ label: (t && (t.label || (t.function && t.function.name))) || 'a tool', server: (t && t.server) || '' });
-        }
-        return { tools, skipped };
-    }
-
-    // Tools for a turn: the builder's own, then the MCP tools the model can take.
-    function turnTools(modelId, builtin, mcp) {
-        return [...(builtin || []), ...sortMcpTools(modelId, mcp).tools];
-    }
-    function unavailableTools(modelId, mcp) {
-        return sortMcpTools(modelId, mcp).skipped;
-    }
-
-    // What the model is told about the tools left out. The names come from the
-    // connected server, so they are clipped to one short plain line each.
-    function unavailableToolsNote(skipped) {
-        if (!Array.isArray(skipped) || skipped.length === 0) return '';
-        const clean = (s) => String(s || '').replace(/[\r\n[\]]+/g, ' ').trim().slice(0, 60);
-        const byServer = new Map();
-        for (const s of skipped) {
-            const server = clean(s && s.server) || 'a connected service';
-            if (!byServer.has(server)) byServer.set(server, []);
-            byServer.get(server).push(clean(s && s.label) || 'a tool');
-        }
-        const list = [...byServer].map(([server, names]) => `${names.join(', ')} from ${server}`).join(' and ');
-        return `[Some tools from the user's MCP connections are left out of this conversation, because this model can't take their input format. They are ${list}. If the user asks for something that needs them, tell them a Claude model, chosen in the model picker under the message box, can use them.]`;
-    }
-
     const IMAGE_MOVED = '[The image is attached in the next message.]';
     const NO_PDF = "[A PDF document was here, but this model can't read PDF files. Use the file by its path, and if the user needs its content read, tell them that reading PDFs needs a Claude model.]";
     const NO_GIF = "[A GIF image was shown here, but this model can't take GIF images. Call ViewImage again if you need to see it.]";
@@ -308,14 +204,13 @@ window.ModelCore = (function () {
     }
 
     // Shape a request copy (prepareHistoryForAI's clone, mutated in place) for
-    // the model it goes to. Returns the array to send. opts.unavailableTools
-    // (from unavailableTools) adds a note about the MCP tools left out.
+    // the model it goes to. Returns the array to send.
     //
     // For a Claude target with a Claude-made history the result is exactly what
     // was sent before this module existed: only the `model` stamps (new) and
     // fields that never occur on that route are removed, so the cached prefix
     // keeps hitting.
-    function shapeHistory(messages, modelId, opts) {
+    function shapeHistory(messages, modelId) {
         if (!Array.isArray(messages)) return messages;
         const targetId = idOrDefault(modelId);
         const target = MODELS[targetId];
@@ -342,15 +237,6 @@ window.ModelCore = (function () {
         }
 
         if (target.family === 'claude') return messages;
-
-        // MCP tools left out of the turn: the model is told, on the system
-        // message of this copy only, so it can explain instead of guessing.
-        const note = unavailableToolsNote(opts && opts.unavailableTools);
-        const sys = messages[0] && messages[0].role === 'system' ? messages[0] : null;
-        if (note && sys) {
-            if (Array.isArray(sys.content)) sys.content.push({ type: 'text', text: note });
-            else if (typeof sys.content === 'string') sys.content += '\n\n' + note;
-        }
 
         // Prompt-cache markers are Anthropic's. Other vendors cache on their own.
         for (const m of messages) {
@@ -411,7 +297,6 @@ window.ModelCore = (function () {
 
     return {
         DEFAULT_MODEL, MODELS, get, ids, isClaude, supportsPdf, supportsGif, noteFor,
-        pickerAccess, projectModel, resolveTurnModel, buildChatOptions, turnTools, shapeHistory, fromLastCompaction,
-        portableSchema, unavailableTools, unavailableToolsNote,
+        pickerAccess, projectModel, resolveTurnModel, buildChatOptions, shapeHistory, fromLastCompaction,
     };
 })();

@@ -350,7 +350,7 @@ await check('the MODEL global still decides the default build', async () => {
 // ---- Never sent --------------------------------------------------------------------
 
 await check('prepareHistoryForAI strips the project\'s model setting', () => {
-    const at = helpers.indexOf('function prepareHistoryForAI(historyArray, modelId, opts) {');
+    const at = helpers.indexOf('function prepareHistoryForAI(historyArray, modelId) {');
     const body = helpers.slice(at, helpers.indexOf('\n}\n', at) + 2);
     assert.ok(/if \('buildModel' in msg\) \{\s*delete msg\.buildModel;/.test(body));
 });

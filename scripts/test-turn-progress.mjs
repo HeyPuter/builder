@@ -67,7 +67,7 @@ function setup(rounds) {
     vm.runInContext(modelSource, env);
     vm.runInContext(streamSource, env);
     vm.runInContext(toolsSource, env);
-    for (const name of ['edit', 'write', 'ReadTextFile', 'TodoWrite', 'update_preview', 'mcp_notion_search']) {
+    for (const name of ['edit', 'write', 'ReadTextFile', 'TodoWrite', 'update_preview', 'FetchExternalResource']) {
         env.tools.push({
             type: 'function',
             function: { name, parameters: { type: 'object', properties: {} } },
@@ -188,9 +188,9 @@ await check('a write whose path can\'t be read falls back to its plain wording',
 
 await check('tools with their own UI leave the dots bare, other tools get a plain status', async () => {
     const h = setup([[start('update_preview', 'u1'), tool('update_preview', 'u1'), usage()],
-        [start('mcp_notion_search', 'm1'), tool('mcp_notion_search', 'm1'), usage()], [text('Done.'), usage()]]);
+        [start('FetchExternalResource', 'f1'), tool('FetchExternalResource', 'f1'), usage()], [text('Done.'), usage()]]);
     await h.env.handleMessageStream(chunks(start('TodoWrite', 't1'), tool('TodoWrite', 't1'), usage()), h.context);
-    assert.deepEqual(h.labels.filter((l) => l), ['Applying changes', 'Finishing up', 'Using a connected service']);
+    assert.deepEqual(h.labels.filter((l) => l), ['Applying changes', 'Finishing up', 'Reading a web page']);
     assert.equal(h.labels[0], '', 'the checklist call shows no status');
 });
 

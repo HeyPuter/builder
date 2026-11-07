@@ -3,7 +3,7 @@
 // update_preview runs them; this tool only stores them. Offered only while
 // FEATURE_FLAGS.appTests is on (available(), see builtinTools in tools.js).
 // Not strict: its inputs are simple, and Claude allows at most 20 strict tools
-// (scripts/test-mcp.mjs). Not a mutating tool
+// (scripts/test-strict-tools.mjs). Not a mutating tool
 // (js/versions.js): the tests sit in the project's .puter/ folder, so the
 // snapshot of any turn that changes the app already carries them, and a turn
 // that only adjusts a test doesn't add a version the user can't tell apart.

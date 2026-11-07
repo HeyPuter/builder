@@ -1142,9 +1142,8 @@ window.MARKED_OPTIONS = {
  * @param {string} [modelId] The model this request goes to (ModelCore id). The
  *   copy is shaped for it last (window.ModelCore.shapeHistory); omitted means
  *   the default model.
- * @param {{unavailableTools?: Array}} [opts] Passed on to shapeHistory.
  */
-function prepareHistoryForAI(historyArray, modelId, opts) {
+function prepareHistoryForAI(historyArray, modelId) {
     const modelCore = typeof window !== 'undefined' ? window.ModelCore : null;
     // Send only what the last compaction left (ModelCore.fromLastCompaction).
     // Cut first, so the history it replaces is never copied.
@@ -1248,7 +1247,7 @@ function prepareHistoryForAI(historyArray, modelId, opts) {
     }
     // Per-model shaping last, on the finished copy: it drops the `model` stamps
     // and, for a non-Claude target, Anthropic-only fields and media placement.
-    if (modelCore) return modelCore.shapeHistory(deduped, modelId, opts);
+    if (modelCore) return modelCore.shapeHistory(deduped, modelId);
     for (const m of deduped) if (m && 'model' in m) delete m.model;
     return deduped;
 }

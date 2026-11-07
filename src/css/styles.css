@@ -164,12 +164,10 @@ html.vv-sized .chat:not(.active) {
     gap: 15px;
 }
 
-/* Quiet toolbar icons for the theme toggle, GitHub link, apps launcher and
-   Settings gear. */
+/* Quiet toolbar icons for the theme toggle, GitHub link and apps launcher. */
 .theme-toggle-btn,
 .github-link,
-.apps-btn,
-.settings-btn {
+.apps-btn {
     background: none;
     border: none;
     cursor: pointer;
@@ -185,8 +183,7 @@ html.vv-sized .chat:not(.active) {
 .theme-toggle-btn:hover,
 .github-link:hover,
 .apps-btn:hover,
-.apps-btn[aria-expanded="true"],
-.settings-btn:hover {
+.apps-btn[aria-expanded="true"] {
     background: rgba(0,0,0,0.08);
 }
 
@@ -5514,8 +5511,8 @@ body.preview-active.chat-hidden .chat {
        focus, and stays zoomed after it blurs. Bump the text fields to 16px to
        suppress that — including the project rename box, which the app focuses
        for the user. (Fields whose base rule comes later in this file get their
-       16px right after it instead — the "type delete" confirmation, the
-       Settings address editor, the MCP dialog — or the base would win.) */
+       16px right after it instead — the "type delete" confirmation and the
+       Settings address editor — or the base would win.) */
     .chat-input-message,
     .chat-search-input,
     .publish-name-input,
@@ -5576,7 +5573,6 @@ body.preview-active.chat-hidden .chat {
     .theme-toggle-btn,
     .github-link,
     .apps-btn,
-    .settings-btn,
     .user-menu-btn {
         width: 44px;
         height: 44px;
@@ -6767,75 +6763,6 @@ html[data-theme="dark"] .wn-dns-wait { border-color: var(--border-strong); borde
 .confirm-modal-overlay.open .properties-modal {
     transform: translateY(0) scale(1);
 }
-.mcp-modal { width: 560px; color: #202124; }
-/* The dialog takes focus on open (for Escape + tab order); it's not a
-   control, so it should never paint a focus ring. */
-.mcp-modal:focus,
-.mcp-modal:focus-visible { outline: none; }
-.mcp-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.mcp-heading h2 { font-size: 19px; margin: 0; }
-.mcp-modal h4 { font-size: 14px; margin: 0 0 8px; overflow-wrap: anywhere; }
-.settings-section-title { font-size: 15px; margin: 18px 0 0; }
-.settings-section-title + .mcp-intro { margin-top: 6px; }
-/* A backdrop click doesn't close Settings; the modal jolts instead. */
-.confirm-modal-overlay.open .settings-modal.is-jolting { animation: settings-jolt 0.3s ease; }
-@keyframes settings-jolt {
-    0%, 100% { transform: scale(1); }
-    40% { transform: scale(1.025); }
-    70% { transform: scale(0.995); }
-}
-/* Without motion, a brief ring says the same. */
-@keyframes settings-jolt-still {
-    0%, 100% { outline: 3px solid transparent; }
-    40% { outline: 3px solid rgba(37, 99, 235, 0.5); }
-}
-@media (prefers-reduced-motion: reduce) {
-    .confirm-modal-overlay.open .settings-modal.is-jolting { animation: settings-jolt-still 0.4s ease; }
-}
-.mcp-intro, .mcp-note, .mcp-empty { font-size: 13px; line-height: 1.5; color: #62676e; }
-.mcp-modal label { display: block; font-size: 13px; margin: 10px 0; }
-.mcp-modal input { display: block; width: 100%; box-sizing: border-box; border: 1px solid #d7d9dd; border-radius: 7px; padding: 9px 10px; margin-top: 5px; background: #fff; color: inherit; font-size: 14px; }
-.mcp-modal button { border: 1px solid #d7d9dd; border-radius: 7px; background: #f7f8fa; color: inherit; padding: 7px 11px; cursor: pointer; font-size: 13px; }
-.mcp-modal button:hover { background: #eceef2; }
-.mcp-modal .mcp-close { border: none; background: transparent; font-size: 24px; padding: 0 6px; }
-.mcp-modal .mcp-primary { background: #2563eb; color: #fff; border-color: transparent; }
-.mcp-modal .mcp-primary:hover { background: #1d4ed8; }
-.mcp-server, .mcp-add { padding: 16px 0 4px; border-top: 1px solid #e3e5e8; margin-top: 16px; }
-.mcp-url { font-size: 12px; color: #62676e; overflow-wrap: anywhere; margin: 4px 0; }
-.mcp-status { font-size: 13px; line-height: 1.5; margin: 6px 0 10px; }
-.mcp-status::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 7px; vertical-align: 1px; background: #9aa0a6; }
-.mcp-server[data-status="connected"] .mcp-status::before { background: #16a34a; }
-.mcp-server[data-status="connecting"] .mcp-status::before { background: #d97706; }
-.mcp-server[data-status="error"] .mcp-status { color: #b42318; }
-.mcp-server[data-status="error"] .mcp-status::before { background: currentColor; }
-.mcp-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.mcp-actions label { flex-basis: 100%; margin-top: 0; }
-.mcp-server details { margin-top: 12px; font-size: 12px; }
-.mcp-server summary { cursor: pointer; }
-.mcp-server ul { max-height: 150px; overflow-y: auto; padding-left: 20px; overflow-wrap: anywhere; }
-.mcp-announce { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.mcp-form-error { color: #b42318; font-size: 13px; }
-.mcp-form-error:empty { display: none; }
-.mcp-optional { font-weight: normal; color: #62676e; }
-/* Prevent iOS zoom-on-focus (mirrors the composer inputs). After the base
-   rule above, which would otherwise win on source order. */
-@media (max-width: 900px) {
-    .mcp-modal input { font-size: 16px; }
-}
-html[data-theme="dark"] .mcp-modal { color: var(--text); }
-html[data-theme="dark"] .mcp-modal input { background: var(--surface); border-color: var(--border); }
-html[data-theme="dark"] .mcp-modal button:not(.mcp-primary, .mcp-close) { background: var(--surface-hover); border-color: var(--border); }
-html[data-theme="dark"] .mcp-modal button:not(.mcp-primary, .mcp-close):hover { background: var(--surface-active); }
-html[data-theme="dark"] .mcp-modal .mcp-close:hover { background: var(--surface-hover); }
-html[data-theme="dark"] .mcp-intro, html[data-theme="dark"] .mcp-note, html[data-theme="dark"] .mcp-empty,
-html[data-theme="dark"] .mcp-url, html[data-theme="dark"] .mcp-optional { color: var(--text-secondary); }
-html[data-theme="dark"] .mcp-server, html[data-theme="dark"] .mcp-add { border-color: var(--border); }
-html[data-theme="dark"] .mcp-form-error { color: var(--danger); }
-html[data-theme="dark"] .mcp-status::before { background: var(--text-faint); }
-html[data-theme="dark"] .mcp-server[data-status="connected"] .mcp-status::before { background: var(--success); }
-html[data-theme="dark"] .mcp-server[data-status="connecting"] .mcp-status::before { background: #f59e0b; }
-html[data-theme="dark"] .mcp-server[data-status="error"] .mcp-status { color: var(--danger); }
-html[data-theme="dark"] .mcp-server[data-status="error"] .mcp-status::before { background: currentColor; }
 
 .properties-modal-header {
     display: flex;
@@ -7049,12 +6976,10 @@ html[data-theme="dark"] .chat-box .message-content ::marker { color: var(--text-
 /* ---- Toolbar / user menu / theme toggle ---- */
 html[data-theme="dark"] .theme-toggle-btn,
 html[data-theme="dark"] .github-link,
-html[data-theme="dark"] .apps-btn,
-html[data-theme="dark"] .settings-btn { color: var(--text-secondary); }
+html[data-theme="dark"] .apps-btn { color: var(--text-secondary); }
 html[data-theme="dark"] .theme-toggle-btn:hover,
 html[data-theme="dark"] .github-link:hover,
 html[data-theme="dark"] .apps-btn:hover,
-html[data-theme="dark"] .settings-btn:hover,
 html[data-theme="dark"] .apps-btn[aria-expanded="true"] { background: rgba(255, 255, 255, 0.08); }
 html[data-theme="dark"] .user-menu-btn:hover .user-avatar,
 html[data-theme="dark"] .user-menu-btn[aria-expanded="true"] .user-avatar {

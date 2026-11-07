@@ -13,7 +13,6 @@ Apache License 2.0 does not replace those licenses.
 | Highlight.js 11.9.0, including the Atom One Dark theme | `src/vendor/highlight.min.js`, `src/vendor/highlight-atom-one-dark.min.css` | [BSD-3-Clause](licenses/highlight.js-LICENSE.txt) | [Highlight.js 11.9.0](https://github.com/highlightjs/highlight.js/tree/11.9.0) |
 | JSZip 3.10.1 | `src/vendor/jszip.min.js` | [MIT or GPLv3](licenses/jszip-LICENSE.md); this project uses the MIT option | [JSZip v3.10.1](https://github.com/Stuk/jszip/tree/v3.10.1) |
 | Normalize.css 8.0.1 | `src/css/normalize.css` | [MIT](licenses/normalize.css-LICENSE.md) | [Normalize.css 8.0.1](https://github.com/necolas/normalize.css/tree/8.0.1) |
-| MCP TypeScript SDK 1.30.0 and bundled dependencies | Browser bundle built from `src/mcp/entry.mjs`; exact versions in `package-lock.json` | [Dependency licenses and notices](licenses/mcp-dependencies-LICENSES.txt) | [MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk) |
 | CodeMirror 6 and bundled dependencies (Lezer parsers, style-mod, crelt, w3c-keyname) | Browser bundle built from `src/editor/codemirror.mjs` for the Code view; exact versions in `package-lock.json` | [MIT, per-package notices](licenses/codemirror-dependencies-LICENSES.txt) | [CodeMirror](https://codemirror.net/) |
 
 The JSZip browser bundle also contains the following components. Their notices

@@ -14,30 +14,15 @@ window.tools = [];
 // The builder's own tools a turn offers: every registered one, less any whose
 // available() says it is switched off (a feature flag). Registration never
 // depends on a flag, so the shipped tool list stays the same for checks that
-// count it (scripts/test-mcp.mjs).
+// count it (scripts/test-strict-tools.mjs).
 window.builtinTools = function() {
     return window.tools.filter(t => !t || typeof t.available !== 'function' || t.available());
 };
 
 
-// The tools for a turn on `modelId`: the builder's own, then the MCP tools
-// that model can take (see ModelCore.turnTools).
-window.getTurnTools = function(modelId) {
-    const mcp = window.mcpManager?.getTools() || [];
-    const own = window.builtinTools();
-    return window.ModelCore ? window.ModelCore.turnTools(modelId, own, mcp) : [...own, ...mcp];
-};
-// The MCP tools left out of a turn on `modelId` ({label, server}), which the
-// model is told about (ModelCore.unavailableToolsNote).
-window.getUnavailableTools = function(modelId) {
-    const mcp = window.mcpManager?.getTools() || [];
-    return window.ModelCore ? window.ModelCore.unavailableTools(modelId, mcp) : [];
-};
-
 // Tools that never write the project's files, so an early preview cache clear
 // (startEarlyPreviewClear in ui.js) still covers everything after they run.
-// Any other tool is taken to write, MCP tools included, since a connected
-// server could write files too. Leaving a read-only tool off this list only
+// Any other tool is taken to write. Leaving a read-only tool off this list only
 // costs an extra clear, while a writing tool on it would leave the preview
 // stale.
 const PREVIEW_SAFE_TOOLS = new Set(['stat', 'readdir', 'ReadTextFile', 'SearchFiles', 'ViewImage', 'ViewDocument',
@@ -178,7 +163,7 @@ window.skippedWorkerSaveResult = async function(call, state) {
 };
 
 window.findTool = function(name, state) {
-    return (state?.tools || window.getTurnTools()).find(tool => tool.function.name === name);
+    return (state?.tools || window.builtinTools()).find(tool => tool.function.name === name);
 }
 
 window.executeFunction = async function(functionName, args, state) {
@@ -360,8 +345,7 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
             // breaks the tool_use/tool_result adjacency the API enforces —
             // every later request in the chat was rejected, for good.
             if (!hasToolResultFor(c.chatHistory, toolCall.id)) {
-                addToolResultToHistory(c.chatHistory, toolCall.id, toolResponse,
-                    toolCall.name.startsWith('mcp_') && toolResponse?.isError === true);
+                addToolResultToHistory(c.chatHistory, toolCall.id, toolResponse);
                 if (fullRead) c.readsThisRound.push(fullRead);
             }
         } catch (error) {
@@ -448,7 +432,7 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
     // The turn's model (c.model, fixed when the turn started) drives the
     // history shape and the request options for every round.
     const stream = await abortableAwait(puter.ai.chat(
-        prepareHistoryForAI(c.chatHistory, c.model, { unavailableTools: c.unavailableTools }),
+        prepareHistoryForAI(c.chatHistory, c.model),
         window.ModelCore.buildChatOptions(c.model, { tools: c.tools || window.builtinTools(), signal: c.abortController.signal })
     ), c.abortController.signal);
     // Round handoff = liveness for the background-freeze watchdog (see

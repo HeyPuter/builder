@@ -1212,7 +1212,7 @@ function loadTool(src, win) {
     const ctx = vm.createContext({ window: { FEATURE_FLAGS: { appTests: false } }, console });
     vm.runInContext(toolsSrc, ctx);
     vm.runInContext(appTestsToolSrc, ctx);
-    const names = () => ctx.window.getTurnTools().map(t => t.function.name);
+    const names = () => ctx.window.builtinTools().map(t => t.function.name);
     check('tools: flag off → not offered to the model', !names().includes('AppTests') && ctx.window.tools.some(t => t.function.name === 'AppTests'));
     ctx.window.FEATURE_FLAGS.appTests = true;
     check('tools: flag on → offered', names().includes('AppTests'));

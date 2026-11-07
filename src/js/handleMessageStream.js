@@ -317,8 +317,7 @@ const TOOL_PART = { write: 'create', edit: 'change', multi_edit: 'change' };
 
 // The status for a tool call, or '' for none.
 function toolProgressLabel(name) {
-    if (TOOL_PROGRESS[name]) return TOOL_PROGRESS[name];
-    return typeof name === 'string' && name.startsWith('mcp_') ? 'Using a connected service' : '';
+    return TOOL_PROGRESS[name] || '';
 }
 
 // The part of the app at `path` (within the project), in the checklist's
