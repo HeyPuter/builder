@@ -400,16 +400,6 @@ function updateUserMenu() {
             // mode was showing. (The tooltip names the action, as before.)
             h += `<button class="theme-toggle-btn" title="${dark ? 'Switch to light mode' : 'Switch to dark mode'}" aria-label="Dark mode" aria-pressed="${dark ? 'true' : 'false'}">${dark ? sun_svg : moon_svg}</button>`;
         }
-        // Feedback is tied to an account (it's how we reply), so it's offered
-        // only to signed-in users — here that means ones with no account panel
-        // to hold the row.
-        if (loggedIn && feedbackAvailable()) {
-            // Beside <puter-user-menu>'s two icons it's an icon too, or the
-            // row overruns a phone's toolbar.
-            h += sdkMenu && !isApp
-                ? `<button class="feedback-btn feedback-icon-btn" title="Send feedback" aria-label="Send feedback">${window.feedback_svg}</button>`
-                : `<button class="feedback-btn" title="Send feedback">Send feedback</button>`;
-        }
         h += githubLink;
         if (ownMenu) {
             h += appsBtn;
@@ -428,7 +418,7 @@ function updateUserMenu() {
     // focus and hand it to the replacement.
     const active = document.activeElement;
     const focusedControl = (active && $container[0] && $container[0].contains(active))
-        ? ['upgrade-btn', 'github-link', 'theme-toggle-btn', 'apps-btn', 'user-menu-btn', 'feedback-btn', 'settings-btn', 'sign-in-btn'].find((c) => active.classList.contains(c))
+        ? ['upgrade-btn', 'github-link', 'theme-toggle-btn', 'apps-btn', 'user-menu-btn', 'settings-btn', 'sign-in-btn'].find((c) => active.classList.contains(c))
         : null;
     $container.html(h);
     if (focusedControl) {
@@ -6863,16 +6853,6 @@ $(document).on('click', '.settings-btn', function(e) {
     e.preventDefault();
     e.stopPropagation();
     window.openSettings?.();
-});
-
-// Toolbar feedback button — the standalone counterpart to the account panel's
-// "Send feedback" row, shown to signed-in users when there's no account panel
-// to hold it (hosted inside Puter). stopPropagation for the same reason as the
-// theme toggle above.
-$(document).on('click', '.feedback-btn', function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    openFeedbackDialog();
 });
 
 // ---- Account panel (top-right user menu) -----------------------------------
