@@ -51,7 +51,7 @@ function fnBody(name) {
     check('a re-render keeps focus on it', menu.includes("'theme-toggle-btn', 'apps-btn', 'user-menu-btn'"));
     check('being hosted inside Puter closes an open panel', /if \(isApp\) window\.closeAppsPanel\?\.\(\);/.test(menu));
     check('an account change rebuilds the embed',
-        menu.includes('window.resetAppsPanelForAccount?.(loggedIn ? window.user.username : null);')
+        menu.includes('window.resetAppsPanelForAccount?.(loggedIn ? window.user.uuid : null);')
         && /closeAppsPanel\(\);\s*\$\('\.apps-panel'\)\.remove\(\);/.test(fnBody('resetAppsPanelForAccount')));
 }
 
@@ -61,7 +61,18 @@ function fnBody(name) {
     const build = fnBody('buildAppsPanel');
     check('the panel is a labelled dialog that starts hidden', build.includes('class="apps-panel" role="dialog" aria-label="Apps" tabindex="-1" hidden'));
     check('the iframe has a title', /<iframe class="apps-frame" title="[^"]+"/.test(build));
-    check('the load listener is bound before src is set', build.indexOf("addEventListener('load'") < build.indexOf('frame.src = APPS_EMBED_URL'));
+    check('the load listener is bound before src is set', build.indexOf("addEventListener('load'") < build.indexOf('frame.src = appsEmbedUrl();'));
+    {
+        // The embed shows the puter.com session's apps only to the user its
+        // fragment names; everyone else gets the recommended apps.
+        const embedUrl = (user) => new Function('window', 'APPS_EMBED_URL',
+            `${fnBody('appsEmbedUrl')}\nreturn appsEmbedUrl();`)({ user }, 'https://puter.com/embed/apps');
+        const uuid = '0b1c9a52-3f0e-4c7a-9a65-2f6d1e8b7c40';
+        check('signed in: the embed names the user', embedUrl({ username: 'ann', uuid }) === `https://puter.com/embed/apps#user=${uuid}`);
+        check('signed out: the embed names no one', embedUrl(null) === 'https://puter.com/embed/apps');
+        check('a temporary account counts as signed out', embedUrl({ username: 'tmp', uuid, is_temp: true }) === 'https://puter.com/embed/apps');
+        check('a user without a uuid names no one', embedUrl({ username: 'ann' }) === 'https://puter.com/embed/apps');
+    }
     check('the embed follows the app theme', build.includes('frame.style.colorScheme = getEffectiveTheme();') && fnBody('updateUserMenu').includes('window.syncAppsPanelTheme?.();'));
 
     const open = fnBody('openAppsPanel');

@@ -424,7 +424,7 @@ function updateUserMenu() {
     // whose apps the embed shows, so a panel built under the other state is
     // discarded and rebuilt on next open. Else keep its embed on our theme.
     if (isApp) window.closeAppsPanel?.();
-    window.resetAppsPanelForAccount?.(loggedIn ? window.user.username : null);
+    window.resetAppsPanelForAccount?.(loggedIn ? window.user.uuid : null);
     window.syncAppsPanelTheme?.();
 }
 window.updateUserMenu = updateUserMenu;
@@ -7056,6 +7056,14 @@ $(window).on('resize', function() {
 const APPS_EMBED_URL = 'https://puter.com/embed/apps';
 const APPS_NEWTAB_URL = 'https://puter.com/#apps';
 
+// The embed shows the Puter session's own apps only to the user named in its
+// fragment, and recommended apps otherwise, so a builder that is signed out, or
+// signed in as someone other than puter.com is, never shows another account's apps.
+function appsEmbedUrl() {
+    const uuid = window.user && !window.user.is_temp && window.user.uuid;
+    return uuid ? `${APPS_EMBED_URL}#user=${encodeURIComponent(uuid)}` : APPS_EMBED_URL;
+}
+
 function positionAppsPanel() {
     const btn = document.querySelector('.apps-btn');
     const panel = document.querySelector('.apps-panel');
@@ -7100,7 +7108,7 @@ function buildAppsPanel() {
         $panel.find('.apps-panel-body').removeClass('is-loading');
     }, { once: true });
     frame.style.colorScheme = getEffectiveTheme();
-    frame.src = APPS_EMBED_URL;
+    frame.src = appsEmbedUrl();
     $('body').append($panel);
     return $panel;
 }
