@@ -77,6 +77,12 @@ window.FEATURE_FLAGS = {
     // plain landing screen. The static template pages still build (they are
     // ordinary marketing pages), and the landing footer still links them.
     templates: true,
+    // The AI starts a new project from an official template when one is a
+    // close match for what the user asked for (the UseTemplate tool, and the
+    // list of templates on a new project's first message, see js/templates.js).
+    // Needs templates. When false the tool and the list are gone, and a
+    // project starts from a template only when the user picks one.
+    aiTemplates: true,
     // Make generated apps installable: the builder writes a manifest.json, PNG
     // icons and the matching <head> tags into the app dir on every preview
     // refresh (see js/manifest.js), and a prompt rule asks the model for an

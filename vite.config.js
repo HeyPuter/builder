@@ -99,6 +99,8 @@ const SCRIPTS = [
   'tools/apps_and_sites/publish_site.js',
   'tools/apps_and_sites/update_preview.js',
   'tools/apps_and_sites/app_tests.js',
+  // After js/templates.js, whose useTemplate it calls.
+  'tools/apps_and_sites/use_template.js',
   'tools/chat_ui/todo.js',
   'tools/chat_ui/clarify.js',
   'tools/chat_ui/upgrade.js',
