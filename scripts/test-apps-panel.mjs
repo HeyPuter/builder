@@ -103,7 +103,7 @@ function fnBody(name) {
     check('it is sized from the measured top', css.includes('calc(100dvh - var(--apps-panel-top, 46px) - 12px)'));
     check('phones get an edge-to-edge sheet', /@media \(max-width: 600px\) \{\s*\.apps-panel \{\s*left: 8px;\s*right: 8px;/.test(css));
     check('the button gets a 44px touch target on phones', /\.github-link,\s*\.apps-btn,\s*(?:\.settings-btn,\s*)?\.user-menu-btn \{\s*width: 44px;/.test(css));
-    check('it steps aside in the one-row phone preview toolbar', css.includes('body.preview-active .toolbar:not(:has(.feedback-btn)) .apps-btn'));
+    check('it steps aside in the one-row phone preview toolbar', css.includes('body.preview-active .toolbar .apps-btn'));
     check('dark mode styles the panel', css.includes('html[data-theme="dark"] .apps-panel {'));
 }
 

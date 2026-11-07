@@ -59,15 +59,13 @@ function loadHandler(event, selector, globals) {
         && menu.includes('if (loggedIn && ownMenu) {')
         && /if \(ownMenu\) \{\s*h \+= appsBtn;\s*h \+= `<button class="sign-in-btn">Sign In<\/button>`;/.test(menu));
     {
-        // With the element, a signed-in user takes the else branch: Send
-        // feedback in the toolbar, as when hosted inside Puter. The theme
+        // With the element, a signed-in user takes the else branch. The theme
         // toggle stays only inside Puter; with the element it is in Settings.
         const other = menu.slice(menu.indexOf('} else {'), menu.indexOf('$container.html(h);'));
         check('the toolbar theme toggle is only for signed-in users without the Settings gear',
             /if \(loggedIn && !\(sdkMenu && !isApp\)\) \{[\s\S]*class="theme-toggle-btn"/.test(other));
-        check('…and so does Send feedback', other.includes('if (loggedIn && feedbackAvailable()) {'));
-        check('…as an icon beside the element, and as the labelled pill inside Puter',
-            /h \+= sdkMenu && !isApp\s*\? `<button class="feedback-btn feedback-icon-btn" title="Send feedback" aria-label="Send feedback">\$\{window\.feedback_svg\}<\/button>`\s*: `<button class="feedback-btn" title="Send feedback">Send feedback<\/button>`;/.test(other));
+        check('the toolbar has no Send feedback button',
+            !other.includes('feedback') && !ui.includes("on('click', '.feedback-btn'") && !css.includes('.feedback-btn'));
     }
     check('the builder paints its own avatar only for its own account button',
         /if \(loggedIn && ownMenu\) \{\s*paintAvatar\(/.test(menu));
@@ -168,13 +166,13 @@ function loadHandler(event, selector, globals) {
     check('the element honours [hidden]', /puter-user-menu\[hidden\] \{ display: none; \}/.test(css));
     check('its parts take the builder\'s looks',
         ['apps-button', 'avatar', 'sign-in'].every((p) => css.includes(`puter-user-menu::part(${p}) {`)));
-    check('phones get 44px targets', /puter-user-menu::part\(apps-button\),\s*\.feedback-btn\.feedback-icon-btn \{\s*width: 44px;/.test(css)
+    check('phones get 44px targets', /puter-user-menu::part\(apps-button\) \{\s*width: 44px;/.test(css)
         && /puter-user-menu::part\(avatar\) \{\s*width: 44px;/.test(css));
     check('the cluster closes its gaps on phones', css.includes('.user-menu-container:has(puter-user-menu:not([hidden])) {'));
     check('the GitHub link steps aside for the signed-in row on phones',
-        /@media \(max-width: 600px\) \{\s*\.user-menu-container:has\(\.feedback-icon-btn\) \.github-link \{ display: none; \}/.test(css));
+        /@media \(max-width: 600px\) \{\s*\.user-menu-container:has\(\.settings-btn\) \.github-link \{ display: none; \}/.test(css));
     check('its apps button steps aside in the one-row phone preview toolbar',
-        css.includes('body.preview-active .toolbar:not(:has(.feedback-btn)) puter-user-menu::part(apps-button)'));
+        css.includes('body.preview-active .toolbar puter-user-menu::part(apps-button)'));
     check('dark mode styles its panels', css.includes('html[data-theme="dark"] puter-user-menu::part(apps-panel)'));
 }
 

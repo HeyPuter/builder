@@ -289,11 +289,9 @@ html.vv-sized .chat:not(.active) {
     -webkit-user-drag: none;
 }
 
-/* The toolbar's text buttons: Sign In when signed out, and "Send feedback"
-   when signed in with no account panel to hold the row (hosted inside Puter).
-   Same pill as .open-web-btn. */
-.sign-in-btn,
-.feedback-btn {
+/* The toolbar's Sign In button, for signed-out users. Same pill as
+   .open-web-btn. */
+.sign-in-btn {
     background: none;
     border: 1px solid #ccc;
     cursor: pointer;
@@ -328,8 +326,7 @@ html.vv-sized .chat:not(.active) {
 }
 .upgrade-btn.is-paid:hover { background: rgba(0,0,0,0.06); border-color: #999; }
 
-.sign-in-btn:hover,
-.feedback-btn:hover {
+.sign-in-btn:hover {
     background: rgba(0,0,0,0.06);
     border-color: #999;
 }
@@ -701,23 +698,10 @@ puter-user-menu::part(sign-in):hover {
     background: rgba(0,0,0,0.06);
     border-color: #999;
 }
-/* Send feedback beside it is a quiet icon, like the theme toggle. */
-.feedback-btn.feedback-icon-btn {
-    border: none;
-    border-radius: 50%;
-    padding: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #292929;
-    transition: background 0.15s, color 0.15s;
-}
-.feedback-btn.feedback-icon-btn svg { width: 18px; height: 18px; }
-.feedback-btn.feedback-icon-btn:hover { background: rgba(0,0,0,0.08); }
-/* Phones: the signed-in row (Upgrade, theme, feedback, apps, avatar) only fits
+/* Phones: the signed-in row (Upgrade, Settings, apps, avatar) only fits
    once the GitHub link steps aside. */
 @media (max-width: 600px) {
-    .user-menu-container:has(.feedback-icon-btn) .github-link { display: none; }
+    .user-menu-container:has(.settings-btn) .github-link { display: none; }
 }
 
 .chat-header{
@@ -5582,8 +5566,7 @@ body.preview-active.chat-hidden .chat {
         height: 44px;
         padding: 0;
     }
-    puter-user-menu::part(apps-button),
-    .feedback-btn.feedback-icon-btn {
+    puter-user-menu::part(apps-button) {
         width: 44px;
         height: 44px;
         min-height: 0;
@@ -5611,7 +5594,6 @@ body.preview-active.chat-hidden .chat {
         font-size: 14px;
     }
     .sign-in-btn,
-    .feedback-btn,
     .upgrade-btn {
         min-height: 40px;
         padding: 8px 16px;
@@ -5812,9 +5794,8 @@ body.preview-active.chat-hidden .chat {
         }
     }
     /* The switcher gets its own row under the toolbar's controls when the
-       one-row layout below can't hold it: very narrow phones, and inside
-       Puter, where the cluster can also hold Send feedback and the theme
-       toggle. The toolbar grows to two rows — --toolbar-h, so the chat column
+       one-row layout below can't hold it: very narrow phones. The toolbar
+       grows to two rows — --toolbar-h, so the chat column
        below shrinks to match — and the right cluster stays centred on the
        first row. */
     body.preview-active {
@@ -5834,32 +5815,32 @@ body.preview-active.chat-hidden .chat {
        right-hand cluster, which joins the flex row so the space between them
        is known. The GitHub link steps aside to make room. */
     @media (min-width: 360px) {
-        body.preview-active:not(:has(.toolbar .feedback-btn)) {
+        body.preview-active {
             --toolbar-h: 44px;
         }
-        body.preview-active .toolbar:not(:has(.feedback-btn)) {
+        body.preview-active .toolbar {
             padding: 0 8px 0 56px;
             gap: 8px;
         }
-        body.preview-active .toolbar:not(:has(.feedback-btn)) .user-menu-container {
+        body.preview-active .toolbar .user-menu-container {
             position: relative;
             top: auto;
             right: auto;
             transform: none;
         }
-        body.preview-active .toolbar:not(:has(.feedback-btn)) .github-link,
-        body.preview-active .toolbar:not(:has(.feedback-btn)) .apps-btn,
-        body.preview-active .toolbar:not(:has(.feedback-btn)) puter-user-menu::part(apps-button) {
+        body.preview-active .toolbar .github-link,
+        body.preview-active .toolbar .apps-btn,
+        body.preview-active .toolbar puter-user-menu::part(apps-button) {
             display: none;
         }
-        body.preview-active .toolbar:not(:has(.feedback-btn)) .view-seg-toolbar {
+        body.preview-active .toolbar .view-seg-toolbar {
             position: static;
             transform: none;
             margin: 0 auto;
         }
         /* Beside the wide Upgrade button there's only room for the icons; the
            labels stay as the buttons' accessible names. */
-        body.preview-active .toolbar:not(:has(.feedback-btn)):has(.upgrade-btn:not(.is-paid)) .view-seg-toolbar .view-seg-btn span {
+        body.preview-active .toolbar:has(.upgrade-btn:not(.is-paid)) .view-seg-toolbar .view-seg-btn span {
             position: absolute;
             width: 1px;
             height: 1px;
@@ -7090,9 +7071,7 @@ html[data-theme="dark"] .user-menu-btn:hover .user-avatar,
 html[data-theme="dark"] .user-menu-btn[aria-expanded="true"] .user-avatar {
     box-shadow: 0 0 0 3px rgba(108, 176, 245, 0.35);
 }
-html[data-theme="dark"] puter-user-menu::part(apps-button),
-html[data-theme="dark"] .feedback-btn.feedback-icon-btn { color: var(--text-secondary); }
-html[data-theme="dark"] .feedback-btn.feedback-icon-btn:hover { background: rgba(255, 255, 255, 0.08); }
+html[data-theme="dark"] puter-user-menu::part(apps-button) { color: var(--text-secondary); }
 html[data-theme="dark"] puter-user-menu::part(apps-button):hover { background: rgba(255, 255, 255, 0.08); }
 html[data-theme="dark"] puter-user-menu::part(avatar):hover { box-shadow: 0 0 0 3px rgba(108, 176, 245, 0.35); }
 html[data-theme="dark"] puter-user-menu::part(sign-in) {
@@ -7160,13 +7139,11 @@ html[data-theme="dark"] .apps-panel-spinner {
 }
 
 html[data-theme="dark"] .sign-in-btn,
-html[data-theme="dark"] .feedback-btn,
 html[data-theme="dark"] .open-web-btn {
     border-color: var(--border-strong);
     color: var(--text);
 }
 html[data-theme="dark"] .sign-in-btn:hover,
-html[data-theme="dark"] .feedback-btn:hover,
 html[data-theme="dark"] .open-web-btn:hover {
     background: rgba(255, 255, 255, 0.06);
     border-color: var(--text-muted);
