@@ -529,6 +529,111 @@ function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, block
     check('a site already published never takes the first-publish path', h.state.creates.length === 0 && h.state.publishes.length === 0);
 }
 
+// --- The same button on the chat's domain card (tools/chat_ui/publish.js) ----------
+// The card passes `via`: its own field, its own error line, its own publish,
+// and a callback for the domain chosen, so it can record it.
+function cardVia(state, name) {
+    const via = { name, fails: [], published: [], domains: [] };
+    via.fail = (e) => { via.fails.push(e && e.code); };
+    via.publish = (reserved) => { via.published.push(reserved); };
+    via.onDomain = (d) => { via.domains.push(d.hostname); };
+    return via;
+}
+{
+    let resolve;
+    const h = harness({ attach: () => new Promise((r) => { resolve = r; }) });
+    const via = cardVia(h.state);
+    h.useOwnDomain('use-domain', via);
+    check('card, live site: Puter\'s window opens in the click', h.state.attachCalls.join() === 'cafe');
+    check('…counted as from the chat', h.state.tracks.some(([n, p]) => n === 'Custom Domain Dialog Opened' && p.from === 'chat'));
+    resolve({ hostname: 'www.joescafe.com', status: 'pending', records: [] });
+    await tick(); await tick(); await tick();
+    check('…and the card hears which domain was chosen, once it is saved', via.domains.join() === 'www.joescafe.com' && h.state.saves.join() === 'A');
+    const change = harness({ attach: async () => null });
+    change.useOwnDomain('change-domain', cardVia(change.state));
+    check('…a Change domain from the card is counted as one', change.state.tracks.some(([n, p]) => n === 'Custom Domain Dialog Opened' && p.from === 'chat_change'));
+    const closed = harness({ attach: async () => null });
+    const closedVia = cardVia(closed.state);
+    closed.useOwnDomain('use-domain', closedVia);
+    await tick(); await tick();
+    check('…and hears nothing when the window is closed without one', closedVia.domains.length === 0);
+}
+{
+    const h = harness({ attach: async () => ({ hostname: 'joescafe.com', status: 'pending', records: [] }), field: 'popover-name' });
+    h.window.currentPublishedUrl = null;
+    const via = cardVia(h.state, 'card-name');
+    h.useOwnDomain('use-domain', via);
+    for (let i = 0; i < 4; i++) await tick();
+    check('card, first publish: the name typed in the card is reserved, not the popover\'s', h.state.order.join() === 'create card-name,attach card-name', h.state.order.join());
+    check('…the card runs the publish, onto that name, and the popover\'s doesn\'t', h.state.publishes.length === 0
+        && via.published.length === 1 && await via.published[0] === 'card-name');
+    check('…counted as a first publish from the chat', h.state.tracks.some(([n, p]) => n === 'Custom Domain Dialog Opened' && p.from === 'chat_first_publish'));
+    check('…and the card hears the domain', via.domains.join() === 'joescafe.com');
+}
+{
+    const h = harness({ attach: async () => null, field: 'popover-name' });
+    h.window.currentPublishedUrl = null;
+    const via = cardVia(h.state, '');
+    h.useOwnDomain('use-domain', via);
+    await tick();
+    check('card, empty field: a name from the project\'s title', h.state.creates[0]?.[0] === 'joe-s-cafe-x7k2', JSON.stringify(h.state.creates));
+}
+{
+    const h = harness({ attach: async () => null, createImpl: async () => { const e = new Error('taken'); e.taken = true; throw e; } });
+    h.window.currentPublishedUrl = null;
+    const via = cardVia(h.state, 'taken-name');
+    h.useOwnDomain('use-domain', via);
+    for (let i = 0; i < 4; i++) await tick();
+    check('card: a taken name goes to the card, with no alert, window or publish', via.fails.join() === 'name-taken'
+        && h.state.alerts.length === 0 && h.state.attachCalls.length === 0 && via.published.length === 0, JSON.stringify([via.fails, h.state.alerts]));
+    check('…and the button is free again', h.window.isReservingPublishName('A') === false && !/Connecting…/.test(h.publishAddressHeadHtml()));
+}
+{
+    const h = harness({ attach: async () => null, createImpl: async () => { const e = new Error('taken'); e.taken = true; throw e; } });
+    h.window.currentPublishedUrl = null;
+    const via = cardVia(h.state, 'taken-name');
+    h.useOwnDomain('use-domain', via);
+    h.setChat('B'); // the user opened another project meanwhile
+    for (let i = 0; i < 4; i++) await tick();
+    check('card: a failure still reaches the card once another project is open (it toasts)', via.fails.join() === 'name-taken');
+}
+{
+    const h = harness({ attach: async () => null });
+    h.window.currentPublishedUrl = null;
+    const via = cardVia(h.state, 'Not Valid!');
+    h.useOwnDomain('use-domain', via);
+    await tick();
+    check('card: an invalid name goes to the card before anything is reserved', via.fails.join() === 'invalid-name'
+        && h.state.creates.length === 0 && h.state.alerts.length === 0);
+}
+{
+    const h = harness({ attach: async () => null, blocked: 'turn' });
+    h.window.currentPublishedUrl = null;
+    const via = cardVia(h.state, 'card-name');
+    h.useOwnDomain('use-domain', via);
+    await tick();
+    check('card, while a build runs: nothing is reserved, and the card\'s publish says to wait', h.state.creates.length === 0
+        && h.state.attachCalls.length === 0 && via.published.length === 1 && via.published[0] === null && h.state.publishes.length === 0);
+}
+{
+    const h = harness({ attach: async () => null, paid: false });
+    const via = cardVia(h.state, 'card-name');
+    h.useOwnDomain('use-domain', via);
+    h.window.currentPublishedUrl = null;
+    h.useOwnDomain('use-domain', via);
+    check('card, free plan: the upgrade dialog, live or not, and nothing else', h.state.upgrades.join() === 'custom_domain,custom_domain'
+        && h.state.attachCalls.length === 0 && h.state.creates.length === 0 && via.published.length === 0);
+}
+{
+    let resolve;
+    const h = harness({ attach: () => new Promise((r) => { resolve = r; }) });
+    h.connectCustomDomain();
+    check('the card can tell Puter\'s window is open', h.window.isDomainConnecting('A') === true && h.window.isDomainConnecting('B') === false);
+    resolve(null);
+    await tick(); await tick();
+    check('…and closed', h.window.isDomainConnecting('A') === false);
+}
+
 {
     // The real renderPublishPanel's first-publish form, against fakes. After
     // an own-domain publish that didn't land, its field used to come back
@@ -739,7 +844,22 @@ check('…and the chat\'s card as it was, not saying it is already the address',
     /if \(r\.cancelled\) \{[\s\S]{0,120}return;\s*\}\s*if \(!r\.changed\) \{ showCardError/.test(read('../src/tools/chat_ui/publish.js')));
 check('Settings asks before checking for a publish in flight, so one started meanwhile still stops it',
     /confirmAddressChangeKeepsDomains\?\.\(domains, fromSub\) === false\) \{[\s\S]{0,400}if \(window\.isPublishInFlight\(chatId\)\)/.test(ui));
-check('the AI knows where the user connects a domain', /"Use custom domain" next to the site address/.test(read('../src/js/prompt.js')) && /paid Puter plan/.test(read('../src/js/prompt.js')));
+check('the AI offers the chat\'s domain button, and says it needs a paid plan', /call OfferCustomDomain, which puts a button for it in the chat/.test(read('../src/js/prompt.js')) && /paid Puter plan/.test(read('../src/js/prompt.js')));
+{
+    const helpers = read('../src/js/helpers.js');
+    const at = helpers.indexOf('function noteOnOldPrompt(');
+    const consts = helpers.match(/^const (OLD_DOMAIN_RULE|DOMAIN_TOOL_\w+) = .*$/gm).join('\n');
+    const note = new Function(consts + '\n' + helpers.slice(at, helpers.indexOf('\n}\n', at) + 2) +
+        '\nreturn (m) => noteOnOldPrompt(m, OLD_DOMAIN_RULE, DOMAIN_TOOL_NOTE, DOMAIN_TOOL_RULE);')();
+    const old = [{ role: 'system', content: 'They press "Use custom domain" next to the site address there, before or after the first publish.' }];
+    note(old);
+    check('a chat whose prompt sends the user to the Publish menu for a domain is told about OfferCustomDomain', /call OfferCustomDomain/.test(old[0].content));
+    const now = [{ role: 'system', content: read('../src/js/prompt.js') }];
+    const before = now[0].content;
+    note(now);
+    check('…and one with the new prompt is left alone', now[0].content === before);
+    check('…on every request', /noteOnOldPrompt\(deduped, OLD_DOMAIN_RULE, DOMAIN_TOOL_NOTE, DOMAIN_TOOL_RULE\)/.test(helpers));
+}
 const publish = ui.slice(ui.indexOf('async function doPublish('), ui.indexOf('async function loadPublishedSiteMeta('));
 check('a first publish with a reserved name points that name at the release, after filling in the address',
     /if \(!existingSub && reserved\) \{[\s\S]*?const sub = await reserved;\s*url = `https:\/\/\$\{sub\}\.puter\.site\/`;\s*await absolutizeSocialImagesInRelease\(releaseDir, url, \[startPreviewUrl\]\);\s*await puter\.hosting\.update\(sub, releaseDir\);\s*_reservedPublishNames\.delete\(chatId\);\s*\} else if \(!existingSub\)/.test(publish));

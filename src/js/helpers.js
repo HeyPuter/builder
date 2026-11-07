@@ -1240,6 +1240,9 @@ function prepareHistoryForAI(historyArray, modelId, opts) {
     // And its publish rule, from before the chat's Publish button (see
     // PUBLISH_TOOLS_NOTE).
     if (Array.isArray(deduped)) noteOnOldPrompt(deduped, OLD_PUBLISH_RULE, PUBLISH_TOOLS_NOTE, PUBLISH_TOOLS_RULE);
+    // And its own-domain rule, from before the chat's domain button (see
+    // DOMAIN_TOOL_NOTE).
+    if (Array.isArray(deduped)) noteOnOldPrompt(deduped, OLD_DOMAIN_RULE, DOMAIN_TOOL_NOTE, DOMAIN_TOOL_RULE);
     // No half characters on the wire (see wellFormedDeep).
     wellFormedDeep(deduped);
     // Apply cacheLast logic to the last message
@@ -1391,6 +1394,12 @@ const OPENING_LINE_NOTE = '[In every turn that uses tools, start with exactly on
 const OLD_PUBLISH_RULE = 'using the Publish button in the preview. You never make the app public';
 const PUBLISH_TOOLS_RULE = 'call the OfferPublish tool';
 const PUBLISH_TOOLS_NOTE = '[When the user asks you to publish the app, call the OfferPublish tool, which puts a Publish button in the chat for them to click. When they ask to change the published site\'s address, call OfferAddressChange, which puts a Change address button in the chat.]';
+
+// A prompt from before the chat's domain button (OfferCustomDomain) sends the
+// user to the Publish menu for their own domain instead.
+const OLD_DOMAIN_RULE = 'They press "Use custom domain" next to the site address there';
+const DOMAIN_TOOL_RULE = 'call OfferCustomDomain';
+const DOMAIN_TOOL_NOTE = '[When the user wants their site on their own domain, call OfferCustomDomain, which puts a button for it in the chat, rather than sending them to the Publish menu.]';
 
 // Add `note` to the end of an older chat's system prompt, on the request copy,
 // while that prompt still has `oldText` and doesn't yet have `newText`. A chat
