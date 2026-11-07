@@ -1174,7 +1174,8 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
 
         // A project forked from a template opens with a note saying so above
         // its conversation (which starts out empty). The origin rides on the
-        // system message, see createFork in templates.js.
+        // system message, see createFork in templates.js. One the AI started
+        // from a template has its note in the conversation instead.
         if (history[0] && history[0].role === 'system' && history[0].templateOrigin) {
             window.renderTemplateOriginNote?.(history[0].templateOrigin);
         }
@@ -1281,6 +1282,10 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
                             // Re-render the static recap of a past clarifying-questions
                             // exchange (the interactive card is never replayed).
                             window.renderClarifySummary?.(toolResponse);
+                        } else if (toolResponse.__template_used && toolResponse.success) {
+                            // Where the AI started the project from a template
+                            // (UseTemplate): its note, in the same place again.
+                            window.renderTemplateUsedNote?.(toolResponse.template);
                         } else if (toolResponse.__upgrade_offer) {
                             // A past upgrade offer: show its card again, unless
                             // the user has a paid plan by now. Offers from before
@@ -5506,6 +5511,18 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             const manualEditNote = window.CodeEditor?.pendingNote?.(turnChatId) || '';
             if (manualEditNote) contentParts.push({ type: 'text-hidden', text: manualEditNote });
 
+            // A new project's first message lists the official templates, so
+            // the model can start from one that fits (UseTemplate) instead of
+            // writing the whole app. Here and not in the system prompt or the
+            // tool's description, which every project shares in the cached
+            // prefix: only a project that can still use a template pays for
+            // the list. Not in a project that already came from one.
+            if (countUserMessages(turnSaveContext.chatHistory) === 0 && !turnTemplate.from_template) {
+                const catalog = await window.templateCatalogNote?.();
+                if (turnAbandoned()) throw abandonedError();
+                if (catalog) contentParts.push({ type: 'text-hidden', text: catalog });
+            }
+
             // This is a new project iff the user has no earlier message in it —
             // measured BEFORE the push below adds this one. Drives the analytics
             // events: the first build of a project emits Project Created, and
@@ -6057,8 +6074,10 @@ function suggestionMessageText(msg) {
     if (typeof c === 'string') return c.trim();
     if (Array.isArray(c)) {
         // A Pasted text card (attachPastedText) is part of what the user wrote.
+        // The list of templates on a new project's first message is not.
         return c
             .map(p => !p ? null
+                : p.type === 'text-hidden' && window.TemplateCore?.isCatalogNote(p.text) ? null
                 : (p.type === 'text' || p.type === 'text-hidden') ? p.text
                 : (p.type === 'document' && p._pasted && p.source?.type === 'text') ? p.source.data
                 : null)
