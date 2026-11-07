@@ -657,6 +657,66 @@ html.vv-sized .chat:not(.active) {
     .apps-panel-action svg { width: 18px; height: 18px; }
 }
 
+/* ---- <puter-user-menu> (puter.js) ----
+   When the running puter.js has it, it holds the apps launcher and the account
+   button (see the toolbar markup in ui.js). Its parts take the same quiet icon,
+   avatar and pill looks as the builder's own controls; its panels already use
+   the same card + caret. The controls wrapper is display: contents so both
+   share the container's flex row and gap. */
+.user-menu-controls { display: contents; }
+puter-user-menu[hidden] { display: none; }
+puter-user-menu::part(apps-button) {
+    width: 28px;
+    height: 28px;
+    color: #292929;
+    transition: background 0.15s, color 0.15s;
+}
+puter-user-menu::part(apps-button):hover { background: rgba(0,0,0,0.08); }
+puter-user-menu::part(avatar) {
+    width: 28px;
+    height: 28px;
+    margin-right: 5px;
+    background: linear-gradient(135deg, #4da3ff, #0b6fd9);
+    font-size: 13px;
+    line-height: 28px;
+    transition: box-shadow 0.15s;
+}
+puter-user-menu::part(avatar):hover { box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25); }
+puter-user-menu::part(sign-in) {
+    height: auto;
+    background: none;
+    border: 1px solid #ccc;
+    padding: 4px 12px;
+    border-radius: 14px;
+    font-family: inherit;
+    font-size: 13px;
+    color: #333;
+    white-space: nowrap;
+    transition: background 0.15s, border-color 0.15s;
+}
+puter-user-menu::part(sign-in):hover {
+    background: rgba(0,0,0,0.06);
+    border-color: #999;
+}
+/* Send feedback beside it is a quiet icon, like the theme toggle. */
+.feedback-btn.feedback-icon-btn {
+    border: none;
+    border-radius: 50%;
+    padding: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #292929;
+    transition: background 0.15s, color 0.15s;
+}
+.feedback-btn.feedback-icon-btn svg { width: 18px; height: 18px; }
+.feedback-btn.feedback-icon-btn:hover { background: rgba(0,0,0,0.08); }
+/* Phones: the signed-in row (Upgrade, theme, feedback, apps, avatar) only fits
+   once the GitHub link steps aside. */
+@media (max-width: 600px) {
+    .user-menu-container:has(.feedback-icon-btn) .github-link { display: none; }
+}
+
 .chat-header{
     margin-top: -10%;
 }
@@ -5518,11 +5578,33 @@ body.preview-active.chat-hidden .chat {
         height: 44px;
         padding: 0;
     }
+    puter-user-menu::part(apps-button),
+    .feedback-btn.feedback-icon-btn {
+        width: 44px;
+        height: 44px;
+        min-height: 0;
+        padding: 0;
+    }
+    /* A 44px target around the same 28px circle: the transparent border is
+       outside the background, picture and initial. */
+    puter-user-menu::part(avatar) {
+        width: 44px;
+        height: 44px;
+        margin-right: 0;
+        border: 8px solid transparent;
+        background-clip: padding-box;
+    }
     /* With the apps launcher the cluster holds three 44px icon boxes; their
        own padding already spaces the glyphs, so close the gaps to keep the
        row clear of the burger / new-chat pair on narrow phones. */
-    .user-menu-container:has(.apps-btn) {
+    .user-menu-container:has(.apps-btn),
+    .user-menu-container:has(puter-user-menu:not([hidden])) {
         gap: 4px;
+    }
+    puter-user-menu::part(sign-in) {
+        min-height: 40px;
+        padding: 8px 16px;
+        font-size: 14px;
     }
     .sign-in-btn,
     .feedback-btn,
@@ -5762,7 +5844,8 @@ body.preview-active.chat-hidden .chat {
             transform: none;
         }
         body.preview-active .toolbar:not(:has(.feedback-btn)) .github-link,
-        body.preview-active .toolbar:not(:has(.feedback-btn)) .apps-btn {
+        body.preview-active .toolbar:not(:has(.feedback-btn)) .apps-btn,
+        body.preview-active .toolbar:not(:has(.feedback-btn)) puter-user-menu::part(apps-button) {
             display: none;
         }
         body.preview-active .toolbar:not(:has(.feedback-btn)) .view-seg-toolbar {
@@ -5794,7 +5877,8 @@ body.preview-active.chat-hidden .chat {
 @media (max-width: 380px) {
     /* Upgrade + GitHub + apps + avatar (or GitHub + apps + Sign In) overruns
        the new-chat button here; the GitHub link is the one to go. */
-    .user-menu-container:has(.apps-btn) .github-link { display: none; }
+    .user-menu-container:has(.apps-btn) .github-link,
+    .user-menu-container:has(puter-user-menu:not([hidden])) .github-link { display: none; }
     .chat {
         padding-left: 10px;
         padding-right: 10px;
@@ -6952,6 +7036,26 @@ html[data-theme="dark"] .apps-btn[aria-expanded="true"] { background: rgba(255, 
 html[data-theme="dark"] .user-menu-btn:hover .user-avatar,
 html[data-theme="dark"] .user-menu-btn[aria-expanded="true"] .user-avatar {
     box-shadow: 0 0 0 3px rgba(108, 176, 245, 0.35);
+}
+html[data-theme="dark"] puter-user-menu::part(apps-button),
+html[data-theme="dark"] .feedback-btn.feedback-icon-btn { color: var(--text-secondary); }
+html[data-theme="dark"] .feedback-btn.feedback-icon-btn:hover { background: rgba(255, 255, 255, 0.08); }
+html[data-theme="dark"] puter-user-menu::part(apps-button):hover { background: rgba(255, 255, 255, 0.08); }
+html[data-theme="dark"] puter-user-menu::part(avatar):hover { box-shadow: 0 0 0 3px rgba(108, 176, 245, 0.35); }
+html[data-theme="dark"] puter-user-menu::part(sign-in) {
+    border-color: var(--border-strong);
+    color: var(--text);
+}
+html[data-theme="dark"] puter-user-menu::part(sign-in):hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: var(--text-muted);
+}
+html[data-theme="dark"] puter-user-menu::part(menu),
+html[data-theme="dark"] puter-user-menu::part(apps-panel) {
+    background: var(--surface);
+    border-color: var(--border);
+    --caret-border: var(--border);
+    --caret-fill: var(--surface);
 }
 html[data-theme="dark"] .user-avatar.has-picture,
 html[data-theme="dark"] .user-panel-avatar.has-picture { background: var(--surface-hover); }
