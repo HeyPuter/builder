@@ -20,6 +20,10 @@ import { buildTemplates, readTemplate, validateTemplate, loadTemplateCore, TEMPL
 //      land in a fresh project, a backend is deployed under a name the project
 //      owns and wired into the frontend, the chat is created the way every
 //      other project is, and any failure leaves nothing behind.
+//   3b. The AI's pick (UseTemplate, same VM): a template goes into the
+//      project the user is already building, only while it has no files but
+//      their attachments; its system message learns what a fork's knows, and
+//      a failed copy takes back what it made and nothing else.
 //   4. The deep link: ?template= is captured before the composer handoff can
 //      consume its id, and the fork starts without asking only when a record
 //      from a template page's own button is behind it.
@@ -172,6 +176,24 @@ check('titles are disambiguated against existing projects',
         !copied.includes(appDir) && !copied.includes('https://notes-api-x1y2z3.puter.work'));
 }
 
+// The list of templates a new project's first message carries (UseTemplate).
+{
+    const list = core.sanitizeIndex({ templates: [VALID, { ...VALID, slug: 'shop', name: 'Shop', category: '', description: 'A shop.' }] });
+    const note = core.catalogNote(list);
+    check('catalogNote: one line per template, slug first, with its category and sentence',
+        note.includes('\n- notes: Notes (App). A notes app.\n') && note.includes('\n- shop: Shop. A shop.\n'));
+    check('catalogNote: tells the model when to use one and when to build from scratch',
+        /call UseTemplate with its slug before writing any files/.test(note) && /build the app yourself and don't mention templates/.test(note));
+    check('catalogNote: no templates is no note', core.catalogNote([]) === '' && core.catalogNote(null) === '');
+    check('catalogNote: an entry with a bad slug or no name is left out',
+        !core.catalogNote([{ slug: '../x', name: 'X' }, { slug: 'y', name: '' }]));
+    check('isCatalogNote: recognises the note and nothing else',
+        core.isCatalogNote(note) && !core.isCatalogNote('[The user attached 1 file]') && !core.isCatalogNote(null));
+    check('entriesInTheWay: the user\'s attachments are not in the way, anything else is',
+        core.entriesInTheWay(['assets']).length === 0 && core.entriesInTheWay([]).length === 0 &&
+        core.entriesInTheWay(['assets', 'index.html']).join() === 'index.html' && core.entriesInTheWay(['.puter']).join() === '.puter');
+}
+
 // =============================================================================
 // 2. The build
 // =============================================================================
@@ -294,7 +316,7 @@ function makeEnv(opts = {}) {
     const deletedWorkers = [];
     const sites = [];
     const deletedSites = [];
-    const log = { alerts: [], toasts: [], tracked: [], loads: [], versions: [], previews: [], loading: 0, hid: 0, fetches: [] };
+    const log = { alerts: [], toasts: [], tracked: [], loads: [], versions: [], previews: [], loading: 0, hid: 0, fetches: [], published: [], dom: [] };
     const extraFiles = new Map(); // url -> text, for synthetic templates
     for (const x of (opts.extra || [])) for (const [p, text] of Object.entries(x.files)) extraFiles.set(`/template-files/${x.entry.slug}/${x.entry.version}/${p}`, text);
     const index = fixtureIndex(opts.extra);
@@ -305,7 +327,7 @@ function makeEnv(opts = {}) {
         URL, URLSearchParams, Response, Blob, JSON, Math, Date, Promise, Set, Map, Array, Object, String, RegExp, Error,
         setTimeout, clearTimeout,
         requestAnimationFrame: (fn) => setTimeout(fn, 0),
-        document: {},
+        document: { createTextNode: (text) => ({ text }) },
         localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
         location: { href: 'https://builder.puter.com/' + (opts.search || ''), search: opts.search || '' },
         history: {
@@ -351,7 +373,7 @@ function makeEnv(opts = {}) {
         },
         readUrlChatId: () => opts.urlChatId || null,
         buildFeaturedPlaceholder: () => chain,
-        $: () => chain,
+        $: (what) => { if (typeof what === 'string') log.dom.push(what); return chain; },
         puter: {
             appID: 'app-uid',
             fs: {
@@ -363,6 +385,15 @@ function makeEnv(opts = {}) {
                 delete: async (p) => {
                     log.deleted = (log.deleted || []).concat(p);
                     for (const k of [...files.keys()]) if (k === p || k.startsWith(p + '/')) files.delete(k);
+                },
+                // A directory exists while a file is under it, as on Puter
+                // once the first write has made it.
+                readdir: async (p) => {
+                    if (opts.readdirFails) throw new Error('network down');
+                    const names = new Set();
+                    for (const k of files.keys()) if (k.startsWith(p + '/')) names.add(k.slice(p.length + 1).split('/')[0]);
+                    if (!names.size) throw Object.assign(new Error('not found'), { code: 'subject_does_not_exist' });
+                    return [...names].map((name) => ({ name }));
                 },
             },
             workers: {
@@ -388,7 +419,21 @@ function makeEnv(opts = {}) {
             ui: { alert: async (m) => { log.alerts.push(m); } },
         },
         user: opts.signedOut ? null : { username: 'alice' },
-        FEATURE_FLAGS: { templates: opts.flagOff ? false : true },
+        FEATURE_FLAGS: { templates: opts.flagOff ? false : true, aiTemplates: opts.aiFlagOff ? false : true },
+        // What UseTemplate reaches for from the turn (tools.js, app.js) and
+        // the publish_site tool it opens the preview with.
+        projectRootDir: (state) => (state && state.appDir) || null,
+        isNotFoundError: (e) => !!(e && e.code === 'subject_does_not_exist'),
+        isAborted: (c) => !!(c && c.signal && c.signal.aborted),
+        isStaleTurn: (state) => !!(state && state.stale),
+        tools: [{
+            function: { name: 'publish_site' },
+            exec: async (args) => {
+                log.published.push(args.path);
+                if (opts.failPublish) throw new Error('hosting failed');
+                return { success: true, url: 'https://preview-0000.puter.site/' };
+            },
+        }],
         withFileLock: (p, fn) => fn(),
         writeFileVerified: async (p, d) => { await ctx.puter.fs.write(p, d); },
         makeDraftSubdomain: () => 'preview-0000',
@@ -406,6 +451,7 @@ function makeEnv(opts = {}) {
     vm.createContext(ctx);
     vm.runInContext(CORE_SRC + '\n' + OWNERSHIP_SRC + '\n' + TEMPLATES_SRC, ctx);
     const appDir = `${appParent}/chat_new`;
+    for (const [p, data] of Object.entries(opts.existing || {})) files.set(`${appDir}/${p}`, data);
     const underApp = () => [...files.keys()].filter((k) => k.startsWith(appDir + '/'));
     const chatFile = () => files.has('chat-history/chat_new.json') ? JSON.parse(files.get('chat-history/chat_new.json')) : null;
     return { ctx, files, deployed, deletedWorkers, sites, deletedSites, log, appDir, underApp, chatFile, listCalls: () => listCalls };
@@ -620,6 +666,167 @@ if (built) {
     }
 
     // =========================================================================
+    // 3b. The AI's pick: UseTemplate copies a template into the open project
+    // =========================================================================
+    const turn = (env, patch = {}) => ({
+        appDir: env.appDir,
+        abortController: new AbortController(),
+        chatHistory: [
+            { role: 'system', content: [
+                { type: 'text', text: 'COMMON', cache_control: { type: 'ephemeral', ttl: '1h' } },
+                { type: 'text', text: 'WORKDIR ' + env.appDir },
+            ] },
+            { role: 'user', content: 'Build a landing page for my app' },
+        ],
+        ...patch,
+    });
+    const refusal = async (p) => { try { await p; return null; } catch (e) { return e.message; } };
+    {
+        const env = makeEnv();
+        const state = turn(env);
+        const out = await env.ctx.useTemplate('landing-page', state);
+        const t = tpl('landing-page');
+        const sys = state.chatHistory[0];
+        check('UseTemplate: every template file lands in the project the user is building, byte for byte',
+            t.files.every((f) => env.files.get(`${env.appDir}/${f.path}`) === f.bytes.toString('utf8')) &&
+            env.underApp().length === t.files.length);
+        check('UseTemplate: no new project is made, and the open one is not reloaded',
+            !env.chatFile() && env.ctx.savedChats.length === 0 && env.log.loads.length === 0 && env.log.loading === 0);
+        check('UseTemplate: the preview is opened through publish_site, on the project directory',
+            env.log.published.length === 1 && env.log.published[0] === env.appDir && out.preview_url === 'https://preview-0000.puter.site/');
+        check('UseTemplate: the system message gains a fork\'s note after its two blocks, which are untouched',
+            sys.content.length === 3 && sys.content[0].text === 'COMMON' && sys.content[0].cache_control.ttl === '1h' &&
+            sys.content[1].text === 'WORKDIR ' + env.appDir && /Product Landing Page/.test(sys.content[2].text) &&
+            sys.content[2].text.includes('do not call publish_site'));
+        check('UseTemplate: the origin is recorded, marked as the AI\'s choice',
+            sys.templateOrigin.slug === 'landing-page' && sys.templateOrigin.version === t.version && sys.templateOrigin.via === 'ai' &&
+            core.originSlug(state.chatHistory) === 'landing-page');
+        check('UseTemplate: the conversation after the system message is left as it was',
+            state.chatHistory.length === 2 && state.chatHistory[1].content === 'Build a landing page for my app');
+        check('UseTemplate: the result lists the files and tells the model to edit on top of the template',
+            out.success === true && out.__template_used === true && out.template.slug === 'landing-page' &&
+            out.files.includes('index.html') && /do not call publish_site/.test(out.note) && /edit or multi_edit/.test(out.note) &&
+            !('workers' in out) && !('rules' in out));
+        check('UseTemplate: counted as used by the AI',
+            env.log.tracked.some(([e, p]) => e === 'Template Used' && p.template === 'landing-page' && p.source === 'ai'));
+        check('UseTemplate: the "started from" note is added to the conversation',
+            env.log.dom.includes('<div class="template-origin" role="note"></div>') && env.log.dom.includes('.chat-box'));
+    }
+    {
+        const env = makeEnv();
+        const state = turn(env);
+        env.ctx.tools[0].exec = async () => { state.stale = true; return { success: true, url: 'https://preview-0000.puter.site/' }; };
+        const out = await env.ctx.useTemplate('landing-page', state);
+        check('UseTemplate: a turn the user left mid-copy still gets its project, but no note in the chat they moved to',
+            out.success && state.chatHistory[0].templateOrigin.via === 'ai' && !env.log.dom.includes('.chat-box'));
+    }
+    {
+        const env = makeEnv({ existing: { 'assets/logo.png': 'PNG' } });
+        const out = await env.ctx.useTemplate('landing-page', turn(env));
+        check('UseTemplate: a project holding only the user\'s attachments can start from a template, and keeps them',
+            out.success && env.files.get(`${env.appDir}/assets/logo.png`) === 'PNG');
+    }
+    {
+        const env = makeEnv({ existing: { 'index.html': '<h1>mine</h1>' } });
+        const state = turn(env);
+        const msg = await refusal(env.ctx.useTemplate('landing-page', state));
+        check('UseTemplate: a project with files of its own is refused, and nothing is touched',
+            /already has files/.test(msg || '') && env.underApp().length === 1 && env.files.get(`${env.appDir}/index.html`) === '<h1>mine</h1>' &&
+            env.log.published.length === 0 && state.chatHistory[0].content.length === 2);
+    }
+    {
+        const env = makeEnv();
+        const state = turn(env);
+        state.chatHistory[0].templateOrigin = { slug: 'ai-chat', name: 'AI Chat App', version: 'abcdef12' };
+        const msg = await refusal(env.ctx.useTemplate('landing-page', state));
+        check('UseTemplate: a project that already came from a template is refused', /already started from a template/.test(msg || '') && env.files.size === 0);
+    }
+    {
+        const env = makeEnv();
+        const msg = await refusal(env.ctx.useTemplate('no-such-template', turn(env)));
+        check('UseTemplate: an unknown slug is refused with a way forward', /There is no template "no-such-template"/.test(msg || '') && env.files.size === 0);
+    }
+    {
+        const env = makeEnv({ readdirFails: true });
+        const msg = await refusal(env.ctx.useTemplate('landing-page', turn(env)));
+        check('UseTemplate: a project whose files cannot be checked is refused, not overwritten', /Couldn't check/.test(msg || '') && env.files.size === 0);
+    }
+    {
+        const env = makeEnv();
+        const state = turn(env);
+        state.abortController.abort();
+        const msg = await refusal(env.ctx.useTemplate('landing-page', state));
+        check('UseTemplate: a stopped turn copies nothing', msg === 'Aborted' && env.files.size === 0);
+    }
+    {
+        const env = makeEnv();
+        const state = turn(env);
+        const out = await env.ctx.useTemplate('feedback-board', state);
+        const [worker] = [...env.deployed.values()];
+        const appJs = env.files.get(`${env.appDir}/app.js`) || '';
+        check('UseTemplate: a backend is deployed under a fresh name the project owns',
+            env.deployed.size === 1 && /^feedback-board-api-[a-z0-9]{1,6}$/.test(worker.name) &&
+            WO.ownedWorkers([...env.deployed.values()], env.appDir).length === 1);
+        check('UseTemplate: the frontend calls the project\'s own worker', appJs.includes(`https://${worker.name}.puter.work`) && !appJs.includes('{{WORKER_URL'));
+        check('UseTemplate: the result and the note give the renamed source and its URL',
+            out.files.includes(`workers/${worker.name}.js`) && !out.files.includes('workers/api.js') &&
+            out.workers.length === 1 && out.workers[0].name === worker.name && out.workers[0].url === `https://${worker.name}.puter.work` &&
+            out.workers[0].file_path === `${env.appDir}/workers/${worker.name}.js` &&
+            state.chatHistory[0].content[2].text.includes(`Source ${env.appDir}/workers/${worker.name}.js`));
+    }
+    {
+        const withRules = TEMPLATES.find((m) => m.instructions);
+        if (withRules) {
+            const env = makeEnv();
+            const state = turn(env);
+            const out = await env.ctx.useTemplate(withRules.slug, state);
+            check('UseTemplate: a template\'s rules reach the result and stay in the system message',
+                out.rules === withRules.instructions.trim() && /Keep following the rules above/.test(out.note) &&
+                state.chatHistory[0].content[2].text.endsWith('\n' + withRules.instructions.trim()));
+        }
+    }
+    {
+        const env = makeEnv({ existing: { 'assets/logo.png': 'PNG' }, failWrite: (p) => p.endsWith('/index.html') });
+        const state = turn(env);
+        const msg = await refusal(env.ctx.useTemplate('feedback-board', state));
+        await flush(); await flush();
+        check('UseTemplate: a copy that fails removes its backend and its files, and says none of it was kept',
+            /none of it was kept/.test(msg || '') && env.deployed.size === 0 && env.deletedWorkers.length === 1 &&
+            env.underApp().join() === `${env.appDir}/assets/logo.png`);
+        check('UseTemplate: a failed copy never deletes the project directory (the attachments live there)',
+            !(env.log.deleted || []).includes(env.appDir));
+        check('UseTemplate: a failed copy leaves the system message and the preview alone, and is reported from the AI',
+            state.chatHistory[0].content.length === 2 && !state.chatHistory[0].templateOrigin && env.log.published.length === 0 &&
+            JSON.stringify(failedAt(env)) === JSON.stringify(['feedback-board/ai/files']));
+    }
+    {
+        const env = makeEnv({ failPublish: true });
+        const state = turn(env);
+        const out = await env.ctx.useTemplate('landing-page', state);
+        check('UseTemplate: a preview that will not open keeps the copy and asks the model to open one',
+            out.success && !('preview_url' in out) && /call publish_site once/.test(out.note) &&
+            !state.chatHistory[0].content[2].text.includes('publish_site'));
+    }
+    {
+        const env = makeEnv({ aiFlagOff: true });
+        const msg = await refusal(env.ctx.useTemplate('landing-page', turn(env)));
+        check('UseTemplate: flag off, nothing is copied', /not available/.test(msg || '') && env.files.size === 0);
+        check('UseTemplate: flag off, no list of templates and no index fetch',
+            (await env.ctx.templateCatalogNote()) === '' && env.log.fetches.length === 0);
+    }
+    {
+        const env = makeEnv();
+        const note = await env.ctx.templateCatalogNote();
+        check('the list of templates names every template in the index',
+            core.isCatalogNote(note) && built.index.templates.every((t) => note.includes(`\n- ${t.slug}: ${t.name}`)));
+        const offline = makeEnv({ indexFails: true });
+        check('no index, no list (the project is built from scratch)', (await offline.ctx.templateCatalogNote()) === '');
+        const slow = makeEnv();
+        slow.ctx.fetch = () => new Promise(() => {});
+        check('an index that does not arrive in time does not hold up the message', (await slow.ctx.templateCatalogNote({ timeout: 20 })) === '');
+    }
+
+    // =========================================================================
     // 4. Deep links
     // =========================================================================
     const HID = 'abcdef12-3456-4789-abcd-ef1234567890';
@@ -798,6 +1005,48 @@ check('the plugin validates, then ships the index, the versioned files and the i
     /closeBundle: \{[\s\S]*?buildTemplates\(\)[\s\S]*?'template-files', t\.meta\.slug, t\.version[\s\S]*?'template-thumbs'[\s\S]*?'templates\.json'/.test(VITE));
 check('the template files are stable-path files to the service worker (fetched fresh)',
     !/IMMUTABLE_PATH_RE = [^\n]*template/.test(read('../src/sw.js')));
+
+// The AI's pick (UseTemplate).
+{
+    const TOOL_SRC = read('../src/tools/apps_and_sites/use_template.js');
+    const win = { tools: [], FEATURE_FLAGS: { templates: true, aiTemplates: true } };
+    new Function('window', TOOL_SRC)(win);
+    const tool = win.tools[0];
+    check('UseTemplate registers once, with a simple, non-strict input',
+        win.tools.length === 1 && tool.function.name === 'UseTemplate' && tool.function.strict === false &&
+        JSON.stringify(tool.function.parameters.required) === '["slug"]');
+    check('UseTemplate is offered only while both flags are on',
+        tool.available() === true &&
+        (win.FEATURE_FLAGS.aiTemplates = false, tool.available() === false) &&
+        (win.FEATURE_FLAGS = { templates: false, aiTemplates: true }, tool.available() === false));
+    check('UseTemplate\'s description names no template, so the cached tool prefix stays the same for every project',
+        !TEMPLATES.some((t) => tool.function.description.includes(t.slug)));
+    check('the aiTemplates flag exists', /^\s*aiTemplates: (true|false),/m.test(HELPERS));
+    check('vite bundles the tool after the templates module it calls',
+        pos('tools/apps_and_sites/use_template.js') > pos('js/templates.js'));
+    check('UseTemplate counts as a change to the project (a version, the Code view follows)',
+        /MUTATING_TOOLS = new Set\(\[[^\]]*'UseTemplate'/.test(read('../src/js/versions.js')));
+    check('UseTemplate has a status line while it runs',
+        /UseTemplate: 'Starting from a template',/.test(read('../src/js/handleMessageStream.js')));
+
+    const send = APP.slice(APP.indexOf('async function sendChatMessage('));
+    check('only a new project\'s first message carries the list, as a hidden part, and not in a template\'s copy',
+        /if \(countUserMessages\(turnSaveContext\.chatHistory\) === 0 && !turnTemplate\.from_template\) \{\s*const catalog = await window\.templateCatalogNote\?\.\(\);\s*if \(turnAbandoned\(\)\) throw abandonedError\(\);\s*if \(catalog\) contentParts\.push\(\{ type: 'text-hidden', text: catalog \}\);/.test(send));
+    check('the list goes in before the message is added to the history',
+        send.indexOf('window.templateCatalogNote?.()') < send.indexOf('turnSaveContext.chatHistory.push({ role: "user", content: messageContent, messageId });'));
+    check('the suggestion and naming transcripts leave the list out',
+        /p\.type === 'text-hidden' && window\.TemplateCore\?\.isCatalogNote\(p\.text\) \? null/.test(APP));
+    check('loadChat draws the AI\'s template note again from the tool\'s result',
+        /toolResponse\.__template_used && toolResponse\.success\) \{[\s\S]{0,200}window\.renderTemplateUsedNote\?\.\(toolResponse\.template\);/.test(APP));
+    check('the AI\'s pick gets no "started from" note above the conversation',
+        /function renderTemplateOriginNote\(origin\) \{[\s\S]{0,200}if \(origin\?\.via === 'ai'\) return;/.test(TEMPLATES_SRC));
+    check('the AI\'s note is built from text, never HTML',
+        ['function buildOriginNote', 'function renderTemplateUsedNote'].every((sig) =>
+            new RegExp(sig + '[\\s\\S]*?\\n    }\\n').exec(TEMPLATES_SRC)[0].indexOf('.html(') === -1));
+    check('the AI\'s note reads "Based on the", the fork\'s "Started from the"',
+        /function renderTemplateUsedNote\(info\) \{\s*const \$note = buildOriginNote\(info, 'Based on the ',/.test(TEMPLATES_SRC) &&
+        /function renderTemplateOriginNote\(origin\) \{[\s\S]{0,200}buildOriginNote\(origin, 'Started from the ',/.test(TEMPLATES_SRC));
+}
 
 console.log(failures ? `\n${failures} check(s) failed` : '\nall template checks passed');
 process.exit(failures ? 1 : 0);
