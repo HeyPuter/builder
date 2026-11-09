@@ -9,7 +9,7 @@ const SETTINGS_KEY = 'image-studio:settings';
 const IMAGE_DIR = 'images';
 const MAX_IMAGES = 150;        // the oldest are removed beyond this
 const MAX_PARALLEL = 3;        // generations allowed to run at once
-const MODEL = 'gpt-image-2';   // see https://docs.puter.com/AI/txt2img/
+const MODEL = 'openai/gpt-image-2.6-sunburst';   // see https://docs.puter.com/AI/txt2img/
 
 // A style adds its words to the end of the prompt.
 const STYLES = [
