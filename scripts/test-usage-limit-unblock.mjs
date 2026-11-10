@@ -529,6 +529,15 @@ async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, other
     check('nothing built on a paid plan → bigger plan', c.body === 'A bigger plan gives you more credits, so you can keep building with Puter.' && c.cta === 'Upgrade');
     c = copy({ ...base, paid: true, building: true, steps: { done: 1, total: 3 } });
     check('paid → bigger plan wording, same button', c.body.endsWith('Move to a bigger plan to finish the rest.') && c.cta === 'Upgrade');
+    c = copy({ ...base, paid: true, topUp: true, building: true, steps: { done: 1, total: 3 } });
+    check('can add credits → that comes first, in words and button', c.body === 'Add credits to finish the rest.' && c.cta === 'Add credits' && c.topUp === true);
+    c = copy({ ...base, paid: true, topUp: true, name: null, building: true });
+    check('can add credits, building', c.body === 'Your last request didn\u2019t finish. Add credits to finish it.');
+    c = copy({ ...base, paid: true, topUp: true });
+    check('can add credits, idle with an app', c.body === 'Add credits to make this change.');
+    c = copy({ ...base, paid: true, topUp: true, hasApp: false, name: null });
+    check('can add credits, nothing built', c.state === 'new' && c.body === 'Add credits to keep building with Puter.' && c.cta === 'Add credits');
+    check('no top-up → the dialog is the upgrade one', copy(base).topUp === false && copy({ ...base, paid: true }).topUp === false);
     c = copy({ ...base, published: 'https://tonys-pizza.puter.site/' });
     check('published → address for the address bar', c.address === 'tonys-pizza.puter.site' && copy(base).address === null);
     check('free copy never claims monthly or free credits', !/month|free credits/i.test(JSON.stringify([copy(base), copy({ ...base, hasApp: false })])));
@@ -548,6 +557,17 @@ async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, other
     check('success screen can continue the stopped build', /upgrade-resume[\s\S]{0,500}resumeBuild\(\)/.test(UI));
     check('continue re-checks the project before resuming', /upgrade-resume[\s\S]{0,300}if \(!canResumeAfterLimit\(\)\) return;[\s\S]{0,150}resumeBuild\(\)/.test(UI));
     check('upgrade saves the project the dialog opened for', /const chatId = currentChatId;[\s\S]*_limitResumeChatId = ctx\.building \? chatId : null;/.test(UI));
+    check('the dialog offers the top-up by canAddCredits', /topUp: canAddCredits\(\),/.test(UI));
+    check('Add credits saves the project, closes, then opens the top-up in the click',
+        /\.limit-top-up'\)\.on\('click', \(\) => \{\s*_limitResumeChatId = ctx\.building \? chatId : null;[\s\S]{0,120}close\(\);\s*openTopUp\('usage_limit'/.test(UI));
+    check('a purchase in the top-up continues the build', /openTopUp\('usage_limit'[\s\S]{0,120}if \(bought\) resumeAfterCredits\(\);/.test(UI));
+    check('the bigger plan stays one click away', /limit-alt[\s\S]{0,200}limit-go[\s\S]{0,200}move to a bigger plan/.test(UI));
+    check('credit bought in another tab continues the build too', /if \(found\.bought_credits\) window\.resumeAfterCredits\?\.\(\{ landed: true \}\);/.test(APP));
+    check('the chat message offers the top-up to an account that can take it',
+        /if \(window\.canAddCredits\?\.\(\)\) \{[\s\S]{0,300}top-up-button/.test(APP) && /hasClass\('top-up-button'\) && canAddCredits\(\)\) \{[\s\S]{0,250}openTopUp\('usage_limit_message'\)\.then\(\(bought\) => \{\s*if \(bought\) resumeAfterCredits\(\);\s*\}\);\s*return;/.test(UI));
+    check('a new turn in the project that stopped leaves nothing to continue later',
+        /isProcessing = true;[\s\S]{0,600}window\.forgetLimitResume\?\.\(\);/.test(APP) &&
+        /function forgetLimitResume\(\) \{\s*if \(_limitResumeChatId && _limitResumeChatId === currentChatId\) _limitResumeChatId = null;\s*\}/.test(UI));
     check('only a turn that got somewhere is building', /building: !!isProcessing && \(_turnProgressed \|\| !!\(steps && steps\.done < steps\.total\)\)/.test(UI));
     check('each turn starts with no progress', /isProcessing = true;[\s\S]{0,200}_turnProgressed = false;/.test(APP));
     const STREAM_SRC = fs.readFileSync(new URL('../src/js/handleMessageStream.js', import.meta.url), 'utf8');

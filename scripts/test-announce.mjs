@@ -95,7 +95,8 @@ function page({ parsed = true } = {}) {
     const app = read('../src/js/app.js');
     check('a failed build announces its error (assertive)',
         /appendErrorMessage\(friendlyError\);\s*window\.announce\?\.\('Error: ' \+ friendlyError, \{ assertive: true \}\);/.test(app));
-    check('…the usage-limit stop too', /usage-limited-chat[\s\S]{0,600}window\.announce\?\.\('You have reached the current tier/.test(app));
+    check('…the usage-limit stop too', /usage-limited-chat[\s\S]{0,1400}window\.announce\?\.\('You have reached the current tier/.test(app));
+    check('…and the one that offers Add credits', /usage-limited-chat[\s\S]{0,900}window\.announce\?\.\('You have reached your plan\\'s usage limit\. Add credits/.test(app));
     const resume = app.slice(app.indexOf('function showResumeBanner('), app.indexOf('window.showResumeBanner = showResumeBanner;'));
     check('the interrupted/Resume banner announces itself', /window\.announce\?\.\(\(message \|\| 'The response was interrupted\.'\)/.test(resume));
     const retry = app.slice(app.indexOf('function showRetryStatus('), app.indexOf('function clearRetryStatus('));

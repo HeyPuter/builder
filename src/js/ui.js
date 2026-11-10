@@ -5014,6 +5014,14 @@ $(document).on('click', '.chat-starter-chip', function() {
 
 
 $(document).on('click', '.upgrade-button', function() {
+    if ($(this).hasClass('top-up-button') && canAddCredits()) {
+        // Continues a build the out-of-credits dialog recorded as stopped, as
+        // a purchase from that dialog does. With none recorded it does nothing.
+        openTopUp('usage_limit_message').then((bought) => {
+            if (bought) resumeAfterCredits();
+        });
+        return;
+    }
     window.track?.('Upgrade Clicked', { source: 'usage_limit' });
     puter.ui.requestUpgrade();
 });
@@ -6499,6 +6507,92 @@ let _limitResumeChatId = null;
 function canResumeAfterLimit() {
     return !!_limitResumeChatId && _limitResumeChatId === currentChatId && !isProcessing;
 }
+// A turn starting in the project that stopped picks its build up, or moves on
+// from it. Either way there is nothing left to continue later, when a purchase
+// is noticed (resumeAfterCredits) or an upgrade's success screen shows.
+function forgetLimitResume() {
+    if (_limitResumeChatId && _limitResumeChatId === currentChatId) _limitResumeChatId = null;
+}
+window.forgetLimitResume = forgetLimitResume;
+
+// ===== add-credits (start) =====
+// ---- Add credits ---------------------------------------------------------------
+// A paid account that runs out can buy add-on credit without changing its plan.
+// puter.js shows the top-up: in a frame over this page, or on the dashboard in
+// a new tab where it can't frame it. Web only. Inside the Puter desktop, the
+// desktop draws its own prompt.
+function canAddCredits() {
+    try {
+        return !!window.puter && puter.env === 'web' && typeof puter.ui?.showTopUp_ === 'function' &&
+            window.Branding.canTopUp(window.user);
+    } catch (e) { return false; }
+}
+window.canAddCredits = canAddCredits;
+
+// The credit the account has left to spend, or null when Puter can't say.
+async function readCreditLeft() {
+    try {
+        const usage = await puter.auth.getMonthlyUsage();
+        const left = usage && usage.allowanceInfo && usage.allowanceInfo.remaining;
+        return typeof left === 'number' ? left : null;
+    } catch (e) { return null; }
+}
+
+// Opens the top-up from inside a click. Resolves true once credit was bought in
+// it. A top-up that went to a tab resolves false, and is noticed when the user
+// comes back (consumePaidAfterLimit in app.js).
+let _creditBeforeTopUp = null;
+function openTopUp(source, props) {
+    window.track?.('Top-up Clicked', { source, ...props });
+    let shown;
+    try { shown = puter.ui.showTopUp_(); } catch (e) { return Promise.resolve(false); }
+    // What there was to spend before the purchase, which resumeAfterCredits
+    // waits to see go up. Read after the top-up opens, so a tab it has to open
+    // still opens within the click.
+    _creditBeforeTopUp = readCreditLeft();
+    return Promise.resolve(shown).then((result) => {
+        const bought = !!(result && result.toppedUp === true);
+        if (bought) window.track?.('Top-up Completed', { source });
+        return bought;
+    }, () => false);
+}
+
+// Credit was bought after a build ran out. Continues that build, in the project
+// it stopped in, once the credit can be spent. The payment is confirmed before
+// the credit lands, so the balance is read a few times first. A request can be
+// refused with a little credit still left, so credit to spend isn't enough on
+// its own: the balance has to be above what it was when the top-up opened.
+// `landed` is for a caller that has already seen the purchase on the account.
+let _creditResumeRunning = false;
+async function resumeAfterCredits({ landed = false } = {}) {
+    if (_creditResumeRunning || !canResumeAfterLimit()) return;
+    _creditResumeRunning = true;
+    try {
+        const before = landed ? null : await _creditBeforeTopUp;
+        const floor = typeof before === 'number' && before > 0 ? before : 0;
+        let ready = false;
+        for (let i = 0; i < 6 && !ready; i++) {
+            if (i > 0) await new Promise(resolve => setTimeout(resolve, 3000));
+            const left = await readCreditLeft();
+            ready = left !== null && left > floor;
+        }
+        if (!canResumeAfterLimit()) return;
+        if (!ready) {
+            // Paid for, but not here yet. The build stays one click away
+            // rather than the purchase appearing to have done nothing.
+            window.showResumeBanner?.('Your new credits haven\u2019t arrived yet. Resume your build once they do.');
+            return;
+        }
+        _limitResumeChatId = null;
+        window.track?.('Build Resumed After Top-up');
+        resumeBuild();
+    } catch (e) {
+    } finally {
+        _creditResumeRunning = false;
+    }
+}
+window.resumeAfterCredits = resumeAfterCredits;
+// ===== add-credits (end) =====
 
 function limitDialogContextNow() {
     const entry = currentChatId ? savedChats.find(c => c.id === currentChatId) : null;
@@ -6517,6 +6611,7 @@ function limitDialogContextNow() {
         published: window.currentPublishedUrl || null,
         previewUrl: window.currentPreviewUrl || null,
         paid: window.Branding.isSubscribed(window.user),
+        topUp: canAddCredits(),
     };
 }
 
@@ -6579,7 +6674,7 @@ function openLimitModal(upgradeUrl) {
     const copy = limitDialogCopy(ctx);
     const plan = ctx.paid ? 'paid' : 'free';
     const cohort = limitDialogCohort();
-    window.track?.('Upgrade Opened', { source: 'usage_limit', plan, variant: copy.state, cohort });
+    window.track?.('Upgrade Opened', { source: 'usage_limit', plan, variant: copy.state, cohort, offer: copy.topUp ? 'top_up' : 'upgrade' });
 
     const shot = ctx.hasApp ? chatThumbUrl(ctx.previewUrl) : null;
     const billing = htmlEscape(typeof upgradeUrl === 'string' && upgradeUrl.startsWith('https://')
@@ -6599,9 +6694,12 @@ function openLimitModal(upgradeUrl) {
                     ${LIMIT_BUILD_ANIM}
                 </div>`}
                 <p class="limit-body" id="limit-modal-body">${copy.lead ? `<span class="limit-lead">${htmlEscape(copy.lead)}</span> ` : ''}${htmlEscape(copy.body)}</p>
+                ${copy.topUp ? `<p class="limit-alt">Or <a class="upgrade-more-link upgrade-go limit-go" href="${billing}" target="_blank" rel="noopener noreferrer">move to a bigger plan</a>.</p>` : ''}
                 <div class="properties-modal-actions upgrade-actions">
                     <button type="button" class="confirm-modal-btn confirm-modal-cancel limit-cancel">Not now</button>
-                    <a class="confirm-modal-btn upgrade-go limit-go" href="${billing}" target="_blank" rel="noopener noreferrer">${htmlEscape(copy.cta)}</a>
+                    ${copy.topUp
+                        ? `<button type="button" class="confirm-modal-btn upgrade-primary limit-top-up">${htmlEscape(copy.cta)}</button>`
+                        : `<a class="confirm-modal-btn upgrade-go limit-go" href="${billing}" target="_blank" rel="noopener noreferrer">${htmlEscape(copy.cta)}</a>`}
                 </div>
             </div>
         </div>
@@ -6628,6 +6726,14 @@ function openLimitModal(upgradeUrl) {
         if (!ctx.paid) setUpgradePending('usage_limit');
         _limitResumeChatId = ctx.building ? chatId : null;
         close();
+    });
+    $overlay.find('.limit-top-up').on('click', () => {
+        _limitResumeChatId = ctx.building ? chatId : null;
+        // Closed first, so the top-up isn't shown under this dialog.
+        close();
+        openTopUp('usage_limit', { variant: copy.state, cohort }).then((bought) => {
+            if (bought) resumeAfterCredits();
+        });
     });
     $overlay.on('mousedown', (e) => { if (e.target === $overlay[0]) close(); });
     $overlay.find('.limit-modal').on('mousedown click', (e) => e.stopPropagation());

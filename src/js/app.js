@@ -3893,6 +3893,9 @@ async function consumePaidAfterLimit(key) {
             since_limit: mins < 10 ? '<10m' : mins < 60 ? '10-60m' : '1-24h',
             ...(typeof hit.template === 'string' && templatePropFor(hit.template)),
         });
+        // Credit bought in another tab reaches the build that stopped too. The
+        // purchase is on the account by now, so there is no wait for it.
+        if (found.bought_credits) window.resumeAfterCredits?.({ landed: true });
     } catch (e) { /* analytics must never break the app */ }
 }
 
@@ -4038,10 +4041,11 @@ function projectDisplayName(entry, publishedUrl) {
 //   hasApp    the project has files to show
 //   published the live URL, or null
 //   paid      on a paid plan, so the way forward is a bigger plan
+//   topUp     the account can buy add-on credit, which comes before a bigger plan
 function limitDialogCopy(ctx) {
     const named = ctx.name ? `\u201c${ctx.name}\u201d` : null;
     const it = named || 'your app';
-    const up = ctx.paid ? 'Move to a bigger plan' : 'Upgrade';
+    const up = ctx.topUp ? 'Add credits' : ctx.paid ? 'Move to a bigger plan' : 'Upgrade';
     const steps = ctx.steps && ctx.steps.total > 0 && ctx.steps.done < ctx.steps.total ? ctx.steps : null;
     let state, heading, body;
     if (ctx.building && steps) {
@@ -4060,7 +4064,9 @@ function limitDialogCopy(ctx) {
     } else {
         state = 'new';
         heading = 'You\u2019re out of credits';
-        body = `${ctx.paid ? 'A bigger plan' : 'A paid plan'} gives you more credits, so you can keep building with Puter.`;
+        body = ctx.topUp
+            ? 'Add credits to keep building with Puter.'
+            : `${ctx.paid ? 'A bigger plan' : 'A paid plan'} gives you more credits, so you can keep building with Puter.`;
     }
     // The live address goes in the address bar over the screenshot.
     let address = null;
@@ -4072,7 +4078,8 @@ function limitDialogCopy(ctx) {
         lead: state === 'new' ? null : 'You\u2019ve run out of credits.',
         body,
         address,
-        cta: 'Upgrade',
+        cta: ctx.topUp ? 'Add credits' : 'Upgrade',
+        topUp: !!ctx.topUp,
     };
 }
 
@@ -5100,6 +5107,8 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // screen awake while the build runs (fire-and-forget; must not block setup).
     _stallRecovery = false;
     acquireWakeLock();
+    // The build that stopped at the usage limit here is this turn's now.
+    window.forgetLimitResume?.();
     // This turn's id — see _turnSeq and the end-of-turn guard below.
     const turnSeq = ++_turnSeq;
     // When the user sent it, for Build Abandoned's `waited`.
@@ -5743,8 +5752,14 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             if(error.error?.delegate === "usage-limited-chat"){
                 trackLimitHit({ first_build: isFirstBuildTurn, model: turnModel, kind: 'tier', ...usageLimitHitProps(turnSaveContext.chatHistory, savedChats, turnChatId, window.currentPublishedUrl) });
                 recordUsageLimitHit('tier', turnTemplate.template);
-                appendMessage('You have reached the current tier\'s usage limit. Please upgrade your Puter account to continue. <button class="upgrade-button">Upgrade</button>', false, false, false, true);
-                window.announce?.('You have reached the current tier\'s usage limit. Upgrade your Puter account to continue.', { assertive: true });
+                // An account with a plan can buy credit instead of changing it.
+                if (window.canAddCredits?.()) {
+                    appendMessage('You have reached your plan\'s usage limit. Add credits to your Puter account to continue. <button class="upgrade-button top-up-button">Add credits</button>', false, false, false, true);
+                    window.announce?.('You have reached your plan\'s usage limit. Add credits to your Puter account to continue.', { assertive: true });
+                } else {
+                    appendMessage('You have reached the current tier\'s usage limit. Please upgrade your Puter account to continue. <button class="upgrade-button">Upgrade</button>', false, false, false, true);
+                    window.announce?.('You have reached the current tier\'s usage limit. Upgrade your Puter account to continue.', { assertive: true });
+                }
             }else{
                 // Translate the raw provider/API error into a concise, actionable
                 // sentence and show it as a styled error card (not a plain bubble

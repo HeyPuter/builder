@@ -6449,6 +6449,8 @@ a.upgrade-more-link:hover { background: none; color: #111; }
 .limit-steps-more { margin-top: 6px; padding-left: 20px; font-size: 12px; color: #666670; }
 .limit-body { margin: 0 0 10px; font-size: 14px; line-height: 1.5; color: #333; }
 .limit-lead { color: #1a1a1a; font-weight: 600; }
+/* The other way forward, under the Add credits pitch. */
+.limit-alt { margin: 0 0 10px; font-size: 13px; line-height: 1.5; color: #666; }
 
 /* What's new dialog (js/whats-new.js). The words and the button on the left,
    a drawing of the feature on a coloured panel on the right. On a phone they
@@ -7760,6 +7762,7 @@ html[data-theme="dark"] .limit-steps li,
 html[data-theme="dark"] .limit-steps-more { color: var(--text-muted); }
 html[data-theme="dark"] .limit-body { color: var(--text-secondary); }
 html[data-theme="dark"] .limit-lead { color: var(--text); }
+html[data-theme="dark"] .limit-alt { color: var(--text-muted); }
 html[data-theme="dark"] .limit-shot-bar { background: var(--surface); border-color: var(--border); color: var(--text-muted); }
 html[data-theme="dark"] .limit-shot-dots,
 html[data-theme="dark"] .limit-shot-dots::before,

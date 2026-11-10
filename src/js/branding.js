@@ -54,5 +54,11 @@
         return !!(user && !user.is_temp && user.subscribed === true);
     }
 
-    window.Branding = { upgradeUrl, hasRuntimeTag, stripRuntimeTags, isSubscribed };
+    // Puter sells add-on credit to an account with a plan of its own. A team
+    // seat's plan and usage are its team's to pay for.
+    function canTopUp(user) {
+        return isSubscribed(user) && !(user.team && typeof user.team.uid === 'string' && user.team.uid !== '');
+    }
+
+    window.Branding = { upgradeUrl, hasRuntimeTag, stripRuntimeTags, isSubscribed, canTopUp };
 })();
