@@ -22,6 +22,8 @@ function harness({ user = { uuid: 'u', subscribed: true }, env = 'web', showTopU
     const win = { user, _calls: [] };
     new Function('window', BRANDING)(win);
     win.track = (...args) => win._calls.push(args);
+    win._banners = [];
+    win.showResumeBanner = (message) => win._banners.push(message);
     const reads = [...usage];
     const puter = {
         env,
@@ -81,6 +83,7 @@ check('not on a puter.js without the top-up', !harness({ showTopUp: null }).canA
     await h.resumeAfterCredits();
     check('does not continue into another refusal when the credit never shows',
         h.state.resumed === 0 && h.resumeChat() === 'chat-1' && h.state.waits === 5);
+    check('…and leaves a Resume in the chat instead', h.win._banners.length === 1 && /credits haven\u2019t arrived yet/.test(h.win._banners[0]));
 
     h = harness({ usage: [left(500)], resumable: false });
     await h.resumeAfterCredits();
@@ -97,7 +100,17 @@ check('not on a puter.js without the top-up', !harness({ showTopUp: null }).canA
     const run = h.resumeAfterCredits();
     h.state.resumable = false; // the user switched projects while it waited
     await run;
-    check('does not continue in a project the user has left', h.state.resumed === 0);
+    check('does not continue in a project the user has left', h.state.resumed === 0 && h.win._banners.length === 0);
+
+    h = harness({ usage: [left(0)] });
+    const late = h.resumeAfterCredits();
+    h.state.resumable = false;
+    await late;
+    check('no Resume left in a project the user has left', h.win._banners.length === 0);
+
+    h = harness({ usage: [left(500)] });
+    await h.resumeAfterCredits();
+    check('no Resume left when the build continued', h.win._banners.length === 0);
 
     // A request can be refused with a little credit left. That credit is not
     // the purchase, so the balance has to go above it.

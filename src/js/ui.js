@@ -6576,7 +6576,13 @@ async function resumeAfterCredits({ landed = false } = {}) {
             const left = await readCreditLeft();
             ready = left !== null && left > floor;
         }
-        if (!ready || !canResumeAfterLimit()) return;
+        if (!canResumeAfterLimit()) return;
+        if (!ready) {
+            // Paid for, but not here yet. The build stays one click away
+            // rather than the purchase appearing to have done nothing.
+            window.showResumeBanner?.('Your new credits haven\u2019t arrived yet. Resume your build once they do.');
+            return;
+        }
         _limitResumeChatId = null;
         window.track?.('Build Resumed After Top-up');
         resumeBuild();
