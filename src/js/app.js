@@ -3893,8 +3893,9 @@ async function consumePaidAfterLimit(key) {
             since_limit: mins < 10 ? '<10m' : mins < 60 ? '10-60m' : '1-24h',
             ...(typeof hit.template === 'string' && templatePropFor(hit.template)),
         });
-        // Credit bought in another tab reaches the build that stopped too.
-        if (found.bought_credits) window.resumeAfterCredits?.();
+        // Credit bought in another tab reaches the build that stopped too. The
+        // purchase is on the account by now, so there is no wait for it.
+        if (found.bought_credits) window.resumeAfterCredits?.({ landed: true });
     } catch (e) { /* analytics must never break the app */ }
 }
 

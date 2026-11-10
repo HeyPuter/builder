@@ -562,7 +562,7 @@ async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, other
         /\.limit-top-up'\)\.on\('click', \(\) => \{\s*_limitResumeChatId = ctx\.building \? chatId : null;[\s\S]{0,120}close\(\);\s*openTopUp\('usage_limit'/.test(UI));
     check('a purchase in the top-up continues the build', /openTopUp\('usage_limit'[\s\S]{0,120}if \(bought\) resumeAfterCredits\(\);/.test(UI));
     check('the bigger plan stays one click away', /limit-alt[\s\S]{0,200}limit-go[\s\S]{0,200}move to a bigger plan/.test(UI));
-    check('credit bought in another tab continues the build too', /if \(found\.bought_credits\) window\.resumeAfterCredits\?\.\(\);/.test(APP));
+    check('credit bought in another tab continues the build too', /if \(found\.bought_credits\) window\.resumeAfterCredits\?\.\(\{ landed: true \}\);/.test(APP));
     check('the chat message offers the top-up to an account that can take it',
         /if \(window\.canAddCredits\?\.\(\)\) \{[\s\S]{0,300}top-up-button/.test(APP) && /hasClass\('top-up-button'\) && canAddCredits\(\)\) \{\s*openTopUp\('usage_limit_message'\);\s*return;/.test(UI));
     check('only a turn that got somewhere is building', /building: !!isProcessing && \(_turnProgressed \|\| !!\(steps && steps\.done < steps\.total\)\)/.test(UI));

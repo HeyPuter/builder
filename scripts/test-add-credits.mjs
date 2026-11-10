@@ -98,6 +98,29 @@ check('not on a puter.js without the top-up', !harness({ showTopUp: null }).canA
     h.state.resumable = false; // the user switched projects while it waited
     await run;
     check('does not continue in a project the user has left', h.state.resumed === 0);
+
+    // A request can be refused with a little credit left. That credit is not
+    // the purchase, so the balance has to go above it.
+    h = harness({ usage: [left(300), left(300), left(300), left(5300)] });
+    await h.openTopUp('usage_limit');
+    await h.resumeAfterCredits();
+    check('credit left over from before the purchase is not the purchase',
+        h.state.resumed === 1 && h.state.waits === 2);
+
+    h = harness({ usage: [left(300)] });
+    await h.openTopUp('usage_limit');
+    await h.resumeAfterCredits();
+    check('does not continue on leftover credit alone', h.state.resumed === 0 && h.state.waits === 5);
+
+    h = harness({ usage: [left(300)] });
+    await h.openTopUp('usage_limit');
+    await h.resumeAfterCredits({ landed: true });
+    check('a purchase already seen on the account needs no rise', h.state.resumed === 1 && h.state.waits === 0);
+
+    h = harness({ usage: [new Error('offline'), left(0), left(500)] });
+    await h.openTopUp('usage_limit');
+    await h.resumeAfterCredits();
+    check('a balance that could not be read before falls back to any credit', h.state.resumed === 1 && h.state.waits === 1);
 }
 
 if (failures) { console.error(`\n${failures} add-credits check(s) failed`); process.exit(1); }

@@ -6518,13 +6518,27 @@ function canAddCredits() {
 }
 window.canAddCredits = canAddCredits;
 
+// The credit the account has left to spend, or null when Puter can't say.
+async function readCreditLeft() {
+    try {
+        const usage = await puter.auth.getMonthlyUsage();
+        const left = usage && usage.allowanceInfo && usage.allowanceInfo.remaining;
+        return typeof left === 'number' ? left : null;
+    } catch (e) { return null; }
+}
+
 // Opens the top-up from inside a click. Resolves true once credit was bought in
 // it. A top-up that went to a tab resolves false, and is noticed when the user
 // comes back (consumePaidAfterLimit in app.js).
+let _creditBeforeTopUp = null;
 function openTopUp(source, props) {
     window.track?.('Top-up Clicked', { source, ...props });
     let shown;
     try { shown = puter.ui.showTopUp_(); } catch (e) { return Promise.resolve(false); }
+    // What there was to spend before the purchase, which resumeAfterCredits
+    // waits to see go up. Read after the top-up opens, so a tab it has to open
+    // still opens within the click.
+    _creditBeforeTopUp = readCreditLeft();
     return Promise.resolve(shown).then((result) => {
         const bought = !!(result && result.toppedUp === true);
         if (bought) window.track?.('Top-up Completed', { source });
@@ -6533,19 +6547,23 @@ function openTopUp(source, props) {
 }
 
 // Credit was bought after a build ran out. Continues that build, in the project
-// it stopped in, once Puter reports credit to spend. The payment is confirmed
-// before the credit lands, so the balance is read a few times first.
+// it stopped in, once the credit can be spent. The payment is confirmed before
+// the credit lands, so the balance is read a few times first. A request can be
+// refused with a little credit still left, so credit to spend isn't enough on
+// its own: the balance has to be above what it was when the top-up opened.
+// `landed` is for a caller that has already seen the purchase on the account.
 let _creditResumeRunning = false;
-async function resumeAfterCredits() {
+async function resumeAfterCredits({ landed = false } = {}) {
     if (_creditResumeRunning || !canResumeAfterLimit()) return;
     _creditResumeRunning = true;
     try {
+        const before = landed ? null : await _creditBeforeTopUp;
+        const floor = typeof before === 'number' && before > 0 ? before : 0;
         let ready = false;
         for (let i = 0; i < 6 && !ready; i++) {
             if (i > 0) await new Promise(resolve => setTimeout(resolve, 3000));
-            const usage = await puter.auth.getMonthlyUsage().catch(() => null);
-            const left = usage && usage.allowanceInfo && usage.allowanceInfo.remaining;
-            ready = typeof left === 'number' && left > 0;
+            const left = await readCreditLeft();
+            ready = left !== null && left > floor;
         }
         if (!ready || !canResumeAfterLimit()) return;
         _limitResumeChatId = null;
