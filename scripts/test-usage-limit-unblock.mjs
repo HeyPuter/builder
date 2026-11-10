@@ -564,7 +564,7 @@ async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, other
     check('the bigger plan stays one click away', /limit-alt[\s\S]{0,200}limit-go[\s\S]{0,200}move to a bigger plan/.test(UI));
     check('credit bought in another tab continues the build too', /if \(found\.bought_credits\) window\.resumeAfterCredits\?\.\(\{ landed: true \}\);/.test(APP));
     check('the chat message offers the top-up to an account that can take it',
-        /if \(window\.canAddCredits\?\.\(\)\) \{[\s\S]{0,300}top-up-button/.test(APP) && /hasClass\('top-up-button'\) && canAddCredits\(\)\) \{\s*openTopUp\('usage_limit_message'\);\s*return;/.test(UI));
+        /if \(window\.canAddCredits\?\.\(\)\) \{[\s\S]{0,300}top-up-button/.test(APP) && /hasClass\('top-up-button'\) && canAddCredits\(\)\) \{[\s\S]{0,250}openTopUp\('usage_limit_message'\)\.then\(\(bought\) => \{\s*if \(bought\) resumeAfterCredits\(\);\s*\}\);\s*return;/.test(UI));
     check('a new turn in the project that stopped leaves nothing to continue later',
         /isProcessing = true;[\s\S]{0,600}window\.forgetLimitResume\?\.\(\);/.test(APP) &&
         /function forgetLimitResume\(\) \{\s*if \(_limitResumeChatId && _limitResumeChatId === currentChatId\) _limitResumeChatId = null;\s*\}/.test(UI));

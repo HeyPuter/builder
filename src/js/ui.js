@@ -5015,7 +5015,11 @@ $(document).on('click', '.chat-starter-chip', function() {
 
 $(document).on('click', '.upgrade-button', function() {
     if ($(this).hasClass('top-up-button') && canAddCredits()) {
-        openTopUp('usage_limit_message');
+        // Continues a build the out-of-credits dialog recorded as stopped, as
+        // a purchase from that dialog does. With none recorded it does nothing.
+        openTopUp('usage_limit_message').then((bought) => {
+            if (bought) resumeAfterCredits();
+        });
         return;
     }
     window.track?.('Upgrade Clicked', { source: 'usage_limit' });
