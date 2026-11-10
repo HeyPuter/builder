@@ -6503,6 +6503,13 @@ let _limitResumeChatId = null;
 function canResumeAfterLimit() {
     return !!_limitResumeChatId && _limitResumeChatId === currentChatId && !isProcessing;
 }
+// A turn starting in the project that stopped picks its build up, or moves on
+// from it. Either way there is nothing left to continue later, when a purchase
+// is noticed (resumeAfterCredits) or an upgrade's success screen shows.
+function forgetLimitResume() {
+    if (_limitResumeChatId && _limitResumeChatId === currentChatId) _limitResumeChatId = null;
+}
+window.forgetLimitResume = forgetLimitResume;
 
 // ===== add-credits (start) =====
 // ---- Add credits ---------------------------------------------------------------

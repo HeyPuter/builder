@@ -565,6 +565,9 @@ async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, other
     check('credit bought in another tab continues the build too', /if \(found\.bought_credits\) window\.resumeAfterCredits\?\.\(\{ landed: true \}\);/.test(APP));
     check('the chat message offers the top-up to an account that can take it',
         /if \(window\.canAddCredits\?\.\(\)\) \{[\s\S]{0,300}top-up-button/.test(APP) && /hasClass\('top-up-button'\) && canAddCredits\(\)\) \{\s*openTopUp\('usage_limit_message'\);\s*return;/.test(UI));
+    check('a new turn in the project that stopped leaves nothing to continue later',
+        /isProcessing = true;[\s\S]{0,600}window\.forgetLimitResume\?\.\(\);/.test(APP) &&
+        /function forgetLimitResume\(\) \{\s*if \(_limitResumeChatId && _limitResumeChatId === currentChatId\) _limitResumeChatId = null;\s*\}/.test(UI));
     check('only a turn that got somewhere is building', /building: !!isProcessing && \(_turnProgressed \|\| !!\(steps && steps\.done < steps\.total\)\)/.test(UI));
     check('each turn starts with no progress', /isProcessing = true;[\s\S]{0,200}_turnProgressed = false;/.test(APP));
     const STREAM_SRC = fs.readFileSync(new URL('../src/js/handleMessageStream.js', import.meta.url), 'utf8');

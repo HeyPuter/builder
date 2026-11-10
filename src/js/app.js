@@ -5107,6 +5107,8 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // screen awake while the build runs (fire-and-forget; must not block setup).
     _stallRecovery = false;
     acquireWakeLock();
+    // The build that stopped at the usage limit here is this turn's now.
+    window.forgetLimitResume?.();
     // This turn's id — see _turnSeq and the end-of-turn guard below.
     const turnSeq = ++_turnSeq;
     // When the user sent it, for Build Abandoned's `waited`.
