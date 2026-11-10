@@ -54,6 +54,9 @@ check('isSubscribed: subscribed true', B.isSubscribed({ username: 'a', subscribe
 check('isSubscribed: false / missing / null', !B.isSubscribed({ subscribed: false }) && !B.isSubscribed({}) && !B.isSubscribed(null));
 check('isSubscribed: truthy non-boolean is not enough', !B.isSubscribed({ subscribed: 'yes' }));
 check('isSubscribed: temp user never counts', !B.isSubscribed({ is_temp: true, subscribed: true }));
+check('canTopUp: an account with its own plan', B.canTopUp({ subscribed: true }) && B.canTopUp({ subscribed: true, team: null }));
+check('canTopUp: not without a plan, signed out or temp', !B.canTopUp({ subscribed: false }) && !B.canTopUp(null) && !B.canTopUp({ is_temp: true, subscribed: true }));
+check('canTopUp: not a seat, whose team pays', !B.canTopUp({ subscribed: true, team: { uid: 'team-1' } }));
 check('upgrade url for a refusal carries what was refused',
     B.upgradeUrl({ reason: 'funds', appID: 'app-1', method: 'a::b' }) === 'https://puter.com/dashboard/?upgrade=funds&upgrade_app=app-1&upgrade_method=a%3A%3Ab#home');
 check('upgrade url leaves out what it is not given',
