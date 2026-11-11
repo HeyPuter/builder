@@ -43,6 +43,7 @@ window.getUnavailableTools = function(modelId) {
 const PREVIEW_SAFE_TOOLS = new Set(['stat', 'readdir', 'ReadTextFile', 'SearchFiles', 'ViewImage', 'ViewDocument',
     'ShowImage', 'update_preview', 'TodoWrite', 'AskClarifyingQuestions', 'OfferUpgrade', 'list_workers', 'get_worker',
     'set_secret', 'set_email_sender_name', 'delete_worker', 'FetchExternalResource', 'OfferPublish', 'OfferAddressChange',
+    'OfferCustomDomain',
     // Writes only the project's hidden .puter/ folder, which the preview never loads.
     'AppTests']);
 

@@ -3269,7 +3269,7 @@ function publishProgressHtml() {
         '<span class="publish-result-spinner" aria-hidden="true"></span>' +
         `<div class="publish-result-title">${_publishViewIsFirst ? 'Publishing your site' : 'Updating your site'}</div>` +
         (_publishViaDomain
-            ? '<p class="publish-result-sub">Pick or add your domain in Puter’s window. Your site goes live here in a few seconds.</p>'
+            ? '<p class="publish-result-sub">This usually takes a few seconds. Then the steps to connect your domain show here.</p>'
             : '<p class="publish-result-sub">This usually takes a few seconds. You can close this and keep building.</p>') +
     '</div>';
 }
@@ -3565,26 +3565,33 @@ $(document).on('click', '.publish-address-save', async function () {
 // ---- The user's own domain (inside the popover) ----------------------------
 // A published site can also answer at a domain the user owns, on a paid plan.
 // Puter connects it in its own dialog (puter.hosting.attach), where the user
-// picks one of their domains or adds one, sees the price, and gets the DNS
-// records to set. The dialog resolves to the chosen domain, which goes on the
-// project's record (window.currentPublishedDomains, saved as
-// publishedDomains). A new domain starts out pending until its records are in
-// place, and the builder can't ask Puter when that happens, so it asks the
-// domain. While the popover is open it fetches each waiting domain every
+// picks one of their domains or adds one and gets the DNS records to set.
+// The dialog resolves to the chosen domain, which goes on the project's
+// record (window.currentPublishedDomains, saved as publishedDomains). A new
+// domain starts out pending until its records are in place, and the builder
+// can't ask Puter when that happens, so it asks the domain. While the
+// popover is open it fetches each waiting domain every
 // DOMAIN_CHECK_MS and marks it connected once it serves this site (see
 // custom-domain.js). A connected domain is checked once each time the popover
 // opens, and marked lost after two checks in a row find it not showing the
 // site, so a check that lands on a copy cached from before a publish doesn't.
 //
 // A site that isn't published yet can start with its domain straight away
-// (publishWithDomain): the publish puts it on the name in the address field,
-// with Puter's window open over it.
+// (publishWithDomain): Puter's window opens for the name in the address field,
+// and the site is published there once the user picks a domain.
 const DOMAIN_CHECK_MS = 15000;
 // Projects whose connect dialog is open, so their button waits for it.
 // A waiting button is aria-disabled, not disabled, here and for Check now:
 // the render that marks it would otherwise drop the focus on it, and the
 // click handlers ignore it meanwhile.
 const _domainConnectBusy = new Set();
+// The own-domain button waits for that, and while a first publish reserves
+// its name or lets it go (_reservingPublishNames). So does the chat's domain
+// card (tools/chat_ui/publish.js).
+function domainConnecting(chatId) {
+    return _domainConnectBusy.has(chatId) || _reservingPublishNames.has(chatId);
+}
+window.isDomainConnecting = domainConnecting;
 // The checks in flight by hostname, the ones the user pressed Check now for,
 // and the ones that press found not working yet (the note under them).
 const _domainChecks = new Map();
@@ -3606,9 +3613,11 @@ function publishedShareUrl(url) {
 window.publishedShareUrl = publishedShareUrl;
 
 // Re-render the open popover for a domain change, unless the address is
-// being edited (a render would drop what the user typed).
+// being edited (a render would drop what the user typed). The chat's domain
+// card shows the same state, so it is redrawn too.
 function rerenderPublishPanelForDomains() {
     if (_publishPanelOpen && !$('.preview-publish-panel').hasClass('editing-address')) renderPublishPanel();
+    window.refreshPublishCards?.();
 }
 
 // The "Site address" heading over the address, on the first publish and
@@ -3625,7 +3634,7 @@ function publishAddressHeadHtml() {
     const sub = previewSubdomain(window.currentPublishedUrl);
     const change = !!sub && window.CustomDomain.list(window.currentPublishedDomains).length > 0;
     if (offer && !window.Branding.isSubscribed(user)) trackUpgradePromptShown('custom_domain');
-    const busy = _domainConnectBusy.has(currentChatId);
+    const busy = domainConnecting(currentChatId);
     return '<div class="publish-address-head">' +
         '<span class="publish-address-label">Site address</span>' +
         (offer
@@ -3758,8 +3767,10 @@ async function updatePublishedDomains(chatId, change) {
 // a first publish passes the name it reserved) and keep the domain the user
 // chose. Runs straight from the click, before any await: on a website the
 // dialog is a puter.com popup, which a browser opens only from a click. On
-// the free plan the click opens the upgrade dialog instead.
-function connectCustomDomain(sub = previewSubdomain(window.currentPublishedUrl), { from = 'popover' } = {}) {
+// the free plan the click opens the upgrade dialog instead. `onDomain` gets
+// the chosen domain once it is saved (the chat's card records it). Resolves
+// to that domain once the dialog closes, or null without one.
+function connectCustomDomain(sub = previewSubdomain(window.currentPublishedUrl), { from = 'popover', onDomain = null } = {}) {
     const chatId = currentChatId;
     if (!chatId || !sub || _domainConnectBusy.has(chatId)) return;
     if (!window.Branding.isSubscribed(window.user)) {
@@ -3772,29 +3783,41 @@ function connectCustomDomain(sub = previewSubdomain(window.currentPublishedUrl),
     _domainConnectBusy.add(chatId);
     window.track?.('Custom Domain Dialog Opened', { from });
     rerenderPublishPanelForDomains();
-    attaching.then(async (raw) => {
+    // Puter has connected it once chosen, even if keeping it here fails.
+    let chosen = null;
+    return attaching.then(async (raw) => {
         // The dialog was closed without choosing a domain.
-        if (!raw) return;
+        if (!raw) return null;
         // The site the domain serves, in case Puter left it out: it's the one
         // the dialog was opened for.
         const domain = window.CustomDomain.normalize({ ...raw, site: raw.site || sub });
-        if (!domain) return;
+        if (!domain) return null;
+        chosen = domain;
         _domainNotYet.delete(domain.hostname);
         await updatePublishedDomains(chatId, (list) => window.CustomDomain.set(list, domain));
         releaseCustomDomainElsewhere(chatId, domain.hostname);
+        try { await onDomain?.(domain); } catch (e) { console.warn('Custom domain: could not record the domain on its card:', e); }
         window.track?.('Custom Domain Connected', { status: domain.status, apex: domain.isApex });
         if (currentChatId === chatId) {
             window.announce?.(domain.status === 'active'
                 ? `${domain.hostname} is connected.`
                 : `${domain.hostname} was added. Set its DNS records to finish connecting it.`);
         }
+        return domain;
     }).catch(async (e) => {
+        // The window worked and Puter connected the domain: only keeping it
+        // here failed (another project's file, say).
+        if (chosen) {
+            console.warn('Custom domain: could not save the domain:', e);
+            return chosen;
+        }
         if (e && e.code === 'not_supported') {
             await puter.ui.alert(`This Puter desktop can’t connect a domain yet. Open ${location.host} in a browser tab to connect one.`);
         } else {
             const msg = window.puterErrInfo(e).message;
             await puter.ui.alert('Couldn’t open the domain settings. Please try again.' + (msg ? '\n\n' + msg : ''));
         }
+        return null;
     }).finally(() => {
         _domainConnectBusy.delete(chatId);
         if (currentChatId !== chatId) return;
@@ -3827,12 +3850,22 @@ const RESERVED_RELEASE_NAME = 'r_0_reserved';
 // until that publish lands, so a retry after a failed one reuses the name the
 // domain was connected to.
 const _reservedPublishNames = new Map();
-// For doPublish, which sends a plain Publish after a failed own-domain one
-// onto the reserved name.
-window.reservedPublishName = (chatId) => _reservedPublishNames.get(chatId) || null;
-// Projects reserving that name right now. A plain Publish meanwhile would
-// race the reservation for the same name, so doPublish holds it back and the
-// popover's Publish button waits.
+// The name `chatId` reserved, for doPublish, which sends a plain Publish
+// after a failed own-domain one onto it, and for the chat's domain card. The
+// open project's outlives a reload in the domain it saved on that name: a
+// project not yet published only has a domain from this route, as a copy
+// starts without one. Left unpublished, the domain served an empty folder.
+function reservedPublishNameFor(chatId) {
+    const kept = _reservedPublishNames.get(chatId);
+    if (kept) return kept;
+    if (!chatId || chatId !== currentChatId || previewSubdomain(window.currentPublishedUrl)) return null;
+    return window.CustomDomain.list(window.currentPublishedDomains)[0]?.site || null;
+}
+window.reservedPublishName = reservedPublishNameFor;
+// Projects whose own-domain publish is reserving that name right now, or
+// letting it go once Puter's window closed without a domain. A plain Publish
+// meanwhile would race it for the name, so doPublish holds it back and the
+// popover's Publish button waits. It takes about a second.
 const _reservingPublishNames = new Set();
 window.isReservingPublishName = (chatId) => _reservingPublishNames.has(chatId);
 
@@ -3840,7 +3873,10 @@ window.isReservingPublishName = (chatId) => _reservingPublishNames.has(chatId);
 // Puter's dialog can only connect a domain to a site the user already owns,
 // and this takes a moment, where the publish itself takes many seconds.
 async function reservePublishSubdomain(chatId, name) {
-    if (_reservedPublishNames.get(chatId) === name) return name;
+    if (reservedPublishNameFor(chatId) === name) {
+        _reservedPublishNames.set(chatId, name);
+        return name;
+    }
     const dir = publishedDirForChat(chatId) + '/' + RESERVED_RELEASE_NAME;
     await puter.fs.mkdir(dir, { recursive: true });
     try {
@@ -3863,48 +3899,97 @@ function ownDomainSubdomainName(history) {
     return slug ? `${slug}-${shortRand()}` : puter.randName('-');
 }
 
-// The heading's Use custom domain / Change domain (publishAddressHeadHtml).
-// The free plan gets the upgrade dialog. A paid plan starts at once: Puter's
-// window for the live site, or, before a first publish, the publish with the
-// window over it (publishWithDomain).
-function useOwnDomain(action) {
+// The heading's Use custom domain / Change domain (publishAddressHeadHtml),
+// and the same button on the chat's domain card, which passes `via` (see
+// publishWithDomain). The free plan gets the upgrade dialog. A paid plan
+// starts at once: Puter's window for the live site, or, before a first
+// publish, the publish with the window over it (publishWithDomain).
+function useOwnDomain(action, via = null) {
     if (!window.Branding.isSubscribed(window.user)) {
         openUpgradeModal('custom_domain');
         return;
     }
-    if (previewSubdomain(window.currentPublishedUrl)) connectCustomDomain(undefined, { from: action === 'change-domain' ? 'change' : 'popover' });
-    else publishWithDomain();
+    const change = action === 'change-domain';
+    if (previewSubdomain(window.currentPublishedUrl)) {
+        connectCustomDomain(undefined, {
+            from: via ? (change ? 'chat_change' : 'chat') : (change ? 'change' : 'popover'),
+            onDomain: via?.onDomain,
+        });
+    } else publishWithDomain(via);
+}
+window.useOwnDomain = useOwnDomain;
+
+// The chat's domain card's Check DNS records, for a domain still being set up:
+// the popover, where its records are, checked while it is open. On a phone
+// the card is in the chat view, so the app's view comes first. With no
+// preview the toolbar has no Publish to open.
+window.openPublishPanelForDomain = function () {
+    if (!$('.preview-publish-btn').length) {
+        window.showToast?.('Open your app’s preview to see your domain’s DNS records in Publish.', { type: 'info' });
+        return;
+    }
+    if (window.isMobileViewport?.()) { $('body').removeClass('mobile-view-chat'); window.syncViewSeg?.(); }
+    openPublishPanel();
+};
+
+// What an own-domain first publish reports in the popover: an alert, then
+// the address field focused for the fix.
+async function alertOwnDomainPublishFailed(e) {
+    if (e && e.code === 'invalid-name') {
+        await puter.ui.alert('Please enter a valid address: lowercase letters, numbers, and hyphens only (it can’t start or end with a hyphen).');
+    } else if (e && e.code === 'name-taken') {
+        await puter.ui.alert('That address is already taken. Please choose another.');
+    } else if (e && e.code === 'subdomain-limit') {
+        await puter.ui.alert('You’ve reached the maximum number of published sites for your account. Delete a site you no longer need, then try publishing again.');
+    } else {
+        const msg = window.puterErrInfo(e).message;
+        await puter.ui.alert('Could not publish your site. Please try again.' + (msg ? '\n\n' + msg : ''));
+    }
+    $('.preview-publish-panel .publish-name-input').trigger('focus');
 }
 
 // A first publish that starts with the user's own domain, on a paid plan.
 // The site gets the name in the address field, made the project's at once
 // (reservePublishSubdomain), so a taken name is reported here rather than in
 // Puter's window, which only works with a site the user owns. The window then
-// opens for that name, and the publish runs behind it. The reservation takes
-// about a second, inside the time a click lets a page open a popup, and
-// puter.js asks the user to continue when a browser has run out of it.
-async function publishWithDomain() {
+// opens for that name, and the site is published on it once the user picks a
+// domain. The reservation takes about a second, inside the time a click lets
+// a page open a popup, and puter.js asks the user to continue when a browser
+// has run out of it.
+//
+// From the popover it reads the popover's field, alerts and runs doPublish.
+// The chat's domain card, which has no field, passes `via` instead:
+//   fail(error)        show a failure on the card (a coded error, see
+//                      reservePublishSubdomain)
+//   publish(reserved)  run the card's publish, onto `reserved` (a promise of
+//                      the name), or with none to say why it can't start
+//   onDomain(domain)   the domain the user chose in Puter's window
+async function publishWithDomain(via = null) {
     const chatId = currentChatId;
-    if (!chatId || previewSubdomain(window.currentPublishedUrl) || _domainConnectBusy.has(chatId)) return;
+    if (!chatId || previewSubdomain(window.currentPublishedUrl) || _domainConnectBusy.has(chatId) || _reservingPublishNames.has(chatId)) return;
     if (!window.Branding.isSubscribed(window.user)) {
         openUpgradeModal('custom_domain');
         return;
     }
     // Whatever would stop the publish stops it before anything is reserved,
-    // and doPublish says why.
+    // and the publish says why.
     if (publishBlockedReason() || publishBusyHere() || _publishStarting.has(chatId) || !publishedRootDir()) {
-        doPublish();
+        if (via) via.publish(null);
+        else doPublish();
         return;
     }
+    const fail = via ? via.fail : alertOwnDomainPublishFailed;
     // The name in the field, which starts as the one an earlier try reserved
     // and didn't publish (the domain may be connected to it). Another name
-    // typed since replaces it, as a plain Publish's does.
-    const previous = _reservedPublishNames.get(chatId) || null;
-    const typed = String($('.preview-publish-panel .publish-name-input').val() || '').trim().toLowerCase();
+    // typed since replaces it, as a plain Publish's does. The chat's card
+    // gets that earlier name too, else one made from the project's title.
+    const previous = reservedPublishNameFor(chatId);
+    const typed = via ? '' : String($('.preview-publish-panel .publish-name-input').val() || '').trim().toLowerCase();
     const name = typed || previous || ownDomainSubdomainName(chatHistory);
     if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(name)) {
-        await puter.ui.alert('Please enter a valid address: lowercase letters, numbers, and hyphens only (it can’t start or end with a hyphen).');
-        $('.preview-publish-panel .publish-name-input').trigger('focus');
+        const e = new Error('invalid address');
+        e.code = 'invalid-name';
+        await fail(e);
         return;
     }
     _suggestedPublishName = name;
@@ -3916,31 +4001,78 @@ async function publishWithDomain() {
     } catch (e) {
         _domainConnectBusy.delete(chatId);
         _reservingPublishNames.delete(chatId);
-        if (currentChatId !== chatId) return;
-        rerenderPublishPanelForDomains();
-        if (e && e.code === 'name-taken') {
-            await puter.ui.alert('That address is already taken. Please choose another.');
-        } else if (e && e.code === 'subdomain-limit') {
-            await puter.ui.alert('You’ve reached the maximum number of published sites for your account. Delete a site you no longer need, then try publishing again.');
-        } else {
-            const msg = window.puterErrInfo(e).message;
-            await puter.ui.alert('Could not publish your site. Please try again.' + (msg ? '\n\n' + msg : ''));
-        }
-        $('.preview-publish-panel .publish-name-input').trigger('focus');
+        // The card reports it wherever the user is now (a toast once another
+        // project is open), as its plain publish does.
+        if (currentChatId === chatId) rerenderPublishPanelForDomains();
+        else if (!via) return;
+        await fail(e);
         return;
     }
     _domainConnectBusy.delete(chatId);
     _reservingPublishNames.delete(chatId);
-    // The name it replaces is no longer the project's: left, it would hold
-    // one of the account's sites with nothing on it.
-    if (previous && previous !== name) {
+    // The name the new one replaces, once a domain is on the new one: left,
+    // it would hold one of the account's sites with nothing on it. Until
+    // then it is still the project's, and its domain may be on it.
+    const dropPrevious = () => {
+        if (!previous || previous === name) return;
         Promise.resolve().then(() => puter.hosting.delete(previous))
             .catch((e) => console.warn('Publish: could not remove the reserved address:', e));
-    }
+    };
     // Another project opened meanwhile: the name stays reserved for a retry.
-    if (currentChatId !== chatId) return;
-    connectCustomDomain(name, { from: 'first_publish' });
-    doPublish({ reserved: Promise.resolve(name) });
+    if (currentChatId !== chatId) { dropPrevious(); return; }
+    // The window can be open for minutes, so a plain Publish isn't held
+    // meanwhile: it goes onto this name (leftReserved in publishProject).
+    let domain;
+    try {
+        domain = await connectCustomDomain(name, { from: via ? 'chat_first_publish' : 'first_publish', onDomain: via?.onDomain });
+    } catch (e) {
+        // What the window did is unknown, so the name stays, as after a
+        // failed publish.
+        console.warn('Custom domain: the domain window failed:', e);
+        dropPrevious();
+        return;
+    }
+    if (!domain) {
+        // Closed without a domain: nothing is published, and a name this
+        // press reserved is let go. Published anyway, it left the user a
+        // site they hadn't asked for. The earlier name is the project's
+        // again, as one this press reused stays: its domain may be on it.
+        if (name !== previous && await releaseReservedPublishName(chatId, name) && previous) {
+            _reservedPublishNames.set(chatId, previous);
+        }
+        if (currentChatId === chatId) rerenderPublishPanelForDomains();
+        return;
+    }
+    dropPrevious();
+    // Another project opened while the window was up: this one's next
+    // Publish goes onto the name, with its domain (reservedPublishNameFor).
+    // A plain Publish onto it meanwhile has put the site there, or is.
+    if (currentChatId !== chatId || previewSubdomain(window.currentPublishedUrl)
+        || window.isPublishInFlight(chatId) || _publishStarting.has(chatId)) return;
+    // A build or a restore started meanwhile stops the publish, which says
+    // so. The domain waits on the name, and the next Publish goes there.
+    if (via) via.publish(Promise.resolve(name));
+    else doPublish({ reserved: Promise.resolve(name) });
+}
+
+// Let go of a name an own-domain publish reserved and didn't use: the site
+// on it and its empty placeholder folder. Kept when Puter refuses, so the
+// next try reuses it, and when a plain Publish has taken it meanwhile (gone
+// from the map once it lands). Says whether it was let go.
+async function releaseReservedPublishName(chatId, name) {
+    if (_reservedPublishNames.get(chatId) !== name || window.isPublishInFlight(chatId) || _publishStarting.has(chatId)) return false;
+    _reservingPublishNames.add(chatId);
+    if (currentChatId === chatId) rerenderPublishPanelForDomains();
+    try {
+        try { await puter.hosting.delete(name); }
+        catch (e) { console.warn('Publish: could not remove the reserved address:', e); return false; }
+        _reservedPublishNames.delete(chatId);
+        try { await puter.fs.delete(publishedDirForChat(chatId) + '/' + RESERVED_RELEASE_NAME, { recursive: true }); }
+        catch (e) { /* best effort: the next publish removes it with the old releases */ }
+        return true;
+    } finally {
+        _reservingPublishNames.delete(chatId);
+    }
 }
 
 $(document).on('click', '.preview-publish-panel .publish-domain-action', function (e) {
@@ -6754,6 +6886,8 @@ async function refreshUserPlan() {
     if (window.Branding.isSubscribed(user) !== was) {
         updateUserMenu();
         if (_publishPanelOpen && !publishBusyHere()) renderPublishPanel();
+        // The chat's domain card goes from Upgrade to connecting a domain.
+        window.refreshPublishCards?.();
         // The Code view locks or unlocks editing to match.
         window.CodeEditor?.onPlanChanged?.();
     }

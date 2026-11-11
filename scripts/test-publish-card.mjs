@@ -26,6 +26,8 @@ const addressSource = read('../src/tools/chat_ui/address.js');
 const uiSource = read('../src/js/ui.js');
 const helpersSource = read('../src/js/helpers.js');
 const stateSource = read('../src/js/publish-state.js');
+const domainSource = read('../src/tools/chat_ui/domain.js');
+const customDomainSource = read('../src/js/custom-domain.js');
 
 function extract(src, signature) {
     const a = src.indexOf(signature);
@@ -48,6 +50,7 @@ function setup() {
         blocked: null,
         publishBusyHere: () => env.busy,
         publishBlockedReason: () => env.blocked,
+        previewSubdomain: (u) => ((u || '').match(/^https?:\/\/([^.]+)\.puter\.site/i) || [])[1] || null,
         badgeChangePending: () => false,
         publishProject: (ui) => { calls.push(ui); return Promise.resolve(); },
         puter: { randName: () => 'random-name' },
@@ -79,8 +82,20 @@ function setup() {
         },
         announce: (t) => announced.push(t),
         track: (event, props) => events.push({ event, props }),
+        // The user's own domain (tools/chat_ui/domain.js).
+        user: { username: 'u', subscribed: true },
+        Branding: { isSubscribed: (u) => !!(u && u.subscribed === true) },
+        currentPublishedDomains: [],
+        connecting: false,
+        isDomainConnecting: () => env.connecting,
+        domainCalls: [],
+        useOwnDomain: (action, via) => { env.domainCalls.push({ action, via }); },
+        panelOpens: 0,
+        openPublishPanelForDomain: () => { env.panelOpens++; },
+        publishedShareUrl: (url) => env.CustomDomain.liveUrl(env.currentPublishedDomains, (url || '').replace(/^https:\/\/|\.puter\.site\/$/g, ''), url),
     });
     vm.createContext(env);
+    vm.runInContext(customDomainSource, env);
     vm.runInContext(stateSource, env);
     vm.runInContext([
         extract(helpersSource, 'function htmlEscape(text) {'),
@@ -88,11 +103,13 @@ function setup() {
     ].join('\n\n'), env);
     vm.runInContext(cardSource, env);
     vm.runInContext(addressSource, env);
+    vm.runInContext(domainSource, env);
     const tool = env.tools.find(t => t.function.name === 'OfferPublish');
     const addressTool = env.tools.find(t => t.function.name === 'OfferAddressChange');
+    const domainTool = env.tools.find(t => t.function.name === 'OfferCustomDomain');
     const cards = () => chatBox.querySelectorAll('.publish-card');
     const q = (el, sel) => el.querySelector(sel);
-    return { env, dom, chatBox, tool, addressTool, cards, q, calls, events, announced };
+    return { env, dom, chatBox, tool, addressTool, domainTool, cards, q, calls, events, announced };
 }
 
 // ---- The tool --------------------------------------------------------------
@@ -357,6 +374,11 @@ function setup() {
     const css = read('../src/css/styles.css');
     const rule = (css.match(/\n\.publish-card-input \{[^}]*\}/) || [''])[0];
     check('the address field ends a cut address with an ellipsis', /text-overflow:\s*ellipsis/.test(rule), rule);
+    // The live address beside a button was cut the same way, and there is
+    // no field to scroll: the user couldn't read it. It wraps instead.
+    const link = (css.match(/\n\.publish-card-link \{[^}]*\}/) || [''])[0];
+    check('the site\'s link wraps a long address rather than cutting it', /overflow-wrap:\s*anywhere/.test(link)
+        && !/text-overflow|nowrap/.test(link), link);
 }
 
 // ---- An older card keeps the publish made from it ---------------------------
@@ -939,6 +961,236 @@ function setup() {
 }
 
 // ---- Wiring --------------------------------------------------------------------
+// ---- The user's own domain: OfferCustomDomain ------------------------------
+// The card in its domain mode. Its button is the popover's Use custom domain
+// (useOwnDomain, stubbed here; driven for real in test-custom-domain.mjs).
+const savedResult = (r) => ({ role: 'user', content: { type: 'tool_result', tool_use_id: 't9', content: JSON.stringify(r) } });
+{
+    const { domainTool, tool } = setup();
+    // The .puter.site address is picked for the user, as the popover's Use
+    // custom domain does, so the AI has none to give.
+    check('OfferCustomDomain is registered, with no parameters', !!domainTool
+        && domainTool.function.strict === false && domainTool.function.parameters.required.length === 0
+        && Object.keys(domainTool.function.parameters.properties).length === 0 && domainTool.function.parameters.additionalProperties === false);
+    check('…only when the user asks, and the user clicks', /only when the user asks/.test(domainTool.function.description)
+        && /can't connect a domain yourself/.test(domainTool.function.description) && /paid Puter plan/.test(domainTool.function.description));
+    check('OfferPublish sends an own-domain request to it', /own domain \(like example\.com\), call OfferCustomDomain instead/.test(tool.function.description));
+}
+{
+    const { env, domainTool, cards } = setup();
+    env.user = { is_temp: true };
+    const r = await domainTool.exec({}, {});
+    check('signed out: no card, and the AI says to sign in', cards().length === 0 && !r.__publish_offer && /sign in/.test(r.instruction));
+    env.user = { username: 'u', subscribed: true };
+    env.currentPreviewUrl = null;
+    const none = await domainTool.exec({}, {});
+    check('nothing built yet: an error and no card', none.error && cards().length === 0);
+}
+{
+    // Paid, before the first publish: Publish with your domain alone. The
+    // .puter.site address is picked for the user (publishWithDomain).
+    const t = setup();
+    const { env, domainTool, cards, q, calls, dom } = t;
+    env.blocked = 'task';
+    const r = await domainTool.exec({}, {});
+    const card = cards()[0];
+    check('first publish: a card, marked for reload as a domain card', r.__publish_offer === true && r.kind === 'domain'
+        && !('address' in r) && card.getAttribute('data-kind') === 'domain' && card.getAttribute('data-offer') === r.offer, JSON.stringify(r));
+    check('…with Publish with your domain across the card, and no address field or label', !q(card, '.publish-card-input')
+        && q(card, '.publish-card-row').className === 'publish-card-row is-solo' && q(card, '.publish-card-row').children.length === 1
+        && q(card, '.publish-card-btn').textContent === 'Publish with your domain');
+    check('…saying what the click does', q(card, '.publish-card-note').textContent === 'Pick a domain you own and follow the steps to connect it.');
+    check('…waiting while the turn runs, as Publish does', q(card, '.publish-card-btn').disabled === true);
+    check('…and the AI is told nothing is public until a domain is picked, with no address to offer', /Nothing is public until they pick a domain/.test(r.instruction)
+        && /address picked for it/.test(r.instruction) && !/can change/.test(r.instruction), r.instruction);
+    check('…counted', t.events.some(e => e.event === 'Custom Domain Card Shown' && e.props.paid === true && e.props.published === false));
+
+    env.blocked = null;
+    env.refreshPublishCards();
+    dom.dispatch(q(card, '.publish-card-btn'), 'click');
+    const call = env.domainCalls[0];
+    check('click: the popover\'s Use custom domain, in the click, with no name of its own', env.domainCalls.length === 1
+        && call.action === 'use-domain' && !('name' in call.via));
+    call.via.publish(Promise.resolve('joes-diner'));
+    check('…its publish is the card\'s, from the chat, onto the reserved name', calls.length === 1 && calls[0].source === 'chat'
+        && await calls[0].reserved === 'joes-diner');
+    // With no field to pick another, a taken name is a plain failure: the
+    // next press picks a new one.
+    const taken = new Error('taken'); taken.code = 'name-taken';
+    call.via.fail(taken);
+    check('…a taken name shows on the card as one to try again', q(card, '.publish-card-error')?.textContent === 'Couldn’t publish. Please try again.');
+    const limit = new Error('limit'); limit.code = 'subdomain-limit';
+    call.via.fail(limit);
+    check('…and the site limit as itself', /limit of published sites/.test(q(card, '.publish-card-error')?.textContent || ''));
+
+    env.connecting = true;
+    env.refreshPublishCards();
+    check('Puter\'s window open: the button waits, saying so', q(card, '.publish-card-btn').disabled === true
+        && /Connecting…/.test(q(card, '.publish-card-btn').textContent));
+    env.connecting = false;
+    env.busy = true;
+    env.refreshPublishCards();
+    check('publishing: it says so', /Publishing…/.test(q(card, '.publish-card-btn').textContent));
+    env.busy = false;
+
+    // The publish lands, then the domain is chosen.
+    env.chatHistory.push(savedResult(r));
+    env.currentPublishedUrl = 'https://joes-diner.puter.site/';
+    await calls[0].success({ url: 'https://joes-diner.puter.site/', isFirst: true });
+    env.currentPublishedDomains = [{ hostname: 'joescafe.com', site: 'joes-diner', status: 'pending', records: [] }];
+    await call.via.onDomain({ hostname: 'joescafe.com' });
+    check('the domain chosen is kept on the card\'s tool result', env.chatHistory[0].publishCardUrl === 'https://joescafe.com/');
+    // The puter.site address read as where the site had gone: the domain
+    // takes its place until it works.
+    check('…and the card goes on to the domain, not the puter.site address, while it waits for DNS',
+        q(card, '.publish-card-host')?.textContent === 'joescafe.com' && !q(card, '.publish-card-link')
+        && q(card, '.publish-card-btn').textContent === 'Check DNS records' && q(card, '.publish-card-note').textContent === 'Not connected yet.');
+    let stopped = false;
+    dom.dispatch(q(card, '.publish-card-btn'), 'click', { stopPropagation() { stopped = true; } });
+    check('…whose button opens Publish, where the records are, and not Puter\'s window', env.panelOpens === 1 && env.domainCalls.length === 1
+        && calls.length === 1);
+    check('…keeping the click from closing it again (it is outside the popover)', stopped);
+    // A publish that lands after the domain was chosen leaves the domain the record.
+    await calls[0].success({ url: 'https://joes-diner.puter.site/', isFirst: true });
+    check('…a publish landing after it doesn\'t replace that record', env.chatHistory[0].publishCardUrl === 'https://joescafe.com/');
+
+    // A newer card: this one reads Domain added.
+    env.renderPublishCard({ address: '', offer: 'offer-new' });
+    check('older: "Domain added", while it isn\'t working yet as plain text', /Domain added/.test(card.textContent)
+        && q(card, '.publish-card-host')?.textContent === 'joescafe.com' && !q(card, '.publish-card-link'));
+    env.currentPublishedDomains = [{ hostname: 'joescafe.com', site: 'joes-diner', status: 'active' }];
+    env.refreshPublishCards();
+    check('…a link once it works', q(card, '.publish-card-link')?.getAttribute('href') === 'https://joescafe.com/');
+    env.currentPublishedDomains = [];
+    env.refreshPublishCards();
+    check('…and struck through once it is no longer the project\'s', q(card, '.publish-card-gone')?.textContent === 'joescafe.com'
+        && /no longer connected/.test(card.textContent));
+}
+{
+    // Paid, live, no domain yet: the site and Use custom domain. Connecting
+    // publishes nothing, so a turn doesn't hold it up.
+    const { env, domainTool, cards, q, dom, calls } = setup();
+    env.currentPublishedUrl = 'https://cafe.puter.site/';
+    env.blocked = 'task';
+    const r = await domainTool.exec({}, {});
+    const card = cards()[0];
+    check('live: the site\'s link and Use custom domain, ready during the turn', q(card, '.publish-card-link')?.textContent === 'cafe.puter.site'
+        && q(card, '.publish-card-btn').textContent === 'Use custom domain' && q(card, '.publish-card-btn').disabled === false && !q(card, '.publish-card-input'));
+    check('…and the AI is told the site\'s address', /Use custom domain button/.test(r.instruction) && /https:\/\/cafe\.puter\.site\//.test(r.instruction));
+    dom.dispatch(q(card, '.publish-card-btn'), 'click');
+    check('click: the popover\'s Use custom domain, with nothing to publish', env.domainCalls[0]?.action === 'use-domain'
+        && typeof env.domainCalls[0].via.onDomain === 'function' && !env.domainCalls[0].via.publish && calls.length === 0);
+    env.isAddressChanging = () => true;
+    env.refreshPublishCards();
+    check('…but it waits for an address change, which would leave the domain behind', q(card, '.publish-card-btn').disabled === true);
+    env.isAddressChanging = () => false;
+    env.currentPublishedDomains = [{ hostname: 'cafe.com', site: 'cafe', status: 'active' }];
+    env.refreshPublishCards();
+    // Done: it reads as a plain card does once the site is up to date, with
+    // Change domain beside it.
+    check('a working domain: Live, with the domain as its link, and Change domain', /Live/.test(q(card, '.publish-live')?.textContent || '')
+        && q(card, '.publish-card-link')?.getAttribute('href') === 'https://cafe.com/' && q(card, '.publish-card-btn')?.textContent === 'Change domain'
+        && !q(card, '.publish-card-note'));
+    dom.dispatch(q(card, '.publish-card-btn'), 'click');
+    check('…which runs as one', env.domainCalls[1]?.action === 'change-domain');
+    env.currentPublishedDomains = [{ hostname: 'cafe.com', site: 'old-name', status: 'active' }];
+    env.refreshPublishCards();
+    check('a domain left on the old address: Connect again', q(card, '.publish-card-btn').textContent === 'Connect again'
+        && /old address/.test(q(card, '.publish-card-note').textContent));
+    env.currentPublishedDomains = [{ hostname: 'cafe.com', site: 'cafe', status: 'failed' }];
+    env.refreshPublishCards();
+    check('one Puter couldn\'t verify: the domain and Check DNS records', q(card, '.publish-card-host')?.textContent === 'cafe.com'
+        && q(card, '.publish-card-btn').textContent === 'Check DNS records' && q(card, '.publish-card-note').textContent === 'Puter couldn’t verify it.');
+    env.currentPublishedDomains = [{ hostname: 'cafe.com', site: 'cafe', status: 'active', lostAt: 1 }];
+    env.refreshPublishCards();
+    check('…and one that stopped working too', q(card, '.publish-card-btn').textContent === 'Check DNS records'
+        && q(card, '.publish-card-note').textContent === 'It stopped showing your site.');
+    dom.dispatch(q(card, '.publish-card-btn'), 'click');
+    check('…which opens Publish', env.panelOpens === 1 && env.domainCalls.length === 2);
+    env.currentPublishedDomains = [{ hostname: 'cafe.com', site: 'cafe', status: 'pending', records: [] }];
+    const waiting = await domainTool.exec({}, {});
+    check('the AI is told the button opens the DNS records', /Check DNS records button/.test(waiting.instruction)
+        && /lists the DNS records to add/.test(waiting.instruction), waiting.instruction);
+    env.currentPublishedDomains = [{ hostname: 'cafe.com', site: 'cafe', status: 'active' }];
+    const active = await domainTool.exec({}, {});
+    check('the AI is told a working domain is already the site\'s, with Change domain beside it', /already live on the user's domain, https:\/\/cafe\.com\//.test(active.instruction)
+        && /Change domain button/.test(active.instruction), active.instruction);
+}
+{
+    // The free plan: the button opens the upgrade, so it never waits.
+    const t = setup();
+    const { env, domainTool, cards, q } = t;
+    env.user = { username: 'u', subscribed: false };
+    env.blocked = 'task';
+    const r = await domainTool.exec({}, {});
+    const card = cards()[0];
+    check('free plan: Use custom domain alone, ready during the turn', q(card, '.publish-card-btn').textContent === 'Use custom domain'
+        && q(card, '.publish-card-btn').disabled === false && !q(card, '.publish-card-input'));
+    check('…saying it comes with a paid plan', /paid Puter plan/.test(q(card, '.publish-card-note').textContent));
+    check('…and the AI says the button opens the upgrade', /opens the upgrade/.test(r.instruction));
+    // The popover's heading counts as an upgrade prompt, and so does this.
+    check('…counted as an upgrade prompt', t.events.some(e => e.event === 'Upgrade Prompt Shown' && e.props.source === 'custom_domain'));
+    const fresh = setup();
+    fresh.env.user = { username: 'u', subscribed: false };
+    fresh.env.refreshUserPlan = async () => { fresh.env.user = { username: 'u', subscribed: true }; return fresh.env.user; };
+    const upgraded = await fresh.domainTool.exec({}, {});
+    check('the plan is read fresh: upgraded in another tab counts', /Publish with your domain button/.test(upgraded.instruction));
+    env.user = { username: 'u', subscribed: true };
+    env.refreshPublishCards();
+    check('after upgrading, the card offers the publish', q(card, '.publish-card-btn').textContent === 'Publish with your domain');
+}
+{
+    // A domain picked on a first publish that didn't land (a build started
+    // while Puter's window was open, it failed, or the page was reloaded):
+    // the card offered Puter's window again, and closing it published
+    // nothing. It shows the domain, and Publish puts the site on its name.
+    const t = setup();
+    const { env, domainTool, cards, q, dom, calls } = t;
+    env.reservedPublishName = () => 'joes-cafe';
+    env.currentPublishedDomains = [{ hostname: 'joescafe.com', site: 'joes-cafe', status: 'pending', records: [] }];
+    env.blocked = 'task';
+    const r = await domainTool.exec({}, {});
+    const card = cards()[0];
+    check('a picked domain whose site isn\'t published yet: the domain and Publish', q(card, '.publish-card-host')?.textContent === 'joescafe.com'
+        && q(card, '.publish-card-btn').textContent === 'Publish' && q(card, '.publish-card-note').textContent === 'Your site isn’t published yet.');
+    check('…waiting while the turn runs, as Publish does', q(card, '.publish-card-btn').disabled === true);
+    check('…and the AI is told so', /already picked joescafe\.com/.test(r.instruction) && /A Publish button/.test(r.instruction), r.instruction);
+    env.blocked = null;
+    env.refreshPublishCards();
+    dom.dispatch(q(card, '.publish-card-btn'), 'click');
+    check('…whose Publish is a plain one, onto the name (publishProject finds it), not Puter\'s window', calls.length === 1
+        && !calls[0].reserved && calls[0].desiredName() === '' && env.domainCalls.length === 0);
+    env.busy = true;
+    env.refreshPublishCards();
+    check('…saying Publishing… while it runs', /Publishing…/.test(q(card, '.publish-card-btn').textContent));
+    env.busy = false;
+    env.currentPublishedDomains = [{ hostname: 'joescafe.com', site: 'other', status: 'pending', records: [] }];
+    env.refreshPublishCards();
+    check('a domain on another name isn\'t taken for this one', q(card, '.publish-card-btn').textContent === 'Publish with your domain');
+}
+
+{
+    // A reloaded chat: the record of a domain card is its domain.
+    const { env, cards, q } = setup();
+    env.currentPublishedUrl = 'https://cafe.puter.site/';
+    env.currentPublishedDomains = [{ hostname: 'cafe.com', site: 'cafe', status: 'active' }];
+    env.renderPublishCard({ offer: 'o1', kind: 'domain', publishedUrl: 'https://cafe.com/' });
+    env.renderPublishCard({ offer: 'o2', kind: 'domain', publishedUrl: 'https://cafe.puter.site/' });
+    env.renderPublishCard({ offer: 'o3', kind: 'domain' });
+    env.renderPublishCard({ offer: 'o4' });
+    const [withDomain, published, unused] = cards();
+    check('reload: a domain card a domain was added from reads Domain added', /Domain added/.test(withDomain.textContent)
+        && q(withDomain, '.publish-card-link')?.getAttribute('href') === 'https://cafe.com/');
+    check('…one that only published reads Published', /Published/.test(published.textContent));
+    check('…and an unused one is hidden', unused.classList.contains('is-superseded'));
+}
+
+{
+    const vite = read('../vite.config.js');
+    check('the domain tool is bundled after the card', vite.indexOf("'tools/chat_ui/domain.js'") > vite.indexOf("'tools/chat_ui/publish.js'"));
+    check('nor does OfferCustomDomain write files', /PREVIEW_SAFE_TOOLS = new Set\(\[[\s\S]*'OfferCustomDomain'[\s\S]*?\]\)/.test(read('../src/js/tools.js')));
+}
+
 {
     const vite = read('../vite.config.js');
     check('bundled after ui.js', vite.indexOf("'tools/chat_ui/publish.js'") > vite.indexOf("'js/ui.js'"));

@@ -2631,17 +2631,25 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
     text-overflow: ellipsis;
 }
 .publish-card-input:disabled { color: #8a8a8a; }
+/* A long address wraps, after its hyphens where it can. Cut off with an
+   ellipsis beside the button, the user couldn't read where their site is. */
 .publish-card-link {
     flex: 1 1 auto;
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
     font-size: 13px;
     color: #1a5fb4;
     text-decoration: none;
 }
 .publish-card-link:hover { text-decoration: underline; }
+/* A domain that isn't working yet, on a domain card or an older one that
+   added it: plain text in the link's place, wrapped as the link is. */
+.publish-card-host {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: 13px;
+}
 .publish-card .publish-live { flex: 0 0 auto; }
 .publish-card-btn {
     flex: 0 0 auto;
@@ -2664,6 +2672,13 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
 .publish-card-btn:hover { background: #0858c2; }
 .publish-card-btn:disabled { background: #9bbfe6; cursor: default; }
 .publish-card-btn svg { display: block; flex: 0 0 auto; }
+/* A button with nothing beside it (the domain card before a first publish)
+   spans the card, as it does under the address field on a narrow one. */
+.publish-card-row.is-solo > .publish-card-btn {
+    flex: 1 1 auto;
+    margin-left: -6px;
+    justify-content: center;
+}
 .publish-card.is-superseded { display: none; }
 /* Holds focus while its button is disabled for a publish; it's not a
    control, so no focus ring (like the Publish popover). */
@@ -7703,6 +7718,7 @@ html[data-theme="dark"] .publish-card-btn:hover { background: #8cc2ff; }
 html[data-theme="dark"] .publish-card-btn:disabled { background: rgba(108, 176, 245, 0.4); }
 html[data-theme="dark"] .publish-card-error { color: var(--danger); }
 html[data-theme="dark"] .publish-card-done { color: var(--text-secondary); }
+html[data-theme="dark"] .publish-card-host { color: var(--text); }
 html[data-theme="dark"] .publish-card-gone,
 html[data-theme="dark"] .publish-card-note { color: var(--text-muted); }
 html[data-theme="dark"] .upgrade-card-btn,
