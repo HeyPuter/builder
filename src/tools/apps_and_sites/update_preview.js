@@ -64,6 +64,10 @@ window.tools.push({
             return { success: true };
         }
 
+        // A project the AI started from a template this turn has its preview
+        // held back until now, the end of its changes (templates.js).
+        window.revealHeldPreview?.(state);
+
         // Reload the live preview AND verify the freshly-loaded app actually runs.
         // window.verifyPreview triggers the same background refresh this tool used
         // to fire directly (an "Updating preview…" overlay, a wait for the changes

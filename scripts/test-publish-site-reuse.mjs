@@ -18,7 +18,7 @@ function check(name, cond, detail) {
 
 const src = fs.readFileSync(new URL('../src/tools/apps_and_sites/publish_site.js', import.meta.url), 'utf8');
 
-function world({ currentPreviewUrl = null, updateFails = false, stale = false } = {}) {
+function world({ currentPreviewUrl = null, updateFails = false, stale = false, held = null } = {}) {
     const calls = [];
     let n = 0;
     const win = {
@@ -29,7 +29,10 @@ function world({ currentPreviewUrl = null, updateFails = false, stale = false } 
         isStaleTurn: () => stale,
         isAborted: () => false,
         showAppPreview: (url) => calls.push(['show', url]),
-        maybeAutoNameProject: () => {},
+        maybeAutoNameProject: () => calls.push(['name']),
+        // A template's preview, held back until the turn's changes are in
+        // (templates.js).
+        heldPreviewFor: (chatId) => (held && chatId === 'c1' ? held : null),
     };
     const puter = {
         hosting: {
@@ -70,6 +73,23 @@ function world({ currentPreviewUrl = null, updateFails = false, stale = false } 
     const w = world({ currentPreviewUrl: 'https://preview-other-project.puter.site/', stale: true });
     await w.run('/u/app/c1');
     check('a turn whose project is no longer open never re-points the open project\'s draft', w.calls[0][0] === 'create', JSON.stringify(w.calls));
+}
+
+{
+    const held = { url: null, path: null };
+    const w = world({ held });
+    const res = await w.run('/u/app/c1');
+    check('a held preview is hosted on a new draft site', res.url === 'https://preview-new-1.puter.site/' && w.calls[0][0] === 'create', JSON.stringify(w.calls));
+    check('…which is recorded on the hold', held.url === res.url && held.path === '/u/app/c1');
+    check('…but not shown, the project not named, and the open preview left alone',
+        !w.calls.some((c) => c[0] === 'show' || c[0] === 'name') && w.win.currentPreviewPath === undefined, JSON.stringify(w.calls));
+}
+{
+    const held = { url: 'https://preview-held-1.puter.site/', path: '/u/app/c1' };
+    const w = world({ held, currentPreviewUrl: 'https://preview-other-project.puter.site/', stale: true });
+    const res = await w.run('/u/app/c1');
+    check('calling it again while held re-points the held draft, even after the user left, never the open project\'s',
+        w.calls[0][0] === 'update' && w.calls[0][1] === 'preview-held-1' && res.url === held.url && !w.calls.some((c) => c[0] === 'show'), JSON.stringify(w.calls));
 }
 
 if (failures) { console.error(`\n${failures} check(s) FAILED`); process.exit(1); }

@@ -325,7 +325,7 @@ function makeEnv(opts = {}) {
     const deletedWorkers = [];
     const sites = [];
     const deletedSites = [];
-    const log = { alerts: [], toasts: [], tracked: [], loads: [], versions: [], previews: [], loading: 0, hid: 0, fetches: [], published: [], dom: [] };
+    const log = { alerts: [], toasts: [], tracked: [], loads: [], versions: [], previews: [], named: [], loading: 0, hid: 0, fetches: [], published: [], dom: [] };
     const extraFiles = new Map(); // url -> text, for synthetic templates
     for (const x of (opts.extra || [])) for (const [p, text] of Object.entries(x.files)) extraFiles.set(`/template-files/${x.entry.slug}/${x.entry.version}/${p}`, text);
     const index = fixtureIndex(opts.extra);
@@ -435,12 +435,18 @@ function makeEnv(opts = {}) {
         isNotFoundError: (e) => !!(e && e.code === 'subject_does_not_exist'),
         isAborted: (c) => !!(c && c.signal && c.signal.aborted),
         isStaleTurn: (state) => !!(state && state.stale),
+        // Hosts a held preview without showing it, as the real one does
+        // (scripts/test-publish-site-reuse.mjs).
         tools: [{
             function: { name: 'publish_site' },
-            exec: async (args) => {
+            exec: async (args, state) => {
                 log.published.push(args.path);
                 if (opts.failPublish) throw new Error('hosting failed');
-                return { success: true, url: 'https://preview-0000.puter.site/' };
+                const url = 'https://preview-0000.puter.site/';
+                const held = ctx.heldPreviewFor(state && state.currentChatId);
+                if (held) Object.assign(held, { url, path: args.path });
+                else ctx.showAppPreview(url, { waitForReady: true });
+                return { success: true, url };
             },
         }],
         withFileLock: (p, fn) => fn(),
@@ -453,6 +459,7 @@ function makeEnv(opts = {}) {
         showProjectLoading: () => { log.loading++; },
         hideProjectLoading: () => { log.hid++; },
         showAppPreview: (url, o) => log.previews.push([url, o]),
+        maybeAutoNameProject: (state) => log.named.push(state && state.currentChatId),
         createProjectVersion: (o) => { log.versions.push(o); return Promise.resolve(); },
         BuilderHandoff: { take: async (id) => (opts.handoff && opts.handoff[id]) || null },
     };
@@ -678,6 +685,7 @@ if (built) {
     // 3b. The AI's pick: UseTemplate copies a template into the open project
     // =========================================================================
     const turn = (env, patch = {}) => ({
+        currentChatId: 'chat_open',
         appDir: env.appDir,
         abortController: new AbortController(),
         chatHistory: [
@@ -701,8 +709,21 @@ if (built) {
             env.underApp().length === t.files.length);
         check('UseTemplate: no new project is made, and the open one is not reloaded',
             !env.chatFile() && env.ctx.savedChats.length === 0 && env.log.loads.length === 0 && env.log.loading === 0);
-        check('UseTemplate: the preview is opened through publish_site, on the project directory',
+        check('UseTemplate: the preview is hosted through publish_site, on the project directory',
             env.log.published.length === 1 && env.log.published[0] === env.appDir && out.preview_url === 'https://preview-0000.puter.site/');
+        const held = env.ctx.heldPreviewFor('chat_open');
+        check('UseTemplate: the preview is held back, not shown, and the project is not named yet',
+            env.log.previews.length === 0 && env.log.named.length === 0 &&
+            held && held.url === 'https://preview-0000.puter.site/' && held.path === env.appDir);
+        check('UseTemplate: the result says the user sees the preview once update_preview runs',
+            /once you call update_preview after your changes/.test(out.note));
+        env.ctx.revealHeldPreview(state);
+        check('revealHeldPreview: shows the held preview once it is ready, on its directory, and names the project',
+            env.log.previews.length === 1 && env.log.previews[0][0] === 'https://preview-0000.puter.site/' &&
+            env.log.previews[0][1].waitForReady === true && env.ctx.currentPreviewPath === env.appDir &&
+            env.log.named.length === 1 && env.log.named[0] === 'chat_open');
+        env.ctx.revealHeldPreview(state);
+        check('revealHeldPreview: only once', env.log.previews.length === 1 && env.log.named.length === 1 && env.ctx.heldPreviewFor('chat_open') === null);
         check('UseTemplate: the system message gains a fork\'s note after its two blocks, which are untouched',
             sys.content.length === 3 && sys.content[0].text === 'COMMON' && sys.content[0].cache_control.ttl === '1h' &&
             sys.content[1].text === 'WORKDIR ' + env.appDir && /Product Landing Page/.test(sys.content[2].text) &&
@@ -731,6 +752,20 @@ if (built) {
         const out = await env.ctx.useTemplate('landing-page', state);
         check('UseTemplate: a turn the user left mid-copy still gets its project',
             out.success && state.chatHistory[0].templateOrigin.via === 'ai');
+    }
+    {
+        const env = makeEnv();
+        const state = turn(env);
+        await env.ctx.useTemplate('landing-page', state);
+        state.stale = true;
+        env.ctx.revealHeldPreview(state);
+        check('revealHeldPreview: a turn the user has left shows nothing in the open project, and lets go of the hold',
+            env.log.previews.length === 0 && env.log.named.length === 0 && env.ctx.heldPreviewFor('chat_open') === null);
+    }
+    {
+        const env = makeEnv();
+        env.ctx.revealHeldPreview({ currentChatId: 'chat_open' });
+        check('revealHeldPreview: a turn with nothing held does nothing', env.log.previews.length === 0 && env.log.named.length === 0);
     }
     {
         const env = makeEnv({ existing: { 'assets/logo.png': 'PNG' } });
@@ -818,6 +853,8 @@ if (built) {
         check('UseTemplate: a preview that will not open keeps the copy and asks the model to open one',
             out.success && !('preview_url' in out) && /call publish_site once/.test(out.note) &&
             !state.chatHistory[0].content[2].text.includes('publish_site'));
+        check('UseTemplate: a preview that will not open is not held, so the model\'s publish_site shows it at once',
+            env.ctx.heldPreviewFor('chat_open') === null);
     }
     {
         const env = makeEnv({ aiFlagOff: true });
@@ -1050,6 +1087,14 @@ check('the template files are stable-path files to the service worker (fetched f
         send.indexOf('window.templateCatalogNote?.()') < send.indexOf('turnSaveContext.chatHistory.push({ role: "user", content: messageContent, messageId });'));
     check('the suggestion and naming transcripts leave the list out',
         /p\.type === 'text-hidden' && window\.TemplateCore\?\.isCatalogNote\(p\.text\) \? null/.test(APP));
+    check('the end of a turn shows a held preview before its snapshot and save, unless a newer turn has the chat',
+        /if \(!supersededSameChat\) window\.revealHeldPreview\?\.\(turnSaveContext\);/.test(send) &&
+        send.indexOf('window.revealHeldPreview?.(turnSaveContext)') < send.indexOf('window.createProjectVersion?.(') &&
+        send.indexOf('window.revealHeldPreview?.(turnSaveContext)') < send.indexOf('if (!supersededSameChat) scheduleSaveCurrentChat(turnSaveContext);'));
+    check('update_preview shows a held preview before it verifies the app',
+        /window\.revealHeldPreview\?\.\(state\);[\s\S]*?window\.verifyPreview\(state\)/.test(read('../src/tools/apps_and_sites/update_preview.js')));
+    check('saving the open chat records a held preview\'s address and directory',
+        /const held = window\.heldPreviewFor\?\.\(chatId\);\s*previewUrl = window\.currentPreviewUrl \|\| \(held && held\.url\) \|\| null;[\s\S]{0,250}previewPath = window\.currentPreviewPath \|\| \(held && held\.path\) \|\| null;/.test(APP));
     check('loadChat draws no note from UseTemplate\'s result',
         !APP.includes('__template_used') && !APP.includes('renderTemplateUsedNote'));
     check('the AI\'s pick gets no "started from" note above the conversation',

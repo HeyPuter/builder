@@ -383,10 +383,13 @@ async function saveCurrentChatUnlocked(context) {
         } catch (e) { interrupted = false; }
     }
     if (chatId === currentChatId) {
-        previewUrl = window.currentPreviewUrl || null;
+        // Or the preview a template the AI picked is holding back (templates.js),
+        // so a reload mid-turn still finds it.
+        const held = window.heldPreviewFor?.(chatId);
+        previewUrl = window.currentPreviewUrl || (held && held.url) || null;
         // The published root dir (may be a subdir of the app dir); needed so the
         // CDN-propagation probe writes its marker into the actually-served dir.
-        previewPath = window.currentPreviewPath || null;
+        previewPath = window.currentPreviewPath || (held && held.path) || null;
         publishedUrl = window.currentPublishedUrl || null;
         publishedPath = window.currentPublishedPath || null;
         publishedVersionId = window.currentPublishedVersionId || null;
@@ -5884,6 +5887,10 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // this turn's label, and its cap prune could delete the version being
         // restored.
         supersededSameChat = _latestTurnSeqByChat.get(turnChatId) !== turnSeq;
+        // A template the AI started from this turn opens its preview now, if
+        // update_preview didn't, so the snapshot and the save below have it.
+        // Not under a newer turn, which may still be changing the files.
+        if (!supersededSameChat) window.revealHeldPreview?.(turnSaveContext);
         const restoredSince = (window.restoresStartedFor?.(turnChatId) || 0) !== turnRestoreGen;
         if (!supersededSameChat && !restoredSince && window._filesChangedThisTurn > 0) {
             // The fallback label (truncated message) is written with the snapshot

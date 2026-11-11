@@ -427,6 +427,35 @@
         return core().catalogNote(list);
     }
 
+    // The preview of a project the AI just started from a template, by chat
+    // id, while it waits for the turn's changes. Shown first, the template's
+    // own placeholder business ("Small Hours") was replaced by the user's a
+    // minute later, and the project was named after it. useTemplate holds
+    // it, publish_site hosts it without showing it, saveChat records it, and
+    // revealHeldPreview shows it, from update_preview or as the turn ends.
+    // By chat id and not on the turn's context, which a retried attempt
+    // replaces.
+    const heldPreviews = new Map();
+
+    function heldPreviewFor(chatId) {
+        return (chatId != null && heldPreviews.get(chatId)) || null;
+    }
+
+    // Show the turn's held preview and name the project, as publish_site
+    // does for one it shows at once. Not for a turn the user has left, whose
+    // panes are another project's. Its saves have recorded the address, so
+    // the preview shows when the user opens the project again.
+    function revealHeldPreview(state) {
+        const chatId = state && state.currentChatId;
+        const held = heldPreviewFor(chatId);
+        if (!held) return;
+        heldPreviews.delete(chatId);
+        if (!held.url || window.isStaleTurn?.(state)) return;
+        window.currentPreviewPath = held.path;
+        window.showAppPreview?.(held.url, { waitForReady: true });
+        window.maybeAutoNameProject?.(state);
+    }
+
     // Copy template `slug` into the turn's project, for UseTemplate. Only into
     // a project with nothing in it yet but the user's attachments: a
     // template's files would overwrite their work. The project then ends up
@@ -468,10 +497,13 @@
         }
         window.track?.('Template Used', { template: template.slug, source: 'ai' });
 
-        // The preview, opened the way publish_site opens one, which leaves the
-        // panes alone for a turn the user has left. A failure leaves that to
-        // the model, which the result tells.
+        // The preview, hosted through publish_site but held back until the
+        // turn's changes are in (revealHeldPreview), so the user never sees
+        // the template's placeholder business before their own. A failure
+        // leaves the preview to the model, which the result tells.
         let previewUrl = null;
+        const chatId = state && state.currentChatId;
+        if (chatId != null) heldPreviews.set(chatId, { url: null, path: null });
         try {
             const publish = window.tools.find(t => t && t.function && t.function.name === 'publish_site');
             const site = publish ? await publish.exec({ path: appDir }, state) : null;
@@ -479,6 +511,7 @@
         } catch (e) {
             console.warn('Template: could not open a preview for the project:', e);
         }
+        if (!previewUrl) heldPreviews.delete(chatId);
 
         const files = installedFiles(template, deployed);
         const sys = history && history[0] && history[0].role === 'system' ? history[0] : null;
@@ -507,7 +540,7 @@
         }
         if (template.instructions) out.rules = template.instructions;
         out.note = `The "${template.name}" template is now in the working directory`
-            + (previewUrl ? ', and the live preview shows it, so do not call publish_site.' : ". The preview didn't open, so call publish_site once.")
+            + (previewUrl ? '. The user sees it in the live preview once you call update_preview after your changes, so do not call publish_site.' : ". The preview didn't open, so call publish_site once.")
             + ' Make the user\'s request on top of it: read only the files their changes touch, then change them with edit or multi_edit. Do not rewrite the app from scratch.'
             + (template.instructions ? ' Keep following the rules above for as long as the project lives.' : '')
             + ' In your closing reply, describe the app as a whole, including what the template came with that the user didn\'t ask for, and point out any placeholder text or sample data they should replace. Don\'t mention the template unless the user asks about it.';
@@ -691,6 +724,8 @@
     window.renderTemplateOriginNote = renderTemplateOriginNote;
     window.templateCatalogNote = templateCatalogNote;
     window.useTemplate = useTemplate;
+    window.heldPreviewFor = heldPreviewFor;
+    window.revealHeldPreview = revealHeldPreview;
     window.forkTemplate = forkTemplate;
     window.captureTemplateDeepLink = captureTemplateDeepLink;
     window.consumeTemplateDeepLink = consumeTemplateDeepLink;
