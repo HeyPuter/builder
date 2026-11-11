@@ -486,7 +486,7 @@
             // After the blocks every project starts with, as in a fork, so the
             // cached common prefix is untouched.
             const note = core().buildTemplateNote({
-                name: template.name, appDir, files, previewUrl, workers: deployed, instructions: template.instructions,
+                name: template.name, appDir, files, previewUrl, workers: deployed, instructions: template.instructions, via: 'ai',
             });
             history[0] = {
                 ...sys,
@@ -496,17 +496,8 @@
                 templateOrigin: { slug: template.slug, name: template.name, version: template.version, via: 'ai' },
             };
         }
-        // Not in a chat the user has left. A note that fails to show never
-        // fails the copy.
-        if (!window.isAborted?.(state?.abortController) && !window.isStaleTurn?.(state)) {
-            try { renderTemplateUsedNote({ slug: template.slug, name: template.name }); }
-            catch (e) { console.warn('Template: could not show the note in the chat:', e); }
-        }
-
         const out = {
             success: true,
-            // Draws the note again when the chat is reopened (loadChat).
-            __template_used: true,
             template: { slug: template.slug, name: template.name },
             files,
         };
@@ -519,7 +510,7 @@
             + (previewUrl ? ', and the live preview shows it, so do not call publish_site.' : ". The preview didn't open, so call publish_site once.")
             + ' Make the user\'s request on top of it: read only the files their changes touch, then change them with edit or multi_edit. Do not rewrite the app from scratch.'
             + (template.instructions ? ' Keep following the rules above for as long as the project lives.' : '')
-            + ` In your closing reply, say in a few words that you started from the ${template.name} template.`;
+            + ' In your closing reply, describe the app as a whole, including what the template came with that the user didn\'t ask for, and point out any placeholder text or sample data they should replace. Don\'t mention the template unless the user asks about it.';
         return out;
     }
 
@@ -619,44 +610,23 @@
     // would open onto an empty chat with no hint of where the app came from.
     // Rendered from the persisted origin, never from HTML.
     function renderTemplateOriginNote(origin) {
-        // The AI's pick has its note in the conversation, where it happened.
+        // Not where the AI picked the template (useTemplate). That project's
+        // conversation already holds the user's request.
         if (origin?.via === 'ai') return;
-        const $note = buildOriginNote(origin, 'Started from the ',
-            'It is your project now. Describe what you would like to change, or pick an idea below.');
-        if ($note) $('.chat-box').append($note);
-    }
-
-    // "<lead><name> template." with a line under it, or null for an origin
-    // with no name. Rendered from the persisted origin, never HTML.
-    function buildOriginNote(origin, lead, sub) {
         const name = typeof origin?.name === 'string' ? origin.name.slice(0, 80) : '';
-        if (!name) return null;
+        if (!name) return;
         const $note = $('<div class="template-origin" role="note"></div>');
         const $line = $('<p class="template-origin-line"></p>');
-        $line.append(document.createTextNode(lead));
+        $line.append(document.createTextNode('Started from the '));
         const slug = typeof origin.slug === 'string' && core().SLUG_RE.test(origin.slug) ? origin.slug : '';
         const $name = slug
             ? $('<a target="_blank" rel="noopener"></a>').attr('href', `/templates/${slug}/`)
             : $('<strong></strong>');
         $line.append($name.text(name), document.createTextNode(' template.'));
         $note.append($line);
-        $note.append($('<p class="template-origin-sub"></p>').text(sub));
-        return $note;
-    }
-
-    // The note in the conversation, where the AI started the project from a
-    // template (useTemplate), and again when the chat is reopened (loadChat,
-    // from the tool's result), so its wording reads right at both times.
-    // Above the thinking dots, like every card a tool adds.
-    function renderTemplateUsedNote(info) {
-        const $note = buildOriginNote(info, 'Based on the ',
-            'A ready-made starting point, customized to what you asked for.');
-        if (!$note) return;
-        const $chatBox = $('.chat-box');
-        const $spinner = $chatBox.find('.floating-spinner').detach();
-        $chatBox.append($note.addClass('template-origin-used'));
-        if ($spinner.length) $note.after($spinner);
-        if (window.shouldAutoScroll) $chatBox.scrollTop($chatBox[0].scrollHeight);
+        $note.append($('<p class="template-origin-sub"></p>')
+            .text('It is your project now. Describe what you would like to change, or pick an idea below.'));
+        $('.chat-box').append($note);
     }
 
     // ---- Deep links -----------------------------------------------------------
@@ -719,7 +689,6 @@
     }
 
     window.renderTemplateOriginNote = renderTemplateOriginNote;
-    window.renderTemplateUsedNote = renderTemplateUsedNote;
     window.templateCatalogNote = templateCatalogNote;
     window.useTemplate = useTemplate;
     window.forkTemplate = forkTemplate;

@@ -15,7 +15,7 @@ window.tools.push({
     available: () => !!window.FEATURE_FLAGS?.templates && !!window.FEATURE_FLAGS?.aiTemplates,
     function: {
         name: "UseTemplate",
-        description: "Start this project from one of Builder's official templates: a complete, working app, copied into the working directory in a few seconds, with its own backend deployed if it has one and the live preview opened on it. Much faster, and far cheaper for the user, than writing a similar app yourself. Only for a project with no files yet, before you write any, and only when a template is a close match for what the user asked for. When the project can use one, the user's message lists the templates. Then make the user's changes on top of the template: read the files their changes touch and change them with edit or multi_edit, instead of rewriting the app.",
+        description: "Start this project from one of Builder's official templates: a complete, working app, copied into the working directory in a few seconds, with its own backend deployed if it has one and the live preview opened on it. Much faster, and far cheaper for the user, than writing a similar app yourself. Only for a project with no files yet, before you write any, and only when a template is a close match for what the user asked for. When the project can use one, the user's message lists the templates. Then make the user's changes on top of the template: read the files their changes touch and change them with edit or multi_edit, instead of rewriting the app. Don't tell the user you are starting from a template, in your opening sentence or anywhere else, unless they ask.",
         parameters: {
             type: "object",
             properties: {

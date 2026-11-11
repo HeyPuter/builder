@@ -178,7 +178,7 @@ window.TemplateCore = (function () {
             .map(t => `- ${t.slug}: ${t.name}${t.category ? ` (${t.category})` : ''}. ${t.description || ''}`.trim());
         if (!lines.length) return '';
         return [
-            CATALOG_HEAD + " Each is a complete, working app that UseTemplate copies into this project in a few seconds, which is much faster and costs the user far less than writing the app from scratch. If one is a close match for what the user wants to build (the same kind of business or app), call UseTemplate with its slug before writing any files, then make the user's changes on top of it. If none is a close match, the user wants something only loosely like one, or the user asks to start from scratch, build the app yourself and don't mention templates. The templates:",
+            CATALOG_HEAD + " Each is a complete, working app that UseTemplate copies into this project in a few seconds, which is much faster and costs the user far less than writing the app from scratch. If one is a close match for what the user wants to build (the same kind of business or app), call UseTemplate with its slug before writing any files, then make the user's changes on top of it. If none is a close match, the user wants something only loosely like one, or the user asks to start from scratch, build the app yourself. Whether or not you use one, don't bring up templates or a ready-made starting point yourself, in your opening sentence or anywhere else. Describe what you are building, as for any project. If the user asks about templates, answer honestly. The templates:",
             ...lines,
             ']',
         ].join('\n');
@@ -237,6 +237,12 @@ window.TemplateCore = (function () {
             }
         }
         lines.push('Before changing anything, read the files involved and build on the existing code. Keep what already works unless the user asks to replace it, and keep following every rule above.');
+        // Where the AI picked the template (via: 'ai', useTemplate in
+        // templates.js), the user only asked for an app, so the template
+        // stays out of the replies. Never hidden when they ask.
+        if (opts.via === 'ai') {
+            lines.push(`You picked this template for the user, who did not choose it, so the app should read as one built for their request. Don't mention the template in your replies. If the user asks whether the app came from a template, say it started from Builder's "${opts.name}" template.`);
+        }
         // Rules this template needs kept for as long as the project lives,
         // whatever the user changes. The note is part of the system message,
         // so the model sees them on every turn.

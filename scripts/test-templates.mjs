@@ -158,6 +158,12 @@ check('titles are disambiguated against existing projects',
     const ruled = core.buildTemplateNote({ name: 'Notes', appDir, files: ['index.html'], workers: [], instructions: '- Keep the tags.' });
     check('a template\'s instructions end the note, marked as rules that outlast the user\'s changes',
         /Rules for this "Notes" project\. Keep following them through every change/.test(ruled) && ruled.endsWith('\n- Keep the tags.'));
+    check('a fork\'s note (the user picked the template) leaves the replies alone', !/mention the template/.test(note));
+    const picked = core.buildTemplateNote({ name: 'Notes', appDir, files: ['index.html'], workers: [], instructions: '- Keep the tags.', via: 'ai' });
+    check('the AI\'s pick keeps the template out of the replies, but never hides it when asked, and its rules still end the note',
+        /Don't mention the template in your replies\./.test(picked) &&
+        /If the user asks whether the app came from a template, say it started from Builder's "Notes" template\./.test(picked) &&
+        picked.endsWith('\n- Keep the tags.'));
 
     // "Make a copy" of a fork: duplicateChat rewrites the app dir, then
     // WorkerOwnership.rewriteHistory rewrites worker URLs and source paths.
@@ -183,7 +189,10 @@ check('titles are disambiguated against existing projects',
     check('catalogNote: one line per template, slug first, with its category and sentence',
         note.includes('\n- notes: Notes (App). A notes app.\n') && note.includes('\n- shop: Shop. A shop.\n'));
     check('catalogNote: tells the model when to use one and when to build from scratch',
-        /call UseTemplate with its slug before writing any files/.test(note) && /build the app yourself and don't mention templates/.test(note));
+        /call UseTemplate with its slug before writing any files/.test(note) && /build the app yourself\./.test(note));
+    check('catalogNote: the model never brings up templates itself, opening sentence included, but answers when asked',
+        /don't bring up templates or a ready-made starting point yourself, in your opening sentence or anywhere else\./.test(note) &&
+        /If the user asks about templates, answer honestly\./.test(note));
     check('catalogNote: no templates is no note', core.catalogNote([]) === '' && core.catalogNote(null) === '');
     check('catalogNote: an entry with a bad slug or no name is left out',
         !core.catalogNote([{ slug: '../x', name: 'X' }, { slug: 'y', name: '' }]));
@@ -697,28 +706,31 @@ if (built) {
         check('UseTemplate: the system message gains a fork\'s note after its two blocks, which are untouched',
             sys.content.length === 3 && sys.content[0].text === 'COMMON' && sys.content[0].cache_control.ttl === '1h' &&
             sys.content[1].text === 'WORKDIR ' + env.appDir && /Product Landing Page/.test(sys.content[2].text) &&
-            sys.content[2].text.includes('do not call publish_site'));
+            sys.content[2].text.includes('do not call publish_site') && /Don't mention the template in your replies/.test(sys.content[2].text));
         check('UseTemplate: the origin is recorded, marked as the AI\'s choice',
             sys.templateOrigin.slug === 'landing-page' && sys.templateOrigin.version === t.version && sys.templateOrigin.via === 'ai' &&
             core.originSlug(state.chatHistory) === 'landing-page');
         check('UseTemplate: the conversation after the system message is left as it was',
             state.chatHistory.length === 2 && state.chatHistory[1].content === 'Build a landing page for my app');
         check('UseTemplate: the result lists the files and tells the model to edit on top of the template',
-            out.success === true && out.__template_used === true && out.template.slug === 'landing-page' &&
+            out.success === true && out.template.slug === 'landing-page' &&
             out.files.includes('index.html') && /do not call publish_site/.test(out.note) && /edit or multi_edit/.test(out.note) &&
             !('workers' in out) && !('rules' in out));
+        check('UseTemplate: the closing reply describes the whole app, placeholders included, and leaves the template out',
+            /describe the app as a whole/.test(out.note) && /placeholder text or sample data/.test(out.note) &&
+            /Don't mention the template unless the user asks about it\./.test(out.note) && !/started from/.test(out.note));
         check('UseTemplate: counted as used by the AI',
             env.log.tracked.some(([e, p]) => e === 'Template Used' && p.template === 'landing-page' && p.source === 'ai'));
-        check('UseTemplate: the "started from" note is added to the conversation',
-            env.log.dom.includes('<div class="template-origin" role="note"></div>') && env.log.dom.includes('.chat-box'));
+        check('UseTemplate: no note about the template is added to the conversation',
+            !env.log.dom.includes('<div class="template-origin" role="note"></div>') && !env.log.dom.includes('.chat-box'));
     }
     {
         const env = makeEnv();
         const state = turn(env);
         env.ctx.tools[0].exec = async () => { state.stale = true; return { success: true, url: 'https://preview-0000.puter.site/' }; };
         const out = await env.ctx.useTemplate('landing-page', state);
-        check('UseTemplate: a turn the user left mid-copy still gets its project, but no note in the chat they moved to',
-            out.success && state.chatHistory[0].templateOrigin.via === 'ai' && !env.log.dom.includes('.chat-box'));
+        check('UseTemplate: a turn the user left mid-copy still gets its project',
+            out.success && state.chatHistory[0].templateOrigin.via === 'ai');
     }
     {
         const env = makeEnv({ existing: { 'assets/logo.png': 'PNG' } });
@@ -1019,6 +1031,8 @@ check('the template files are stable-path files to the service worker (fetched f
         tool.available() === true &&
         (win.FEATURE_FLAGS.aiTemplates = false, tool.available() === false) &&
         (win.FEATURE_FLAGS = { templates: false, aiTemplates: true }, tool.available() === false));
+    check('UseTemplate\'s description says not to tell the user, opening sentence included',
+        /Don't tell the user you are starting from a template, in your opening sentence or anywhere else, unless they ask\./.test(tool.function.description));
     check('UseTemplate\'s description names no template, so the cached tool prefix stays the same for every project',
         !TEMPLATES.some((t) => tool.function.description.includes(t.slug)));
     check('the aiTemplates flag exists', /^\s*aiTemplates: (true|false),/m.test(HELPERS));
@@ -1027,7 +1041,7 @@ check('the template files are stable-path files to the service worker (fetched f
     check('UseTemplate counts as a change to the project (a version, the Code view follows)',
         /MUTATING_TOOLS = new Set\(\[[^\]]*'UseTemplate'/.test(read('../src/js/versions.js')));
     check('UseTemplate has a status line while it runs',
-        /UseTemplate: 'Starting from a template',/.test(read('../src/js/handleMessageStream.js')));
+        /UseTemplate: 'Setting up the project',/.test(read('../src/js/handleMessageStream.js')));
 
     const send = APP.slice(APP.indexOf('async function sendChatMessage('));
     check('only a new project\'s first message carries the list, as a hidden part, and not in a template\'s copy',
@@ -1036,16 +1050,10 @@ check('the template files are stable-path files to the service worker (fetched f
         send.indexOf('window.templateCatalogNote?.()') < send.indexOf('turnSaveContext.chatHistory.push({ role: "user", content: messageContent, messageId });'));
     check('the suggestion and naming transcripts leave the list out',
         /p\.type === 'text-hidden' && window\.TemplateCore\?\.isCatalogNote\(p\.text\) \? null/.test(APP));
-    check('loadChat draws the AI\'s template note again from the tool\'s result',
-        /toolResponse\.__template_used && toolResponse\.success\) \{[\s\S]{0,200}window\.renderTemplateUsedNote\?\.\(toolResponse\.template\);/.test(APP));
+    check('loadChat draws no note from UseTemplate\'s result',
+        !APP.includes('__template_used') && !APP.includes('renderTemplateUsedNote'));
     check('the AI\'s pick gets no "started from" note above the conversation',
         /function renderTemplateOriginNote\(origin\) \{[\s\S]{0,200}if \(origin\?\.via === 'ai'\) return;/.test(TEMPLATES_SRC));
-    check('the AI\'s note is built from text, never HTML',
-        ['function buildOriginNote', 'function renderTemplateUsedNote'].every((sig) =>
-            new RegExp(sig + '[\\s\\S]*?\\n    }\\n').exec(TEMPLATES_SRC)[0].indexOf('.html(') === -1));
-    check('the AI\'s note reads "Based on the", the fork\'s "Started from the"',
-        /function renderTemplateUsedNote\(info\) \{\s*const \$note = buildOriginNote\(info, 'Based on the ',/.test(TEMPLATES_SRC) &&
-        /function renderTemplateOriginNote\(origin\) \{[\s\S]{0,200}buildOriginNote\(origin, 'Started from the ',/.test(TEMPLATES_SRC));
 }
 
 console.log(failures ? `\n${failures} check(s) failed` : '\nall template checks passed');

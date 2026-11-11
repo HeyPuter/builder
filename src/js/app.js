@@ -1174,8 +1174,7 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
 
         // A project forked from a template opens with a note saying so above
         // its conversation (which starts out empty). The origin rides on the
-        // system message, see createFork in templates.js. One the AI started
-        // from a template has its note in the conversation instead.
+        // system message, see createFork in templates.js.
         if (history[0] && history[0].role === 'system' && history[0].templateOrigin) {
             window.renderTemplateOriginNote?.(history[0].templateOrigin);
         }
@@ -1282,10 +1281,6 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
                             // Re-render the static recap of a past clarifying-questions
                             // exchange (the interactive card is never replayed).
                             window.renderClarifySummary?.(toolResponse);
-                        } else if (toolResponse.__template_used && toolResponse.success) {
-                            // Where the AI started the project from a template
-                            // (UseTemplate): its note, in the same place again.
-                            window.renderTemplateUsedNote?.(toolResponse.template);
                         } else if (toolResponse.__upgrade_offer) {
                             // A past upgrade offer: show its card again, unless
                             // the user has a paid plan by now. Offers from before
