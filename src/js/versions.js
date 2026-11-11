@@ -22,8 +22,8 @@
     // create_worker writes workers/<name>.js into the app dir, so it belongs here.
     // delete_worker is intentionally omitted: it only calls puter.workers.delete
     // and touches no project file, so snapshotting it would create redundant,
-    // no-change versions.
-    const MUTATING_TOOLS = new Set(['write', 'edit', 'multi_edit', 'delete', 'copy', 'move', 'rename', 'mkdir', 'create_worker']);
+    // no-change versions. ExtractZip writes an archive's files into it.
+    const MUTATING_TOOLS = new Set(['write', 'edit', 'multi_edit', 'delete', 'copy', 'move', 'rename', 'mkdir', 'create_worker', 'ExtractZip']);
     // Shared with the tool dispatcher (tools.js), which records only these
     // tools' paths as changed files for the preview to verify.
     window.isMutatingTool = function (toolName) { return MUTATING_TOOLS.has(toolName); };

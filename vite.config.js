@@ -99,6 +99,7 @@ const SCRIPTS = [
   'tools/fs/move.js',
   'tools/fs/readdir.js',
   'tools/fs/search_files.js',
+  'tools/fs/extract_zip.js',
   'tools/apps_and_sites/publish_site.js',
   'tools/apps_and_sites/update_preview.js',
   'tools/apps_and_sites/app_tests.js',

@@ -285,6 +285,7 @@ const TOOL_PROGRESS = {
     copy: 'Copying a file',
     move: 'Moving files',
     mkdir: 'Creating a folder',
+    ExtractZip: 'Unpacking the zip file',
     ReadTextFile: 'Reading a file',
     ViewDocument: 'Reading a document',
     ViewImage: 'Looking at an image',
