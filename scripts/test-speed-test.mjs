@@ -16,6 +16,10 @@ function check(name, cond) {
 }
 
 const SRC = fs.readFileSync(new URL('../src/js/experiments.js', import.meta.url), 'utf8');
+const MODEL_SRC = fs.readFileSync(new URL('../src/js/model-core.js', import.meta.url), 'utf8');
+const modelWin = { FEATURE_FLAGS: {} };
+new Function('window', MODEL_SRC)(modelWin);
+const ModelCore = modelWin.ModelCore;
 
 function memoryStorage(seed = {}) {
     const m = new Map(Object.entries(seed));
@@ -72,17 +76,25 @@ check('…and the browser still gets an arm for this load', noStorage && noStora
 check('…the same one for the whole load', noStorage && noStorage.props().speed_variant === 'fast');
 
 // ---- The turn's speed (app.js) ------------------------------------------------
+// Decided once the turn's model is settled, so a plan that lapsed (Opus again)
+// and a model without a fast tier are both seen.
 
 const APP = fs.readFileSync(new URL('../src/js/app.js', import.meta.url), 'utf8');
 const TOOLS = fs.readFileSync(new URL('../src/js/tools.js', import.meta.url), 'utf8');
 
-const speedLine = APP.match(/isFirstBuildTurn = countUserMessages\(turnSaveContext\.chatHistory\) === 0;\s*turnServiceSpeed = ([^\n]+);/);
-check('the speed is decided once, with isFirstBuildTurn', !!speedLine && (APP.match(/turnServiceSpeed = /g) || []).length === 1);
-const turnSpeed = speedLine && new Function('isFirstBuildTurn', 'window', `return ${speedLine[1]};`);
-const speedFor = (firstBuild, arm) => turnSpeed(firstBuild, arm ? load({ random: arm === 'fast' ? 0.1 : 0.9 }).win : {});
-check('a first build in the fast arm asks for fast', turnSpeed && speedFor(true, 'fast') === 'fast');
+const speedLine = APP.match(/turnModel = await window\.ModelPicker\.allowedForTurn\(chosenModel\);\s*turnServiceSpeed = ([^\n]+);/);
+check('the speed is decided once, right after the model is settled', !!speedLine && (APP.match(/turnServiceSpeed = /g) || []).length === 1);
+const turnSpeed = speedLine && new Function('isFirstBuildTurn', 'turnModel', 'window', `return ${speedLine[1]};`);
+const speedFor = (firstBuild, arm, model = 'claude-opus-5-5') => {
+    const win = arm ? load({ random: arm === 'fast' ? 0.1 : 0.9 }).win : {};
+    win.ModelCore = ModelCore;
+    return turnSpeed(firstBuild, model, win);
+};
+check('an Opus first build in the fast arm asks for fast', turnSpeed && speedFor(true, 'fast') === 'fast');
 check('a later build in the fast arm keeps the usual speed', turnSpeed && speedFor(false, 'fast') === undefined);
 check('a first build in the standard arm keeps the usual speed', turnSpeed && speedFor(true, 'standard') === undefined);
+check('a first build on another model keeps the usual speed, even in the fast arm',
+    turnSpeed && ['claude-sonnet-5-5', 'gpt-6.1-sol', 'gemini-4-argon'].every(m => speedFor(true, 'fast', m) === undefined));
 check('without experiments.js a build keeps the usual speed', turnSpeed && speedFor(true, null) === undefined);
 
 check('the first request of every attempt asks for it',

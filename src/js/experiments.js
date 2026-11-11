@@ -78,17 +78,18 @@
 
     // ---- speed: the fast first build -----------------------------------------
     // Every browser is split in half. The 'fast' variant builds each project's
-    // first build at Puter's fast service speed (serviceSpeed 'fast', see
-    // turnServiceSpeed in app.js), the 'standard' variant at the model's usual
-    // speed. Every later build is the same in both. The question is whether a
-    // faster first build means fewer people give up on it. The variant is drawn
-    // once per browser and kept.
+    // first build on Opus at Puter's fast service speed (serviceSpeed 'fast',
+    // see turnServiceSpeed in app.js), the 'standard' variant at the usual
+    // speed. Other models and every later build run the same in both. The
+    // question is whether a faster first build means fewer people give up on
+    // it. The variant is drawn once per browser and kept.
     //
     // Build Started, Build Completed, Build Abandoned and Usage Limit Hit carry
-    // it as speed_variant, on every build. First-build Build Abandoned per
-    // variant is the result. Fast costs more, so first-build Usage Limit Hit per
-    // variant shows whether fewer abandons only means more builds ran out of
-    // credits first (a limit hit is never counted as abandoned).
+    // it as speed_variant, on every build, and Build Completed's took says how
+    // long the build ran. First-build Build Abandoned per variant is the
+    // result. Fast costs more, so first-build Usage Limit Hit per variant shows
+    // whether fewer abandons only means more builds ran out of credits first (a
+    // limit hit is never counted as abandoned).
 
     // ---- limitDialog: the builder's own Low Balance dialog --------------------
     // On the web, half of accounts see the builder's own out-of-credits dialog in
@@ -97,10 +98,10 @@
     // load and device. It rides on 'Usage Limit Hit' and 'Upgrade After Limit',
     // and the upgrade rate per cohort is the second divided by the first. Inside
     // the Puter desktop the desktop draws its own prompt, so those accounts are
-    // 'app' and stay out of the comparison. `openLimitModal()` opens the dialog
-    // directly.
+    // 'app' and stay out of the comparison, even with a variant forced.
+    // `openLimitModal()` opens the dialog directly.
+    const onWeb = () => typeof puter !== 'undefined' && !!puter && puter.env === 'web';
     function limitDialogCohort() {
-        if (typeof puter === 'undefined' || !puter || puter.env !== 'web') return 'app';
         const id = window.user && window.user.uuid;
         if (!id) return 'default';
         let h = 2166136261; // FNV-1a
@@ -112,8 +113,10 @@
     }
 
     // assign(variants) gives the visitor's own variant, used when none is
-    // forced. It's one of variants, or null (or another value, like
-    // limitDialog's 'app') for a visitor outside the test.
+    // forced. It's one of variants, or null for a visitor outside the test.
+    // excluded(), when a test has one, gives the value for a visitor who can't
+    // take part at all (null when they can). That one wins over a forced
+    // variant too.
     const EXPERIMENTS = {
         starter: {
             variants: ['developer', 'default'], prop: 'pill_variant',
@@ -125,6 +128,7 @@
         },
         limitDialog: {
             variants: ['custom', 'default'], prop: 'cohort',
+            excluded: () => (onWeb() ? null : 'app'),
             assign: limitDialogCohort,
         },
     };
@@ -155,9 +159,14 @@
         return EXPERIMENTS[name].variants.includes(v) ? v : null;
     }
 
-    function own(name) {
+    // The visitor's variant, and whether it was forced.
+    function resolve(name) {
         const e = EXPERIMENTS[name];
-        return e.assign(e.variants);
+        const excluded = e.excluded ? e.excluded() : null;
+        if (excluded != null) return { variant: excluded, forced: false };
+        const forced = forcedVariant(name);
+        if (forced) return { variant: forced, forced: true };
+        return { variant: e.assign(e.variants), forced: false };
     }
 
     // The visitor's variant of one test, null outside it. With no name, prints
@@ -166,19 +175,18 @@
         if (name === undefined) {
             const rows = {};
             for (const n of Object.keys(EXPERIMENTS)) {
-                const forced = forcedVariant(n);
-                const v = forced || own(n);
+                const { variant, forced } = resolve(n);
                 rows[n] = {
-                    variant: v,
+                    variant,
                     valid: EXPERIMENTS[n].variants.join(' | '),
-                    how: forced ? 'forced' : EXPERIMENTS[n].variants.includes(v) ? 'drawn' : 'not in test',
+                    how: forced ? 'forced' : EXPERIMENTS[n].variants.includes(variant) ? 'drawn' : 'not in test',
                 };
             }
             console.table(rows);
             return;
         }
         if (!known(name)) { warnUnknown(name); return null; }
-        return forcedVariant(name) || own(name);
+        return resolve(name).variant;
     }
 
     experiment.set = function (name, variant) {

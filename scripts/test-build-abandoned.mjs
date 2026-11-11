@@ -41,7 +41,7 @@ function harness() {
         ${slice(helpers, 'function templatePropFor(slug) {', '/**')}
         ${slice(app, 'function trackBuildAbandoned(how) {', "window.addEventListener('pagehide'")}
         return {
-            abandon: trackBuildAbandoned, waitBand,
+            abandon: trackBuildAbandoned, waitBand, buildTimeBand,
             start: (firstBuild, template) => { _activeBuild = { turnSeq: 1, startedAt: Date.now(), firstBuild, template }; isProcessing = true; _turnProgressed = false; },
             progressed: () => { _turnProgressed = true; },
             idle: () => { isProcessing = false; },
@@ -104,6 +104,13 @@ await check('every way of giving up reports, as it happens', async () => {
     assert.match(app, /function stopActiveTurn\(\) \{\s*if \(!isProcessing\) return;[\s\S]{0,400}?_activeBuild = null;/);
     assert.ok(!/trackBuildAbandoned/.test(read('../src/js/message-queue.js')), 'Send now reports nothing');
     assert.match(app, /window\.addEventListener\('pagehide', \(\) => trackBuildAbandoned\('left'\)\);/);
+});
+
+await check('Build Completed says how long the build took, banded around whole builds', async () => {
+    const { buildTimeBand } = harness();
+    assert.deepEqual([0, 29999, 30000, 59999, 60000, 119999, 120000, 179999, 180000, 299999, 300000, 599999, 600000, 3600000].map(buildTimeBand),
+        ['<30s', '<30s', '30-60s', '30-60s', '1-2m', '1-2m', '2-3m', '2-3m', '3-5m', '3-5m', '5-10m', '5-10m', '10m+', '10m+']);
+    assert.match(app, /'Build Completed',\s*\{ first_build: isFirstBuildTurn, model: turnModel, took: buildTimeBand\(Date\.now\(\) - turnStartedAt\),/);
 });
 
 await check('only builds Build Started counted, and only until that turn ends', async () => {

@@ -149,6 +149,11 @@ function load({ referrer = '', search = '', local = memoryStorage(), random = 0.
     const forcedCustom = h.experiment('limitDialog');
     h.experiment.set('limitDialog', 'default');
     check('set forces the cohort', forcedCustom === 'custom' && h.experiment('limitDialog') === 'default');
+    const desk = load({ puter: { env: 'app' }, local: memoryStorage({ experimentOverrides: '{"limitDialog":"custom"}' }) });
+    check('a forced cohort does not apply inside the desktop', desk.experiment('limitDialog') === 'app'
+        && JSON.stringify(desk.experimentProps('limitDialog')) === '{"cohort":"app"}');
+    desk.experiment();
+    check('…and the list says it is not in the test', desk.tables[0].limitDialog.how === 'not in test');
     check('the cohort follows the user who signs in later', (() => {
         const late = load({ puter: { env: 'web' } });
         const first = late.experiment('limitDialog');

@@ -591,7 +591,7 @@ async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, other
     check('error branch counts only Low Balance refusals',
         /if \(isLowBalanceRefusal\(error\)\) \{\s*trackLimitHit\(/.test(send));
     check('a stream cut short for credits records the hit instead of an unblock',
-        /'Build Completed',[\s\S]{0,900}if \(context && context\.usageLimited\) \{\s*trackLimitHit\([^\n]*kind: 'credits'[^\n]*\n\s*recordUsageLimitHit\('credits', turnTemplate\.template\);\s*\} else \{\s*reportUnblockAfterLimit\(\);/.test(send));
+        /'Build Completed',[\s\S]{0,1100}if \(context && context\.usageLimited\) \{\s*trackLimitHit\([^\n]*kind: 'credits'[^\n]*\n\s*recordUsageLimitHit\('credits', turnTemplate\.template\);\s*\} else \{\s*reportUnblockAfterLimit\(\);/.test(send));
     check('the limit hit also saves the plan', /function recordUsageLimitHit\(kind, template\) \{[\s\S]{0,300}recordPlanAtLimit\(kind, template\);/.test(APP));
     check('paid check runs on focus, on return to the tab and on load',
         /addEventListener\('focus', \(\) => \{ checkPaidAfterLimit\(\); \}\)/.test(APP) &&

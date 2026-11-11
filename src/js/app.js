@@ -5085,7 +5085,8 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     window.forgetLimitResume?.();
     // This turn's id — see _turnSeq and the end-of-turn guard below.
     const turnSeq = ++_turnSeq;
-    // When the user sent it, for Build Abandoned's `waited`.
+    // When the user sent it, for Build Abandoned's `waited` and Build
+    // Completed's `took`.
     const turnStartedAt = Date.now();
     // Tell a caller that tracks its own turn (the Issues panel's batch) which
     // turn is carrying it.
@@ -5215,8 +5216,9 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // separated from follow-up edits.
     let isFirstBuildTurn = false;
     // The serviceSpeed every round, retry and stall recovery of this turn asks
-    // for. Set with isFirstBuildTurn, from the speed experiment (experiments.js),
-    // so only a first build in the fast variant has one. A Resume never does.
+    // for. Set once the turn's model is settled, from the speed experiment
+    // (experiments.js), so only a first build on a model with a fast tier
+    // (ModelCore's fast, Opus) in the fast variant has one. A Resume never does.
     let turnServiceSpeed;
 
     // Check if there are only system prompts (no actual conversation yet)
@@ -5489,7 +5491,6 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             // events: the first build of a project emits Project Created, and
             // every build (first or follow-up) emits Build Started.
             isFirstBuildTurn = countUserMessages(turnSaveContext.chatHistory) === 0;
-            turnServiceSpeed = isFirstBuildTurn && window.experiment?.('speed') === 'fast' ? 'fast' : undefined;
             // In a project copied from a template, the first message is the
             // first change to it, so Project Created with a template counts
             // the copies people went on to change.
@@ -5521,6 +5522,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // partial bubble. See the MAX_TURN_RETRIES / isTransientTurnError block.
         // A plan that ended since the page loaded must not keep a paid model.
         if (window.ModelPicker) turnModel = await window.ModelPicker.allowedForTurn(chosenModel);
+        turnServiceSpeed = isFirstBuildTurn && window.ModelCore.supportsFast(turnModel) && window.experiment?.('speed') === 'fast' ? 'fast' : undefined;
         const turnTools = window.getTurnTools(turnModel);
         const turnUnavailableTools = window.getUnavailableTools?.(turnModel) || [];
         turnAccountRead = readTurnAccount().then(a => { turnAccount = a; }, () => {});
@@ -5692,7 +5694,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             const costCents = u && typeof u.cents === 'number' && u.cents > 0 ? u.cents : 0;
             window.track?.(
                 'Build Completed',
-                { first_build: isFirstBuildTurn, model: turnModel, cost_cents: Number(costCents.toFixed(4)),
+                { first_build: isFirstBuildTurn, model: turnModel, took: buildTimeBand(Date.now() - turnStartedAt), cost_cents: Number(costCents.toFixed(4)),
                     cost_band: costBand(costCents), plan: turnAccount.plan, credits_at_start: turnAccount.credits,
                     context_band: contextBand(turnStats.lastInput), compacted: turnStats.compactions > 0, ...turnTemplate,
                     ...window.experimentProps?.('speed') },
