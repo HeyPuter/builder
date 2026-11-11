@@ -27,12 +27,14 @@
 //
 // OfferCustomDomain (domain.js) puts it in the chat in its domain mode, for
 // the user's own domain (example.com). Its button is the popover's Use custom
-// domain / Change domain (useOwnDomain in ui.js), so Puter's window opens
-// from the click itself, as a browser requires of a popup. Before the first
-// publish it has the address field too, and its button publishes the site
-// there with Puter's window over it (publishWithDomain). On the free plan the
-// button opens the upgrade. Once a domain is chosen from it, the card reads
-// "Domain added" with that domain.
+// domain (useOwnDomain in ui.js), so Puter's window opens from the click
+// itself, as a browser requires of a popup. Before the first publish,
+// picking a domain in that window also publishes the site, at a .puter.site
+// address picked for the user (publishWithDomain). On the free plan the
+// button opens the upgrade. While the domain is being set up, the button
+// opens Publish, where its DNS records are, and once it works the card reads
+// Live with it, beside Change domain. Once a newer card replaces it, it reads
+// "Domain added".
 //
 // Its button waits while a turn, a restore or another publish runs, the same
 // rule the popover follows (publishBlockedReason). refreshPublishCards redraws
@@ -91,10 +93,10 @@
         return hostOf(url).replace(/\.puter\.site$/, '');
     }
 
-    // A domain card: the address field and Publish with your domain before a
-    // first publish, else the site and Use custom domain (Change domain, or
-    // Connect again, once the project has one). On the free plan it is the
-    // button alone, which opens the upgrade.
+    // A domain card: Publish with your domain before a first publish, else
+    // the site and Use custom domain, until the project has a domain (see
+    // domainCardHtml). On the free plan it is Use custom domain, which opens
+    // the upgrade.
     function domainView(url, { working, renaming, noPreview }) {
         const paid = !!window.Branding?.isSubscribed(window.user);
         const connecting = !!window.isDomainConnecting?.(currentChatId);
@@ -104,7 +106,7 @@
         if (!url) {
             const publishing = publishBusyHere();
             return {
-                state: 'domain-form', url, paid, domain, extra,
+                state: 'domain-publish', url, paid, domain, extra,
                 busy: connecting || publishing,
                 busyLabel: publishing ? 'Publishing…' : 'Connecting…',
                 blocked: working || renaming || noPreview,
@@ -168,15 +170,7 @@
                     buttonHtml(view, 'Publish') +
                 '</div>' + errorHtml;
         }
-        if (view.state === 'domain-form') {
-            return '<div class="publish-card-row has-field">' +
-                    field('Site address (before .puter.site)', true) +
-                    buttonHtml(view, 'Publish with your domain', view.busyLabel) +
-                '</div>' +
-                `<div class="publish-card-note" id="${uid}-note">Publishes your site at this address, then opens Puter’s window to connect your domain.</div>` +
-                errorHtml;
-        }
-        if (view.state === 'domain') return domainCardHtml(view, uid, errorHtml);
+        if (view.state === 'domain' || view.state === 'domain-publish') return domainCardHtml(view, uid, errorHtml);
         if (view.state === 'address') {
             return '<div class="publish-card-row has-field">' +
                     field('New site address (before .puter.site)', true) +
@@ -186,8 +180,8 @@
                 errorHtml;
         }
         const safeUrl = htmlEscape(view.url || '');
-        // Cut off in a narrow card (the chat beside the preview): the title
-        // shows the whole address, as the popover's link does.
+        // A long address wraps in a narrow card (the chat beside the
+        // preview). The title shows it too, as the popover's link does.
         const link = `<a class="publish-card-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer" title="${safeUrl}">${htmlEscape(hostOf(view.url))}</a>`;
         if (view.state === 'changes') {
             return `<div class="publish-card-row">${link}${buttonHtml(view, 'Publish changes')}</div>` + errorHtml;
@@ -198,25 +192,47 @@
             '</div>';
     }
 
-    // A domain card once there is nothing to type: the site's address (the
-    // domain once it works) and the button, with a line on the domain while
-    // it still needs something.
+    // A domain the user picked that doesn't show the site yet: waiting for
+    // its DNS records, not verified, or no longer working. Publish lists its
+    // records and checks it.
+    function awaitingRecords(view) {
+        const d = view.domain;
+        return !!view.paid && !!d && d.kind !== 'active' && d.kind !== 'moved';
+    }
+
+    // A domain card: the site's address and the button. A domain still being
+    // set up takes the address's place: the puter.site address read as where
+    // the site was published to. Its button opens Publish, where its DNS
+    // records are. Once the domain works, the card reads Live with it, as a
+    // plain card does once the site is up to date, beside Change domain.
+    // Before a first publish there is no address, so it is the button across
+    // the card, with a line on what it does.
     function domainCardHtml(view, uid, errorHtml) {
         const d = view.domain;
-        const label = !view.paid || !d ? 'Use custom domain' : d.kind === 'moved' ? 'Connect again' : 'Change domain';
+        const first = view.state === 'domain-publish';
+        const records = awaitingRecords(view);
         const shareUrl = view.url ? (window.publishedShareUrl?.(view.url) || view.url) : '';
         const safeUrl = htmlEscape(shareUrl);
-        const link = shareUrl
-            ? `<a class="publish-card-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer" title="${safeUrl}">${htmlEscape(hostOf(shareUrl))}</a>`
-            : '<span class="publish-card-label">Your own domain</span>';
         const host = d ? htmlEscape(d.hostname) : '';
-        const note = !view.paid ? 'Using your own domain comes with a paid Puter plan.'
-            : !d || d.kind === 'active' ? ''
+        const address = records ? `<span class="publish-card-host">${host}</span>`
+            : shareUrl ? `<a class="publish-card-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer" title="${safeUrl}">${htmlEscape(hostOf(shareUrl))}</a>`
+                : '';
+        if (view.paid && d && d.kind === 'active') {
+            return '<div class="publish-card-row">' +
+                    '<span class="publish-live"><span class="publish-live-dot"></span>Live</span>' +
+                    address + buttonHtml(view, 'Change domain', view.busyLabel) +
+                '</div>' + errorHtml;
+        }
+        const label = first ? 'Publish with your domain'
+            : !view.paid || !d ? 'Use custom domain' : d.kind === 'moved' ? 'Connect again' : 'Check DNS records';
+        const note = first ? 'Pick a domain you own and follow the steps to connect it.'
+            : !view.paid ? 'Using your own domain comes with a paid Puter plan.'
+            : !d ? ''
                 : d.kind === 'moved' ? `${host} was connected to this site’s old address. Connect it again to use it here.`
-                    : d.kind === 'lost' ? `${host} stopped showing this site. Publish in the preview toolbar can check it again.`
-                        : d.kind === 'failed' ? `${host} couldn’t be verified. Publish in the preview toolbar has the details.`
-                            : `${host} is waiting for its DNS records. Publish in the preview toolbar lists them.`;
-        return `<div class="publish-card-row">${link}${buttonHtml(view, label, view.busyLabel)}</div>` +
+                    : d.kind === 'lost' ? 'It stopped showing your site.'
+                        : d.kind === 'failed' ? 'Puter couldn’t verify it.'
+                            : 'Not connected yet.';
+        return `<div class="publish-card-row${address ? '' : ' is-solo'}">${address}${buttonHtml(view, label, view.busyLabel)}</div>` +
             (note ? `<div class="publish-card-note" id="${uid}-note">${note}</div>` : '') +
             errorHtml;
     }
@@ -435,8 +451,8 @@
     // A domain card's button: the popover's Use custom domain (useOwnDomain),
     // which has to run inside the click. The domain chosen in Puter's window
     // is kept on the card, so it reads "Domain added" once a newer card
-    // replaces it.
-    function domainFromCard($card) {
+    // replaces it. For a domain still being set up, it opens the popover.
+    function domainFromCard($card, e) {
         const chatId = currentChatId;
         const offer = $card.attr('data-offer');
         $card.removeAttr('data-error');
@@ -449,14 +465,21 @@
             await recordCardPublish(chatId, offer, `https://${domain.hostname}/`);
         };
         const view = cardView($card);
-        window.track?.('Custom Domain Card Clicked', { state: view.state, paid: !!view.paid });
-        if (view.state !== 'domain-form') {
+        window.track?.('Custom Domain Card Clicked', { state: view.state, paid: !!view.paid, domain: view.domain ? view.domain.kind : 'none' });
+        if (awaitingRecords(view)) {
+            // The popover closes on a click outside it, which this one is.
+            e?.stopPropagation();
+            window.openPublishPanelForDomain?.();
+            return;
+        }
+        if (view.state !== 'domain-publish') {
             window.useOwnDomain?.(view.domain ? 'change-domain' : 'use-domain', { onDomain });
             return;
         }
         window.useOwnDomain?.('use-domain', {
-            name: $card.find('.publish-card-input').val() || '',
-            fail: (e) => publishFailed(chatId, $card, e),
+            // The user has no field to pick another address, and the next
+            // try picks a new one: a taken one is a plain failure.
+            fail: (e) => publishFailed(chatId, $card, e && e.code === 'name-taken' ? null : e),
             publish: (reserved) => publishFromCard($card, reserved),
             onDomain,
         });
@@ -580,7 +603,7 @@
     // A waiting button is disabled, and Enter in the field follows it. Enter
     // then says why, as the popover's waiting row does: a dimmed button is
     // all a keyboard or screen reader user had to go on.
-    function publishIfReady($card) {
+    function publishIfReady($card, e) {
         const btn = $card.find('.publish-card-btn')[0];
         if (!btn) return;
         if (btn.disabled) {
@@ -589,7 +612,7 @@
         }
         const mode = $card.attr('data-mode');
         if (mode === 'address') changeAddressFromCard($card);
-        else if (mode === 'domain' || mode === 'domain-form') domainFromCard($card);
+        else if (mode === 'domain' || mode === 'domain-publish') domainFromCard($card, e);
         else publishFromCard($card);
     }
     // Bound with the first card, so the file loads without the page (the tool
@@ -600,7 +623,7 @@
         eventsBound = true;
         $(document).on('click', '.publish-card-btn', function (e) {
             e.preventDefault();
-            publishIfReady($(this).closest('.publish-card'));
+            publishIfReady($(this).closest('.publish-card'), e);
         });
         $(document).on('keydown', '.publish-card-input', function (e) {
             if (window.isComposingKeyEvent?.(e)) return; // IME commit, not a submit

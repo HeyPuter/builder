@@ -257,8 +257,8 @@ check('first publish: another name replaces the reserved one', other.calls === '
 const plain = await run({ first: true, field: 'plain-name' });
 check('first publish: with nothing reserved, only the new name is made', plain.calls === 'create plain-name', plain.calls);
 
-// The own-domain route's progress note ("Pick or add your domain in Puter's
-// window") is that publish's alone: it used to stay on, so a later publish
+// The own-domain route's progress note ("Then the steps to connect your
+// domain show here") is that publish's alone: it used to stay on, so a later publish
 // from the chat's card showed it too.
 const viaDomain = await run({ first: true, reserved: RESERVED });
 check('own-domain publish: the progress note says so while it runs', viaDomain.hostingCalls[0]?.viaDomain === true

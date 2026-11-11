@@ -105,7 +105,8 @@ check('hostOf names a saved list\'s domain in any state', CD.hostOf([pending]) =
 const section = ui.slice(ui.indexOf("// ---- The user's own domain (inside the popover)"), ui.indexOf('// ---- Share the draft link (toolbar popover)'));
 function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, blocked = null, createImpl, field = 'brave-otter-42', savedChats = [], files = {} } = {}) {
     const state = { attachCalls: [], saves: [], fieldSaves: [], alerts: [], renders: 0, tracks: [], announced: [], timers: [],
-        upgrades: [], prompts: [], creates: [], mkdirs: [], publishes: [], order: [], reads: [], deletes: [], field };
+        upgrades: [], prompts: [], creates: [], mkdirs: [], publishes: [], order: [], reads: [], deletes: [], fsDeletes: [], field,
+        panelOpens: 0, toasts: [], removed: [] };
     const window = {
         CustomDomain: CD,
         user: { subscribed: paid },
@@ -119,6 +120,8 @@ function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, block
         track: (name, props) => state.tracks.push([name, props]),
         announce: (t) => state.announced.push(t),
         puterErrInfo: (e) => ({ message: e && e.message || '' }),
+        showToast: (text) => state.toasts.push(text),
+        isMobileViewport: () => !!state.phone,
         // A change is applied to what's on disk, as the real one does inside the lock.
         savePublishedFields: async (id, fields) => {
             const f = { ...fields };
@@ -130,16 +133,19 @@ function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, block
         hosting: {
             attach: (sub) => { state.attachCalls.push(sub); state.order.push('attach ' + sub); return attach(sub); },
             create: async (name, dir) => { state.creates.push([name, dir]); state.order.push('create ' + name); if (state.refuse) throw state.refuse; if (createImpl) return createImpl(name, dir); return { subdomain: name }; },
-            delete: async (name) => { state.deletes.push(name); },
+            delete: async (name) => { state.deletes.push(name); if (state.refuseDelete) throw state.refuseDelete; },
         },
         ui: { alert: async (msg, buttons) => { state.alerts.push([msg, buttons]); return alertChoice; } },
         fs: {
             read: async (path) => { state.reads.push(path); return { text: async () => JSON.stringify(files[path] || { publishedDomains: [pending] }) }; },
             mkdir: async (dir) => { state.mkdirs.push(dir); },
+            delete: async (path) => { state.fsDeletes.push(path); },
         },
         randName: () => 'random-name-12',
     };
-    const $ = (x) => ({ on() {}, hasClass: () => false, val: () => state.field, trigger() { state.focused = x; return this; } });
+    // The toolbar's Publish button is there unless a test takes it away.
+    const $ = (x) => ({ on() {}, hasClass: () => false, val: () => state.field, trigger() { state.focused = x; return this; },
+        length: x === '.preview-publish-btn' && state.noToolbar ? 0 : 1, removeClass(c) { state.removed.push([x, c]); return this; } });
     const env = {
         window, puter, $,
         htmlEscape: (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
@@ -167,6 +173,7 @@ function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, block
         publishBadgeToggleHtml: () => '[badge]',
         publishWaitingHtml: (r) => `[waiting ${r}]`,
         doPublish: (opts) => { state.publishes.push(opts); },
+        openPublishPanel: () => { state.panelOpens++; },
         savedChats,
         state,
     };
@@ -446,31 +453,89 @@ function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, block
     check('…and so does Publish, which would race it for the name', h.window.isReservingPublishName('A') === true);
     await tick(); await tick();
     check('the press reserves the name in the address field, then opens Puter\'s window for it', h.state.order.join() === 'create joes-cafe,attach joes-cafe', h.state.order.join());
-    check('…and Publish is free again', h.window.isReservingPublishName('A') === false);
     check('…on an empty placeholder folder', h.state.creates[0][1] === '/u/AppData/app/.published/A/r_0_reserved' && h.state.mkdirs.includes('/u/AppData/app/.published/A/r_0_reserved'));
     check('…a placeholder that sorts before every real release', /^r_\d+_/.test('r_0_reserved') && 'r_0_reserved' < 'r_1700000000000_ab12');
-    check('…and the publish starts on it', h.state.publishes.length === 1 && await h.state.publishes[0].reserved === 'joes-cafe');
+    // A cancel gives the name back, so nothing goes live before a domain is
+    // picked, and a plain Publish waits with it.
+    check('…and nothing is published while the window is open', h.state.publishes.length === 0);
+    check('…while Publish still waits, since the name may be let go', h.window.isReservingPublishName('A') === true
+        && h.window.isDomainConnecting('A') === true);
     resolve({ hostname: 'www.joescafe.com', status: 'pending', records: [] });
-    await tick(); await tick();
+    for (let i = 0; i < 4; i++) await tick();
     check('the chosen domain is recorded against that name', h.window.currentPublishedDomains[0]?.site === 'joes-cafe');
+    check('…and the publish starts on it once the domain is picked', h.state.publishes.length === 1 && await h.state.publishes[0].reserved === 'joes-cafe');
+    check('…with Publish free again', h.window.isReservingPublishName('A') === false);
     h.useOwnDomain('use-domain');
     await tick(); await tick();
     check('a retry after a failed publish reuses the name instead of making another', h.state.attachCalls[1] === 'joes-cafe'
-        && await h.state.publishes[1].reserved === 'joes-cafe' && h.state.creates.length === 1 && h.state.deletes.length === 0);
+        && h.state.creates.length === 1 && h.state.deletes.length === 0);
+    resolve(null); // Puter's window from the retry is closed
+    for (let i = 0; i < 4; i++) await tick();
+    check('…and closing its window keeps the name, which the domain is on', h.state.deletes.length === 0 && h.state.fsDeletes.length === 0
+        && h.window.reservedPublishName('A') === 'joes-cafe' && h.state.publishes.length === 1);
     // The user types another name before the next try: that name is used, as
     // a plain Publish would, and the one it replaces is let go.
-    resolve(null); // Puter's window from the retry is closed
-    await tick(); await tick();
     h.state.field = 'joes-diner';
     h.useOwnDomain('use-domain');
     for (let i = 0; i < 4; i++) await tick();
     check('a name typed after a failed try is the one used, not the reserved one', h.state.creates[1]?.[0] === 'joes-diner'
-        && h.state.attachCalls[2] === 'joes-diner' && await h.state.publishes[2].reserved === 'joes-diner', JSON.stringify(h.state.creates));
+        && h.state.attachCalls[2] === 'joes-diner', JSON.stringify(h.state.creates));
     check('…and the name it replaces is removed', h.state.deletes.join() === 'joes-cafe', h.state.deletes.join());
+    resolve({ hostname: 'www.joescafe.com', status: 'pending', records: [] });
+    for (let i = 0; i < 4; i++) await tick();
+    check('…and the publish goes onto it once the domain is picked', await h.state.publishes[1]?.reserved === 'joes-diner');
+}
+{
+    // Puter's window closed without a domain: nothing goes live, and the name
+    // is let go. Published anyway, it left the user a site they hadn't asked for.
+    let resolve;
+    const h = harness({ attach: () => new Promise((r) => { resolve = r; }), field: 'joes-cafe' });
+    h.window.currentPublishedUrl = null;
+    h.useOwnDomain('use-domain');
+    await tick(); await tick();
+    resolve(null);
+    for (let i = 0; i < 4; i++) await tick();
+    check('closing Puter\'s window without a domain publishes nothing', h.state.publishes.length === 0);
+    check('…and lets the name go, with its placeholder folder', h.state.deletes.join() === 'joes-cafe'
+        && h.state.fsDeletes.join() === '/u/AppData/app/.published/A/r_0_reserved' && h.window.reservedPublishName('A') === null,
+        JSON.stringify([h.state.deletes, h.state.fsDeletes]));
+    check('…and every button is free again', h.window.isReservingPublishName('A') === false && h.window.isDomainConnecting('A') === false
+        && !/Connecting…/.test(h.publishAddressHeadHtml()));
+    h.useOwnDomain('use-domain');
+    await tick(); await tick();
+    check('…so the next press reserves the name afresh', h.state.creates.length === 2 && h.state.attachCalls.length === 2);
+}
+{
+    // Puter won't let the name go: it stays the project's, for the next try.
+    let resolve;
+    const h = harness({ attach: () => new Promise((r) => { resolve = r; }), field: 'joes-cafe' });
+    h.window.currentPublishedUrl = null;
+    h.state.refuseDelete = new Error('nope');
+    h.useOwnDomain('use-domain');
+    await tick(); await tick();
+    resolve(null);
+    for (let i = 0; i < 4; i++) await tick();
+    check('a name Puter won\'t let go stays reserved, folder and all', h.window.reservedPublishName('A') === 'joes-cafe'
+        && h.state.fsDeletes.length === 0 && h.window.isReservingPublishName('A') === false);
+    h.useOwnDomain('use-domain');
+    await tick(); await tick();
+    check('…and the next press reuses it', h.state.creates.length === 1 && h.state.attachCalls.join() === 'joes-cafe,joes-cafe');
+}
+{
+    let resolve;
+    const h = harness({ attach: () => new Promise((r) => { resolve = r; }), field: 'joes-cafe' });
+    h.window.currentPublishedUrl = null;
+    h.useOwnDomain('use-domain');
+    await tick(); await tick();
+    h.setChat('B'); // the user opened another project while the window was up
+    resolve({ hostname: 'www.joescafe.com', status: 'pending', records: [] });
+    for (let i = 0; i < 6; i++) await tick();
+    check('a domain picked once another project is open keeps its name for this one\'s next Publish', h.state.publishes.length === 0
+        && h.state.deletes.length === 0 && h.window.reservedPublishName('A') === 'joes-cafe' && h.window.isReservingPublishName('A') === false);
 }
 {
     // The new name is taken: the reserved one stays the project's.
-    const h = harness({ attach: async () => null, field: 'joes-cafe' });
+    const h = harness({ attach: async () => ({ hostname: 'joescafe.com', status: 'pending', records: [] }), field: 'joes-cafe' });
     h.window.currentPublishedUrl = null;
     h.useOwnDomain('use-domain');
     for (let i = 0; i < 4; i++) await tick();
@@ -530,10 +595,11 @@ function harness({ attach, fetchImpl, alertChoice = 'change', paid = true, block
 }
 
 // --- The same button on the chat's domain card (tools/chat_ui/publish.js) ----------
-// The card passes `via`: its own field, its own error line, its own publish,
-// and a callback for the domain chosen, so it can record it.
-function cardVia(state, name) {
-    const via = { name, fails: [], published: [], domains: [] };
+// The card passes `via`: its own error line, its own publish, and a callback
+// for the domain chosen, so it can record it. It has no field: the name is
+// picked for the user.
+function cardVia() {
+    const via = { fails: [], published: [], domains: [] };
     via.fail = (e) => { via.fails.push(e && e.code); };
     via.publish = (reserved) => { via.published.push(reserved); };
     via.onDomain = (d) => { via.domains.push(d.hostname); };
@@ -542,7 +608,7 @@ function cardVia(state, name) {
 {
     let resolve;
     const h = harness({ attach: () => new Promise((r) => { resolve = r; }) });
-    const via = cardVia(h.state);
+    const via = cardVia();
     h.useOwnDomain('use-domain', via);
     check('card, live site: Puter\'s window opens in the click', h.state.attachCalls.join() === 'cafe');
     check('…counted as from the chat', h.state.tracks.some(([n, p]) => n === 'Custom Domain Dialog Opened' && p.from === 'chat'));
@@ -550,38 +616,52 @@ function cardVia(state, name) {
     await tick(); await tick(); await tick();
     check('…and the card hears which domain was chosen, once it is saved', via.domains.join() === 'www.joescafe.com' && h.state.saves.join() === 'A');
     const change = harness({ attach: async () => null });
-    change.useOwnDomain('change-domain', cardVia(change.state));
+    change.useOwnDomain('change-domain', cardVia());
     check('…a Change domain from the card is counted as one', change.state.tracks.some(([n, p]) => n === 'Custom Domain Dialog Opened' && p.from === 'chat_change'));
     const closed = harness({ attach: async () => null });
-    const closedVia = cardVia(closed.state);
+    const closedVia = cardVia();
     closed.useOwnDomain('use-domain', closedVia);
     await tick(); await tick();
     check('…and hears nothing when the window is closed without one', closedVia.domains.length === 0);
 }
 {
-    const h = harness({ attach: async () => ({ hostname: 'joescafe.com', status: 'pending', records: [] }), field: 'popover-name' });
+    let resolve;
+    const h = harness({ attach: () => new Promise((r) => { resolve = r; }), field: 'popover-name' });
     h.window.currentPublishedUrl = null;
-    const via = cardVia(h.state, 'card-name');
+    const via = cardVia();
     h.useOwnDomain('use-domain', via);
     for (let i = 0; i < 4; i++) await tick();
-    check('card, first publish: the name typed in the card is reserved, not the popover\'s', h.state.order.join() === 'create card-name,attach card-name', h.state.order.join());
-    check('…the card runs the publish, onto that name, and the popover\'s doesn\'t', h.state.publishes.length === 0
-        && via.published.length === 1 && await via.published[0] === 'card-name');
+    check('card, first publish: a name from the project\'s title is reserved, not the popover\'s', h.state.order.join() === 'create joe-s-cafe-x7k2,attach joe-s-cafe-x7k2', h.state.order.join());
     check('…counted as a first publish from the chat', h.state.tracks.some(([n, p]) => n === 'Custom Domain Dialog Opened' && p.from === 'chat_first_publish'));
-    check('…and the card hears the domain', via.domains.join() === 'joescafe.com');
+    check('…with nothing published while the window is open', via.published.length === 0 && h.state.publishes.length === 0);
+    resolve({ hostname: 'joescafe.com', status: 'pending', records: [] });
+    for (let i = 0; i < 4; i++) await tick();
+    check('…the card hears the domain', via.domains.join() === 'joescafe.com');
+    check('…then runs the publish, onto that name, and the popover\'s doesn\'t', h.state.publishes.length === 0
+        && via.published.length === 1 && await via.published[0] === 'joe-s-cafe-x7k2');
+    // The publish didn't land: the next press goes back to the same name,
+    // which the domain is connected to.
+    h.useOwnDomain('use-domain', cardVia());
+    for (let i = 0; i < 4; i++) await tick();
+    check('card, a retry: the name the first try reserved, not another', h.state.creates.length === 1
+        && h.state.attachCalls.join() === 'joe-s-cafe-x7k2,joe-s-cafe-x7k2', JSON.stringify([h.state.creates, h.state.attachCalls]));
 }
 {
-    const h = harness({ attach: async () => null, field: 'popover-name' });
+    let resolve;
+    const h = harness({ attach: () => new Promise((r) => { resolve = r; }) });
     h.window.currentPublishedUrl = null;
-    const via = cardVia(h.state, '');
+    const via = cardVia();
     h.useOwnDomain('use-domain', via);
-    await tick();
-    check('card, empty field: a name from the project\'s title', h.state.creates[0]?.[0] === 'joe-s-cafe-x7k2', JSON.stringify(h.state.creates));
+    await tick(); await tick();
+    resolve(null);
+    for (let i = 0; i < 4; i++) await tick();
+    check('card: a window closed without a domain publishes nothing and lets the name go', via.published.length === 0
+        && via.domains.length === 0 && via.fails.length === 0 && h.state.deletes.join() === 'joe-s-cafe-x7k2' && h.window.isDomainConnecting('A') === false);
 }
 {
     const h = harness({ attach: async () => null, createImpl: async () => { const e = new Error('taken'); e.taken = true; throw e; } });
     h.window.currentPublishedUrl = null;
-    const via = cardVia(h.state, 'taken-name');
+    const via = cardVia();
     h.useOwnDomain('use-domain', via);
     for (let i = 0; i < 4; i++) await tick();
     check('card: a taken name goes to the card, with no alert, window or publish', via.fails.join() === 'name-taken'
@@ -591,25 +671,16 @@ function cardVia(state, name) {
 {
     const h = harness({ attach: async () => null, createImpl: async () => { const e = new Error('taken'); e.taken = true; throw e; } });
     h.window.currentPublishedUrl = null;
-    const via = cardVia(h.state, 'taken-name');
+    const via = cardVia();
     h.useOwnDomain('use-domain', via);
     h.setChat('B'); // the user opened another project meanwhile
     for (let i = 0; i < 4; i++) await tick();
     check('card: a failure still reaches the card once another project is open (it toasts)', via.fails.join() === 'name-taken');
 }
 {
-    const h = harness({ attach: async () => null });
-    h.window.currentPublishedUrl = null;
-    const via = cardVia(h.state, 'Not Valid!');
-    h.useOwnDomain('use-domain', via);
-    await tick();
-    check('card: an invalid name goes to the card before anything is reserved', via.fails.join() === 'invalid-name'
-        && h.state.creates.length === 0 && h.state.alerts.length === 0);
-}
-{
     const h = harness({ attach: async () => null, blocked: 'turn' });
     h.window.currentPublishedUrl = null;
-    const via = cardVia(h.state, 'card-name');
+    const via = cardVia();
     h.useOwnDomain('use-domain', via);
     await tick();
     check('card, while a build runs: nothing is reserved, and the card\'s publish says to wait', h.state.creates.length === 0
@@ -617,7 +688,7 @@ function cardVia(state, name) {
 }
 {
     const h = harness({ attach: async () => null, paid: false });
-    const via = cardVia(h.state, 'card-name');
+    const via = cardVia();
     h.useOwnDomain('use-domain', via);
     h.window.currentPublishedUrl = null;
     h.useOwnDomain('use-domain', via);
@@ -632,6 +703,20 @@ function cardVia(state, name) {
     resolve(null);
     await tick(); await tick();
     check('…and closed', h.window.isDomainConnecting('A') === false);
+}
+{
+    // The chat card's Check DNS records, for a domain still being set up.
+    const h = harness({ attach: async () => null });
+    h.window.openPublishPanelForDomain();
+    check('Check DNS records opens Publish, where the domain\'s records are', h.state.panelOpens === 1 && h.state.removed.length === 0);
+    h.state.phone = true;
+    h.window.openPublishPanelForDomain();
+    check('…on a phone, after showing the app\'s view the chat card was hiding', h.state.panelOpens === 2
+        && h.state.removed.some(([x, c]) => x === 'body' && c === 'mobile-view-chat'));
+    h.state.noToolbar = true;
+    h.window.openPublishPanelForDomain();
+    check('…and with no preview, which has no Publish, says where the records are instead', h.state.panelOpens === 2
+        && /preview/.test(h.state.toasts[0] || ''), JSON.stringify(h.state.toasts));
 }
 
 {
