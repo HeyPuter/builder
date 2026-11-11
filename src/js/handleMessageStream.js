@@ -294,6 +294,9 @@ const TOOL_PROGRESS = {
     stat: 'Looking through the project',
     SearchFiles: 'Searching the project',
     publish_site: 'Setting up the preview',
+    // Never names the template (the user didn't pick one), nor calls the
+    // project an app (it may be a landing page).
+    UseTemplate: 'Setting up the project',
     // The words the preview's own overlay uses (showPreviewUpdating).
     update_preview: 'Applying changes',
     // The app's hidden tests: the status names the app, never the tests.

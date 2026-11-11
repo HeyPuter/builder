@@ -40,9 +40,16 @@ ABSOLUTELY VERY IMPORTANT: you only need to call this ONCE per app. The preview 
         // the open project already has a draft site, point it at this
         // directory instead; mint a new one only if that fails (e.g. the site
         // was removed) or the project has none.
+        //
+        // A project the AI just started from a template holds its preview back
+        // until the turn's changes are in (window.heldPreviewFor, templates.js).
+        // Its draft is the held one, which this turn's own chat owns, so it is
+        // reused even after the user has left.
+        const held = window.heldPreviewFor?.(state?.currentChatId) || null;
+        const current = held ? held.url : (!window.isStaleTurn?.(state) ? window.currentPreviewUrl : null);
         let url = null;
-        const existing = (!window.isStaleTurn?.(state) && typeof window.currentPreviewUrl === 'string')
-            ? (window.currentPreviewUrl.match(/^https:\/\/(preview-[a-z0-9-]+)\.puter\.site\/?$/i) || [])[1]
+        const existing = typeof current === 'string'
+            ? (current.match(/^https:\/\/(preview-[a-z0-9-]+)\.puter\.site\/?$/i) || [])[1]
             : null;
         if (existing) {
             try {
@@ -53,6 +60,13 @@ ABSOLUTELY VERY IMPORTANT: you only need to call this ONCE per app. The preview 
         if (!url) {
             const site = await puter.hosting.create(window.makeDraftSubdomain(), path);
             url = `https://${site.subdomain}.puter.site/`;
+        }
+        // Held: the site is hosted, and revealHeldPreview shows it (and names
+        // the project) once the turn's changes are in.
+        if (held) {
+            held.url = url;
+            held.path = path;
+            return { success: true, url };
         }
         // The hosting.create above is awaited, so the user may have navigated to
         // another project while it was in flight. If this turn is no longer the

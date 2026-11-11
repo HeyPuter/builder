@@ -156,14 +156,46 @@ window.TemplateCore = (function () {
     }
 
     // The slug of the template a project was copied from, read from the
-    // origin its system message records (createFork in templates.js), or ''
-    // for a project started from scratch. "Make a copy" of a fork copies its
+    // origin its system message records (createFork and useTemplate in
+    // templates.js), or '' for a project started from scratch. "Make a copy" of a fork copies its
     // history, so the copy reports the same template. For analytics.
     function originSlug(history) {
         const first = Array.isArray(history) ? history[0] : null;
         const origin = first && first.role === 'system' ? first.templateOrigin : null;
         const slug = origin && typeof origin === 'object' ? origin.slug : '';
         return typeof slug === 'string' && SLUG_RE.test(slug) ? slug : '';
+    }
+
+    // The hidden note a new project's first message carries (sendChatMessage
+    // in app.js): the official templates, so the model can start the app from
+    // one with UseTemplate instead of writing all of it. One line each, the
+    // card's own name and sentence; UseTemplate's result lists the files.
+    // '' when there are none.
+    const CATALOG_HEAD = "[Builder's official templates.";
+    function catalogNote(templates) {
+        const lines = (Array.isArray(templates) ? templates : [])
+            .filter(t => t && SLUG_RE.test(t.slug || '') && t.name)
+            .map(t => `- ${t.slug}: ${t.name}${t.category ? ` (${t.category})` : ''}. ${t.description || ''}`.trim());
+        if (!lines.length) return '';
+        return [
+            CATALOG_HEAD + " Each is a complete, working app that UseTemplate copies into this project in a few seconds, which is much faster and costs the user far less than writing the app from scratch. If one is a close match for what the user wants to build (the same kind of business or app), call UseTemplate with its slug before writing any files, then make the user's changes on top of it. If none is a close match, the user wants something only loosely like one, or the user asks to start from scratch, build the app yourself. Whether or not you use one, don't bring up templates or a ready-made starting point yourself, in your opening sentence or anywhere else. Describe what you are building, as for any project. If the user asks about templates, answer honestly. The templates:",
+            ...lines,
+            ']',
+        ].join('\n');
+    }
+
+    // Whether a hidden message part is that note. The transcripts the
+    // suggestion and project-name models read leave it out: it is the
+    // builder's, and long enough to crowd out what the user wrote.
+    function isCatalogNote(text) {
+        return typeof text === 'string' && text.startsWith(CATALOG_HEAD);
+    }
+
+    // The entries of a project's directory (names) that stop a template from
+    // being copied into it: anything but assets/, where the user's
+    // attachments are saved before the first build. No template ships one.
+    function entriesInTheWay(names) {
+        return (Array.isArray(names) ? names : []).filter(n => typeof n === 'string' && n && n !== 'assets');
     }
 
     // "Feedback board", then "Feedback board 2", "Feedback board 3"... when
@@ -205,6 +237,12 @@ window.TemplateCore = (function () {
             }
         }
         lines.push('Before changing anything, read the files involved and build on the existing code. Keep what already works unless the user asks to replace it, and keep following every rule above.');
+        // Where the AI picked the template (via: 'ai', useTemplate in
+        // templates.js), the user only asked for an app, so the template
+        // stays out of the replies. Never hidden when they ask.
+        if (opts.via === 'ai') {
+            lines.push(`You picked this template for the user, who did not choose it, so the app should read as one built for their request. Don't mention the template in your replies. If the user asks whether the app came from a template, say it started from Builder's "${opts.name}" template.`);
+        }
         // Rules this template needs kept for as long as the project lives,
         // whatever the user changes. The note is part of the system message,
         // so the model sees them on every turn.
@@ -231,6 +269,9 @@ window.TemplateCore = (function () {
         substituteWorkerUrls,
         workerBaseName,
         originSlug,
+        catalogNote,
+        isCatalogNote,
+        entriesInTheWay,
         uniqueTitle,
         buildTemplateNote,
     };

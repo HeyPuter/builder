@@ -1,5 +1,7 @@
 // templates.js — official project templates: the template dialog, the
-// /?template=<slug> deep link, and the fork itself.
+// /?template=<slug> deep link, the fork itself, and the AI's own pick (the
+// UseTemplate tool, tools/apps_and_sites/use_template.js), which copies a
+// template into the new project the user is already building in.
 //
 // What a template is, and how the build ships it, is described at the top of
 // js/template-core.js (the pure half of this feature). This file is the half
@@ -33,6 +35,8 @@
 
     const core = () => window.TemplateCore;
     const enabled = () => !!window.FEATURE_FLAGS?.templates;
+    // The AI starting a project from a template (UseTemplate), on top of the above.
+    const aiEnabled = () => enabled() && !!window.FEATURE_FLAGS?.aiTemplates;
 
     // ---- The index ------------------------------------------------------------
 
@@ -139,18 +143,15 @@
         catch (e) { /* the directory may never have been created */ }
     }
 
-    // Copy a template into a new project in the signed-in user's account.
-    // Resolves with { id, chat }: the new chat id and the data saved for it.
-    // Throws on failure after cleaning up; the caller tells the user.
+    // Copy a template's files into `appDir` and deploy each worker it ships
+    // under a fresh account-unique name. Resolves with the workers deployed
+    // ({ templateName, name, url }). On failure it removes every worker it
+    // deployed and every file it wrote, and throws; it never deletes the
+    // directory itself, which may hold the user's attachments (see useTemplate).
     // progress.stage names the step it was on, for Template Use Failed:
     // download (which includes a file that refers to an unknown backend),
-    // backend, files or save.
-    async function createFork(template, progress = {}) {
-        const username = window.user.username;
-        const parentDir = `/${username}/AppData/${puter.appID}`;
-        const newId = generateChatId();
-        const appDir = `${parentDir}/${newId}`;
-
+    // backend or files.
+    async function installTemplate(template, appDir, progress) {
         progress.stage = 'download';
         const files = await fetchTemplateFiles(template);
         const byPath = new Map(files.map(f => [f.path, f]));
@@ -165,7 +166,7 @@
         }
 
         const deployed = [];     // { templateName, name, url }
-        let subdomain = null;
+        const written = [];      // every path written, for the cleanup
         try {
             // 1. The backend, deployed first so the files that call it can be
             //    written with its real URLs in place of the placeholders. The
@@ -184,6 +185,7 @@
                     // from this same file.
                     const filePath = `${appDir}/workers/${name}.js`;
                     const source = byPath.get(`workers/${workerName}.js`).text;
+                    written.push(filePath);
                     await window.withFileLock(filePath, () => window.writeFileVerified(filePath, source));
                     const created = await puter.workers.create(name, filePath, { sandbox: true });
                     if (!created || created.success === false || !created.url) {
@@ -201,6 +203,7 @@
                     if (out.missing.length) throw new Error(`${f.path} refers to a backend that was not deployed`);
                     data = out.text;
                 }
+                written.push(`${appDir}/${f.path}`);
                 await puter.fs.write(`${appDir}/${f.path}`, data, { createMissingParents: true });
             });
 
@@ -221,9 +224,51 @@
             progress.stage = 'files';
             await writeFiles(rest.filter(callsBackend));
         } catch (e) {
-            await discardFork(appDir, deployed, subdomain);
+            await removeInstalled(deployed, written);
             throw e;
         }
+        return deployed;
+    }
+
+    // Undo a failed installTemplate: its workers first (they cost more than
+    // storage when left behind), then the files it wrote. Best effort.
+    async function removeInstalled(deployed, written) {
+        for (const w of deployed) {
+            try { await puter.workers.delete(w.name); }
+            catch (e) { console.warn('Template: could not remove the worker of a failed copy:', w.name, e); }
+        }
+        await Promise.all(written.map(p => puter.fs.delete(p).catch(() => { /* never written */ })));
+    }
+
+    // The template's file list as it is in a copy: each worker's source under
+    // the name it was deployed as (create_worker's workers/<name>.js).
+    function installedFiles(template, deployed) {
+        return template.files.map(p => {
+            const w = template.workers.find(n => p === `workers/${n}.js`);
+            return w ? `workers/${deployed.find(d => d.templateName === w).name}.js` : p;
+        });
+    }
+
+    // Copy a template into a new project in the signed-in user's account.
+    // Resolves with { id, chat }: the new chat id and the data saved for it.
+    // Throws on failure after cleaning up; the caller tells the user.
+    // progress.stage names the step it was on, for Template Use Failed:
+    // download, backend, files (see installTemplate) or save.
+    async function createFork(template, progress = {}) {
+        const username = window.user.username;
+        const parentDir = `/${username}/AppData/${puter.appID}`;
+        const newId = generateChatId();
+        const appDir = `${parentDir}/${newId}`;
+
+        let deployed;
+        try {
+            deployed = await installTemplate(template, appDir, progress);
+        } catch (e) {
+            // installTemplate removed what it made; the directory is the fork's own.
+            await discardFork(appDir, [], null);
+            throw e;
+        }
+        let subdomain = null;
 
         // 3. The draft preview. A failure here keeps the fork (its files are
         //    complete and the model opens a preview on the first turn), the
@@ -245,14 +290,10 @@
         //    the Suggestion Clicked event), and a title the auto-namers leave
         //    alone (customTitle, see saveCurrentChat).
         progress.stage = 'save';
-        const renamedFiles = template.files.map(p => {
-            const w = template.workers.find(n => p === `workers/${n}.js`);
-            return w ? `workers/${deployed.find(d => d.templateName === w).name}.js` : p;
-        });
         const note = core().buildTemplateNote({
             name: template.name,
             appDir,
-            files: renamedFiles,
+            files: installedFiles(template, deployed),
             previewUrl,
             workers: deployed,
             instructions: template.instructions,
@@ -371,6 +412,141 @@
         }
     }
 
+    // ---- The AI's pick (the UseTemplate tool) ---------------------------------
+
+    // The hidden note listing the templates, for a new project's first message
+    // (sendChatMessage in app.js). '' when the AI may not use templates or the
+    // index doesn't arrive within `timeout`: the message then goes without it,
+    // and the app is built from scratch as before.
+    async function templateCatalogNote({ timeout = 3000 } = {}) {
+        if (!aiEnabled()) return '';
+        let timer;
+        const late = new Promise(r => { timer = setTimeout(() => r([]), timeout); });
+        const list = await Promise.race([loadTemplates(), late]);
+        clearTimeout(timer);
+        return core().catalogNote(list);
+    }
+
+    // The preview of a project the AI just started from a template, by chat
+    // id, while it waits for the turn's changes. Shown first, the template's
+    // own placeholder business ("Small Hours") was replaced by the user's a
+    // minute later, and the project was named after it. useTemplate holds
+    // it, publish_site hosts it without showing it, saveChat records it, and
+    // revealHeldPreview shows it, from update_preview or as the turn ends.
+    // By chat id and not on the turn's context, which a retried attempt
+    // replaces.
+    const heldPreviews = new Map();
+
+    function heldPreviewFor(chatId) {
+        return (chatId != null && heldPreviews.get(chatId)) || null;
+    }
+
+    // Show the turn's held preview and name the project, as publish_site
+    // does for one it shows at once. Not for a turn the user has left, whose
+    // panes are another project's. Its saves have recorded the address, so
+    // the preview shows when the user opens the project again.
+    function revealHeldPreview(state) {
+        const chatId = state && state.currentChatId;
+        const held = heldPreviewFor(chatId);
+        if (!held) return;
+        heldPreviews.delete(chatId);
+        if (!held.url || window.isStaleTurn?.(state)) return;
+        window.currentPreviewPath = held.path;
+        window.showAppPreview?.(held.url, { waitForReady: true });
+        window.maybeAutoNameProject?.(state);
+    }
+
+    // Copy template `slug` into the turn's project, for UseTemplate. Only into
+    // a project with nothing in it yet but the user's attachments: a
+    // template's files would overwrite their work. The project then ends up
+    // as a fork would, without the user picking anything: the files and the
+    // backend are its own, the preview shows them, and its system message
+    // carries a fork's note (TemplateCore.buildTemplateNote, so the
+    // template's rules hold for the project's whole life, compaction or not)
+    // and its origin, marked as the AI's choice (via: 'ai'). Throws a message
+    // for the model on any failure, after installTemplate has removed what
+    // it made.
+    async function useTemplate(slug, state) {
+        if (!aiEnabled()) throw new Error('Templates are not available here. Build the app yourself.');
+        const appDir = window.projectRootDir(state);
+        if (!appDir) throw new Error('Cannot determine the project directory, so the template was not copied.');
+        const history = Array.isArray(state?.chatHistory) ? state.chatHistory : null;
+        if (core().originSlug(history)) throw new Error('This project already started from a template. Build on its files.');
+        const template = await findTemplate(String(slug || '').trim());
+        if (!template) throw new Error(`There is no template "${slug}". Use a slug from the list of templates, or build the app yourself.`);
+
+        let entries = [];
+        try { entries = await puter.fs.readdir(appDir); }
+        catch (e) {
+            // A new project's directory is made by its first write.
+            if (!window.isNotFoundError?.(e)) throw new Error("Couldn't check the project's files, so the template was not copied. Build the app yourself.");
+        }
+        if (core().entriesInTheWay((entries || []).map(e => e && e.name)).length) {
+            throw new Error("This project already has files, so it can't start from a template. Build on the files that are here.");
+        }
+        if (window.isAborted?.(state?.abortController) || window.isStaleTurn?.(state)) throw new Error('Aborted');
+
+        const progress = { stage: null };
+        let deployed;
+        try {
+            deployed = await installTemplate(template, appDir, progress);
+        } catch (e) {
+            window.track?.('Template Use Failed', { template: template.slug, source: 'ai', stage: progress.stage || 'other' });
+            console.error('Could not copy the template into the project:', e);
+            throw new Error(`Couldn't copy the "${template.name}" template, and none of it was kept. Build the app yourself.`);
+        }
+        window.track?.('Template Used', { template: template.slug, source: 'ai' });
+
+        // The preview, hosted through publish_site but held back until the
+        // turn's changes are in (revealHeldPreview), so the user never sees
+        // the template's placeholder business before their own. A failure
+        // leaves the preview to the model, which the result tells.
+        let previewUrl = null;
+        const chatId = state && state.currentChatId;
+        if (chatId != null) heldPreviews.set(chatId, { url: null, path: null });
+        try {
+            const publish = window.tools.find(t => t && t.function && t.function.name === 'publish_site');
+            const site = publish ? await publish.exec({ path: appDir }, state) : null;
+            previewUrl = (site && site.url) || null;
+        } catch (e) {
+            console.warn('Template: could not open a preview for the project:', e);
+        }
+        if (!previewUrl) heldPreviews.delete(chatId);
+
+        const files = installedFiles(template, deployed);
+        const sys = history && history[0] && history[0].role === 'system' ? history[0] : null;
+        if (sys) {
+            // After the blocks every project starts with, as in a fork, so the
+            // cached common prefix is untouched.
+            const note = core().buildTemplateNote({
+                name: template.name, appDir, files, previewUrl, workers: deployed, instructions: template.instructions, via: 'ai',
+            });
+            history[0] = {
+                ...sys,
+                content: Array.isArray(sys.content)
+                    ? [...sys.content, { type: 'text', text: note }]
+                    : String(sys.content || '') + '\n\n' + note,
+                templateOrigin: { slug: template.slug, name: template.name, version: template.version, via: 'ai' },
+            };
+        }
+        const out = {
+            success: true,
+            template: { slug: template.slug, name: template.name },
+            files,
+        };
+        if (previewUrl) out.preview_url = previewUrl;
+        if (deployed.length) {
+            out.workers = deployed.map(w => ({ name: w.name, url: String(w.url).replace(/\/+$/, ''), file_path: `${appDir}/workers/${w.name}.js` }));
+        }
+        if (template.instructions) out.rules = template.instructions;
+        out.note = `The "${template.name}" template is now in the working directory`
+            + (previewUrl ? '. The user sees it in the live preview once you call update_preview after your changes, so do not call publish_site.' : ". The preview didn't open, so call publish_site once.")
+            + ' Make the user\'s request on top of it: read only the files their changes touch, then change them with edit or multi_edit. Do not rewrite the app from scratch.'
+            + (template.instructions ? ' Keep following the rules above for as long as the project lives.' : '')
+            + ' In your closing reply, describe the app as a whole, including what the template came with that the user didn\'t ask for, and point out any placeholder text or sample data they should replace. Don\'t mention the template unless the user asks about it.';
+        return out;
+    }
+
     // ---- The dialog -----------------------------------------------------------
 
     function buildThumb(template) {
@@ -467,6 +643,9 @@
     // would open onto an empty chat with no hint of where the app came from.
     // Rendered from the persisted origin, never from HTML.
     function renderTemplateOriginNote(origin) {
+        // Not where the AI picked the template (useTemplate). That project's
+        // conversation already holds the user's request.
+        if (origin?.via === 'ai') return;
         const name = typeof origin?.name === 'string' ? origin.name.slice(0, 80) : '';
         if (!name) return;
         const $note = $('<div class="template-origin" role="note"></div>');
@@ -543,6 +722,10 @@
     }
 
     window.renderTemplateOriginNote = renderTemplateOriginNote;
+    window.templateCatalogNote = templateCatalogNote;
+    window.useTemplate = useTemplate;
+    window.heldPreviewFor = heldPreviewFor;
+    window.revealHeldPreview = revealHeldPreview;
     window.forkTemplate = forkTemplate;
     window.captureTemplateDeepLink = captureTemplateDeepLink;
     window.consumeTemplateDeepLink = consumeTemplateDeepLink;

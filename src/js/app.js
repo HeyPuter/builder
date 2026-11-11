@@ -383,10 +383,13 @@ async function saveCurrentChatUnlocked(context) {
         } catch (e) { interrupted = false; }
     }
     if (chatId === currentChatId) {
-        previewUrl = window.currentPreviewUrl || null;
+        // Or the preview a template the AI picked is holding back (templates.js),
+        // so a reload mid-turn still finds it.
+        const held = window.heldPreviewFor?.(chatId);
+        previewUrl = window.currentPreviewUrl || (held && held.url) || null;
         // The published root dir (may be a subdir of the app dir); needed so the
         // CDN-propagation probe writes its marker into the actually-served dir.
-        previewPath = window.currentPreviewPath || null;
+        previewPath = window.currentPreviewPath || (held && held.path) || null;
         publishedUrl = window.currentPublishedUrl || null;
         publishedPath = window.currentPublishedPath || null;
         publishedVersionId = window.currentPublishedVersionId || null;
@@ -5506,6 +5509,18 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             const manualEditNote = window.CodeEditor?.pendingNote?.(turnChatId) || '';
             if (manualEditNote) contentParts.push({ type: 'text-hidden', text: manualEditNote });
 
+            // A new project's first message lists the official templates, so
+            // the model can start from one that fits (UseTemplate) instead of
+            // writing the whole app. Here and not in the system prompt or the
+            // tool's description, which every project shares in the cached
+            // prefix: only a project that can still use a template pays for
+            // the list. Not in a project that already came from one.
+            if (countUserMessages(turnSaveContext.chatHistory) === 0 && !turnTemplate.from_template) {
+                const catalog = await window.templateCatalogNote?.();
+                if (turnAbandoned()) throw abandonedError();
+                if (catalog) contentParts.push({ type: 'text-hidden', text: catalog });
+            }
+
             // This is a new project iff the user has no earlier message in it —
             // measured BEFORE the push below adds this one. Drives the analytics
             // events: the first build of a project emits Project Created, and
@@ -5872,6 +5887,10 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // this turn's label, and its cap prune could delete the version being
         // restored.
         supersededSameChat = _latestTurnSeqByChat.get(turnChatId) !== turnSeq;
+        // A template the AI started from this turn opens its preview now, if
+        // update_preview didn't, so the snapshot and the save below have it.
+        // Not under a newer turn, which may still be changing the files.
+        if (!supersededSameChat) window.revealHeldPreview?.(turnSaveContext);
         const restoredSince = (window.restoresStartedFor?.(turnChatId) || 0) !== turnRestoreGen;
         if (!supersededSameChat && !restoredSince && window._filesChangedThisTurn > 0) {
             // The fallback label (truncated message) is written with the snapshot
@@ -6057,8 +6076,10 @@ function suggestionMessageText(msg) {
     if (typeof c === 'string') return c.trim();
     if (Array.isArray(c)) {
         // A Pasted text card (attachPastedText) is part of what the user wrote.
+        // The list of templates on a new project's first message is not.
         return c
             .map(p => !p ? null
+                : p.type === 'text-hidden' && window.TemplateCore?.isCatalogNote(p.text) ? null
                 : (p.type === 'text' || p.type === 'text-hidden') ? p.text
                 : (p.type === 'document' && p._pasted && p.source?.type === 'text') ? p.source.data
                 : null)
