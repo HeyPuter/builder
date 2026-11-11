@@ -71,6 +71,107 @@
       window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
       plausible.init()
     </script>
+    <!-- JavaScript error tracking. Uncaught errors, unhandled promise rejections
+         and script or stylesheet files that fail to load each become a Plausible
+         "JavaScript Error" custom event, with props kind, message, source and
+         stack. The dashboard needs a "JavaScript Error" goal, and those four
+         names added as custom properties, before they show up.
+         Inline and ahead of every other script so it also catches what goes
+         wrong while puter.js or the app bundle loads, including a syntax error
+         that stops the bundle from running at all. Errors the app catches never
+         get here; call the standard reportError(err) in a catch block to send
+         one through the same path.
+         The page URL is deliberately not sent: Plausible already records the
+         path with every event, and the query string is not ours to store.
+         Deduped and capped per page load, because every event counts toward the
+         Plausible quota and one error inside a render loop can fire thousands
+         of times. Guarded by scripts/test-error-tracking.mjs. -->
+    <script>
+      (function () {
+        try {
+          var MAX_EVENTS = 10;
+          var sent = 0, seen = {};
+          var origin = window.location && window.location.origin || '';
+          var EXTENSION = /^(?:chrome|moz|safari|safari-web|ms-browser)-extension:/;
+          // Benign browser notice, not a bug in our code.
+          var IGNORE = /ResizeObserver loop/;
+          var LOCATION = /((?:https?|[a-z-]+-extension):\/\/[^\s()]+?):(\d+):(\d+)/;
+          function cut(s, n) { s = String(s); return s.length > n ? s.slice(0, n - 1) + '…' : s; }
+          // Our own files as a bare path, others without the scheme. Never a query or hash.
+          function shortUrl(u) {
+            u = String(u || '').split('#')[0].split('?')[0];
+            if (origin && u.indexOf(origin) === 0) return u.slice(origin.length) || '/';
+            return u.replace(/^https?:\/\//, '');
+          }
+          // The top few stack frames, with our origin dropped to keep them short.
+          function frames(stack) {
+            var out = [], lines = String(stack).split('\n');
+            for (var i = 0; i < lines.length && out.length < 5; i++) {
+              var l = lines[i].replace(/^\s+|\s+$/g, '');
+              if (/:\d+:\d+\)?$/.test(l)) out.push(origin ? l.split(origin).join('') : l);
+            }
+            return out.join('\n');
+          }
+          // Where a stack's top frame points, as path:line:col.
+          function topFrame(stack) {
+            var m = LOCATION.exec(String(stack || ''));
+            return m ? shortUrl(m[1]) + ':' + m[2] + ':' + m[3] : '';
+          }
+          // A rejection reason can be anything: an Error, a string, puter.js's
+          // { error: { message } }, or nothing at all.
+          function describe(r) {
+            if (r == null || typeof r !== 'object') return String(r);
+            if (r.message) return (r.name && r.name !== 'Error' ? r.name + ': ' : '') + r.message;
+            if (r.error && r.error.message) return String(r.error.message);
+            try { return JSON.stringify(r) || String(r); } catch (x) { return String(r); }
+          }
+          function send(kind, message, source, stack) {
+            if (sent >= MAX_EVENTS) return;
+            message = cut(message || 'Unknown error', 300);
+            source = cut(source || 'unknown', 300);
+            // Thrown by a browser extension's own code, not ours.
+            if (EXTENSION.test(source) || IGNORE.test(message)) return;
+            var key = kind + '|' + message + '|' + source;
+            if (seen[key]) return;
+            seen[key] = 1;
+            sent++;
+            var props = { kind: kind, message: message, source: source };
+            if (stack) props.stack = cut(stack, 1000);
+            if (typeof window.plausible === 'function') window.plausible('JavaScript Error', { props: props });
+          }
+
+          // Capture phase: a failed <script> or <link> fires "error" on the
+          // element, and that event does not bubble up to window.
+          window.addEventListener('error', function (e) {
+            try {
+              var t = e && e.target;
+              if (t && t !== window && t.tagName) {
+                // Images are left out: user content and avatars miss routinely.
+                var isScript = t.tagName === 'SCRIPT';
+                var isStyle = t.tagName === 'LINK' && /\bstylesheet\b/i.test(t.rel || '');
+                if (!isScript && !isStyle) return;
+                var url = t.src || t.href || '';
+                // Analytics blocked by the browser: nothing could report it anyway.
+                if (url.indexOf('plausible.io') !== -1) return;
+                send('resource', 'Failed to load ' + (isScript ? 'script' : 'stylesheet'), url ? shortUrl(url) : '(inline)', '');
+                return;
+              }
+              var err = e && e.error;
+              var source = e && e.filename ? shortUrl(e.filename) + ':' + (e.lineno || 0) + ':' + (e.colno || 0) : '';
+              send('error', (e && e.message) || (err && err.message), source, err && err.stack ? frames(err.stack) : '');
+            } catch (x) { /* error tracking must never cause an error */ }
+          }, true);
+
+          window.addEventListener('unhandledrejection', function (e) {
+            try {
+              var r = e && e.reason;
+              var stack = r && r.stack ? String(r.stack) : '';
+              send('unhandledrejection', describe(r), topFrame(stack), stack ? frames(stack) : '');
+            } catch (x) { /* error tracking must never cause an error */ }
+          });
+        } catch (e) { /* no error tracking is better than a broken page */ }
+      })();
+    </script>
     <!-- Resolve the colour theme BEFORE first paint so the cloak below (and every
          themed surface) paints in the right palette with no light→dark flash.
          Start with the OS preference while auth is unknown. The theme runtime
