@@ -53,6 +53,7 @@ const TEAM = {
 };
 
 const DENTIST = {
+    // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
     photo: 'photos/dentist.jpg',
     alt: 'A smiling woman with red hair in a light blue shirt, sitting by a window',
     intro: 'I opened this practice in 2012 so families in Fairmont could see the same dentist from their first tooth to their first crown. I explain what I see on the screen beside your chair, give you the cost before we start, and never rush a numb patient out of the room.',
@@ -105,21 +106,24 @@ const TREATMENTS = [
 ];
 
 // The smile gallery. `before` and `after` are the two photos for the slider.
-// The samples reuse one stock photo with a tint for "before" (sampleTint),
+// The samples reuse one photo with a tint for "before" (sampleTint),
 // which is only there to show how the slider works.
 const CASES = [
     {
         title: 'Whitening and edge bonding', treatment: 'whitening', visits: '2 visits', time: '3 weeks',
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         after: 'photos/smile-4.jpg', before: 'photos/smile-4.jpg', sampleTint: true,
         alt: 'A woman in a black hat with red lipstick, smiling with her chin on her hand',
     },
     {
         title: 'Six months of clear aligners', treatment: 'aligners', visits: '5 check-ins', time: '6 months',
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         after: 'photos/smile-2.jpg', before: 'photos/smile-2.jpg', sampleTint: true,
         alt: 'A woman with red flowers in her hair, smiling widely',
     },
     {
         title: 'Two porcelain veneers', treatment: 'veneers', visits: '2 visits', time: '2 weeks',
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         after: 'photos/smile-3.jpg', before: 'photos/smile-3.jpg', sampleTint: true,
         alt: 'A woman resting her face in her hands, smiling',
     },

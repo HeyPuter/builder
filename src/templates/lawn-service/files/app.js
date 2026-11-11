@@ -82,17 +82,20 @@ const PLANS = [
 const SERVICES = [
     {
         id: 'mowing', title: 'Mowing and edging', from: 40, team: 'sam', big: true,
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         photo: 'photos/mower.jpg', alt: 'Close-up of a lawn mower cutting long grass',
         body: 'Cut at the right height for the season, with crisp edges along every path and bed.',
         includes: ['Mow and stripe', 'Edge paths and beds', 'String trim around obstacles', 'Blow clippings off hard surfaces'],
     },
     {
         id: 'hedges', title: 'Hedge and shrub trimming', from: 90, team: 'sam',
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         photo: 'photos/hedge-trim.jpg', alt: 'A neatly trimmed hedge running beside a driveway',
         body: 'Hand-shaped hedges and shrubs, with every cutting hauled away.',
     },
     {
         id: 'beds', title: 'Beds, mulch and planting', from: 120, team: 'maria',
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         photo: 'photos/bed-edging.jpg', alt: 'A curved flower bed with pansies and fresh edging',
         body: 'Weeding, fresh mulch, new edging and seasonal color for your beds.',
     },
@@ -108,21 +111,25 @@ const SERVICES = [
 
 const JOBS = [
     {
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         photo: 'photos/front-yard.jpg', service: 'mowing', big: true,
         alt: 'A stone house with a freshly mowed front lawn and mulched shrub beds',
         title: 'Weekly mow and bed upkeep', place: 'Linden Park', when: 'Sep 2026',
     },
     {
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         photo: 'photos/striped-lawn.jpg', service: 'mowing',
         alt: 'A large lawn with fresh mowing stripes between young trees',
         title: 'Two-acre stripe cut', place: 'Elm Ridge', when: 'Aug 2026',
     },
     {
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         photo: 'photos/garden-beds.jpg', service: 'beds',
         alt: 'A white cottage behind full beds of grasses, hydrangeas and roses',
         title: 'Cottage bed planting', place: 'Fox Hollow', when: 'Jun 2026',
     },
     {
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         photo: 'photos/mulch.jpg', service: 'beds',
         alt: 'A young shrub with a fresh ring of red mulch in a lawn',
         title: 'Spring mulch refresh', place: 'Cedar Run', when: 'Apr 2026',

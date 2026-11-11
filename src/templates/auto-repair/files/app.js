@@ -133,21 +133,25 @@ const PERKS = [
 
 const JOBS = [
     {
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         photo: 'photos/brakes-lift.jpg', alt: 'A technician inspecting the underside of a car on a lift',
         vehicle: '2018 Toyota RAV4', miles: 74210, title: 'Grinding when stopping',
         found: 'Front pads worn to the metal, rotors scored.', fixed: 'Front pads and rotors, fluid tested.', total: 412,
     },
     {
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         photo: 'photos/diagnostics.jpg', alt: 'A technician with a scan tablet beside an open engine bay',
         vehicle: '2015 Ford Escape', miles: 118400, title: 'Check engine light on',
         found: 'Code P0171, a cracked intake hose letting in air.', fixed: 'Hose replaced, fuel trims back to normal.', total: 238,
     },
     {
+        // Source: StockSnap T7T37KWY8G, https://cdn.stocksnap.io/img-thumbs/960w/T7T37KWY8G.jpg (CC0)
         photo: 'photos/battery.jpg', alt: 'Jumper cables clamped to a car battery under the hood',
         vehicle: '2019 Honda Accord', miles: 52900, title: 'Slow to start on cold mornings',
         found: 'Battery at 41% health, charging system fine.', fixed: 'New battery fitted and terminals cleaned.', total: 219,
     },
     {
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         photo: 'photos/engine-bay.jpg', alt: 'A technician working in the engine bay of a car',
         vehicle: '2012 Subaru Outback', miles: 131050, title: 'Overheating in traffic',
         found: 'Radiator fan relay failed, coolant low.', fixed: 'Relay replaced, cooling system flushed and tested.', total: 326,

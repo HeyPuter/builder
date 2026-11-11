@@ -124,21 +124,25 @@ const TOWNS = [
 const SERVICES = [
     {
         title: 'Recurring cleaning', clean: 'standard', freq: 'biweekly', badge: 'Most booked',
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         photo: 'photos/living-room.jpg', alt: 'A bright white living room with a grey sofa and a tidy coffee table',
         body: 'Your home kept at its best, weekly, every two weeks or monthly. Same team, same day, skip a visit with a text.',
     },
     {
         title: 'One-time clean', clean: 'standard', freq: 'once',
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         photo: 'photos/counter-wipe.jpg', alt: 'A gloved hand wiping a kitchen counter with a sponge',
         body: 'Before guests arrive, after they leave, or just because. The full standard checklist, once.',
     },
     {
         title: 'Deep clean', clean: 'deep', freq: 'once',
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         photo: 'photos/floor-mop.jpg', alt: 'A flat mop cleaning a dark wooden floor',
         body: 'For spring, for the first visit, or for a home that has not been cleaned in a while. Baseboards, grout and build-up.',
     },
     {
         title: 'Move-in or move-out', clean: 'moveout', freq: 'once',
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         photo: 'photos/empty-kitchen.jpg', alt: 'An empty modern kitchen with bright floors and a long window',
         body: 'An empty home cleaned inside every cupboard, oven and fridge, ready for the keys or the deposit check.',
     },
@@ -156,6 +160,7 @@ const PROMISES = [
 const ROOMS = [
     {
         id: 'kitchen', label: 'Kitchen',
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         photo: 'photos/kitchen-sink.jpg', alt: 'A sunny kitchen sink with a wooden cabinet and oranges on the counter',
         tasks: [
             ['Counters, backsplash and sink scrubbed and dried', 'sdm'],
@@ -170,6 +175,7 @@ const ROOMS = [
     },
     {
         id: 'bathrooms', label: 'Bathrooms',
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         photo: 'photos/bathroom.jpg', alt: 'A bathroom with a freestanding white tub, a pink bath mat and a glass shower',
         tasks: [
             ['Toilet cleaned inside, outside and behind', 'sdm'],
@@ -184,6 +190,7 @@ const ROOMS = [
     },
     {
         id: 'bedrooms', label: 'Bedrooms',
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         photo: 'photos/bedroom.jpg', alt: 'A made bed with grey pillows in a bedroom with sheer curtains',
         tasks: [
             ['Beds made, fresh linens put on if left out', 'sd'],
@@ -198,6 +205,7 @@ const ROOMS = [
     },
     {
         id: 'living', label: 'Living areas',
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         photo: 'photos/living-room.jpg', alt: 'A bright living room with a grey sofa, a rug and a plant',
         tasks: [
             ['Surfaces, shelves and decor dusted', 'sdm'],

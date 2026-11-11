@@ -69,24 +69,34 @@ const CATEGORIES = [
 
 // tags: veg, spicy, new. photo is optional and shows when hovering the row.
 const MENU = [
+    // Source: https://commons.wikimedia.org/wiki/File:Summer_Pizza_-_The_Oven_2025-07-24.jpg (CC0)
     { id: 'margherita', cat: 'red', name: 'Margherita', desc: 'Tomato, fior di latte, basil, olive oil, sea salt.', prices: { s12: 15, s16: 21 }, tags: ['veg'], photo: 'photos/margherita.jpg', alt: 'A blistered margherita pizza with basil' },
+    // Source: https://commons.wikimedia.org/wiki/File:Pizza_22.jpg (CC0)
     { id: 'pepperoni', cat: 'red', name: 'Cup & Char', desc: 'Tomato, mozzarella and a lot of small pepperoni that curl into cups.', prices: { s12: 17, s16: 24 }, photo: 'photos/pepperoni.jpg', alt: 'A pepperoni pizza on a metal stand' },
+    // Source: https://commons.wikimedia.org/wiki/File:Pizza_17.jpg (CC0)
     { id: 'prosciutto', cat: 'red', name: 'Prosciutto & Honey', desc: 'Tomato, mozzarella, prosciutto added after the bake, a drizzle of honey.', prices: { s12: 19, s16: 26 }, photo: 'photos/prosciutto.jpg', alt: 'A pizza covered with thin slices of prosciutto' },
+    // Source: https://commons.wikimedia.org/wiki/File:A_well_garnished_pizza_(Unsplash).jpg (CC0)
     { id: 'rocket', cat: 'red', name: 'Rocket Man', desc: 'Tomato, mozzarella, roasted peppers, a heap of arugula and shaved parmesan.', prices: { s12: 17, s16: 24 }, tags: ['veg'], photo: 'photos/rocket.jpg', alt: 'A pizza topped with fresh arugula on a wooden board' },
     { id: 'diavola', cat: 'red', name: 'Diavola', desc: 'Tomato, mozzarella, hot soppressata, Calabrian chili, hot honey.', prices: { s12: 18, s16: 25 }, tags: ['spicy'] },
     { id: 'marinara', cat: 'red', name: 'Marinara', desc: 'Tomato, garlic, oregano, olive oil. No cheese, and it does not need it.', prices: { s12: 12, s16: 17 }, tags: ['veg'] },
+    // Source: https://commons.wikimedia.org/wiki/File:Faty_-_History_Pizzeria_2023-10-23.jpg (CC0)
     { id: 'bianca', cat: 'white', name: 'Bianca', desc: 'Garlic cream, mozzarella, ricotta, black pepper.', prices: { s12: 16, s16: 22 }, tags: ['veg'], photo: 'photos/bianca.jpg', alt: 'A white pizza with charred spots on the crust' },
+    // Source: https://commons.wikimedia.org/wiki/File:Pizza_with_mushrooms_and_cheese.jpg (CC0)
     { id: 'funghi', cat: 'white', name: 'Funghi', desc: 'Roasted mushrooms, fontina, thyme, a little truffle oil.', prices: { s12: 18, s16: 25 }, tags: ['veg'], photo: 'photos/funghi.jpg', alt: 'A mushroom and cheese pizza on a wooden board with rosemary' },
+    // Source: https://commons.wikimedia.org/wiki/File:Pizza_for_High-End_Italian_Restaurant_(Unsplash).jpg (CC0)
     { id: 'limone', cat: 'white', name: 'Limone', desc: 'Olive oil, mozzarella, lemon zest, arugula, ribbons of parmesan.', prices: { s12: 17, s16: 24 }, tags: ['veg', 'new'], photo: 'photos/limone.jpg', alt: 'A white pizza with arugula and shaved parmesan beside a lemon' },
+    // Source: https://commons.wikimedia.org/wiki/File:Pizza_25.jpg (CC0)
     { id: 'grandma', cat: 'squares', name: 'Grandma', desc: 'Thin square, mozzarella underneath, stripes of garlicky tomato on top.', prices: { half: 16, full: 28 }, tags: ['veg'], photo: 'photos/grandma.jpg', alt: 'Square slices of pizza with stripes of tomato sauce on a rack' },
     { id: 'corner', cat: 'squares', name: 'Corner Piece', desc: 'Thick, crispy-edged square with pepperoni, brick cheese and sauce on top.', prices: { half: 19, full: 34 } },
     { id: 'slice-cheese', cat: 'slices', name: 'Cheese slice', desc: 'The classic. Ask for it well done.', prices: { slice: 4 }, tags: ['veg'] },
     { id: 'slice-pep', cat: 'slices', name: 'Pepperoni slice', desc: 'Cup & Char by the slice.', prices: { slice: 4.5 } },
+    // Source: https://commons.wikimedia.org/wiki/File:Slice_of_Joe's_Pizza_veggie_pizza_(Los_Angeles)_Sept._2024.jpg (CC0)
     { id: 'slice-veg', cat: 'slices', name: 'Garden slice', desc: 'Mushroom, peppers, olives, onion.', prices: { slice: 5 }, tags: ['veg'], photo: 'photos/slice.jpg', alt: 'A slice of pizza with mushrooms, peppers and olives' },
     { id: 'slice-square', cat: 'slices', name: 'Grandma square', desc: 'One square from the tray.', prices: { slice: 4.5 }, tags: ['veg'] },
     { id: 'knots', cat: 'sides', name: 'Garlic knots', desc: 'Six knots, garlic butter, parmesan, a cup of marinara.', prices: { one: 7 }, tags: ['veg'] },
     { id: 'caesar', cat: 'sides', name: 'Little Caesar', desc: 'Romaine, anchovy dressing, pizza-crust croutons.', prices: { one: 10 } },
     { id: 'meatballs', cat: 'sides', name: 'Meatballs', desc: 'Three beef and pork meatballs in tomato, with ricotta.', prices: { one: 12 } },
+    // Source: https://commons.wikimedia.org/wiki/File:Pizza_15.jpg (CC0)
     { id: 'dolce', cat: 'sweets', name: 'Dolce pie', desc: '12″ of chocolate hazelnut, strawberries and banana. For sharing.', prices: { one: 14 }, tags: ['veg'], photo: 'photos/dolce.jpg', alt: 'A dessert pizza with chocolate, strawberries and banana' },
     { id: 'cannoli', cat: 'sweets', name: 'Cannoli', desc: 'Filled to order with orange ricotta.', prices: { one: 4 }, tags: ['veg'] },
     { id: 'soda', cat: 'drinks', name: 'Fountain soda', desc: 'Cola, diet, lemon-lime, root beer.', prices: { one: 3 } },

@@ -37,6 +37,7 @@ const HOURS = {
 const ROOMS = [
   {
     id: 'nest', name: 'The Nest', ages: '6 weeks – 12 months', minMonths: 1.38 /* 6 wks */, maxMonths: 12,
+    // Source: https://wordpress.org/photos/photo/33867f1776/ (CC0)
     ratio: '1:3', group: 9, shape: 'circle', color: 'sun', photo: 'photos/rainbow-swing.jpg',
     photoAlt: 'A rainbow-striped baby swing in a calm room',
     blurb: 'A quiet, sunny room where babies keep their own rhythm. They eat and sleep when they need to, and we write it all down for you.',
@@ -45,6 +46,7 @@ const ROOMS = [
   },
   {
     id: 'burrow', name: 'The Burrow', ages: '12 – 24 months', minMonths: 12, maxMonths: 24,
+    // Source: https://wordpress.org/photos/photo/801658053b/ (CC0)
     ratio: '1:4', group: 12, shape: 'square', color: 'tomato', photo: 'photos/block-tower.jpg',
     photoAlt: 'A tall tower of colorful toy bricks on a play mat',
     blurb: 'For new walkers and big explorers. Low shelves, lots of messy play, a sandpit of their own and plenty of naps.',
@@ -53,6 +55,7 @@ const ROOMS = [
   },
   {
     id: 'treehouse', name: 'The Treehouse', ages: '2 – 3 years', minMonths: 24, maxMonths: 36,
+    // Source: https://wordpress.org/photos/photo/990667b11e/ (CC0)
     ratio: '1:6', group: 14, shape: 'arch', color: 'clover', photo: 'photos/light-board.jpg',
     photoAlt: 'Three young children making pictures on a big light-up peg board',
     blurb: 'Big feelings, big questions and a lot of building. A studio for paint and clay, and stories after lunch every day.',
@@ -61,6 +64,7 @@ const ROOMS = [
   },
   {
     id: 'launchpad', name: 'Launchpad', ages: '3 – 5 years', minMonths: 36, maxMonths: 60,
+    // Source: https://wordpress.org/photos/photo/9856a13251/ (CC0)
     ratio: '1:8', group: 16, shape: 'half', color: 'pink', photo: 'photos/number-tower.jpg',
     photoAlt: 'A tall tower of numbered wooden blocks',
     blurb: 'Our pre-K. Letters, numbers and long projects, forest walks on Thursdays, and a gentle hand-off to kindergarten.',

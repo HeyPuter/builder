@@ -43,22 +43,35 @@ var PRICING = {
 
 // status: 'open' (taking bookings), 'waitlist' or 'closed'.
 var ARTISTS = [
+  // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
   { id: 'wren', name: 'Wren Calloway', styles: ['Fine line', 'Botanical'], rate: 160, status: 'open', since: 2014, photo: 'images/work-1.jpg' },
+  // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
   { id: 'otis', name: 'Otis Marlow', styles: ['Traditional', 'Flash'], rate: 150, status: 'open', since: 2016, photo: 'images/work-2.jpg' },
+  // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
   { id: 'saoirse', name: 'Saoirse Bell', styles: ['Blackwork', 'Ornamental'], rate: 170, status: 'waitlist', since: 2017, photo: 'images/work-3.jpg' },
+  // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
   { id: 'dante', name: 'Dante Okafor', styles: ['Black & grey', 'Realism'], rate: 190, status: 'closed', since: 2019, photo: 'images/work-4.jpg' },
+  // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
   { id: 'mika', name: 'Mika Hollis', styles: ['Neo-traditional', 'Colour'], rate: 160, status: 'open', since: 2021, photo: 'images/work-5.jpg' },
 ];
 
 // Portfolio. `artist` matches an ARTISTS id; `style` drives the filter chips.
 var WORK = [
+  // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
   { src: 'images/work-1.jpg', artist: 'wren', style: 'Fine line', caption: 'Forearm, healed' },
+  // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
   { src: 'images/work-2.jpg', artist: 'otis', style: 'Traditional', caption: 'Upper arm, fresh' },
+  // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
   { src: 'images/work-3.jpg', artist: 'saoirse', style: 'Blackwork', caption: 'Back piece, session 4' },
+  // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
   { src: 'images/work-4.jpg', artist: 'dante', style: 'Black & grey', caption: 'Shoulder, healed' },
+  // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
   { src: 'images/work-5.jpg', artist: 'mika', style: 'Colour', caption: 'Calf, fresh' },
+  // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
   { src: 'images/work-6.jpg', artist: 'otis', style: 'Traditional', caption: 'Sleeve in progress' },
+  // Source: https://www.flickr.com/photo.gne?id=16058781110 (CC0, crop of hero)
   { src: 'images/work-7.jpg', artist: 'saoirse', style: 'Blackwork', caption: 'Hand, healed' },
+  // Source: https://commons.wikimedia.org/wiki/File:Tattooing_in_progress.jpg (Public domain)
   { src: 'images/work-8.jpg', artist: 'mika', style: 'Colour', caption: 'Back piece, session 3' },
 ];
 

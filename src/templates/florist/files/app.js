@@ -42,36 +42,42 @@ const SIZES = [
 
 const BUNCHES = [
   {
+    // Source: https://www.rawpixel.com/image/5919338 (CC0)
     id: 'the-moth', name: 'The Moth', img: 'images/b-moth.jpg',
     note: 'Our night bunch. Dusky, plum-dark and a little gothic, for people who find pink too polite.',
     stems: 'Plum scabious · coffee roses · smoke bush · black hellebore · chocolate cosmos',
     prices: { posy: 48, generous: 72, abundant: 110 },
   },
   {
+    // Source: https://www.rawpixel.com/image/4024634 (CC0)
     id: 'marigold-hour', name: 'Marigold Hour', img: 'images/b-marigold.jpg',
     note: 'The colour of the last hour of sun. Orange, apricot and rust, loose and tall.',
     stems: 'Dahlias · apricot roses · marigolds · copper beech · rose hips',
     prices: { posy: 46, generous: 68, abundant: 104 },
   },
   {
+    // Source: https://www.rawpixel.com/image/432270 (CC0)
     id: 'hedgerow', name: 'Hedge & Hollow', img: 'images/b-hedge.jpg',
     note: 'Mostly green, a little white. Looks picked from a lane rather than bought from a shop.',
     stems: 'Viburnum · white cosmos · wild carrot · ferns · ivy berries',
     prices: { posy: 42, generous: 62, abundant: 96 },
   },
   {
+    // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
     id: 'lantern', name: 'Lantern', img: 'images/b-lantern.jpg',
     note: 'Loud on purpose. Reds and yellows for birthdays, apologies and grey Tuesdays.',
     stems: 'Ranunculus · tulips · craspedia · red anemones · mimosa',
     prices: { posy: 44, generous: 66, abundant: 100 },
   },
   {
+    // Source: https://www.rawpixel.com/image/5914706 (CC0)
     id: 'ghost-posy', name: 'Ghost Posy', img: 'images/b-ghost.jpg',
     note: 'Pale and quiet: chalk, blush and bone. Good for new babies and hard weeks.',
     stems: 'Garden roses · white lisianthus · sweet peas · dusty miller · astrantia',
     prices: { posy: 46, generous: 70, abundant: 108 },
   },
   {
+    // Source: https://www.rawpixel.com/image/5960284 (CC0)
     id: 'florists-choice', name: 'Florist’s Choice', img: 'images/b-choice.jpg',
     note: 'Whatever made us gasp at the market this morning. Trust us; we’ve been doing this a while.',
     stems: 'Changes daily, always seasonal',

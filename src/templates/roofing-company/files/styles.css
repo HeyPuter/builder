@@ -407,6 +407,7 @@ input[type=range]::-moz-range-thumb { width: 10px; height: 10px; border-radius: 
   color: var(--on-dark);
   background:
     linear-gradient(180deg, rgba(19, 33, 46, .9), rgba(19, 33, 46, .96) 60%, var(--navy)),
+    /* Source: https://commons.wikimedia.org/wiki/File:Hard_rain_on_a_roof.jpg (CC0) */
     url("photos/rain-on-roof.jpg") center top / cover no-repeat var(--navy);
 }
 .storm .label { color: var(--copper-hi); }

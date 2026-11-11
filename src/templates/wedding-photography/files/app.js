@@ -12,8 +12,11 @@ const STUDIO = {
 
 // The three frames that cycle through the hero.
 const HERO_FRAMES = [
+  // Source: https://commons.wikimedia.org/wiki/File:Zivileand_Arunas_2017-02-21_(Unsplash).jpg (CC0)
   { src: 'photos/window-light.jpg', alt: 'A bride with curled hair, seen from behind, waiting by a tall blue window', caption: 'Agnes, before the aisle — Hollin House', pos: '50% 40%' },
+  // Source: https://commons.wikimedia.org/wiki/File:Forest_bride_in_flowing_dress_(Unsplash).jpg (CC0)
   { src: 'photos/forest-bride.jpg', alt: 'A bride lifting her skirt as she walks into a dark green forest', caption: 'Ines, into the woods — Calder Woods', pos: '50% 50%' },
+  // Source: https://commons.wikimedia.org/wiki/File:Wedding_walk_dark_forest_path_(Unsplash).jpg (CC0)
   { src: 'photos/forest-path.jpg', alt: 'A couple walking away down a forest path under tall trees', caption: 'The walk back — Calder Woods', pos: '56% 50%' },
 ];
 
@@ -23,10 +26,15 @@ const STORIES = [
     id: 'lake', couple: 'Juniper & Cole', place: 'Lake Mira, NY', when: 'Sept 2025', film: 'OF 400', pick: 0,
     note: 'Ninety guests, one dock and a thunderstorm that cleared exactly in time for the vows.',
     frames: [
+      // Source: https://commons.wikimedia.org/wiki/File:Bride_on_a_dock_(Unsplash).jpg (CC0)
       { src: 'photos/dock.jpg', alt: 'A bride sitting at the end of a wooden dock on a wide lake', caption: 'The end of the dock, 4:10 pm' },
+      // Source: https://commons.wikimedia.org/wiki/File:Wedding_couple_hug_on_cliff_(Unsplash).jpg (CC0)
       { src: 'photos/cliff-embrace.jpg', alt: 'A couple embracing on rocks above dark water', caption: 'Above the quarry' },
+      // Source: https://commons.wikimedia.org/wiki/File:Laughing_bride_with_blowing_veil_(Unsplash).jpg (CC0)
       { src: 'photos/laughing-veil.jpg', alt: 'A bride laughing as wind lifts her veil', caption: 'Wind, finally' },
+      // Source: https://commons.wikimedia.org/wiki/File:Bride_and_groom_sit_by_pond_(Unsplash).jpg (CC0)
       { src: 'photos/pond-dusk.jpg', alt: 'A couple sitting together by a pond at sunset', caption: 'Dusk at the pond' },
+      // Source: https://commons.wikimedia.org/wiki/File:Groom_touching_wedding_band_(Unsplash).jpg (CC0)
       { src: 'photos/ring-bw.jpg', alt: 'Black and white close-up of a hand turning a wedding band', caption: 'Nervous hands' },
     ],
   },
@@ -34,10 +42,15 @@ const STORIES = [
     id: 'woods', couple: 'Ines & Theo', place: 'Calder Woods', when: 'May 2025', film: 'OF 160', pick: 2,
     note: 'An elopement for two, a dog and an officiant who had to be home by six.',
     frames: [
+      // Source: https://commons.wikimedia.org/wiki/File:Bride_and_groom_walking_in_woods_(Unsplash).jpg (CC0)
       { src: 'photos/woods-walk.jpg', alt: 'A couple walking hand in hand into green woods', caption: 'Walking in' },
+      // Source: https://commons.wikimedia.org/wiki/File:Forest_bride_in_flowing_dress_(Unsplash).jpg (CC0)
       { src: 'photos/forest-bride.jpg', alt: 'A bride lifting her skirt in a dark forest', caption: 'Lifting the hem' },
+      // Source: https://commons.wikimedia.org/wiki/File:Groom_gives_bride_forehead_kiss_(Unsplash).jpg (CC0)
       { src: 'photos/forehead-kiss.jpg', alt: 'A groom kissing a bride on the forehead among leaves', caption: 'Just married' },
+      // Source: https://commons.wikimedia.org/wiki/File:Brooke_Cagle_2017-01-19_(Unsplash_b8wh3bH8JCg).jpg (CC0)
       { src: 'photos/golden-field.jpg', alt: 'A couple in a field of tall golden grass in late light', caption: 'The field, after' },
+      // Source: https://commons.wikimedia.org/wiki/File:Wedding_walk_dark_forest_path_(Unsplash).jpg (CC0)
       { src: 'photos/forest-path.jpg', alt: 'A couple walking away down a forest path', caption: 'The walk back' },
     ],
   },
@@ -45,10 +58,15 @@ const STORIES = [
     id: 'city', couple: 'Priya & Sam', place: 'City Hall & the river', when: 'Apr 2025', film: 'OF 400', pick: 3,
     note: 'Twelve minutes at city hall, then the whole afternoon wandering the river with friends.',
     frames: [
+      // Source: https://commons.wikimedia.org/wiki/File:Post_office_wedding_(Unsplash).jpg (CC0)
       { src: 'photos/columns.jpg', alt: 'A couple kissing on the steps in front of tall stone columns', caption: 'The steps' },
+      // Source: https://commons.wikimedia.org/wiki/File:Couple_Wedding_Bridge_London_(Unsplash).jpg (CC0)
       { src: 'photos/footbridge.jpg', alt: 'A couple walking over an arched wooden footbridge', caption: 'Over the bridge' },
+      // Source: https://commons.wikimedia.org/wiki/File:Newlyweds_legs_on_stairs_Cambridge_Mill_(Unsplash).jpg (CC0)
       { src: 'photos/stairs.jpg', alt: 'Close-up of a newlywed couple’s legs and shoes on old stone stairs', caption: 'Mill stairs' },
+      // Source: https://commons.wikimedia.org/wiki/File:London_wedding_blue_sky_clouds_(Unsplash).jpg (CC0)
       { src: 'photos/big-sky.jpg', alt: 'A tiny bride standing on a green bank under a huge blue sky', caption: 'All that sky' },
+      // Source: https://commons.wikimedia.org/wiki/File:Bride_smiles_at_groom_(Unsplash).jpg (CC0)
       { src: 'photos/smile-bw.jpg', alt: 'Black and white photo of a bride smiling up at the groom', caption: 'Toasts' },
     ],
   },
@@ -56,11 +74,17 @@ const STORIES = [
     id: 'barn', couple: 'Margot & Lou', place: 'Halsey Barn', when: 'Oct 2024', film: 'OF 800', pick: 4,
     note: 'Long tables, a rope swing and a dance floor that stayed full until the band was asked to leave.',
     frames: [
+      // Source: https://commons.wikimedia.org/wiki/File:Sunflowers_down_aisle_stone_church_(Unsplash).jpg (CC0)
       { src: 'photos/aisle.jpg', alt: 'Guests turning to watch in a stone church aisle lined with sunflowers', caption: 'Down the aisle' },
+      // Source: https://commons.wikimedia.org/wiki/File:Wedding_reception_tables_and_benches_(Unsplash).jpg (CC0)
       { src: 'photos/long-tables.jpg', alt: 'Long reception tables and benches in a bright timber barn', caption: 'Before anyone sat' },
+      // Source: https://commons.wikimedia.org/wiki/File:Wooden_swing_at_wedding_venue_(Unsplash).jpg (CC0)
       { src: 'photos/swing.jpg', alt: 'A wooden rope swing hanging from a tree above rows of white chairs', caption: 'The swing' },
+      // Source: https://commons.wikimedia.org/wiki/File:Close-up_bride_in_a_veil_(Unsplash).jpg (CC0)
       { src: 'photos/veil-close.jpg', alt: 'A close-up of a veil caught in the light', caption: 'Veil, mid-turn' },
+      // Source: https://commons.wikimedia.org/wiki/File:Lets_Live_Here_Forever_(Unsplash).jpg (CC0)
       { src: 'photos/window-dance.jpg', alt: 'A couple dancing by tall windows at night', caption: 'First dance' },
+      // Source: https://commons.wikimedia.org/wiki/File:Fort_Collins_wedding_embrace_(Unsplash).jpg (CC0)
       { src: 'photos/embrace-back.jpg', alt: 'A groom’s hands around a bride’s lace-backed dress', caption: 'Last song' },
     ],
   },
@@ -85,10 +109,13 @@ const TRAVEL = [
 ];
 
 const COLLECTIONS = [
+  // Source: https://commons.wikimedia.org/wiki/File:Forest_bride_in_flowing_dress_(Unsplash).jpg (CC0)
   { id: 'elopement', name: 'The <em>Elopement</em>', plain: 'The Elopement', hours: 4, start: 14, addons: [], peek: 'photos/forest-bride.jpg',
     includes: ['One photographer', '250+ edited photographs', 'Help finding the spot'] },
+  // Source: https://commons.wikimedia.org/wiki/File:Lets_Live_Here_Forever_(Unsplash).jpg (CC0)
   { id: 'day', name: 'The <em>Day</em>', plain: 'The Day', hours: 8, start: 13, addons: ['second'], peek: 'photos/window-dance.jpg',
     includes: ['Two photographers', '600+ edited photographs', 'A timeline planned together'] },
+  // Source: https://commons.wikimedia.org/wiki/File:London_wedding_blue_sky_clouds_(Unsplash).jpg (CC0)
   { id: 'story', name: 'The Whole <em>Story</em>', plain: 'The Whole Story', hours: 12, start: 11.5, addons: ['second', 'film', 'engagement', 'album'], peek: 'photos/big-sky.jpg',
     includes: ['Everything in The Day', 'Engagement session', 'Medium-format film', 'Linen heirloom album'] },
 ];
@@ -119,9 +146,13 @@ const HELD = ['2026-11-14', '2027-06-19', '2027-07-31', '2027-09-18', '2027-10-0
 const PEAK_MONTHS = [4, 5, 6, 7, 8, 9]; // May–October (0 = January)
 
 const LETTERS = [
+  // Source: https://commons.wikimedia.org/wiki/File:Bride_on_a_dock_(Unsplash).jpg (CC0)
   { text: 'We forgot you were there, and then the gallery arrived and we cried at our kitchen table for an hour.', who: 'Juniper & Cole — Lake Mira, Sept 2025', img: 'photos/dock.jpg' },
+  // Source: https://commons.wikimedia.org/wiki/File:Lets_Live_Here_Forever_(Unsplash).jpg (CC0)
   { text: 'She found the one picture of my grandmother laughing that day. That frame is on every wall in our family now.', who: 'Margot & Lou — Halsey Barn, Oct 2024', img: 'photos/window-dance.jpg' },
+  // Source: https://commons.wikimedia.org/wiki/File:Groom_gives_bride_forehead_kiss_(Unsplash).jpg (CC0)
   { text: 'Our elopement was four hours long and somehow every minute of it is in there, even the dog stealing the bouquet.', who: 'Ines & Theo — Calder Woods, May 2025', img: 'photos/forehead-kiss.jpg' },
+  // Source: https://commons.wikimedia.org/wiki/File:London_wedding_blue_sky_clouds_(Unsplash).jpg (CC0)
   { text: 'Calm, funny, invisible when it mattered. Our friends still ask who took the pictures.', who: 'Priya & Sam — City Hall, Apr 2025', img: 'photos/big-sky.jpg' },
 ];
 

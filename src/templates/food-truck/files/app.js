@@ -40,8 +40,11 @@ const MENU = [
   {
     category: 'Tacos', note: 'corn, pressed to order',
     items: [
+      // Source: https://wordpress.org/photos/photo/5566aceb7c/ (CC0)
       { id: 'birria', name: 'Birria quesataco', desc: 'Beef birria, melted Oaxaca cheese, griddled crisp, cup of consomé to dunk.', price: 5.00, tags: ['GF'], photo: 'photos/fried-tacos.jpg' },
+      // Source: https://wordpress.org/photos/photo/5216aacf28/ (CC0)
       { id: 'pastor', name: 'Al pastor', desc: 'Achiote pork off the spit, charred pineapple, onion, cilantro.', price: 4.25, tags: ['GF', 'hot'], photo: 'photos/tacos-plate.jpg' },
+      // Source: https://wordpress.org/photos/photo/65365382d8/ (CC0)
       { id: 'asada', name: 'Carne asada', desc: 'Flank steak, salsa roja, white onion, a squeeze of lime.', price: 4.50, tags: ['GF'], photo: 'photos/tacos-limes.jpg' },
       { id: 'hongos', name: 'Hongos', desc: 'Oyster mushrooms, poblano rajas, crema, toasted pepitas.', price: 4.00, tags: ['V', 'GF'] },
       { id: 'baja', name: 'Baja fish', desc: 'Beer-battered cod, cabbage, chipotle crema.', price: 5.00, tags: [], soldOut: true },
@@ -50,7 +53,9 @@ const MENU = [
   {
     category: 'Bigger', note: 'for the very hungry',
     items: [
+      // Source: https://wordpress.org/photos/photo/59369ce0a2/ (CC0)
       { id: 'burrito', name: 'Comet burrito', desc: 'Flour tortilla, birria or asada, rice, beans, cheese, salsa verde. Foil-wrapped.', price: 13.00, tags: [], photo: 'photos/burrito.jpg' },
+      // Source: https://wordpress.org/photos/photo/5566aceb7c/ (CC0)
       { id: 'plate', name: 'Quesabirria plate', desc: 'Three quesatacos, a big cup of consomé, radish, lime.', price: 15.00, tags: ['GF'], photo: 'photos/fried-tacos.jpg' },
       { id: 'bowl', name: 'Veggie bowl', desc: 'Rice, black beans, hongos, elote, pico, avocado salsa.', price: 12.00, tags: ['V', 'GF'] },
     ],
@@ -58,6 +63,7 @@ const MENU = [
   {
     category: 'Sides', note: '',
     items: [
+      // Source: https://wordpress.org/photos/photo/34169d61d4/ (CC0)
       { id: 'chips', name: 'Chips & salsa trio', desc: 'Roja, verde and habanero, chips fried this morning.', price: 5.00, tags: ['V', 'GF', 'hot'], photo: 'photos/chips-salsa.jpg' },
       { id: 'elote', name: 'Elote', desc: 'Grilled corn, mayo, cotija, tajín.', price: 5.00, tags: ['V', 'GF'] },
     ],
@@ -65,6 +71,7 @@ const MENU = [
   {
     category: 'Sweet & cold', note: '',
     items: [
+      // Source: https://wordpress.org/photos/photo/59067d7129/ (CC0)
       { id: 'churros', name: 'Churros & cajeta', desc: 'Cinnamon sugar, goat-milk caramel to dip.', price: 6.00, tags: ['V'], photo: 'photos/churros.jpg' },
       { id: 'horchata', name: 'Horchata', desc: 'Rice, cinnamon, vanilla, over ice.', price: 4.00, tags: ['V', 'GF'] },
       { id: 'jamaica', name: 'Agua de jamaica', desc: 'Hibiscus, a little lime.', price: 4.00, tags: ['V', 'GF'] },

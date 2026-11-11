@@ -52,12 +52,16 @@ const STYLES = [
 ];
 
 const TEACHERS = [
+  // Source: https://commons.wikimedia.org/wiki/File:Yoga_in_the_beach_(Unsplash).jpg (CC0)
   { id: 'mara', name: 'Mara Lindqvist', role: 'Founder · Sunrise Flow', photo: 'images/shore.jpg',
     bio: 'Opened Aube after ten years of teaching on beaches at 5am. Still teaches four sunrises a week.' },
+  // Source: https://commons.wikimedia.org/wiki/File:Woman_yoga_pose_sunrise_(Unsplash).jpg (CC0)
   { id: 'ines', name: 'Inès Okafor', role: 'Slow Vinyasa · Restore', photo: 'images/field.jpg',
     bio: 'A former physiotherapist who teaches alignment like a conversation, never a correction.' },
+  // Source: https://commons.wikimedia.org/wiki/File:Yoga_by_the_sea_(Unsplash).jpg (CC0)
   { id: 'teo', name: 'Teo Marchetti', role: 'Strong Flow', photo: 'images/sea.jpg',
     bio: 'Climber, handstand obsessive and the reason the back row now does crow pose.' },
+  // Source: https://commons.wikimedia.org/wiki/File:Pool_meditation_(Unsplash).jpg (CC0)
   { id: 'hana', name: 'Hana Sato', role: 'Yin · Breath & Sit', photo: 'images/pool.jpg',
     bio: 'Trained in Kyoto and Bali. Her yin classes run on candlelight and a single cello track.' },
 ];

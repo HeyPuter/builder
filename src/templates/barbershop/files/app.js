@@ -95,6 +95,7 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const BARBERS = [
     {
         id: 'nico', name: 'Nico Albano', title: 'Owner · Chair 1',
+        // Source: https://commons.wikimedia.org/wiki/File:Fashion_stylists-Jorj_Barber_shop-Mashhad_City-Iran_05.jpg (CC0)
         photo: 'photos/barber-1.jpg', alt: 'Nico, bearded, holding scissors and a comb above a client\'s hair',
         specialties: ['Scissor cuts', 'Long hair', 'Classic shaves'],
         bio: 'Opened Halfmoon in 2014 after ten years in other people\'s shops. Slow, careful scissor work is his thing.',
@@ -103,6 +104,7 @@ const BARBERS = [
     },
     {
         id: 'ray', name: 'Ray Darzi', title: 'Senior barber · Chair 2',
+        // Source: https://commons.wikimedia.org/wiki/File:Fashion_stylists-Jorj_Barber_shop-Mashhad_City-Iran_13.jpg (CC0)
         photo: 'photos/barber-2.jpg', alt: 'Ray, with curly hair and a beard, cutting a seated client\'s grey hair',
         specialties: ['Skin fades', 'Beard sculpting', 'Grey blending'],
         bio: 'The fade guy. Ray blends by hand under a bright lamp and will tell you honestly what your hair will and will not do.',
@@ -111,6 +113,7 @@ const BARBERS = [
     },
     {
         id: 'theo', name: 'Theo Marsh', title: 'Barber · Chair 3',
+        // Source: https://commons.wikimedia.org/wiki/File:Barbershop_In_Iran_-_Barber,_Hairdresser_16.jpg (CC0)
         photo: 'photos/barber-3.jpg', alt: 'Theo, with long hair tied up, trimming a client under angled strip lights',
         specialties: ['Designs', 'Textured crops', 'Kids cuts'],
         bio: 'Steady hands and endless patience. Theo does the designs, the tricky crowns and most of the first haircuts.',
@@ -122,16 +125,22 @@ const BARBERS = [
 // Each look: the words to use in the chair, the upkeep, the SERVICES ids to
 // book for it and the BARBERS id of the barber who cuts it best.
 const LOOKBOOK = [
+    // Source: https://commons.wikimedia.org/wiki/File:Mid-fade_04.jpg (CC0)
     { id: 'mid-fade', name: 'Mid fade', photo: 'photos/cut-mid-fade.jpg', alt: 'Side view of a mid skin fade with a sharp line-up',
       sides: 'Skin at the bottom, fading up to a #2 just above the temple', top: 'Short and textured, about an inch, pushed forward', finish: 'Razor line-up at the forehead and temples', upkeep: 'Every 2 to 3 weeks', services: ['skin-fade'], barber: 'ray' },
+    // Source: https://commons.wikimedia.org/wiki/File:Mid-fade_01.jpg (CC0)
     { id: 'taper-beard', name: 'Taper & full beard', photo: 'photos/cut-taper-beard.jpg', alt: 'Profile of a man with a high taper and a full trimmed beard',
       sides: 'High taper from a #1 to skin at the neckline', top: 'Short waves, about half an inch', finish: 'Beard blended into the taper, cheek line shaped with a razor', upkeep: 'Every 2 weeks', services: ['cut-beard'], barber: 'ray' },
+    // Source: https://commons.wikimedia.org/wiki/File:Mid-fade_06.jpg (CC0)
     { id: 'design', name: 'Fade with a design', photo: 'photos/cut-design.jpg', alt: 'A skin fade with a zig-zag line shaved into the side',
       sides: 'Low skin fade', top: 'Short sponge twists or a crop', finish: 'A shaved design above the ear. Bring a photo of the one you want', upkeep: 'Every 2 weeks, or the design blurs', services: ['skin-fade', 'design'], barber: 'theo' },
+    // Source: https://commons.wikimedia.org/wiki/File:Head_shaved_by_barber_(Unsplash).jpg (CC0)
     { id: 'buzz', name: 'Clean buzz', photo: 'photos/cut-buzz.jpg', alt: 'A barber with tattooed arms buzzing the back of a client\'s head',
       sides: 'A #2 all over, or a #3 on top and #1 on the sides', top: 'Same as the sides', finish: 'Square or tapered neckline. Say which', upkeep: 'Every 3 to 4 weeks', services: ['buzz'], barber: 'nico' },
+    // Source: https://commons.wikimedia.org/wiki/File:Fashion_stylists-Jorj_Barber_shop-Mashhad_City-Iran_08.jpg (CC0)
     { id: 'scissor', name: 'Classic scissor cut', photo: 'photos/cut-scissor.jpg', alt: 'A barber combs and scissor-cuts an older man\'s grey hair',
       sides: 'Scissor over comb, tidy over the ears', top: 'Two to three inches, side part', finish: 'Natural neckline, a light pomade', upkeep: 'Every 4 to 6 weeks', services: ['signature'], barber: 'nico' },
+    // Source: https://commons.wikimedia.org/wiki/File:Christoffer_Engström_2017-01-13_(Unsplash).jpg (CC0)
     { id: 'shave', name: 'Hot towel shave', photo: 'photos/hot-towel-shave.jpg', alt: 'A barber holds a client\'s jaw while shaving him with a straight razor',
       finish: 'Two hot towels, lather, a straight razor and a cold towel to close', upkeep: 'Before a big day, or once a month as a treat', services: ['shave'], barber: 'nico' },
 ];

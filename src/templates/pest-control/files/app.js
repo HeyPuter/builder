@@ -48,48 +48,56 @@ const TICKER = [
 // `oneTime` pests are priced as a single treatment, not per visit.
 const PESTS = [
   {
+    // Source: https://commons.wikimedia.org/wiki/File:Blatella_germanica_cdc.jpg (Public domain, CDC)
     id: 'roach', no: '001', common: 'Cockroach', latin: 'Blattella germanica', img: 'img/roach.jpg',
     found: 'under the sink, 02:14', risk: 4, rate: 35,
     signs: ['Pepper-like droppings in drawers and behind appliances', 'A musty, oily smell', 'Brown egg cases near warm pipes'],
     treatment: 'Gel baits placed where they hide, a growth regulator to stop the next generation, and gaps around pipes sealed.',
   },
   {
+    // Source: https://commons.wikimedia.org/wiki/File:Camponotus_pennsylvanicus.jpg (Public domain)
     id: 'ant', no: '002', common: 'Carpenter ant', latin: 'Camponotus pennsylvanicus', img: 'img/ant.jpg',
     found: 'window frame, east wall', risk: 3, rate: 25,
     signs: ['Small piles of sawdust (frass) below wood', 'Winged ants indoors in spring', 'Faint rustling inside walls at night'],
     treatment: 'We follow the trail to the nest, treat it directly and fix the damp wood that drew them in.',
   },
   {
+    // Source: https://commons.wikimedia.org/wiki/File:Reticulitermes_flavipes_K8085-6.jpg (Public domain, USDA)
     id: 'termite', no: '003', common: 'Subterranean termite', latin: 'Reticulitermes flavipes', img: 'img/termite.jpg',
     found: 'crawl space, sill plate', risk: 5, rate: 690, oneTime: true,
     signs: ['Mud tubes on foundation walls', 'Wood that sounds hollow when tapped', 'Discarded wings on window sills'],
     treatment: 'A liquid barrier around the foundation plus bait stations, checked every quarter for five years.',
   },
   {
+    // Source: https://commons.wikimedia.org/wiki/File:House_mouse_(Mus_musculus)_2732.jpg (CC0)
     id: 'mouse', no: '004', common: 'House mouse', latin: 'Mus musculus', img: 'img/mouse.jpg',
     found: 'loft insulation, north side', risk: 3, rate: 30,
     signs: ['Rice-sized droppings', 'Gnawed food packets and cables', 'Scratching in ceilings after dark'],
     treatment: 'Tamper-proof stations outside, traps inside, and every gap wider than a pencil sealed with steel mesh.',
   },
   {
+    // Source: https://commons.wikimedia.org/wiki/File:Deer_tick_Ixodes_scapularis.jpg (Public domain)
     id: 'tick', no: '005', common: 'Deer tick', latin: 'Ixodes scapularis', img: 'img/tick.jpg',
     found: 'long grass by the back fence', risk: 4, rate: 35,
     signs: ['Ticks on pets after walks or yard time', 'Long grass, leaf litter and deer in the yard', 'A bite with a spreading red ring (see a doctor)'],
     treatment: 'Edges, leaf litter and shady borders treated where ticks wait, plus tick tubes that target the mice that carry them.',
   },
   {
+    // Source: https://commons.wikimedia.org/wiki/File:Bed_bug,_Cimex_lectularius.jpg (Public domain)
     id: 'bedbug', no: '006', common: 'Bed bug', latin: 'Cimex lectularius', img: 'img/bedbug.jpg',
     found: 'mattress seam, guest room', risk: 4, rate: 480, oneTime: true,
     signs: ['Itchy bites in a line or cluster', 'Rust-coloured spots on sheets', 'Tiny pale eggs in mattress seams'],
     treatment: 'Whole-room heat treatment to 50 °C, then a residual follow-up two weeks later. Usually two visits.',
   },
   {
+    // Source: https://commons.wikimedia.org/wiki/File:Aedes_aegypti_CDC9177.tif (Public domain, CDC)
     id: 'mosquito', no: '007', common: 'Mosquito', latin: 'Aedes aegypti', img: 'img/mosquito.jpg',
     found: 'patio, around dusk', risk: 2, rate: 30,
     signs: ['Bites outdoors at dawn and dusk', 'Standing water in pots, gutters or toys', 'Larvae wriggling in rain barrels'],
     treatment: 'Breeding spots drained or treated, and a barrier spray on shrubs where they rest during the day.',
   },
   {
+    // Source: https://commons.wikimedia.org/wiki/File:AD2009Sep09_Vespula_germanica_07.jpg (Public domain)
     id: 'wasp', no: '008', common: 'German wasp', latin: 'Vespula germanica', img: 'img/wasp.jpg',
     found: 'soffit above the back door', risk: 3, rate: 40,
     signs: ['Steady traffic in and out of one gap', 'Papery nest in sheds or roof spaces', 'Wasps chewing on fences and decking'],

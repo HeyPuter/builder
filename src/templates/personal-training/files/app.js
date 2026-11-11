@@ -86,9 +86,13 @@ const PROGRAMS = [
 
 // The coaches. `photo` is a file in images/.
 const COACHES = [
+    // Source: https://commons.wikimedia.org/wiki/File:Woman_fitness_training.JPEG (Public domain)
     { name: 'Mara Quill', role: 'Head coach · Founder', focus: 'Strength for 40+, return from injury', years: 14, photo: 'coach-1.jpg', best: 'Deadlift 190 kg' },
+    // Source: https://commons.wikimedia.org/wiki/File:Seaman_performs_a_deadlift_during_a_power_lifting_competition._(29740966872).jpg (Public domain, US Navy)
     { name: 'Teo Ballard', role: 'Strength coach', focus: 'Powerlifting, first-time lifters', years: 9, photo: 'coach-2.jpg', best: 'Squat 230 kg' },
+    // Source: https://commons.wikimedia.org/wiki/File:Woman_with_kettlebell.jpg (Public domain)
     { name: 'Ines Okoro', role: 'Conditioning coach', focus: 'Engine work, hybrid & race prep', years: 7, photo: 'coach-3.jpg', best: '2k row 6:58' },
+    // Source: https://commons.wikimedia.org/wiki/File:Touchpoint_3_FMWR_Torii_Gym_23_JUL_2024_9_(8562427).jpg (Public domain, US Army)
     { name: 'Sam Whitlow', role: 'Online & mobility', focus: 'Programming, mobility, pre/postnatal', years: 11, photo: 'coach-4.jpg', best: 'Clean & jerk 105 kg' },
 ];
 

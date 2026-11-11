@@ -30,6 +30,7 @@ const SERVICES = [
   {
     id: 'panel', name: 'Panel upgrades', short: '100 A to 200 A service, new panels, subpanels',
     from: 'From $2,400', time: 'One day, power off 6–8 hours',
+    // Source: https://www.rawpixel.com/image/5921188 (CC0)
     photo: 'photos/breakers.jpg', alt: 'A row of circuit breakers inside a panel',
     body: 'Old fuse boxes, recalled panels and panels with no room left. We size the new service, deal with the utility and the permit, and leave every breaker labeled.',
     includes: ['Load calculation and permit', 'Utility disconnect and reconnect', 'New main, breakers and surge protection', 'Typed circuit directory'],
@@ -37,6 +38,7 @@ const SERVICES = [
   {
     id: 'ev', name: 'EV chargers', short: 'Level 2 home charging for any car',
     from: 'From $650', time: 'Half a day',
+    // Source: https://www.rawpixel.com/image/5948595 (CC0)
     photo: 'photos/ev-charging.jpg', alt: 'An electric car plugged in to charge',
     body: 'A dedicated 240 V circuit sized to your car and your panel. We mount the charger you bought, or help you choose one, and set up charging for off-peak rates.',
     includes: ['Panel capacity check', 'Dedicated 240 V circuit', 'Wall or pedestal mount', 'App and schedule setup'],
@@ -44,6 +46,7 @@ const SERVICES = [
   {
     id: 'lighting', name: 'Lighting', short: 'Recessed, pendants, under-cabinet, dimmers',
     from: 'From $180 a fixture', time: 'Most rooms in a day',
+    // Source: https://www.rawpixel.com/image/5962314 (CC0)
     photo: 'photos/kitchen-lighting.jpg', alt: 'A kitchen with recessed, cove and pendant lighting',
     body: 'From swapping one fixture to lighting a whole kitchen. We cut clean, patch tidy and match dimmers to the bulbs so nothing buzzes or flickers.',
     includes: ['Layout advice', 'Fixtures hung and leveled', 'Dimmers matched to bulbs', 'Drywall patched, ready to paint'],
@@ -51,6 +54,7 @@ const SERVICES = [
   {
     id: 'rewire', name: 'Rewiring', short: 'Knob-and-tube, aluminum, ungrounded circuits',
     from: 'Quoted room by room', time: '3–7 days for most homes',
+    // Source: https://www.rawpixel.com/image/5963499 (CC0)
     photo: 'photos/rewire.jpg', alt: 'Bare wire ends coming out of a white wall',
     body: 'Older wiring brought up to code with as few holes as possible. You can stay at home; rooms we are not working in keep their power.',
     includes: ['Room-by-room plan', 'Grounded outlets with GFCI and AFCI', 'Linked smoke and CO alarms', 'Final inspection'],
@@ -58,6 +62,7 @@ const SERVICES = [
   {
     id: 'backup', name: 'Backup power', short: 'Generators, transfer switches, home batteries',
     from: 'From $1,200', time: '1–2 days',
+    // Source: https://www.rawpixel.com/image/6042752 (CC0)
     photo: 'photos/solar-roof.jpg', alt: 'Solar panels on the roof of a brick house',
     body: 'Keep the fridge, furnace and Wi-Fi running through an outage. We wire generator inlets, standby generators and home batteries, including tie-ins with solar.',
     includes: ['Essential-load planning', 'Inlet or automatic transfer switch', 'Battery and solar tie-ins', 'Utility paperwork'],
@@ -65,6 +70,7 @@ const SERVICES = [
   {
     id: 'repair', name: 'Troubleshooting', short: 'Tripping breakers, dead outlets, flicker',
     from: '$89 flat call', time: 'Same day for most calls',
+    // Source: https://www.rawpixel.com/image/6066840 (CC0)
     photo: 'photos/rcd-switch.jpg', alt: 'A residual current breaker on a dark surface',
     body: 'We find the fault before we price the fix. The $89 call covers the diagnosis and is credited to the repair if you go ahead.',
     includes: ['Diagnosis with a written price', 'Most repairs on the first visit', 'Common parts on the truck', 'Photos of what we found'],
@@ -72,6 +78,7 @@ const SERVICES = [
   {
     id: 'outdoor', name: 'Outdoor & spa', short: 'Path, porch and security lights, hot tubs',
     from: 'From $350', time: 'Half a day to two days',
+    // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
     photo: 'photos/house-dusk.jpg', alt: 'A modern house lit up at dusk',
     body: 'Weather-rated outdoor circuits, low-voltage landscape lighting, motion and security lights, and the disconnect a hot tub needs.',
     includes: ['Buried or surface conduit', 'GFCI-protected outdoor outlets', 'Timers and smart controls', 'Hot tub disconnects'],
@@ -79,6 +86,7 @@ const SERVICES = [
   {
     id: 'commercial', name: 'Commercial', short: 'Shops, offices and tenant fit-outs',
     from: 'Quoted per project', time: 'Scheduled around your hours',
+    // Source: https://www.flickr.com/photos/80223459@N05/52653265115 (Public domain, US National Park Service)
     photo: 'photos/led-retrofit.jpg', alt: 'An electrician on a ladder fitting LED lights in an office corridor',
     body: 'Fit-outs, LED retrofits and service work for small businesses. We work nights and weekends so you don\'t have to close.',
     includes: ['Drawings and permits', 'LED and emergency lighting', 'Dedicated equipment circuits', 'After-hours scheduling'],

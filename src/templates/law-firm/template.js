@@ -1,7 +1,7 @@
 // Law firm: a one-page static site for a small law firm or solo lawyer, with no
 // backend. The firm's details, jurisdiction, attorneys and their credentials,
 // practice areas, consultation terms, reviews and FAQ are plain data at the top
-// of files/app.js. Photos are free stock images standing in for the firm's own
+// of files/app.js. Photos are AI-generated samples standing in for the firm's own
 // portraits and office. See scripts/build-templates.mjs for the shape.
 export default {
     slug: 'law-firm',
@@ -26,7 +26,7 @@ export default {
         '- Each PRACTICE area names the ATTORNEYS id of the lawyer who handles it. The "What is going on?" picker (SITUATIONS) and the consultation form both route by it. Keep this routing when adding areas or lawyers.',
         '- The firm, attorneys, bar admissions, schools, memberships, certifications, fees and reviews are samples, and SAMPLE_CONTENT = true labels them on the page. Never invent credentials, bar numbers, certifications, case results, reviews or fees for the user\'s real firm; ask for real ones, or remove what they do not have. Set SAMPLE_CONTENT to false only once they are the user\'s own.',
         '- Keep the disclaimer that contacting the firm does not create an attorney-client relationship, the results disclaimer near reviews, and the form\'s warning not to send confidential details. Lawyer advertising rules vary by state; when the user adds testimonials, case results or words like "specialist" or "expert", remind them to check their state bar\'s rules.',
-        '- The photos in photos/ are stock images. Suggest replacing them with real portraits and office photos.',
+        '- The photos in photos/ are AI-generated samples. Suggest replacing them with real portraits and office photos.',
         '- Keep the call and consultation buttons easy to reach on a phone, including the bar fixed to the bottom of small screens.',
     ].join('\n'),
 
@@ -53,7 +53,7 @@ export default {
             {
                 q: 'Are the attorneys and reviews real?',
                 a: [
-                    'No. The firm, the lawyers, their credentials and the reviews are placeholders, and the photos are free stock images. Replace them with your own before you publish.',
+                    'No. The firm, the lawyers, their credentials and the reviews are placeholders, and the photos are AI-generated. Replace them with your own before you publish.',
                 ],
             },
             {

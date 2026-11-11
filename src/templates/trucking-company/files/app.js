@@ -63,18 +63,21 @@ const HOURS = {
 const EQUIPMENT = [
     {
         id: 'van', name: 'Dry van', size: '53′ trailers', perMile: 2.35, maxLb: 45000,
+        // Source: https://www.rawpixel.com/image/6082537 (CC0)
         photo: 'photos/loading-dock.jpg', alt: 'Two closed loading dock doors marked receiving on a brick warehouse',
         body: 'Palletized and floor-loaded freight. Drop a trailer at your dock and load it on your schedule.',
         specs: [['Pallets', '26 standard'], ['Max load', '45,000 lb'], ['Suspension', 'Air ride'], ['Drop trailers', 'Yes']],
     },
     {
         id: 'reefer', name: 'Refrigerated', size: '53′ reefers', perMile: 2.8, maxLb: 43500,
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         photo: 'photos/cold-dock.jpg', alt: 'A forklift moving a tall pallet of boxed watermelons in a cold warehouse',
         body: 'Produce, dairy and frozen food, with the temperature logged the whole way and sent with the delivery receipt.',
         specs: [['Temp range', '−20°F to 70°F'], ['Pallets', '26 standard'], ['Max load', '43,500 lb'], ['Temp log', 'Every 15 min']],
     },
     {
         id: 'flatbed', name: 'Flatbed', size: '48′ flats and step decks', perMile: 3.05, maxLb: 47000,
+        // Source: https://www.rawpixel.com/image/6017167 (CC0)
         photo: 'photos/oversize-load.jpg', alt: 'A chrome truck hauling a wide steel load with an oversize load banner on the bumper',
         body: 'Steel, lumber, machinery and building materials. We pull the permits for oversize loads.',
         specs: [['Max load', '47,000 lb'], ['Deck', '48′ flat, 53′ step'], ['Securement', 'Chains, straps, tarps'], ['Oversize', 'Permits arranged']],

@@ -1,7 +1,7 @@
 // Real estate agent: a one-page static site for an agent's own business, with
 // no backend. Agent details, listings, neighborhoods, reviews, sales and FAQ
 // are plain data at the top of files/app.js, and SECTIONS switches parts of the
-// page off. Photos are CC0 stock (StockSnap) standing in for the agent's own
+// page off. Photos are AI-generated samples standing in for the agent's own
 // headshot and listing photos. See scripts/build-templates.mjs for the shape.
 export default {
     slug: 'real-estate-agent',
@@ -27,7 +27,7 @@ export default {
         '- SECTIONS turns sections off, and a section with an empty list hides itself and its menu link. To remove a section (for example a new agent with no listings or reviews yet), set it to false or empty its list rather than deleting the HTML.',
         '- The stats, listings, neighborhood figures, testimonials, recent sales, license numbers and headshot are placeholders, and SAMPLE_CONTENT = true labels them as samples on the page. Never invent reviews, sales figures, prices, licenses or credentials for the user\'s real business; ask for real ones, or remove what they do not have. Set SAMPLE_CONTENT to false only once these are the user\'s own.',
         '- Keep the brokerage name, license numbers and the fair housing line in the footer, since many places require them on agent websites. Change the wording only to match the user\'s brokerage or local rules.',
-        '- The photos in photos/ are stock images. Suggest replacing them with the agent\'s headshot and real listing photos.',
+        '- The photos in photos/ are AI-generated samples. Suggest replacing them with the agent\'s headshot and real listing photos.',
     ].join('\n'),
 
     page: {
@@ -47,7 +47,7 @@ export default {
             {
                 q: 'Are the listings, reviews and sales real?',
                 a: [
-                    'No. The agent, the listings, the neighborhoods, the reviews and the sales figures are placeholders, and the photos are free stock images. The page labels them as samples until you replace them with your own.',
+                    'No. The agent, the listings, the neighborhoods, the reviews and the sales figures are placeholders, and the photos are AI-generated. The page labels them as samples until you replace them with your own.',
                 ],
             },
             {

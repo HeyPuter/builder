@@ -64,19 +64,28 @@ const AREAS = [
 ];
 
 const WALKERS = [
+  // Source: https://commons.wikimedia.org/wiki/File:Walkhaven_Dog_Park,_Johannesburg,_South_Africa_(Unsplash).jpg (CC0)
   { name: 'Rosa', tag: 'Head walker · 9 yrs', photo: 'images/walker-rosa.jpg', alt: 'Rosa\'s terrier, Mop, grinning in the grass', bio: 'Started Pawment with one lead and a borrowed collie. Knows every off-lead field and every dog-friendly café within three miles.', facts: ['Canine first aid, level 3', 'Speaks fluent spaniel', 'Walks Old Town & Market Qtr'] },
+  // Source: https://commons.wikimedia.org/wiki/File:Papillon_running.JPG (Public domain)
   { name: 'Dev', tag: 'Pack walks · 5 yrs', photo: 'images/walker-dev.jpg', alt: 'Dev\'s papillon, Flick, running flat out across a lawn', bio: 'Former cross-country runner. Runs the big pack walks along the canal and is the reason half our dogs can do a perfect sit at the kerb.', facts: ['Reactive dog training cert.', 'Max 4 dogs, always', 'Walks Canal Side & Riverside'] },
+  // Source: https://commons.wikimedia.org/wiki/File:Earnest_dog_in_the_grass_(Unsplash).jpg (CC0)
   { name: 'Juno', tag: 'Puppies & seniors · 4 yrs', photo: 'images/walker-juno.jpg', alt: 'Juno\'s rescue, Bramble, resting in long grass', bio: 'Patient, quiet and very good with nervous dogs. If your puppy is learning the lead or your old boy needs a slower lap, Juno is your person.', facts: ['Puppy socialisation course', 'Medication & insulin trained', 'Walks Hillcrest'] },
+  // Source: https://commons.wikimedia.org/wiki/File:Bel_Air,_Maryland_dog_(Unsplash).jpg (CC0)
   { name: 'Sam', tag: 'Sitting & drop-ins · 3 yrs', photo: 'images/walker-sam.jpg', alt: 'Sam\'s staffie, Lola, flat out on the living-room rug', bio: 'Our overnight sitter. Cats adore Sam, dogs follow Sam from room to room, and plants come back from holiday in better shape than they left.', facts: ['Cat behaviour certificate', 'Over 400 nights sat', 'Covers Millbrook'] },
 ];
 
 // Sample walk reports for the "Pupdate" section. `route` is a list of points
 // on a 400 x 300 map.
 const PUPDATES = [
+  // Source: https://commons.wikimedia.org/wiki/File:Barlow_Ganj_dog_(Unsplash).jpg (CC0)
   { day: 'Mon', dog: 'Biscuit', walker: 'Rosa', start: '10:32', km: 3.4, mins: 58, pees: 4, poos: 1, photo: 'images/pup-1.jpg', note: 'Found a stick twice his size and refused to leave it. Brought it home. Sorry.', route: [[40, 250], [70, 190], [130, 170], [160, 110], [230, 90], [300, 120], [330, 190], [280, 230], [200, 220], [140, 250], [40, 250]] },
+  // Source: https://commons.wikimedia.org/wiki/File:Blonde_dog_in_grass_(Unsplash).jpg (CC0)
   { day: 'Tue', dog: 'Moss', walker: 'Dev', start: '08:04', km: 4.1, mins: 61, pees: 3, poos: 2, photo: 'images/pup-2.jpg', note: 'Pack walk along the canal. Moss did the full loop at a gallop and still had energy for the ball.', route: [[30, 60], [110, 70], [190, 60], [260, 90], [350, 80], [370, 160], [300, 200], [220, 190], [150, 230], [60, 210], [30, 60]] },
+  // Source: https://commons.wikimedia.org/wiki/File:Top_Dog_(Unsplash).jpg (CC0)
   { day: 'Wed', dog: 'Juniper', walker: 'Juno', start: '12:00', km: 1.2, mins: 31, pees: 2, poos: 1, photo: 'images/pup-3.jpg', note: 'Lead training going well! Sat at every kerb today. Lunch eaten, water topped up, crate door left open.', route: [[180, 260], [180, 200], [230, 170], [270, 200], [250, 250], [180, 260]] },
+  // Source: https://commons.wikimedia.org/wiki/File:Dog_stares_out_window_(Unsplash).jpg (CC0)
   { day: 'Thu', dog: 'Otto', walker: 'Rosa', start: '14:10', km: 2.6, mins: 47, pees: 5, poos: 1, photo: 'images/pup-4.jpg', note: 'Solo stroll at Otto speed. Long sniff at the bakery bins, a nap in the sun on the bench, home happy.', route: [[60, 60], [60, 140], [120, 160], [180, 220], [260, 240], [330, 200], [320, 120], [240, 90], [150, 70], [60, 60]] },
+  // Source: https://commons.wikimedia.org/wiki/File:White_dog_walk_in_richmond_(Unsplash).jpg (CC0)
   { day: 'Fri', dog: 'Pepper', walker: 'Dev', start: '15:35', km: 3.9, mins: 60, pees: 3, poos: 1, photo: 'images/pup-5.jpg', note: 'Met a greyhound called Lightning and tried very hard to keep up. Muddy paws wiped, towel on the radiator.', route: [[50, 150], [120, 80], [210, 50], [300, 70], [360, 140], [320, 230], [230, 260], [140, 240], [80, 200], [50, 150]] },
 ];
 
