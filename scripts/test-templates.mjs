@@ -754,8 +754,8 @@ if (built) {
         send.includes('const turnTemplate = templateProp(turnSaveContext.chatHistory);'));
     check('Project Created and Build Started carry the template',
         /if \(isFirstBuildTurn\) window\.track\?\.\('Project Created', \{[^\n]*\.\.\.turnTemplate \}\);/.test(send) &&
-        /window\.track\?\.\('Build Started', \{[^\n]*\.\.\.turnTemplate \}\);/.test(send));
-    check('Build Completed carries the template', /'Build Completed',[\s\S]{0,500}compacted: turnStats\.compactions > 0, \.\.\.turnTemplate \}/.test(send));
+        /window\.track\?\.\('Build Started', \{[^\n]*\.\.\.turnTemplate[, ][^\n]*\}\);/.test(send));
+    check('Build Completed carries the template', /'Build Completed',[\s\S]{0,500}compacted: turnStats\.compactions > 0, \.\.\.turnTemplate[,\s}]/.test(send));
     check('Build Abandoned learns the template from the build it reports',
         send.includes('_activeBuild = { turnSeq, startedAt: turnStartedAt, firstBuild: isFirstBuildTurn, template: turnTemplate.template };'));
     check('every limit hit passes the template on to Upgrade After Limit',

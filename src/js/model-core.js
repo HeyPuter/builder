@@ -21,6 +21,9 @@
 //   none, since Puter only documents compaction for OpenAI and Anthropic.
 //   Anthropic won't compact below 50k. Only used while FEATURE_FLAGS.compaction
 //   is on.
+// - fast: a first build on this model asks for Puter's fast service speed in
+//   the speed experiment's fast variant (experiments.js). Opus only, the model
+//   the test is about.
 window.ModelCore = (function () {
     const DEFAULT_MODEL = 'claude-opus-5-5';
 
@@ -29,7 +32,7 @@ window.ModelCore = (function () {
     const MODELS = {
         'claude-opus-5-5': {
             label: 'Claude Opus 5.5', short: 'Opus 5.5', family: 'claude', route: 'claude',
-            reasoningEffort: 'medium', toolResultMedia: true, pdf: true, gif: true, compactAt: 250000,
+            reasoningEffort: 'medium', toolResultMedia: true, pdf: true, gif: true, compactAt: 250000, fast: true,
             note: 'Default. Optimized for Puter AI Builder.',
         },
         'claude-sonnet-5-5': {
@@ -56,6 +59,7 @@ window.ModelCore = (function () {
     function isClaude(id) { return MODELS[idOrDefault(id)].family === 'claude'; }
     function supportsPdf(id) { return MODELS[idOrDefault(id)].pdf; }
     function supportsGif(id) { return MODELS[idOrDefault(id)].gif; }
+    function supportsFast(id) { return !!MODELS[idOrDefault(id)].fast; }
     function ids() { return Object.keys(MODELS); }
 
     // The picker's line under a model's name.
@@ -102,7 +106,9 @@ window.ModelCore = (function () {
     // moment the model starts it, and its arguments as they're written, ahead
     // of the usual complete call. It changes only what Puter sends back, not
     // the request upstream, and handleMessageStream shows it beside the dots.
-    function buildChatOptions(modelId, { tools, signal } = {}) {
+    // serviceSpeed is only sent when given (the speed experiment in
+    // experiments.js), so every other request keeps the model's usual speed.
+    function buildChatOptions(modelId, { tools, signal, serviceSpeed } = {}) {
         const id = idOrDefault(modelId);
         const m = MODELS[id];
         return {
@@ -114,6 +120,7 @@ window.ModelCore = (function () {
             parallelToolCalls: true,
             provider: m.route,
             ...(m.compactAt && compactionOn() ? { compaction: { trigger_tokens: m.compactAt } } : {}),
+            ...(serviceSpeed ? { serviceSpeed } : {}),
             signal,
         };
     }
@@ -410,7 +417,7 @@ window.ModelCore = (function () {
     }
 
     return {
-        DEFAULT_MODEL, MODELS, get, ids, isClaude, supportsPdf, supportsGif, noteFor,
+        DEFAULT_MODEL, MODELS, get, ids, isClaude, supportsPdf, supportsGif, supportsFast, noteFor,
         pickerAccess, projectModel, resolveTurnModel, buildChatOptions, turnTools, shapeHistory, fromLastCompaction,
         portableSchema, unavailableTools, unavailableToolsNote,
     };

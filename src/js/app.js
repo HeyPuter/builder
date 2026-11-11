@@ -3403,7 +3403,7 @@ function trackBuildAbandoned(how) {
     _activeBuild = null;
     window.track?.('Build Abandoned', {
         how, saw_output: _turnProgressed, waited: waitBand(Date.now() - build.startedAt), first_build: build.firstBuild,
-        ...templatePropFor(build.template),
+        ...templatePropFor(build.template), ...window.experimentProps?.('speed'),
     });
 }
 window.addEventListener('pagehide', () => trackBuildAbandoned('left'));
@@ -3832,7 +3832,7 @@ async function recordPlanAtLimit(kind, template) {
         const user = await puter.auth.getUser();
         if (!user || user.uuid !== id) return;
         const plan = await readPlanSnapshot(user);
-        localStorage.setItem(LIMIT_PAY_PREFIX + id, JSON.stringify({ at, kind, plan, cohort: limitDialogCohort(), template }));
+        localStorage.setItem(LIMIT_PAY_PREFIX + id, JSON.stringify({ at, kind, plan, cohort: window.experiment('limitDialog'), template }));
     } catch (e) {}
 }
 
@@ -3988,35 +3988,9 @@ function usageLimitHitProps(history, chats, chatId, publishedUrl) {
         any_published: !!publishedUrl || others.some(c => c.publishedUrl),
         builds_completed: cap(countCompletedBuilds(history)),
         projects: cap(others.length + 1),
-        cohort: limitDialogCohort(),
+        cohort: window.experiment('limitDialog'),
         ...templateProp(history),
     };
-}
-
-// ---- Low Balance dialog test -------------------------------------------------
-// On the web, half of accounts see the builder's own out-of-credits dialog in
-// place of puter.js's Low Balance one (see installLowBalanceOverride in ui.js).
-// The cohort comes from a hash of the uuid, so it's the same on every load and
-// device. It rides on 'Usage Limit Hit' and 'Upgrade After Limit', and the
-// upgrade rate per cohort is the second divided by the first. Inside the Puter
-// desktop the desktop draws its own prompt, so those accounts are 'app' and
-// stay out of the comparison.
-// To try a face by hand, run `localStorage.debugLimitCohort = 'custom'` (or
-// 'default') in the console, and `openLimitModal()` opens the dialog directly.
-function limitDialogCohort() {
-    if (typeof puter === 'undefined' || !puter || puter.env !== 'web') return 'app';
-    try {
-        const forced = localStorage.getItem('debugLimitCohort');
-        if (forced === 'custom' || forced === 'default') return forced;
-    } catch (e) {}
-    const id = window.user && window.user.uuid;
-    if (!id) return 'default';
-    let h = 2166136261; // FNV-1a
-    for (let i = 0; i < id.length; i++) {
-        h ^= id.charCodeAt(i);
-        h = Math.imul(h, 16777619);
-    }
-    return (h >>> 0) % 2 ? 'custom' : 'default';
 }
 
 // The project's name for the dialog, or null for "your app". A chat's title is
@@ -5111,7 +5085,8 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     window.forgetLimitResume?.();
     // This turn's id — see _turnSeq and the end-of-turn guard below.
     const turnSeq = ++_turnSeq;
-    // When the user sent it, for Build Abandoned's `waited`.
+    // When the user sent it, for Build Abandoned's `waited` and Build
+    // Completed's `took`.
     const turnStartedAt = Date.now();
     // Tell a caller that tracks its own turn (the Issues panel's batch) which
     // turn is carrying it.
@@ -5221,7 +5196,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     let turnAccountRead = null;
     const turnStats = { calls: 0, previewChecks: 0, cents: 0, lastInput: 0, compactions: 0 };
     const trackLimitHit = props => afterAccountRead(turnAccountRead,
-        () => window.track?.('Usage Limit Hit', { ...props, ...limitHitTurnProps(turnAccount, turnStats, turnSaveContext.chatHistory) }));
+        () => window.track?.('Usage Limit Hit', { ...props, ...limitHitTurnProps(turnAccount, turnStats, turnSaveContext.chatHistory), ...window.experimentProps?.('speed') }));
     // Transient-failure auto-retry state (see the retry loop below). `attempt`
     // counts retries used this turn; `retryGaveUp` is set once they're exhausted,
     // which routes the turn to the calm resume banner instead of an error card.
@@ -5240,6 +5215,11 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // Started / Build Completed analytics events so the new-project funnel can be
     // separated from follow-up edits.
     let isFirstBuildTurn = false;
+    // The serviceSpeed every round, retry and stall recovery of this turn asks
+    // for. Set once the turn's model is settled, from the speed experiment
+    // (experiments.js), so only a first build on a model with a fast tier
+    // (ModelCore's fast, Opus) in the fast variant has one. A Resume never does.
+    let turnServiceSpeed;
 
     // Check if there are only system prompts (no actual conversation yet)
     const hasNonSystemMessages = chatHistory.some(msg => msg.role !== 'system');
@@ -5514,9 +5494,9 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             // In a project copied from a template, the first message is the
             // first change to it, so Project Created with a template counts
             // the copies people went on to change.
-            // The developer starter test (ui.js) is read off Project Created.
-            if (isFirstBuildTurn) window.track?.('Project Created', { ...window.starterTestProps?.(), ...turnTemplate });
-            window.track?.('Build Started', { first_build: isFirstBuildTurn, has_attachments: sendAttachments.length > 0, ...(queued && { queued: true }), ...turnTemplate });
+            // The starter experiment (experiments.js) is read off Project Created.
+            if (isFirstBuildTurn) window.track?.('Project Created', { ...window.experimentProps?.('starter'), ...turnTemplate });
+            window.track?.('Build Started', { first_build: isFirstBuildTurn, has_attachments: sendAttachments.length > 0, ...(queued && { queued: true }), ...turnTemplate, ...window.experimentProps?.('speed') });
             _activeBuild = { turnSeq, startedAt: turnStartedAt, firstBuild: isFirstBuildTurn, template: turnTemplate.template };
 
             const messageContent = contentParts.length > 0 ? contentParts : messageText;
@@ -5542,6 +5522,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // partial bubble. See the MAX_TURN_RETRIES / isTransientTurnError block.
         // A plan that ended since the page loaded must not keep a paid model.
         if (window.ModelPicker) turnModel = await window.ModelPicker.allowedForTurn(chosenModel);
+        turnServiceSpeed = isFirstBuildTurn && window.ModelCore.supportsFast(turnModel) && window.experiment?.('speed') === 'fast' ? 'fast' : undefined;
         const turnTools = window.getTurnTools(turnModel);
         const turnUnavailableTools = window.getUnavailableTools?.(turnModel) || [];
         turnAccountRead = readTurnAccount().then(a => { turnAccount = a; }, () => {});
@@ -5568,7 +5549,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                 // abort couldn't unstick a connection that dies mid-open.
                 const stream = await abortableAwait(puter.ai.chat(
                     prepareHistoryForAI(turnSaveContext.chatHistory, turnModel, { unavailableTools: turnUnavailableTools }),
-                    window.ModelCore.buildChatOptions(turnModel, { tools: turnTools, signal: abortController.signal })
+                    window.ModelCore.buildChatOptions(turnModel, { tools: turnTools, signal: abortController.signal, serviceSpeed: turnServiceSpeed })
                 ), abortController.signal);
 
                 // Reset auto-scroll flag when starting a new message
@@ -5581,7 +5562,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                 // (handleToolCalls) keep the chat flagged in-progress until the
                 // end-of-turn save clears it — this is what makes a refresh during a
                 // long multi-round build resumable.
-                context = {abortController, tools: turnTools, model: turnModel, unavailableTools: turnUnavailableTools, chatHistory: turnSaveContext.chatHistory, currentMessage: null, currentMessageContent: '', currentChatId: turnChatId, appDir: turnAppDir, interrupted: true, turnStats};
+                context = {abortController, tools: turnTools, model: turnModel, serviceSpeed: turnServiceSpeed, unavailableTools: turnUnavailableTools, chatHistory: turnSaveContext.chatHistory, currentMessage: null, currentMessageContent: '', currentChatId: turnChatId, appDir: turnAppDir, interrupted: true, turnStats};
                 await handleMessageStream(stream, context);
                 if (abortController === attemptController) _turnAwaitingStream = false;
                 break; // stream drained (completed, or aborted/switched — handled below)
@@ -5713,9 +5694,10 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             const costCents = u && typeof u.cents === 'number' && u.cents > 0 ? u.cents : 0;
             window.track?.(
                 'Build Completed',
-                { first_build: isFirstBuildTurn, model: turnModel, cost_cents: Number(costCents.toFixed(4)),
+                { first_build: isFirstBuildTurn, model: turnModel, took: buildTimeBand(Date.now() - turnStartedAt), cost_cents: Number(costCents.toFixed(4)),
                     cost_band: costBand(costCents), plan: turnAccount.plan, credits_at_start: turnAccount.credits,
-                    context_band: contextBand(turnStats.lastInput), compacted: turnStats.compactions > 0, ...turnTemplate },
+                    context_band: contextBand(turnStats.lastInput), compacted: turnStats.compactions > 0, ...turnTemplate,
+                    ...window.experimentProps?.('speed') },
                 costCents > 0 ? { currency: 'USD', amount: -(costCents / 100) } : undefined,
             );
             if (attempt > 0) window.track?.('Build Recovered', { attempts: attempt });

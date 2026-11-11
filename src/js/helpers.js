@@ -1563,6 +1563,17 @@ function waitBand(ms) {
     return '3m+';
 }
 
+// How long a finished build took (Build Completed), from send to the end of
+// the turn. Its edges sit where whole builds land, a follow-up often under a
+// minute and a big first build several, so the speed experiment can show
+// whether the fast variant moved them.
+const BUILD_TIME_BANDS = [[30000, '<30s'], [60000, '30-60s'], [120000, '1-2m'], [180000, '2-3m'], [300000, '3-5m'], [600000, '5-10m']];
+function buildTimeBand(ms) {
+    const v = Number(ms) || 0;
+    for (const [below, label] of BUILD_TIME_BANDS) if (v < below) return label;
+    return '10m+';
+}
+
 /**
  * Format a token count compactly with unit suffixes — 1.2K, 3.4M, 1.5B — so the
  * project-info dialog shows readable magnitudes instead of long digit strings

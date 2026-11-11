@@ -106,6 +106,17 @@ check('Opus: medium effort, several tool calls per reply, started on Anthropic',
     assert.deepEqual(plain(o), plain({ model: 'claude-opus-5-5', tools: ['t'], stream: true, streamToolInput: true, reasoning_effort: 'medium', parallelToolCalls: true, provider: 'claude', signal: 's' }));
 });
 
+check('only Opus asks for the fast speed in the speed experiment', () => {
+    assert.deepEqual(plain(M.ids().filter(M.supportsFast)), ['claude-opus-5-5']);
+    assert.equal(M.supportsFast('gpt-4o'), true, 'an unknown id is sent as the default, Opus');
+});
+
+check('a serviceSpeed is sent only when given', () => {
+    assert.ok(!('serviceSpeed' in M.buildChatOptions('claude-opus-5-5')));
+    assert.ok(!('serviceSpeed' in M.buildChatOptions('claude-opus-5-5', { serviceSpeed: undefined })));
+    assert.equal(M.buildChatOptions('claude-opus-5-5', { serviceSpeed: 'fast' }).serviceSpeed, 'fast');
+});
+
 check('with the compaction flag off, no model asks for it', () => {
     for (const id of M.ids()) assert.ok(!('compaction' in M.buildChatOptions(id)), id);
 });

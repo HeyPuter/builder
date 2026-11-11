@@ -446,10 +446,12 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
     // abortableAwait: the SDK ignores the signal option, so the open must be
     // raced against the signal locally or an abort can't unstick a dead open.
     // The turn's model (c.model, fixed when the turn started) drives the
-    // history shape and the request options for every round.
+    // history shape and the request options for every round, and its service
+    // speed (c.serviceSpeed, see the speed experiment in experiments.js) holds
+    // for every round too.
     const stream = await abortableAwait(puter.ai.chat(
         prepareHistoryForAI(c.chatHistory, c.model, { unavailableTools: c.unavailableTools }),
-        window.ModelCore.buildChatOptions(c.model, { tools: c.tools || window.builtinTools(), signal: c.abortController.signal })
+        window.ModelCore.buildChatOptions(c.model, { tools: c.tools || window.builtinTools(), signal: c.abortController.signal, serviceSpeed: c.serviceSpeed })
     ), c.abortController.signal);
     // Round handoff = liveness for the background-freeze watchdog (see
     // mobile-lifecycle-keepalive in app.js). Guarded so a stale turn's rounds
