@@ -22,8 +22,9 @@
 //   Anthropic won't compact below 50k. Only used while FEATURE_FLAGS.compaction
 //   is on.
 // - fast: a first build on this model asks for Puter's fast service speed in
-//   the speed experiment's fast variant (experiments.js). Opus only, the model
-//   the test is about.
+//   the speed experiment's fast variant (experiments.js), and the user's fast
+//   mode (fast-mode.js) speeds up builds on it. Opus only, the model the test
+//   is about and the one whose fast tier fast mode prices.
 window.ModelCore = (function () {
     const DEFAULT_MODEL = 'claude-opus-5-5';
 

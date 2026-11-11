@@ -79,6 +79,9 @@ const SCRIPTS = [
   'js/ui.js',
   // The composer's AI model picker (premium); its rules are in model-core.js.
   'js/model-picker.js',
+  // The composer's fast mode switch (premium). After model-picker.js, whose
+  // project model it reads.
+  'js/fast-mode.js',
   'js/mcp-ui.js',
   'js/featured.js',
   'js/templates.js',

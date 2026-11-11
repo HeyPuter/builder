@@ -757,7 +757,7 @@ if (built) {
         /window\.track\?\.\('Build Started', \{[^\n]*\.\.\.turnTemplate[, ][^\n]*\}\);/.test(send));
     check('Build Completed carries the template', /'Build Completed',[\s\S]{0,500}compacted: turnStats\.compactions > 0, \.\.\.turnTemplate[,\s}]/.test(send));
     check('Build Abandoned learns the template from the build it reports',
-        send.includes('_activeBuild = { turnSeq, startedAt: turnStartedAt, firstBuild: isFirstBuildTurn, template: turnTemplate.template };'));
+        send.includes('_activeBuild = { turnSeq, startedAt: turnStartedAt, firstBuild: isFirstBuildTurn, template: turnTemplate.template, stats: turnStats };'));
     check('every limit hit passes the template on to Upgrade After Limit',
         (send.match(/recordUsageLimitHit\('(credits|tier)', turnTemplate\.template\);/g) || []).length === 3);
     check('Project Published carries the template of the project it published', UI.includes('...templateProp(startHistory),'));

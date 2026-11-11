@@ -1278,6 +1278,198 @@ puter-user-menu::part(sign-in):hover {
 }
 .model-panel-upsell p { margin: 0; color: #555; font-size: 12.5px; line-height: 1.35; }
 
+/* ---- Fast mode (composer) ----
+   A bolt button before the mic (js/fast-mode.js), filled amber while fast
+   mode is on. Its panel and the long-build hint open over the composer like
+   the model picker's panel, from its right edge. */
+.fast-mode-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    margin-left: auto;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: #666;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+.fast-mode-btn[hidden] { display: none; }
+.fast-mode-btn:hover,
+.fast-mode-btn[aria-expanded="true"] { background: #f0f0f0; color: #222; }
+.fast-mode-btn.is-on { background: #fef3c7; color: #b45309; }
+.fast-mode-btn.is-on svg { fill: currentColor; }
+.fast-mode-btn.is-on:hover,
+.fast-mode-btn.is-on[aria-expanded="true"] { background: #fde68a; color: #92400e; }
+/* The bolt takes the push-right margin from the mic and sits close to it. */
+.fast-mode-btn:not([hidden]) ~ .voice-input-button { margin-left: -4px; }
+.fast-mode-btn:not([hidden]) ~ .send { margin-left: 6px; }
+
+/* Fixed on <body> and placed by place() in fast-mode.js, at the model
+   picker panel's layer, with a caret that points at the button: ▼ above it,
+   ▲ when there's only room below (.is-below). --fast-caret-x is set there. */
+.fast-mode-panel,
+.fast-mode-hint {
+    position: fixed;
+    top: 0;
+    left: 0;
+    box-sizing: border-box;
+    max-width: calc(100vw - 16px);
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+    z-index: 1002;
+    font-size: 13px;
+    text-align: left;
+    /* visible so the caret can poke out of the edge. */
+    overflow: visible;
+    --panel-caret-border: #ddd;
+    --panel-caret-fill: #fff;
+}
+.fast-mode-panel::before,
+.fast-mode-panel::after,
+.fast-mode-hint::before,
+.fast-mode-hint::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: var(--fast-caret-x, calc(100% - 24px));
+    transform: translateX(-50%);
+    border: 8px solid transparent;
+    border-bottom: none;
+    border-top-color: var(--panel-caret-border);
+    pointer-events: none;
+}
+.fast-mode-panel::after,
+.fast-mode-hint::after { bottom: -7px; border-top-color: var(--panel-caret-fill); }
+.fast-mode-panel.is-below::before,
+.fast-mode-panel.is-below::after,
+.fast-mode-hint.is-below::before,
+.fast-mode-hint.is-below::after {
+    bottom: auto;
+    top: -8px;
+    border: 8px solid transparent;
+    border-top: none;
+    border-bottom-color: var(--panel-caret-border);
+}
+.fast-mode-panel.is-below::after,
+.fast-mode-hint.is-below::after { top: -7px; border-bottom-color: var(--panel-caret-fill); }
+.fast-mode-panel {
+    width: 280px;
+    padding: 6px;
+}
+.fast-mode-panel:focus,
+.fast-mode-panel:focus-visible { outline: none; }
+.fast-mode-switch {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    padding: 8px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: #333;
+    font: inherit;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+}
+.fast-mode-switch:hover { background: #f2f2f2; }
+/* The free plan's row: the Upgrade button where the switch goes, small
+   enough that the row keeps the switch row's height. */
+.fast-mode-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 4px 4px 4px 8px;
+    color: #333;
+    font-weight: 600;
+}
+.fast-mode-head .fast-mode-upgrade { padding: 5px 12px; border-radius: 6px; font-size: 12.5px; }
+.fast-mode-name { display: inline-flex; align-items: center; gap: 6px; }
+/* The panel's bolt is lit only while the switch is on, like the button's. */
+.fast-mode-name svg { width: 15px; height: 15px; flex: 0 0 auto; color: #888; }
+.fast-mode-switch[aria-checked="true"] .fast-mode-name svg { color: #d97706; fill: currentColor; }
+.fast-mode-hint-title svg { width: 15px; height: 15px; flex: 0 0 auto; color: #d97706; fill: currentColor; }
+.fast-mode-track {
+    position: relative;
+    flex: 0 0 auto;
+    width: 30px;
+    height: 18px;
+    border-radius: 999px;
+    background: #c9c9cf;
+    transition: background-color 0.15s ease;
+}
+.fast-mode-track::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    transition: transform 0.15s ease;
+}
+.fast-mode-switch[aria-checked="true"] .fast-mode-track { background: #d97706; }
+.fast-mode-switch[aria-checked="true"] .fast-mode-track::after { transform: translateX(12px); }
+.fast-mode-text,
+.fast-mode-note { margin: 0; padding: 0 8px 8px; color: #666; font-size: 12.5px; line-height: 1.4; text-wrap: pretty; }
+.fast-mode-note { color: #8a5a00; }
+
+/* The long-build hint. */
+.fast-mode-hint {
+    width: 300px;
+    padding: 12px 14px;
+    animation: suggestionsIn 0.2s ease;
+}
+.fast-mode-hint-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    border-radius: 5px;
+    background: transparent;
+    color: #555;
+    cursor: pointer;
+}
+.fast-mode-hint-close:hover { background: #ececec; }
+.fast-mode-hint-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 24px 6px 0;
+    font-weight: 600;
+    color: #1a1a1a;
+}
+.fast-mode-hint-text { margin: 0; color: #555; font-size: 12.5px; line-height: 1.45; text-wrap: pretty; }
+.fast-mode-hint-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.fast-mode-hint-later {
+    border: none;
+    border-radius: 8px;
+    padding: 7px 12px;
+    background: transparent;
+    color: #555;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+.fast-mode-hint-later:hover { background: #f0f0f0; color: #222; }
+
 .attachment-button:disabled {
     cursor: default;
     opacity: 0.5;
@@ -2554,7 +2746,9 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
 }
 .upgrade-card-inner span { flex: 1 1 auto; min-width: 0; }
 .upgrade-card-btn,
-.model-panel-upgrade {
+.model-panel-upgrade,
+.fast-mode-upgrade,
+.fast-mode-hint-go {
     flex: 0 0 auto;
     border: none;
     border-radius: 8px;
@@ -2568,7 +2762,9 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
     transition: background-color 0.15s ease;
 }
 .upgrade-card-btn:hover,
-.model-panel-upgrade:hover { background: #000; }
+.model-panel-upgrade:hover,
+.fast-mode-upgrade:hover,
+.fast-mode-hint-go:hover { background: #000; }
 
 /* The Publish card the AI puts in the chat (tools/chat_ui/publish.js): one
    row, either the address to publish at and a Publish button, or the live
@@ -5543,6 +5739,7 @@ body.preview-active.chat-hidden .chat {
         height: 34px;
         font-size: 13px;
     }
+    .fast-mode-btn { width: 34px; height: 34px; }
     .chat-input-message-actions {
         height: 48px;
     }
@@ -6257,6 +6454,39 @@ body.preview-active.chat-hidden .chat {
     white-space: nowrap;
 }
 .upgrade-domain-url svg { width: 9px; height: 9px; flex: 0 0 auto; }
+/* Fast mode switched on over two bars, the fast one further along. */
+.upgrade-fast .upgrade-art-body {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 7px;
+}
+.upgrade-fast-head { display: flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 600; color: #555; }
+.upgrade-fast-head svg { width: 12px; height: 12px; color: #d97706; fill: currentColor; }
+.upgrade-fast-head i {
+    position: relative;
+    margin-left: auto;
+    width: 20px;
+    height: 12px;
+    border-radius: 999px;
+    background: #d97706;
+}
+.upgrade-fast-head i::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #fff;
+}
+.upgrade-fast-row { display: flex; align-items: center; gap: 8px; }
+.upgrade-fast-row em { flex: 0 0 26px; font-size: 10px; font-style: normal; color: #76767f; }
+.upgrade-fast-row > span { flex: 1 1 auto; }
+.upgrade-fast-row b { display: block; width: 40%; height: 8px; border-radius: 4px; background: #c4c4cc; }
+.upgrade-fast-row.is-fast em { color: #1a1a1a; font-weight: 600; }
+.upgrade-fast-row.is-fast b { width: 100%; background: #d97706; }
 /* Features still to come: an empty page. */
 .upgrade-future { border-style: dashed; border-color: #d4d4da; }
 .upgrade-future .upgrade-art-body { display: flex; align-items: center; justify-content: center; color: #a3a3ad; }
@@ -7239,6 +7469,36 @@ html[data-theme="dark"] .model-option-check { color: #8fe3ab; }
 html[data-theme="dark"] .model-option-lock { color: var(--text-muted); }
 html[data-theme="dark"] .model-panel-option.locked .model-option-name { color: var(--text-secondary); }
 html[data-theme="dark"] .model-panel-upsell { border-top-color: var(--border); }
+html[data-theme="dark"] .fast-mode-btn { color: var(--text-muted); }
+html[data-theme="dark"] .fast-mode-btn:hover,
+html[data-theme="dark"] .fast-mode-btn[aria-expanded="true"] { background: var(--surface-hover); color: var(--text); }
+html[data-theme="dark"] .fast-mode-btn.is-on { background: rgba(251, 191, 36, 0.14); color: #fbbf24; }
+html[data-theme="dark"] .fast-mode-btn.is-on:hover,
+html[data-theme="dark"] .fast-mode-btn.is-on[aria-expanded="true"] { background: rgba(251, 191, 36, 0.24); color: #fcd34d; }
+html[data-theme="dark"] .fast-mode-panel,
+html[data-theme="dark"] .fast-mode-hint {
+    background: var(--surface);
+    border-color: var(--border);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    --panel-caret-border: var(--border);
+    --panel-caret-fill: var(--surface);
+}
+html[data-theme="dark"] .fast-mode-switch,
+html[data-theme="dark"] .fast-mode-head { color: var(--text); }
+html[data-theme="dark"] .fast-mode-switch:hover { background: var(--surface-hover); }
+html[data-theme="dark"] .fast-mode-name svg { color: var(--text-muted); }
+html[data-theme="dark"] .fast-mode-switch[aria-checked="true"] .fast-mode-name svg,
+html[data-theme="dark"] .fast-mode-hint-title svg { color: #fbbf24; }
+html[data-theme="dark"] .fast-mode-track { background: var(--border-strong); }
+html[data-theme="dark"] .fast-mode-switch[aria-checked="true"] .fast-mode-track { background: #f59e0b; }
+html[data-theme="dark"] .fast-mode-text,
+html[data-theme="dark"] .fast-mode-hint-text { color: var(--text-secondary); }
+html[data-theme="dark"] .fast-mode-note { color: #fcd34d; }
+html[data-theme="dark"] .fast-mode-hint-title { color: var(--text); }
+html[data-theme="dark"] .fast-mode-hint-close,
+html[data-theme="dark"] .fast-mode-hint-later { color: var(--text-secondary); }
+html[data-theme="dark"] .fast-mode-hint-close:hover,
+html[data-theme="dark"] .fast-mode-hint-later:hover { background: var(--surface-hover); color: var(--text); }
 html[data-theme="dark"] .attachment-button { color: var(--text-muted); }
 html[data-theme="dark"] .attachment-button svg { stroke: currentColor; }
 html[data-theme="dark"] .attachment-button:hover:not(:disabled) {
@@ -7723,11 +7983,15 @@ html[data-theme="dark"] .publish-card-gone,
 html[data-theme="dark"] .publish-card-note { color: var(--text-muted); }
 html[data-theme="dark"] .upgrade-card-btn,
 html[data-theme="dark"] .model-panel-upgrade,
+html[data-theme="dark"] .fast-mode-upgrade,
+html[data-theme="dark"] .fast-mode-hint-go,
 html[data-theme="dark"] .publish-branding-btn,
 html[data-theme="dark"] .upgrade-btn,
 html[data-theme="dark"] a.upgrade-go { background: #eef2f7; border-color: #eef2f7; color: #0b1118; }
 html[data-theme="dark"] .upgrade-card-btn:hover,
 html[data-theme="dark"] .model-panel-upgrade:hover,
+html[data-theme="dark"] .fast-mode-upgrade:hover,
+html[data-theme="dark"] .fast-mode-hint-go:hover,
 html[data-theme="dark"] .publish-branding-btn:hover,
 html[data-theme="dark"] .upgrade-btn:hover,
 html[data-theme="dark"] a.upgrade-go:hover { background: #fff; }
@@ -7759,6 +8023,13 @@ html[data-theme="dark"] .upgrade-gh-head + .upgrade-gh-commit i { border-color: 
 html[data-theme="dark"] .upgrade-domain .upgrade-art-body > span:not(.upgrade-domain-url) { background: var(--surface-active); }
 html[data-theme="dark"] .upgrade-domain .upgrade-art-body b { background: var(--border-strong); }
 html[data-theme="dark"] .upgrade-domain-url { background: var(--accent-soft); color: var(--accent); }
+html[data-theme="dark"] .upgrade-fast-head { color: var(--text-secondary); }
+html[data-theme="dark"] .upgrade-fast-head svg { color: #fbbf24; }
+html[data-theme="dark"] .upgrade-fast-head i,
+html[data-theme="dark"] .upgrade-fast-row.is-fast b { background: #f59e0b; }
+html[data-theme="dark"] .upgrade-fast-row em { color: var(--text-muted); }
+html[data-theme="dark"] .upgrade-fast-row.is-fast em { color: var(--text); }
+html[data-theme="dark"] .upgrade-fast-row b { background: var(--border-strong); }
 html[data-theme="dark"] .upgrade-future { border-color: var(--border-strong); }
 html[data-theme="dark"] .upgrade-future .upgrade-art-body { color: var(--text-faint); }
 html[data-theme="dark"] .upgrade-modal .upgrade-actions { background: var(--surface-raised); border-top-color: var(--border); }

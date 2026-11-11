@@ -90,6 +90,11 @@
     // result. Fast costs more, so first-build Usage Limit Hit per variant shows
     // whether fewer abandons only means more builds ran out of credits first (a
     // limit hit is never counted as abandoned).
+    //
+    // A paid account can also switch on fast mode (js/fast-mode.js), which
+    // makes any build fast in either variant. Those four events say so as
+    // fast_mode, so leave fast_mode true out when comparing variants. Its
+    // long-build hint stays off first builds for the same reason.
 
     // ---- limitDialog: the builder's own Low Balance dialog --------------------
     // On the web, half of accounts see the builder's own out-of-credits dialog in

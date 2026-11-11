@@ -32,8 +32,9 @@ let _turnSeq = 0;
 // noteTurnProgress).
 let _turnProgressed = false;
 // The build this tab is running, for the Build Abandoned event: its turn, when
-// it was sent, whether it is the project's first, and the template the project
-// was copied from (a slug, or undefined). Set with Build Started,
+// it was sent, whether it is the project's first, the template the project
+// was copied from (a slug, or undefined), and the turn's stats, which say
+// whether fast mode ran (js/fast-mode.js). Set with Build Started,
 // cleared once reported or when that turn ends (see trackBuildAbandoned).
 let _activeBuild = null;
 // The newest turn started in each chat (chatId -> its _turnSeq). A stopped turn
@@ -3403,6 +3404,7 @@ function trackBuildAbandoned(how) {
     _activeBuild = null;
     window.track?.('Build Abandoned', {
         how, saw_output: _turnProgressed, waited: waitBand(Date.now() - build.startedAt), first_build: build.firstBuild,
+        fast_mode: !!(build.stats && build.stats.fastMode),
         ...templatePropFor(build.template), ...window.experimentProps?.('speed'),
     });
 }
@@ -4099,7 +4101,8 @@ function afterAccountRead(read, fn) {
 // (3+ means it was stuck fixing errors). Also how big its requests were and
 // what it spent before the refusal. A turn refused on its first call measured
 // nothing, so its size is the chat's last measured request, which the refused
-// one only adds the new message to.
+// one only adds the new message to. fast_mode: a request of the turn went fast
+// through the user's fast mode, at 2x the credits (js/fast-mode.js).
 function limitHitTurnProps(account, stats, history) {
     return {
         credits_at_start: account.credits,
@@ -4108,6 +4111,7 @@ function limitHitTurnProps(account, stats, history) {
         context_band: contextBand(stats.lastInput || lastRequestSize(history)),
         turn_cost_band: costBand(stats.cents),
         compacted: (stats.compactions || 0) > 0,
+        fast_mode: !!stats.fastMode,
     };
 }
 
@@ -5219,6 +5223,8 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // for. Set once the turn's model is settled, from the speed experiment
     // (experiments.js), so only a first build on a model with a fast tier
     // (ModelCore's fast, Opus) in the fast variant has one. A Resume never does.
+    // Without it each request asks the user's fast mode (FastMode.requestSpeed)
+    // as it is made, so switching it mid-build applies from the next request.
     let turnServiceSpeed;
 
     // Check if there are only system prompts (no actual conversation yet)
@@ -5521,9 +5527,12 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             // first change to it, so Project Created with a template counts
             // the copies people went on to change.
             // The starter experiment (experiments.js) is read off Project Created.
+            // fast_mode: the user's fast mode is on for this build's model as
+            // it starts. Build Completed says whether it ran, since it can be
+            // switched on or off mid-build.
             if (isFirstBuildTurn) window.track?.('Project Created', { ...window.experimentProps?.('starter'), ...turnTemplate });
-            window.track?.('Build Started', { first_build: isFirstBuildTurn, has_attachments: sendAttachments.length > 0, ...(queued && { queued: true }), ...turnTemplate, ...window.experimentProps?.('speed') });
-            _activeBuild = { turnSeq, startedAt: turnStartedAt, firstBuild: isFirstBuildTurn, template: turnTemplate.template };
+            window.track?.('Build Started', { first_build: isFirstBuildTurn, has_attachments: sendAttachments.length > 0, ...(queued && { queued: true }), ...turnTemplate, fast_mode: !!window.FastMode?.applies(chosenModel), ...window.experimentProps?.('speed') });
+            _activeBuild = { turnSeq, startedAt: turnStartedAt, firstBuild: isFirstBuildTurn, template: turnTemplate.template, stats: turnStats };
 
             const messageContent = contentParts.length > 0 ? contentParts : messageText;
             turnSaveContext.chatHistory.push({ role: "user", content: messageContent, messageId });
@@ -5549,6 +5558,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // A plan that ended since the page loaded must not keep a paid model.
         if (window.ModelPicker) turnModel = await window.ModelPicker.allowedForTurn(chosenModel);
         turnServiceSpeed = isFirstBuildTurn && window.ModelCore.supportsFast(turnModel) && window.experiment?.('speed') === 'fast' ? 'fast' : undefined;
+        window.FastMode?.turnStarted?.({ model: turnModel, fast: !!turnServiceSpeed, firstBuild: isFirstBuildTurn });
         const turnTools = window.getTurnTools(turnModel);
         const turnUnavailableTools = window.getUnavailableTools?.(turnModel) || [];
         turnAccountRead = readTurnAccount().then(a => { turnAccount = a; }, () => {});
@@ -5575,7 +5585,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                 // abort couldn't unstick a connection that dies mid-open.
                 const stream = await abortableAwait(puter.ai.chat(
                     prepareHistoryForAI(turnSaveContext.chatHistory, turnModel, { unavailableTools: turnUnavailableTools }),
-                    window.ModelCore.buildChatOptions(turnModel, { tools: turnTools, signal: abortController.signal, serviceSpeed: turnServiceSpeed })
+                    window.ModelCore.buildChatOptions(turnModel, { tools: turnTools, signal: abortController.signal, serviceSpeed: turnServiceSpeed || window.FastMode?.requestSpeed(turnModel, turnStats) })
                 ), abortController.signal);
 
                 // Reset auto-scroll flag when starting a new message
@@ -5715,12 +5725,13 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             // dollars for Plausible's revenue field and send it NEGATIVE so the
             // dashboard's revenue total reads as spend (see window.track). The raw
             // cents also ride along as a prop for per-turn precision, alongside the
-            // model so cost can be broken down by it.
+            // model so cost can be broken down by it. fast_mode: at least one of
+            // its requests went fast through the user's fast mode.
             const u = context && context.turnUsage;
             const costCents = u && typeof u.cents === 'number' && u.cents > 0 ? u.cents : 0;
             window.track?.(
                 'Build Completed',
-                { first_build: isFirstBuildTurn, model: turnModel, took: buildTimeBand(Date.now() - turnStartedAt), cost_cents: Number(costCents.toFixed(4)),
+                { first_build: isFirstBuildTurn, model: turnModel, took: buildTimeBand(Date.now() - turnStartedAt), fast_mode: !!turnStats.fastMode, cost_cents: Number(costCents.toFixed(4)),
                     cost_band: costBand(costCents), plan: turnAccount.plan, credits_at_start: turnAccount.credits,
                     context_band: contextBand(turnStats.lastInput), compacted: turnStats.compactions > 0, ...turnTemplate,
                     ...window.experimentProps?.('speed') },

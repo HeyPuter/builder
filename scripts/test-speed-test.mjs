@@ -97,11 +97,13 @@ check('a first build on another model keeps the usual speed, even in the fast ar
     turnSpeed && ['claude-sonnet-5-5', 'gpt-6.1-sol', 'gemini-4-argon'].every(m => speedFor(true, 'fast', m) === undefined));
 check('without experiments.js a build keeps the usual speed', turnSpeed && speedFor(true, null) === undefined);
 
+// Without the experiment's speed, a request asks the user's fast mode
+// (js/fast-mode.js, see test-fast-mode.mjs), so the experiment's wins.
 check('the first request of every attempt asks for it',
-    /buildChatOptions\(turnModel, \{ tools: turnTools, signal: abortController\.signal, serviceSpeed: turnServiceSpeed \}\)/.test(APP));
+    /buildChatOptions\(turnModel, \{ tools: turnTools, signal: abortController\.signal, serviceSpeed: turnServiceSpeed \|\| window\.FastMode\?\.requestSpeed\(turnModel, turnStats\) \}\)/.test(APP));
 check('the turn context carries it to the later rounds', /model: turnModel, serviceSpeed: turnServiceSpeed,/.test(APP));
 check('every later round asks for it',
-    /buildChatOptions\(c\.model, \{ tools: c\.tools \|\| window\.builtinTools\(\), signal: c\.abortController\.signal, serviceSpeed: c\.serviceSpeed \}\)/.test(TOOLS));
+    /buildChatOptions\(c\.model, \{ tools: c\.tools \|\| window\.builtinTools\(\), signal: c\.abortController\.signal, serviceSpeed: c\.serviceSpeed \|\| window\.FastMode\?\.requestSpeed\(c\.model, c\.turnStats\) \}\)/.test(TOOLS));
 
 const props = /\.\.\.window\.experimentProps\?\.\('speed'\)/.source;
 check('Build Started carries the arm', new RegExp(`window\\.track\\?\\.\\('Build Started', \\{[^\\n]*${props} \\}\\);`).test(APP));

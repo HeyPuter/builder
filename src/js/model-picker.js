@@ -63,6 +63,9 @@ window.ModelPicker = (function () {
     }
 
     function render() {
+        // Fast mode's button follows the same account and project model, and
+        // is drawn whenever this one is.
+        window.FastMode?.render?.();
         const $btn = $('.model-picker-btn');
         if (!$btn.length) return;
         if (access() === 'hidden') {

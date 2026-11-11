@@ -425,6 +425,8 @@ async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, other
     check('turn props: the latest request, banded', pb.context_band === '200-300k');
     check('turn props: what the turn spent, banded like cost_band', pb.turn_cost_band === '$1-1.50');
     check('turn props: whether it compacted', pb.compacted === true && p0.compacted === false);
+    check('turn props: whether fast mode ran, at 2x the credits',
+        props(account, { ...big, fastMode: true }, []).fast_mode === true && p0.fast_mode === false);
     const history = [
         { role: 'user', content: 'go' },
         { role: 'assistant', content: 'done', tokenUsage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, lastInput: 180000 } },
