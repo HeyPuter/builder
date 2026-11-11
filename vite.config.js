@@ -37,6 +37,9 @@ let OUT_DIR = path.resolve(__dirname, 'dist');
 // non-module script — see classicBundle() below.
 const SCRIPTS = [
   'js/helpers.js',
+  // Every A/B test (experiment(), experimentProps()). Before ui.js and app.js,
+  // which read it, and early enough to see the landing URL's utm_source.
+  'js/experiments.js',
   // Shared with the marketing pages (inlined there by seoPagesPlugin): the
   // composer handoff store both sides read and write.
   'js/handoff.js',

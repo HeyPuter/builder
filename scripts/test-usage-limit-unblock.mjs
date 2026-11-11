@@ -35,7 +35,14 @@ const a = APP.indexOf('// ===== usage-limit-unblock (start) =====');
 const b = APP.indexOf('// ===== usage-limit-unblock (end) =====');
 if (a < 0 || b < 0) throw new Error('could not extract usage-limit-unblock block');
 const make = new Function('window', 'localStorage', 'Date', 'puter', 'navigator', 'costBand', 'contextBand', 'templateProp', 'templatePropFor',
-    APP.slice(a, b) + '\nreturn { recordUsageLimitHit, reportUnblockAfterLimit, LIMIT_HIT_PREFIX, countCompletedBuilds, usageLimitHitProps, isLowBalanceRefusal, planChange, recordPlanAtLimit, checkPaidAfterLimit, LIMIT_PAY_PREFIX, creditsAtStart, readTurnAccount, limitHitTurnProps, afterAccountRead, limitDialogCohort, projectDisplayName, limitDialogCopy };');
+    APP.slice(a, b) + '\nreturn { recordUsageLimitHit, reportUnblockAfterLimit, LIMIT_HIT_PREFIX, countCompletedBuilds, usageLimitHitProps, isLowBalanceRefusal, planChange, recordPlanAtLimit, checkPaidAfterLimit, LIMIT_PAY_PREFIX, creditsAtStart, readTurnAccount, limitHitTurnProps, afterAccountRead, projectDisplayName, limitDialogCopy };');
+// The real experiment(), from experiments.js, which the block reads the Low
+// Balance cohort from, on the harness's window, storage and puter.
+const EXPERIMENTS = fs.readFileSync(new URL('../src/js/experiments.js', import.meta.url), 'utf8');
+function addExperiments(win, localStorage, puter) {
+    win.location = { search: '' };
+    new Function('window', 'document', 'sessionStorage', 'localStorage', 'puter', EXPERIMENTS)(win, { referrer: '' }, memStorage(), localStorage, puter);
+}
 
 const HOUR = 36e5;
 const T0 = Date.UTC(2026, 9, 8, 12, 0, 0); // Oct 8 2026, mid-month
@@ -59,6 +66,7 @@ function harness({ storage = memStorage(), uuid = 'user-a', puter = null, naviga
     }
     const win = { user: uuid ? { uuid } : null, _calls: [] };
     win.track = (event, props) => { win._calls.push([event, props]); };
+    addExperiments(win, storage, puter);
     const api = make(win, storage, FakeDate, puter, navigator, costBand, contextBand, templateProp, templatePropFor);
     return { ...api, win, storage, setNow: t => { now = t; } };
 }
@@ -485,22 +493,7 @@ async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, other
 
 // Low Balance dialog test: cohort, project name, copy
 {
-    check('no puter / desktop app → app cohort', harness().limitDialogCohort() === 'app' && harness({ puter: { env: 'app' } }).limitDialogCohort() === 'app');
-    const web = uuid => { const h = harness({ puter: { env: 'web' } }); h.win.user = uuid ? { uuid } : null; return h.limitDialogCohort(); };
-    check('web without a user → default', web(null) === 'default');
-    check('cohort is stable per account', web('user-a') === web('user-a'));
-    {
-        const st = memStorage();
-        st.setItem('debugLimitCohort', 'custom');
-        const h = harness({ puter: { env: 'web' }, storage: st });
-        h.win.user = { uuid: 'user-a' };
-        const forcedCustom = h.limitDialogCohort();
-        st.setItem('debugLimitCohort', 'default');
-        check('debugLimitCohort forces the cohort', forcedCustom === 'custom' && h.limitDialogCohort() === 'default');
-    }
-    let custom = 0;
-    for (let i = 0; i < 2000; i++) if (web('u-' + i + '-x') === 'custom') custom++;
-    check(`cohorts split about evenly (${custom}/2000 custom)`, custom > 900 && custom < 1100);
+    // The cohort itself is checked in test-experiments.mjs.
     {
         const h = harness({ puter: { env: 'web' } });
         check('Usage Limit Hit props carry the cohort', ['custom', 'default'].includes(h.usageLimitHitProps([], [], 'c', null).cohort));
@@ -585,7 +578,7 @@ async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, other
     check('every limit branch sends the extra props',
         (send.match(/trackLimitHit\([^\n]*\.\.\.usageLimitHitProps\(turnSaveContext\.chatHistory, savedChats, turnChatId, window\.currentPublishedUrl\)/g) || []).length === 3);
     check('the limit hit waits for the account read, then adds the turn props',
-        /const trackLimitHit = props => afterAccountRead\(turnAccountRead,\s*\(\) => window\.track\?\.\('Usage Limit Hit', \{ \.\.\.props, \.\.\.limitHitTurnProps\(turnAccount, turnStats, turnSaveContext\.chatHistory\) \}\)\);/.test(send));
+        /const trackLimitHit = props => afterAccountRead\(turnAccountRead,\s*\(\) => window\.track\?\.\('Usage Limit Hit', \{ \.\.\.props, \.\.\.limitHitTurnProps\(turnAccount, turnStats, turnSaveContext\.chatHistory\), \.\.\.window\.experimentProps\?\.\('speed'\) \}\)\);/.test(send));
     check('the account is read once per turn, before the attempts',
         /turnAccountRead = readTurnAccount\(\)\.then\(a => \{ turnAccount = a; \}, \(\) => \{\}\);\s*while \(true\)/.test(send));
     check('every attempt shares the turn stats', /interrupted: true, turnStats\}/.test(send));

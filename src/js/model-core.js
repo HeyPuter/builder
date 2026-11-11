@@ -102,7 +102,9 @@ window.ModelCore = (function () {
     // moment the model starts it, and its arguments as they're written, ahead
     // of the usual complete call. It changes only what Puter sends back, not
     // the request upstream, and handleMessageStream shows it beside the dots.
-    function buildChatOptions(modelId, { tools, signal } = {}) {
+    // serviceSpeed is only sent when given (the speed experiment in
+    // experiments.js), so every other request keeps the model's usual speed.
+    function buildChatOptions(modelId, { tools, signal, serviceSpeed } = {}) {
         const id = idOrDefault(modelId);
         const m = MODELS[id];
         return {
@@ -114,6 +116,7 @@ window.ModelCore = (function () {
             parallelToolCalls: true,
             provider: m.route,
             ...(m.compactAt && compactionOn() ? { compaction: { trigger_tokens: m.compactAt } } : {}),
+            ...(serviceSpeed ? { serviceSpeed } : {}),
             signal,
         };
     }
