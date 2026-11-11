@@ -5359,7 +5359,11 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                 }
             };
             const rels = wantedRels.map(uniqueRel);
-            // Each attached zip's contents (ExtractZip's zipAttachmentSummary).
+            // Each attached zip's saved ref → what it holds (ExtractZip's
+            // zipAttachmentSummary), or null when it couldn't be read. Whether
+            // it's a zip is decided from the original file: a zip known only
+            // by its type ("download", application/zip) has a ref that keeps
+            // neither a .zip name nor the type.
             const zipSummaries = new Map();
 
             const attachmentParts = await mapWithConcurrency(atts, 6, async (a, i) => {
@@ -5393,8 +5397,8 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                     // saved ref), so the model can tell a project to start
                     // from from a folder of files to use.
                     if (kind === 'other' && isZipAttachment(a) && window.zipAttachmentSummary) {
-                        const summary = await window.zipAttachmentSummary(a.file).catch(() => null);
-                        if (summary) zipSummaries.set(ref, summary);
+                        const summary = await Promise.resolve().then(() => window.zipAttachmentSummary(a.file)).catch(() => null);
+                        zipSummaries.set(ref, summary || null);
                     }
                     return ref;
                 } catch (e) {
@@ -5443,8 +5447,8 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                 const imageRefs = refsOfKind('image');
                 const textRefs = refsOfKind('text');
                 const pdfRefs = refsOfKind('pdf');
-                const zipRefs = refsOfKind('other').filter(p => isZipAttachment(p));
-                const otherRefs = refsOfKind('other').filter(p => !isZipAttachment(p));
+                const zipRefs = refsOfKind('other').filter(p => zipSummaries.has(p));
+                const otherRefs = refsOfKind('other').filter(p => !zipSummaries.has(p));
                 // A zip's line says what it holds, its paths clipped like the names.
                 const zipList = (arr) => arr.map(a => {
                     const s = zipSummaries.get(a);

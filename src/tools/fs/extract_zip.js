@@ -57,12 +57,16 @@ window.__extractZipInternals = (function () {
     }
 
     // The entries of a loaded JSZip archive: { name, dir, size, file }. The
-    // size is what the archive's directory says the entry unpacks to.
+    // name is the one the archive gives: JSZip resolves ".." in file.name
+    // (../index.html becomes index.html) and keeps the original as
+    // unsafeOriginalName, so entryPath sees, and refuses, what was written.
+    // The size is what the archive's directory says the entry unpacks to.
     function entriesOf(zip) {
         const out = [];
         zip.forEach(function (_rel, file) {
             const size = file && file._data && typeof file._data.uncompressedSize === 'number' ? file._data.uncompressedSize : 0;
-            out.push({ name: file.name, dir: !!file.dir, size, file });
+            const name = typeof file.unsafeOriginalName === 'string' ? file.unsafeOriginalName : file.name;
+            out.push({ name, dir: !!file.dir, size, file });
         });
         return out;
     }
@@ -112,6 +116,36 @@ window.__extractZipInternals = (function () {
         }
     }
 
+    // An entry's bytes as a Blob, unpacked as a stream that stops as soon as
+    // it passes `cap`, the size the archive declares for it. The limits above
+    // trust those sizes, and JSZip only compares them with the real output at
+    // the end, so an entry that lies about its size could otherwise inflate a
+    // few MB into GBs in the tab before that check.
+    function readEntry(file, cap) {
+        return new Promise((resolve, reject) => {
+            const chunks = [];
+            let n = 0;
+            let done = false;
+            const finish = (fn, v) => { if (!done) { done = true; fn(v); } };
+            let stream;
+            try { stream = file.internalStream('uint8array'); }
+            catch (e) { reject(e); return; }
+            stream.on('data', (chunk) => {
+                if (done) return;
+                n += chunk.length;
+                if (n > cap) {
+                    try { stream.pause(); } catch (_) {}
+                    finish(reject, new Error('This file unpacks to more than the archive says it holds, so the archive is damaged or was made to fill memory. It was not written.'));
+                    return;
+                }
+                chunks.push(chunk);
+            });
+            stream.on('error', (e) => finish(reject, e));
+            stream.on('end', () => finish(resolve, new Blob(chunks)));
+            stream.resume();
+        });
+    }
+
     // Run fn over items, at most `limit` at a time.
     async function runPool(items, limit, fn) {
         let next = 0;
@@ -127,7 +161,7 @@ window.__extractZipInternals = (function () {
         await Promise.all(workers);
     }
 
-    return { limits, LIST_LIMIT, SUMMARY_LIMIT, entryPath, isJunk, sharedTopFolder, entriesOf, plan, openZip, summarize, runPool };
+    return { limits, LIST_LIMIT, SUMMARY_LIMIT, entryPath, isJunk, sharedTopFolder, entriesOf, plan, openZip, summarize, readEntry, runPool };
 })();
 
 // The note on a message with a zip attached reads this (app.js).
@@ -200,38 +234,53 @@ window.tools.push({
         const written = [];
         const failed = [];
         let interrupted = false;
+        // Stop is checked again after each wait (unpacking, the file's lock, the
+        // retry's pause), so nothing is written once the user stops the turn.
         await I.runPool(p.files, 6, async (f) => {
             if (stopped()) { interrupted = true; return; }
             const abs = window.assertPathInProject(dest + '/' + f.rel, state, 'archive entry');
             try {
-                const data = await f.file.async('blob');
+                const data = await I.readEntry(f.file, f.size);
+                if (stopped()) { interrupted = true; return; }
                 // The same lock every writer of a file takes, so the preview's
                 // background cache-bust can't write a stale copy over this one.
                 // Parents are created on the way, and a write that loses a race
                 // to create the same folder gets one more try.
                 const write = () => puter.fs.write(abs, data, { createMissingParents: true });
-                await window.withFileLock(abs, async () => {
+                const done = await window.withFileLock(abs, async () => {
+                    if (stopped()) return false;
                     try { await write(); }
-                    catch (e) { await new Promise(r => setTimeout(r, 300)); await write(); }
+                    catch (e) {
+                        await new Promise(r => setTimeout(r, 300));
+                        if (stopped()) return false;
+                        await write();
+                    }
+                    return true;
                 });
-                written.push(abs);
+                if (done) written.push(abs);
+                else interrupted = true;
             } catch (e) {
                 failed.push({ path: abs, error: (e && (e.message || e.error?.message)) || String(e) });
             }
         });
         if (written.length) window.schedulePreviewRefresh?.();
         if (!written.length) {
-            if (interrupted) throw new Error('Aborted');
+            if (interrupted || stopped()) throw new Error('Aborted');
             throw new Error(`None of the archive's files could be written (${failed[0] ? failed[0].error : 'unknown error'}). Tell the user.`);
         }
 
         // The archive goes once every file is out, so it doesn't ship with the
-        // app or sit in every version. Not when unpacking wrote over it.
+        // app or sit in every version. Not when unpacking wrote over it, and
+        // not when the turn was stopped before every file was out.
         let zipRemoved = false;
+        let keptForStop = false;
         if (!args.keep_zip && !failed.length && !interrupted && written.indexOf(zipPath) === -1) {
             try {
-                await window.withFileLock(zipPath, () => puter.fs.delete(zipPath));
-                zipRemoved = true;
+                await window.withFileLock(zipPath, async () => {
+                    if (stopped()) { keptForStop = true; return; }
+                    await puter.fs.delete(zipPath);
+                    zipRemoved = true;
+                });
             } catch (e) {
                 console.warn('ExtractZip: could not remove the archive:', zipPath, e);
             }
@@ -249,7 +298,7 @@ window.tools.push({
         if (p.skipped.junk) out.skipped_system_files = p.skipped.junk;
         if (p.skipped.unsafe.length) out.skipped_unsafe_paths = p.skipped.unsafe.slice(0, 20);
         if (failed.length) out.failed = failed.slice(0, 20);
-        if (interrupted) out.interrupted = true;
+        if (interrupted || keptForStop) out.interrupted = true;
         out.zip_removed = zipRemoved;
 
         let note = `Unpacked ${written.length} file${written.length === 1 ? '' : 's'} into ${dest}.`;
@@ -260,6 +309,7 @@ window.tools.push({
         }
         if (failed.length) note += ` ${failed.length} file${failed.length === 1 ? '' : 's'} couldn't be written (see failed), so the archive was kept. Tell the user which.`;
         if (interrupted) note += ' The turn was stopped partway, so some files were not unpacked.';
+        else if (keptForStop) note += ' The turn was stopped, so the archive was kept.';
         out.note = note;
         return out;
     }

@@ -53,6 +53,13 @@ check('it takes a version like any file change (versions.js)', /MUTATING_TOOLS =
 check('the status line names it (handleMessageStream.js)', /ExtractZip: '[^']+'/.test(read('src/js/handleMessageStream.js')));
 check('the system prompt points zips at ExtractZip', /ExtractZip unpacks it/.test(read('src/js/prompt.js')));
 check('a zip attachment\'s note points at ExtractZip (app.js)', /Zip archives — not unpacked yet\. When the user wants what is inside, call ExtractZip/.test(read('src/js/app.js')));
+// A zip known only by its type ("download", application/zip) is saved as a ref
+// with neither, so the note goes by what the original file was, and lists it
+// as a zip even when Builder couldn't look inside.
+check('the note sorts zips by the original file, not the saved ref (app.js)',
+    /zipSummaries\.set\(ref, summary \|\| null\)/.test(read('src/js/app.js'))
+    && /zipRefs = refsOfKind\('other'\)\.filter\(p => zipSummaries\.has\(p\)\)/.test(read('src/js/app.js'))
+    && /otherRefs = refsOfKind\('other'\)\.filter\(p => !zipSummaries\.has\(p\)\)/.test(read('src/js/app.js')));
 
 // ---- isZipAttachment ---------------------------------------------------------
 check('isZipAttachment: by name', isZipAttachment({ name: 'My App.ZIP' }));
@@ -170,11 +177,57 @@ const text = async (data) => (typeof data === 'string' ? data : await data.text(
 
 // An archive can't write outside the project, whatever its names say.
 {
-    const fsx = stubFs({ [ROOT + '/assets/evil.zip']: await zipBlob({ '../../../escape.txt': 'x', 'ok.txt': 'y', '/abs.txt': 'z' }) });
+    const fsx = stubFs({ [ROOT + '/assets/evil.zip']: await zipBlob({ '../../../escape.txt': 'x', 'ok.txt': 'y', '/abs.txt': 'z', 'a/../../index.html': 'w' }) });
     const r = await run({ path: 'assets/evil.zip', destination: 'assets/in' });
     const outside = [...fsx.files.keys()].filter((p) => !p.startsWith(ROOT + '/'));
     check('zip slip: nothing lands outside the project', r.ok && outside.length === 0 && fsx.writes.every((w) => w.p.startsWith(ROOT + '/assets/in/')),
         JSON.stringify([...fsx.files.keys()]));
+    // JSZip resolves ".." before file.name (../../../escape.txt reads as
+    // escape.txt), so the check goes by the name the archive gives.
+    check('zip slip: a ".." entry is skipped, not written under a tidied name',
+        r.ok && JSON.stringify(r.res.skipped_unsafe_paths) === JSON.stringify(['../../../escape.txt', 'a/../../index.html'])
+        && ![...fsx.files.keys()].some((p) => /escape\.txt$|index\.html$/.test(p))
+        && fsx.files.has(ROOT + '/assets/in/ok.txt') && fsx.files.has(ROOT + '/assets/in/abs.txt'),
+        JSON.stringify({ res: r.res, files: [...fsx.files.keys()] }));
+    const z = await JSZip.loadAsync(await (await zipBlob({ '../x.txt': 'x' })).arrayBuffer());
+    const fileEntries = I.entriesOf(z).filter((e) => !e.dir);
+    check('entriesOf: the archive\'s own name, before JSZip tidies it', z.file('x.txt') && fileEntries.length === 1 && fileEntries[0].name === '../x.txt'
+        && I.plan(I.entriesOf(z)).skipped.unsafe[0] === '../x.txt', JSON.stringify(fileEntries.map((e) => e.name)));
+}
+
+// An entry that says it holds a few bytes but inflates to far more: the size
+// limits trust the declared sizes, so unpacking stops once an entry passes its
+// own, instead of filling the tab's memory before JSZip's check at the end.
+{
+    const z = new JSZip();
+    z.file('big.txt', 'A'.repeat(300000));
+    z.file('ok.txt', 'fine');
+    const bytes = await z.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
+    // Rewrite big.txt's uncompressed size in the central directory to 10.
+    const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    let forged = false;
+    for (let i = 0; i + 46 <= bytes.length; i++) {
+        if (dv.getUint32(i, true) !== 0x02014b50) continue;
+        const nameLen = dv.getUint16(i + 28, true);
+        const name = new TextDecoder().decode(bytes.subarray(i + 46, i + 46 + nameLen));
+        if (name === 'big.txt') { dv.setUint32(i + 24, 10, true); forged = true; }
+    }
+    check('forged size: the test archive was rewritten', forged);
+    const loaded = await JSZip.loadAsync(bytes);
+    const big = I.entriesOf(loaded).find((e) => e.name === 'big.txt');
+    check('forged size: the archive now declares 10 bytes', big && big.size === 10);
+    const err = await I.readEntry(big.file, big.size).then(() => null, (e) => e);
+    check('readEntry: stops at the declared size, with its own error', err && /more than the archive says it holds/.test(err.message), err && err.message);
+    const okEntry = I.entriesOf(loaded).find((e) => e.name === 'ok.txt');
+    check('readEntry: an honest entry reads in full', (await (await I.readEntry(okEntry.file, okEntry.size)).text()) === 'fine');
+
+    const fsx = stubFs({ [ROOT + '/assets/bomb.zip']: new Blob([bytes]) });
+    const r = await run({ path: 'assets/bomb.zip' });
+    check('forged size: the honest file is written, the lying one reported, the archive kept',
+        r.ok && fsx.files.has(ROOT + '/ok.txt') && !fsx.files.has(ROOT + '/big.txt')
+        && r.res.failed.length === 1 && r.res.failed[0].path === ROOT + '/big.txt' && /more than the archive says/.test(r.res.failed[0].error)
+        && r.res.zip_removed === false && fsx.files.has(ROOT + '/assets/bomb.zip'),
+        JSON.stringify(r.res || r.err.message));
 }
 
 // Paths the model gives are guarded too.
@@ -233,6 +286,52 @@ const text = async (data) => (typeof data === 'string' ? data : await data.text(
     const r = await run({ path: 'assets/a.zip' });
     delete win.isAborted;
     check('a stopped turn writes nothing', !r.ok && r.err.message === 'Aborted' && fsx.writes.length === 0);
+}
+
+// Stopped while a step was waiting: while an entry unpacked, while waiting for
+// a file's lock, and after the last file but before the archive went. Nothing
+// is written after the stop, and the archive stays.
+{
+    const zipPath = ROOT + '/assets/a.zip';
+    let stop = false;
+    win.isAborted = () => stop;
+
+    const fsx1 = stubFs({ [zipPath]: await zipBlob({ 'a.txt': 'a', 'b.txt': 'b' }) });
+    const readEntry = I.readEntry;
+    I.readEntry = async (...a) => { const b = await readEntry(...a); stop = true; return b; };
+    const r1 = await run({ path: 'assets/a.zip' });
+    I.readEntry = readEntry;
+    check('stopped while unpacking: nothing is written, the archive stays', !r1.ok && r1.err.message === 'Aborted' && fsx1.writes.length === 0 && fsx1.files.has(zipPath) && !fsx1.deleted.length);
+
+    stop = false;
+    const fsx2 = stubFs({ [zipPath]: await zipBlob({ 'a.txt': 'a', 'b.txt': 'b' }) });
+    const lock = win.withFileLock;
+    win.withFileLock = async (_p, fn) => { stop = true; return fn(); };
+    const r2 = await run({ path: 'assets/a.zip' });
+    win.withFileLock = lock;
+    check('stopped while waiting for a file\'s lock: nothing is written, the archive stays', !r2.ok && r2.err.message === 'Aborted' && fsx2.writes.length === 0 && fsx2.files.has(zipPath) && !fsx2.deleted.length);
+
+    stop = false;
+    const fsx3 = stubFs({ [zipPath]: await zipBlob({ 'a.txt': 'a' }) });
+    const write = globalThis.puter.fs.write;
+    globalThis.puter.fs.write = async (...a) => { await write(...a); stop = true; };
+    const r3 = await run({ path: 'assets/a.zip' });
+    check('stopped after the last file: the archive is kept and the result says so',
+        r3.ok && fsx3.files.has(ROOT + '/a.txt') && r3.res.zip_removed === false && r3.res.interrupted === true
+        && fsx3.files.has(zipPath) && !fsx3.deleted.length && /archive was kept/.test(r3.res.note),
+        JSON.stringify(r3.res || r3.err.message));
+
+    stop = false;
+    let firstTry = true;
+    const fsx4 = stubFs({ [zipPath]: await zipBlob({ 'a.txt': 'a' }) });
+    const write4 = globalThis.puter.fs.write;
+    globalThis.puter.fs.write = async (...a) => {
+        if (firstTry) { firstTry = false; stop = true; throw new Error('race'); }
+        return write4(...a);
+    };
+    const r4 = await run({ path: 'assets/a.zip' });
+    check('stopped before a retry: the retry is not made', !r4.ok && r4.err.message === 'Aborted' && fsx4.writes.length === 0 && fsx4.files.has(zipPath));
+    delete win.isAborted;
 }
 
 // The note on the user's message.
