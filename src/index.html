@@ -96,7 +96,14 @@
           // Benign browser notice, not a bug in our code.
           var IGNORE = /ResizeObserver loop/;
           var LOCATION = /((?:https?|[a-z-]+-extension):\/\/[^\s()]+?):(\d+):(\d+)/;
+          // A URL's query string or hash inside a stack frame, up to the
+          // :line:col that ends the frame. Lazy, so a query that itself holds
+          // ":1:2" or "(x)" is still removed whole.
+          var QUERY_IN_FRAME = /((?:https?|[a-z-]+-extension):\/\/[^?#\s]*)[?#]\S*?(:\d+:\d+)(?=\)?(?:[\s,]|$))/g;
           function cut(s, n) { s = String(s); return s.length > n ? s.slice(0, n - 1) + '…' : s; }
+          // A stack with the query string and hash dropped from every URL in it.
+          // An inline script's frames carry the full page URL.
+          function clean(stack) { return String(stack || '').replace(QUERY_IN_FRAME, '$1$2'); }
           // Our own files as a bare path, others without the scheme. Never a query or hash.
           function shortUrl(u) {
             u = String(u || '').split('#')[0].split('?')[0];
@@ -105,7 +112,7 @@
           }
           // The top few stack frames, with our origin dropped to keep them short.
           function frames(stack) {
-            var out = [], lines = String(stack).split('\n');
+            var out = [], lines = clean(stack).split('\n');
             for (var i = 0; i < lines.length && out.length < 5; i++) {
               var l = lines[i].replace(/^\s+|\s+$/g, '');
               if (/:\d+:\d+\)?$/.test(l)) out.push(origin ? l.split(origin).join('') : l);
@@ -114,7 +121,7 @@
           }
           // Where a stack's top frame points, as path:line:col.
           function topFrame(stack) {
-            var m = LOCATION.exec(String(stack || ''));
+            var m = LOCATION.exec(clean(stack));
             return m ? shortUrl(m[1]) + ':' + m[2] + ':' + m[3] : '';
           }
           // A rejection reason can be anything: an Error, a string, puter.js's

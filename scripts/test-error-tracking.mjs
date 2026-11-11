@@ -242,6 +242,39 @@ function runtimeError(win, { message, filename, lineno = 1, colno = 1, error } =
     check('privacy: no url prop', calls.every((c) => !('url' in c[1].props)));
     check('privacy: the page query string never leaves the page', !blob.includes('secret-token'));
 }
+{
+    // An inline script's stack frames carry the full page URL. The stack prop
+    // must drop its query and hash like source does.
+    const PAGE = ORIGIN + '/?template=secret-token&x=(paren):1:2#frag-secret';
+    const { win, calls, fire } = load();
+    const error = new Error('inline');
+    error.stack = [
+        'Error: inline',
+        `    at HTMLDocument.<anonymous> (${PAGE}:12:3)`,
+        `    at Foo.#privateThing (${ORIGIN}/app-Bx12.js:1:99)`,
+        `    at eval (eval at run (${PAGE}:20:5), <anonymous>:4:17)`,
+        `    at ${PAGE}:30:7`,
+    ].join('\n');
+    fire('error', runtimeError(win, { message: 'Uncaught Error: inline', filename: PAGE, lineno: 12, colno: 3, error }));
+    const reason = new Error('inline rejection');
+    // Firefox/Safari frame format.
+    reason.stack = `start@${PAGE}:40:9\n@${ORIGIN}/app-Bx12.js?v=2#x:1:5`;
+    fire('unhandledrejection', { reason });
+    const [errProps, rejProps] = calls.map((c) => c[1].props);
+    const blob = JSON.stringify(calls);
+    check('privacy (stack): no query value in any prop', !blob.includes('secret-token') && !blob.includes('paren') && !blob.includes('template='));
+    check('privacy (stack): no hash in any prop', !blob.includes('frag-secret') && !blob.includes('#x'));
+    check('privacy (stack): Chrome frames keep their position',
+        errProps && errProps.stack === [
+            'at HTMLDocument.<anonymous> (/:12:3)',
+            'at Foo.#privateThing (/app-Bx12.js:1:99)',
+            'at eval (eval at run (/:20:5), <anonymous>:4:17)',
+            'at /:30:7',
+        ].join('\n'));
+    check('privacy (stack): a #private method name is not mistaken for a hash', errProps && errProps.stack.includes('Foo.#privateThing'));
+    check('privacy (stack): Firefox frames keep their position', rejProps && rejProps.stack === 'start@/:40:9\n@/app-Bx12.js:1:5');
+    check('privacy (stack): rejection source from the cleaned top frame', rejProps && rejProps.source === '/:40:9');
+}
 
 // --- Never throws into the page ------------------------------------------------------
 {
