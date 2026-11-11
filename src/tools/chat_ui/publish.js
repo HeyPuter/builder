@@ -85,28 +85,36 @@
     function projectDomain(url) {
         const CD = window.CustomDomain;
         const d = CD && CD.list(window.currentPublishedDomains)[0];
-        return d ? CD.view(d, siteName(url)) : null;
+        return d ? CD.view(d, previewSubdomain(url)) : null;
     }
     window.publishCardDomain = projectDomain;
 
-    function siteName(url) {
-        return hostOf(url).replace(/\.puter\.site$/, '');
+    // A domain picked on a first publish that hasn't landed, on the name that
+    // publish reserved: a build or a restore stopped it, it failed, or the
+    // page was reloaded. Without a way to publish onto it, the card offered
+    // Puter's window again, and the domain served an empty folder.
+    function pickedDomain() {
+        const CD = window.CustomDomain;
+        const name = window.reservedPublishName?.(currentChatId);
+        const d = name && CD && CD.list(window.currentPublishedDomains)[0];
+        return d && d.site === name ? CD.view(d, name) : null;
     }
+    window.publishCardPickedDomain = pickedDomain;
 
-    // A domain card: Publish with your domain before a first publish, else
-    // the site and Use custom domain, until the project has a domain (see
-    // domainCardHtml). On the free plan it is Use custom domain, which opens
-    // the upgrade.
+    // A domain card: Publish with your domain before a first publish (Publish,
+    // once a domain is picked), else the site and Use custom domain, until the
+    // project has a domain (see domainCardHtml). On the free plan it is Use
+    // custom domain, which opens the upgrade.
     function domainView(url, { working, renaming, noPreview }) {
         const paid = !!window.Branding?.isSubscribed(window.user);
         const connecting = !!window.isDomainConnecting?.(currentChatId);
-        const domain = url ? projectDomain(url) : null;
+        const domain = url ? projectDomain(url) : pickedDomain();
         const extra = [paid, connecting, domain ? domain.kind + ' ' + domain.hostname : ''].join(' ');
         if (!paid) return { state: 'domain', url, paid, domain, extra, busy: false, blocked: false };
         if (!url) {
             const publishing = publishBusyHere();
             return {
-                state: 'domain-publish', url, paid, domain, extra,
+                state: domain ? 'domain-picked' : 'domain-publish', url, paid, domain, extra,
                 busy: connecting || publishing,
                 busyLabel: publishing ? 'Publishing…' : 'Connecting…',
                 blocked: working || renaming || noPreview,
@@ -137,7 +145,7 @@
     }
     // A puter.site address, not the user's own domain.
     function isSiteUrl(url) {
-        return /\.puter\.site$/.test(hostOf(url));
+        return !!previewSubdomain(url);
     }
 
     function buttonHtml(view, label, busyLabel = 'Publishing…') {
@@ -170,7 +178,7 @@
                     buttonHtml(view, 'Publish') +
                 '</div>' + errorHtml;
         }
-        if (view.state === 'domain' || view.state === 'domain-publish') return domainCardHtml(view, uid, errorHtml);
+        if (view.state === 'domain' || view.state === 'domain-publish' || view.state === 'domain-picked') return domainCardHtml(view, uid, errorHtml);
         if (view.state === 'address') {
             return '<div class="publish-card-row has-field">' +
                     field('New site address (before .puter.site)', true) +
@@ -192,12 +200,12 @@
             '</div>';
     }
 
-    // A domain the user picked that doesn't show the site yet: waiting for
-    // its DNS records, not verified, or no longer working. Publish lists its
-    // records and checks it.
+    // A domain on the live site that doesn't show it yet: waiting for its DNS
+    // records, not verified, or no longer working. Publish lists its records
+    // and checks it.
     function awaitingRecords(view) {
         const d = view.domain;
-        return !!view.paid && !!d && d.kind !== 'active' && d.kind !== 'moved';
+        return view.state === 'domain' && !!view.paid && !!d && d.kind !== 'active' && d.kind !== 'moved';
     }
 
     // A domain card: the site's address and the button. A domain still being
@@ -206,33 +214,43 @@
     // records are. Once the domain works, the card reads Live with it, as a
     // plain card does once the site is up to date, beside Change domain.
     // Before a first publish there is no address, so it is the button across
-    // the card, with a line on what it does.
+    // the card, with a line on what it does, and, once a domain is picked,
+    // the domain and Publish.
     function domainCardHtml(view, uid, errorHtml) {
         const d = view.domain;
-        const first = view.state === 'domain-publish';
-        const records = awaitingRecords(view);
+        const host = d ? htmlEscape(d.hostname) : '';
+        const hostText = `<span class="publish-card-host">${host}</span>`;
         const shareUrl = view.url ? (window.publishedShareUrl?.(view.url) || view.url) : '';
         const safeUrl = htmlEscape(shareUrl);
-        const host = d ? htmlEscape(d.hostname) : '';
-        const address = records ? `<span class="publish-card-host">${host}</span>`
-            : shareUrl ? `<a class="publish-card-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer" title="${safeUrl}">${htmlEscape(hostOf(shareUrl))}</a>`
-                : '';
-        if (view.paid && d && d.kind === 'active') {
-            return '<div class="publish-card-row">' +
-                    '<span class="publish-live"><span class="publish-live-dot"></span>Live</span>' +
-                    address + buttonHtml(view, 'Change domain', view.busyLabel) +
-                '</div>' + errorHtml;
+        const link = shareUrl
+            ? `<a class="publish-card-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer" title="${safeUrl}">${htmlEscape(hostOf(shareUrl))}</a>`
+            : '';
+        let address = link, label, note = '', live = false;
+        if (view.state === 'domain-publish') {
+            label = 'Publish with your domain';
+            note = 'Pick a domain you own and follow the steps to connect it.';
+        } else if (view.state === 'domain-picked') {
+            address = hostText;
+            label = 'Publish';
+            note = 'Your site isn’t published yet.';
+        } else if (!view.paid || !d) {
+            label = 'Use custom domain';
+            if (!view.paid) note = 'Using your own domain comes with a paid Puter plan.';
+        } else if (d.kind === 'active') {
+            live = true;
+            label = 'Change domain';
+        } else if (d.kind === 'moved') {
+            label = 'Connect again';
+            note = `${host} was connected to this site’s old address. Connect it again to use it here.`;
+        } else {
+            address = hostText;
+            label = 'Check DNS records';
+            note = d.kind === 'lost' ? 'It stopped showing your site.'
+                : d.kind === 'failed' ? 'Puter couldn’t verify it.'
+                    : 'Not connected yet.';
         }
-        const label = first ? 'Publish with your domain'
-            : !view.paid || !d ? 'Use custom domain' : d.kind === 'moved' ? 'Connect again' : 'Check DNS records';
-        const note = first ? 'Pick a domain you own and follow the steps to connect it.'
-            : !view.paid ? 'Using your own domain comes with a paid Puter plan.'
-            : !d ? ''
-                : d.kind === 'moved' ? `${host} was connected to this site’s old address. Connect it again to use it here.`
-                    : d.kind === 'lost' ? 'It stopped showing your site.'
-                        : d.kind === 'failed' ? 'Puter couldn’t verify it.'
-                            : 'Not connected yet.';
-        return `<div class="publish-card-row${address ? '' : ' is-solo'}">${address}${buttonHtml(view, label, view.busyLabel)}</div>` +
+        const liveHtml = live ? '<span class="publish-live"><span class="publish-live-dot"></span>Live</span>' : '';
+        return `<div class="publish-card-row${address ? '' : ' is-solo'}">${liveHtml}${address}${buttonHtml(view, label, view.busyLabel)}</div>` +
             (note ? `<div class="publish-card-note" id="${uid}-note">${note}</div>` : '') +
             errorHtml;
     }
@@ -613,6 +631,8 @@
         const mode = $card.attr('data-mode');
         if (mode === 'address') changeAddressFromCard($card);
         else if (mode === 'domain' || mode === 'domain-publish') domainFromCard($card, e);
+        // A domain card with its domain picked publishes as a plain card
+        // does, onto the name the domain is on (leftReserved in publishProject).
         else publishFromCard($card);
     }
     // Bound with the first card, so the file loads without the page (the tool

@@ -50,6 +50,7 @@ function setup() {
         blocked: null,
         publishBusyHere: () => env.busy,
         publishBlockedReason: () => env.blocked,
+        previewSubdomain: (u) => ((u || '').match(/^https?:\/\/([^.]+)\.puter\.site/i) || [])[1] || null,
         badgeChangePending: () => false,
         publishProject: (ui) => { calls.push(ui); return Promise.resolve(); },
         puter: { randName: () => 'random-name' },
@@ -1117,7 +1118,8 @@ const savedResult = (r) => ({ role: 'user', content: { type: 'tool_result', tool
 }
 {
     // The free plan: the button opens the upgrade, so it never waits.
-    const { env, domainTool, cards, q } = setup();
+    const t = setup();
+    const { env, domainTool, cards, q } = t;
     env.user = { username: 'u', subscribed: false };
     env.blocked = 'task';
     const r = await domainTool.exec({}, {});
@@ -1126,6 +1128,8 @@ const savedResult = (r) => ({ role: 'user', content: { type: 'tool_result', tool
         && q(card, '.publish-card-btn').disabled === false && !q(card, '.publish-card-input'));
     check('…saying it comes with a paid plan', /paid Puter plan/.test(q(card, '.publish-card-note').textContent));
     check('…and the AI says the button opens the upgrade', /opens the upgrade/.test(r.instruction));
+    // The popover's heading counts as an upgrade prompt, and so does this.
+    check('…counted as an upgrade prompt', t.events.some(e => e.event === 'Upgrade Prompt Shown' && e.props.source === 'custom_domain'));
     const fresh = setup();
     fresh.env.user = { username: 'u', subscribed: false };
     fresh.env.refreshUserPlan = async () => { fresh.env.user = { username: 'u', subscribed: true }; return fresh.env.user; };
@@ -1135,6 +1139,36 @@ const savedResult = (r) => ({ role: 'user', content: { type: 'tool_result', tool
     env.refreshPublishCards();
     check('after upgrading, the card offers the publish', q(card, '.publish-card-btn').textContent === 'Publish with your domain');
 }
+{
+    // A domain picked on a first publish that didn't land (a build started
+    // while Puter's window was open, it failed, or the page was reloaded):
+    // the card offered Puter's window again, and closing it published
+    // nothing. It shows the domain, and Publish puts the site on its name.
+    const t = setup();
+    const { env, domainTool, cards, q, dom, calls } = t;
+    env.reservedPublishName = () => 'joes-cafe';
+    env.currentPublishedDomains = [{ hostname: 'joescafe.com', site: 'joes-cafe', status: 'pending', records: [] }];
+    env.blocked = 'task';
+    const r = await domainTool.exec({}, {});
+    const card = cards()[0];
+    check('a picked domain whose site isn\'t published yet: the domain and Publish', q(card, '.publish-card-host')?.textContent === 'joescafe.com'
+        && q(card, '.publish-card-btn').textContent === 'Publish' && q(card, '.publish-card-note').textContent === 'Your site isn’t published yet.');
+    check('…waiting while the turn runs, as Publish does', q(card, '.publish-card-btn').disabled === true);
+    check('…and the AI is told so', /already picked joescafe\.com/.test(r.instruction) && /A Publish button/.test(r.instruction), r.instruction);
+    env.blocked = null;
+    env.refreshPublishCards();
+    dom.dispatch(q(card, '.publish-card-btn'), 'click');
+    check('…whose Publish is a plain one, onto the name (publishProject finds it), not Puter\'s window', calls.length === 1
+        && !calls[0].reserved && calls[0].desiredName() === '' && env.domainCalls.length === 0);
+    env.busy = true;
+    env.refreshPublishCards();
+    check('…saying Publishing… while it runs', /Publishing…/.test(q(card, '.publish-card-btn').textContent));
+    env.busy = false;
+    env.currentPublishedDomains = [{ hostname: 'joescafe.com', site: 'other', status: 'pending', records: [] }];
+    env.refreshPublishCards();
+    check('a domain on another name isn\'t taken for this one', q(card, '.publish-card-btn').textContent === 'Publish with your domain');
+}
+
 {
     // A reloaded chat: the record of a domain card is its domain.
     const { env, cards, q } = setup();
