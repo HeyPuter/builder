@@ -2539,7 +2539,8 @@ function isTextAttachment(file) {
 // and referenced by path — the kind only selects which on-demand reader the model
 // is pointed at (image → ViewImage, text → ReadTextFile, pdf → ViewDocument) and
 // which chip the bubble shows. 'other' is a binary asset (audio, video, font,
-// archive, …) with no content reader: usable by reference only.
+// archive, …) with no content reader: usable by reference only, except a .zip
+// (isZipAttachment), which the model can unpack with ExtractZip.
 function classifyAttachment(file) {
     const name = file.name || '';
     const type = (file.type || '').toLowerCase();
@@ -2549,6 +2550,18 @@ function classifyAttachment(file) {
     if (ext === 'pdf' || type === 'application/pdf') return 'pdf';
     if (isTextAttachment(file)) return 'text';
     return 'other';
+}
+
+// A .zip archive. It stays an 'other' attachment (saved, sized and shown like
+// any binary file), but the note on the message lists what it holds and points
+// the model at ExtractZip, so the user can start from a project they
+// downloaded, or hand over a folder of files, as one zip. Accepts a File, an
+// attachedImages entry or a saved file-ref ({ path }).
+function isZipAttachment(file) {
+    if (!file) return false;
+    const name = String(file.name || file.path || '');
+    const type = String(file.type || '').toLowerCase();
+    return /\.zip$/i.test(name) || type === 'application/zip' || type === 'application/x-zip-compressed';
 }
 
 // `accept` attribute for the native file picker. Any file type is accepted now
