@@ -96,14 +96,23 @@ const STAGES = [
 ];
 
 const REGULARS = [
+  // Source: https://wordpress.org/photos/photo/6176abde0e/ (CC0)
   { pet: 'Pickle',  breed: 'Pomeranian',       cut: 'Round teddy face',          photo: 'photos/pomeranian.jpg' },
+  // Source: https://wordpress.org/photos/wp-json/wp/v2/photos/241368 (CC0)
   { pet: 'Juniper', breed: 'Maine coon',       cut: 'Belly shave, comb-out',     photo: 'photos/maine-coon.jpg' },
+  // Source: https://wordpress.org/photos/wp-json/wp/v2/photos/45355 (CC0)
   { pet: 'Rufus',   breed: 'Cavalier',         cut: 'Feathered ears, neat feet', photo: 'photos/cavalier.jpg', focus: '50% 22%' },
+  // Source: https://wordpress.org/photos/wp-json/wp/v2/photos/97136 (CC0)
   { pet: 'Frank',   breed: 'Dachshund',        cut: 'Bath & nails, every 4 weeks', photo: 'photos/dachshund.jpg' },
+  // Source: https://wordpress.org/photos/photo/4676a79351/ (CC0)
   { pet: 'Bao',     breed: 'Cotton mix',       cut: 'Short summer cut',          photo: 'photos/smiley-mix.jpg', focus: '50% 35%' },
+  // Source: https://wordpress.org/photos/wp-json/wp/v2/photos/148304 (CC0)
   { pet: 'Honey',   breed: 'Golden retriever', cut: 'De-shed spa',               photo: 'photos/golden.jpg' },
+  // Source: https://wordpress.org/photos/wp-json/wp/v2/photos/92130 (CC0)
   { pet: 'Miso',    breed: 'Kitten',           cut: 'First nail trim',           photo: 'photos/kitten.jpg', focus: '50% 40%' },
+  // Source: https://wordpress.org/photos/wp-json/wp/v2/photos/201152 (CC0)
   { pet: 'Gus',     breed: 'Chow mix',         cut: 'Lion-ish, by request',      photo: 'photos/fluffy-mix.jpg' },
+  // Source: https://wordpress.org/photos/wp-json/wp/v2/photos/15557 (CC0)
   { pet: 'Dot',     breed: 'Bichon',           cut: 'Puppy cut, pom-pom tail',   photo: 'photos/running-bichon.jpg' },
 ];
 

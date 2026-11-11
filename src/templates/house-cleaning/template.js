@@ -1,7 +1,7 @@
 // House cleaning: a one-page static site for a local home cleaning business,
 // with no backend. Business details, cleans and prices, extras, towns, the
 // room by room checklist, reviews, FAQ and where booking requests go are plain
-// data at the top of files/app.js. Photos are CC0 stock (rawpixel) standing in
+// data at the top of files/app.js. Photos are AI-generated samples standing in
 // for the business's own photos. See scripts/build-templates.mjs for the shape.
 export default {
     slug: 'house-cleaning',
@@ -15,7 +15,7 @@ export default {
         { label: 'Make it my business', prompt: 'Change the business name, phone, email, address, office hours, cleaning days, timezone and the towns and ZIP codes we cover to mine. Here are my details: ' },
         { label: 'Set my prices', prompt: 'Update the base price, price per bedroom and per bathroom for each type of clean, the recurring discounts, the extras and the minimum visit to my prices: ' },
         { label: 'Edit my checklist', prompt: 'Change the room by room checklist to match what my team does in a standard, deep and move-out clean: ' },
-        { label: 'Use my photos', prompt: 'Replace the stock photos with my own. I will upload photos of homes we have cleaned and of my team.' },
+        { label: 'Use my photos', prompt: 'Replace the sample photos with my own. I will upload photos of homes we have cleaned and of my team.' },
         { label: 'Save requests', prompt: 'Make the booking form save each request instead of opening an email, and add a private page where only I can see them, sorted by preferred day.' },
     ],
 
@@ -60,7 +60,7 @@ export default {
             {
                 q: 'Are the reviews and photos real?',
                 a: [
-                    'No. The business, reviews and rating are placeholders, and the photos are free stock images. The page labels them as samples until you replace them.',
+                    'No. The business, reviews and rating are placeholders, and the photos are AI-generated. The page labels them as samples until you replace them.',
                 ],
             },
         ],

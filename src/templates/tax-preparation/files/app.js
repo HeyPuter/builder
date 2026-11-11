@@ -178,18 +178,21 @@ const CHECKLIST = [
 const TEAM = [
     {
         name: 'Margaret Ellison', credential: 'EA', role: 'Founder · 22 years',
+        // Source: https://stocksnap.io/photo/business-woman-O2KAZO8QFM (CC0)
         photo: 'photos/preparer-margaret.jpg', alt: 'Margaret Ellison smiling in the office, arms folded',
         quote: "I'd rather spend twenty minutes explaining your return than have you sign something you don't understand.",
         specialties: ['Families', 'Retirees', 'IRS letters'],
     },
     {
         name: 'André Baptiste', credential: 'CPA', role: 'Partner · 14 years',
+        // Source: https://stocksnap.io/photo/black-portrait-T8VNJRQH7F (CC0)
         photo: 'photos/preparer-andre.jpg', alt: 'André Baptiste smiling at his desk',
         quote: 'Most owners overpay because nobody looked in November. I look in November.',
         specialties: ['S-corps', 'Partnerships', 'Year-end planning'],
     },
     {
         name: 'Claire Novak', credential: 'EA', role: 'Enrolled agent · 9 years',
+        // Source: https://stocksnap.io/photo/woman-working-UOAUVG4AHV (CC0)
         photo: 'photos/preparer-claire.jpg', alt: 'Claire Novak working on a laptop at her desk',
         quote: "Behind by a few years? Very common, very fixable. Let's start with one.",
         specialties: ['Freelancers', 'Landlords', 'Back taxes'],

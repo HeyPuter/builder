@@ -3,7 +3,7 @@
 // fleet stats, trailers and rates, cities and lanes, how a load moves, driver
 // pay and perks, safety record, reviews, FAQ, office hours and where rate
 // requests and applications go are plain data at the top of files/app.js.
-// Photos are CC0 stock (rawpixel) standing in for the carrier's own trucks
+// Photos are CC0 stock (rawpixel) and AI-generated samples standing in for the carrier's own trucks
 // and terminal. See scripts/build-templates.mjs for the shape.
 export default {
     slug: 'trucking-company',
@@ -63,7 +63,7 @@ export default {
             {
                 q: 'Are the numbers and reviews real?',
                 a: [
-                    'No. The company, USDOT and MC numbers, insurance, safety record, stats and reviews are placeholders, and the photos are free stock images. The page labels them as samples until you replace them.',
+                    'No. The company, USDOT and MC numbers, insurance, safety record, stats and reviews are placeholders, and the photos are free stock and AI-generated images. The page labels them as samples until you replace them.',
                 ],
             },
         ],

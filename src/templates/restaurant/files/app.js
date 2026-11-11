@@ -224,6 +224,7 @@ const MENUS = [
 // Private dining rooms and buyouts.
 const ROOMS = [
   {
+    // Source: https://commons.wikimedia.org/wiki/File:In_a_vintage_tavern_(Unsplash).jpg (CC0)
     id: 'cellar', name: 'The Cellar', photo: 'photos/room-cellar.jpg',
     alt: 'A dim, candlelit room with set tables and whitewashed walls',
     blurb: 'A candlelit room below the dining room, lined with our three hundred bottles.',
@@ -231,6 +232,7 @@ const ROOMS = [
     features: ['Set menu planned with the chef', 'Your own sommelier for the night', 'Private entrance from the courtyard'],
   },
   {
+    // Source: https://commons.wikimedia.org/wiki/File:Nils_Stahl_2017_(Unsplash).jpg (CC0)
     id: 'garden', name: 'The Garden Room', photo: 'photos/room-garden.jpg',
     alt: 'A long table set with glasses and linen in a bright room',
     blurb: 'One long table under the skylight, with doors onto the heated terrace.',
@@ -238,6 +240,7 @@ const ROOMS = [
     features: ['Screen and microphone for toasts', 'Terrace for a welcome drink', 'Family-style or plated menus'],
   },
   {
+    // Source: https://commons.wikimedia.org/wiki/File:Bartenders_serving_cocktail_(Unsplash).jpg (CC0)
     id: 'buyout', name: 'The whole house', photo: 'photos/room-house.jpg',
     alt: 'Two bartenders smiling as they mix cocktails at a busy bar',
     blurb: 'The dining room, bar and terrace, all yours, for weddings and big celebrations.',

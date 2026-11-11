@@ -214,12 +214,16 @@ const CLAIM_GUIDES = [
 // --- Agents, reviews, questions -------------------------------------------------
 
 const AGENTS = [
+    // Source: https://stocksnap.io/photo/taking-picture-CZPLAQDWJN (CC0)
     { name: 'Margaret Harlow', role: 'Founder & principal agent', since: 1994, photo: 'photos/agent-margaret.jpg',
         tags: ['Home', 'Life', 'Umbrella'], languages: 'English', phone: '(614) 555-0143' },
+    // Source: https://stocksnap.io/photo/business-man-IVZBYWKEFM (CC0)
     { name: 'Daniel Finch', role: 'Partner, personal lines', since: 2009, photo: 'photos/agent-daniel.jpg',
         tags: ['Auto', 'Home', 'Young drivers'], languages: 'English', phone: '(614) 555-0144' },
+    // Source: https://stocksnap.io/photo/woman-business-WL2CO0KNZD (CC0)
     { name: 'Elena Vargas', role: 'Commercial lines', since: 2016, photo: 'photos/agent-elena.jpg',
         tags: ['Small business', 'Contractors', 'Cyber'], languages: 'English, Spanish', phone: '(614) 555-0145' },
+    // Source: https://stocksnap.io/photo/black-portrait-T8VNJRQH7F (CC0)
     { name: 'Andre Whitfield', role: 'Claims advocate', since: 2012, photo: 'photos/agent-andre.jpg',
         tags: ['Claims', 'Flood', 'Storm damage'], languages: 'English', phone: '(614) 555-0146' },
 ];

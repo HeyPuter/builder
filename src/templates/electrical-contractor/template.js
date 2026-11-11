@@ -19,7 +19,7 @@ export default {
         'The panel planner is a rough guide. Keep its disclaimer, keep demand compared against 80% of the main service, and keep amps and prices plausible when adding or editing loads.',
         'Keep the 24/7 emergency number in the header and the emergency notice under the hero prominent.',
         'The booking form works without a backend: it posts to FORM.endpoint when set and otherwise opens an email to BUSINESS.email. Keep that fallback unless the user asks for another way to receive requests.',
-        'Photos live in photos/. When the user attaches their own photos, use them in place of the stock ones.',
+        'Photos live in photos/. When the user attaches their own photos, use them in place of the sample ones.',
     ].join('\n'),
     page: {
         title: 'Electrical Contractor Website Template with a Panel Planner',
@@ -62,7 +62,7 @@ export default {
             },
             {
                 q: 'Can I use the photos?',
-                a: ['Yes. They are CC0 and public domain photos from rawpixel and Flickr. Swap in photos of your own crew, vans and finished jobs when you have them: real photos earn more trust than stock.'],
+                a: ['Yes. They are CC0 and public domain photos from rawpixel and Flickr, plus one AI-generated photo. Swap in photos of your own crew, vans and finished jobs when you have them: real photos earn more trust than stock.'],
             },
         ],
     },

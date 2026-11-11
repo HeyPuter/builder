@@ -1,8 +1,8 @@
 // Auto repair: a one-page static site for an independent car repair shop, with
 // no backend. Business details, vehicle types, services and price ranges,
 // warning lights, specials, jobs, reviews, hours, booking options and where
-// bookings go are plain data at the top of files/app.js. Photos are CC0 stock
-// (rawpixel public domain, StockSnap) standing in for the shop's own photos.
+// bookings go are plain data at the top of files/app.js. Photos are
+// AI-generated samples and one CC0 StockSnap photo, standing in for the shop's own photos.
 // See scripts/build-templates.mjs for the shape.
 export default {
     slug: 'auto-repair',
@@ -16,7 +16,7 @@ export default {
         { label: 'Make it my shop', prompt: 'Change the shop name, phone, email, address, license, number of bays and technicians, timezone and opening hours to mine. Here are my details: ' },
         { label: 'Set my prices', prompt: 'Update the services, their price ranges, time in the shop and the vehicle type price factors to my prices: ' },
         { label: 'Update my specials', prompt: 'Replace the coupons with my current offers, with an end date for each: ' },
-        { label: 'Use my shop photos', prompt: 'Replace the stock photos and sample jobs with my own. I will upload the photos and tell you the vehicle, mileage, problem, fix and total for each job.' },
+        { label: 'Use my shop photos', prompt: 'Replace the sample photos and jobs with my own. I will upload the photos and tell you the vehicle, mileage, problem, fix and total for each job.' },
         { label: 'Save bookings', prompt: 'Make the booking form save each drop-off instead of opening an email, and add a private page where only I can see them, sorted by drop-off day.' },
     ],
 
@@ -61,7 +61,7 @@ export default {
             {
                 q: 'Are the reviews and photos real?',
                 a: [
-                    'No. The shop, reviews, rating, offers, jobs and license number are placeholders, and the photos are free stock images. The page labels them as samples until you replace them.',
+                    'No. The shop, reviews, rating, offers, jobs and license number are placeholders, and the photos are AI-generated or free stock images. The page labels them as samples until you replace them.',
                 ],
             },
         ],

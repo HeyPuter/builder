@@ -2,7 +2,7 @@
 // business, with no backend. Business details, services and fees, the
 // maintenance plan, towns and zones, jobs, hours, visit windows, reviews, FAQ
 // and where enquiries go are plain data at the top of files/app.js. Photos are
-// CC0 stock (rawpixel, Wikimedia Commons) standing in for the business's own
+// AI-generated samples standing in for the business's own
 // job photos. See scripts/build-templates.mjs for the shape.
 export default {
     slug: 'hvac-service',
@@ -16,7 +16,7 @@ export default {
         { label: 'Make it my business', prompt: 'Change the business name, phone, email, address, license, badges, timezone and opening hours to mine. Here are my details: ' },
         { label: 'Set my prices and terms', prompt: 'Update the diagnostic fee, tune-up price, after-hours fee, trip fees, warranty and maintenance plan to my terms: ' },
         { label: 'Set my service area', prompt: 'Replace the towns and ZIP codes with the ones I cover, and tell me which are in the standard and extended zones: ' },
-        { label: 'Use my job photos', prompt: 'Replace the stock photos and sample jobs with my own. I will upload the photos and tell you the problem, the fix, the town and the month for each job.' },
+        { label: 'Use my job photos', prompt: 'Replace the sample photos and jobs with my own. I will upload the photos and tell you the problem, the fix, the town and the month for each job.' },
         { label: 'Save requests', prompt: 'Make the booking form save each request instead of opening an email, and add a private page where only I can see them, sorted by visit window.' },
     ],
 
@@ -42,7 +42,7 @@ export default {
             { icon: 'clock', title: 'Open now and emergency line', body: 'Opening hours, holidays and the after-hours line are worked out in your timezone, so the page says whether you are open right now.' },
             { icon: 'mapPin', title: 'Service zones and trip fees', body: 'A map and list of the towns you cover, split into a same-day zone and an extended zone with a trip fee.' },
             { icon: 'receipt', title: 'Services with prices', body: 'Air conditioning and heating cards with repair, replacement and maintenance rows, plus your terms and maintenance plan, all quoted from one place.' },
-            { icon: 'camera', title: 'Jobs with the problem and the fix', body: 'Each job shows the town, the month, what was wrong and what was done. Swap the stock photos for your own.' },
+            { icon: 'camera', title: 'Jobs with the problem and the fix', body: 'Each job shows the town, the month, what was wrong and what was done. Swap the sample photos for your own.' },
             { icon: 'mail', title: 'Requests go where you choose', body: 'The booking form opens an email to your address, or posts to a form service or backend of your own.' },
         ],
         faq: [
@@ -61,7 +61,7 @@ export default {
             {
                 q: 'Are the reviews and photos real?',
                 a: [
-                    'No. The business, reviews, rating, jobs and license number are placeholders, and the photos are free stock images. The page labels them as samples until you replace them.',
+                    'No. The business, reviews, rating, jobs and license number are placeholders, and the photos are AI-generated. The page labels them as samples until you replace them.',
                 ],
             },
         ],

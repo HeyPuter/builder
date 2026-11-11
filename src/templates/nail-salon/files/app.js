@@ -150,18 +150,22 @@ const ARTISTS = [
 ];
 
 // The shelf: aftercare to take home. Added items are set aside at the front
-// desk and paid for at the visit. Photos live in photos/ (from Pexels).
+// desk and paid for at the visit. Photos live in photos/.
 const PRODUCTS = [
   { id: 'cuticle-oil', name: 'Moon Drop cuticle oil', size: '10 ml', price: 18, rating: 4.9, reviews: 212,
+    // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
     photo: 'photos/cuticle-oil.jpg', alt: 'An amber dropper bottle of cuticle oil in soft sunlight',
     desc: 'Jojoba and sweet almond oil. Two drops a night keeps gel from lifting.' },
   { id: 'take-home-polish', name: 'Shade of the week, to go', size: '12 ml', price: 15, rating: 4.8, reviews: 96,
+    // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
     photo: 'photos/polish.jpg', alt: 'A hand opening a bottle of bright pink nail polish',
     desc: 'The color you are wearing, for touch-ups between visits.' },
   { id: 'hand-cream', name: 'Fig & Oat hand cream', size: '60 ml', price: 22, rating: 4.8, reviews: 164,
+    // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
     photo: 'photos/hand-cream.jpg', alt: 'Hand cream squeezed from a tube into an open palm on a pink background',
     desc: 'Rich but never greasy. Our artists finish every manicure with it.' },
   { id: 'glass-file', name: 'Crystal glass file', size: '14 cm', price: 14, rating: 4.9, reviews: 98,
+    // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
     photo: 'photos/glass-file.jpg', alt: 'A pink glass nail file beside a bottle of white polish',
     desc: 'Seals the free edge as it shapes, so nails do not peel. Lasts for years.' },
 ];

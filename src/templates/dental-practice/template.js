@@ -2,7 +2,7 @@
 // practice details, hours, the dentist's bio and training, treatments and
 // prices, smile gallery cases, insurance plans, membership plan, reviews, FAQ
 // and where booking requests go are plain data at the top of files/app.js.
-// Photos are CC0 stock (Unsplash via Wikimedia Commons) standing in for the
+// Photos are AI-generated samples standing in for the
 // dentist's portrait, office and patient photos. See scripts/build-templates.mjs
 // for the shape.
 export default {
@@ -30,7 +30,7 @@ export default {
         '- The bio, training, memberships, license number, reviews, rating, review count and smile gallery are placeholders, and SAMPLE_CONTENT = true labels them as samples on the page. Never invent credentials, licenses, reviews, ratings or patient results for a real dentist; ask for real ones, or remove what they do not have. Set SAMPLE_CONTENT to false only once these are the dentist\'s own.',
         '- Smile gallery photos must be real patients of the practice, used with their consent. The sample "before" images are the "after" photo with a tint (sampleTint); never fake a before image for real cases.',
         '- The booking form must not collect health details (symptoms, history, medications), which fall under privacy rules like HIPAA. Keep the note asking visitors to leave them out. If asked to save requests or add health questions, store only contact and scheduling details and tell the user they need a compliant intake system for the rest.',
-        '- The photos in photos/ are stock images. Suggest replacing them with the dentist\'s headshot and the office.',
+        '- The photos in photos/ are AI-generated samples. Suggest replacing them with the dentist\'s headshot and the office.',
         '- Keep the emergency number visible, and the call, emergency and book buttons easy to reach on a phone, including the bar fixed to the bottom of small screens.',
     ].join('\n'),
 
@@ -58,7 +58,7 @@ export default {
             {
                 q: 'Are the bio, reviews and smile cases real?',
                 a: [
-                    'No. The dentist, bio, credentials, reviews and rating are placeholders, the photos are free stock images, and each sample "before" photo is the "after" photo with a tint. The page labels them as samples until you replace them with your own, and patient photos need the patient’s consent.',
+                    'No. The dentist, bio, credentials, reviews and rating are placeholders, the photos are AI-generated, and each sample "before" photo is the "after" photo with a tint. The page labels them as samples until you replace them with your own, and patient photos need the patient’s consent.',
                 ],
             },
             {

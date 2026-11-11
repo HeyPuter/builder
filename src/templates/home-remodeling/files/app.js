@@ -48,6 +48,7 @@ const BUSINESS = {
 const ROOMS = [
     {
         id: 'kitchen', name: 'Kitchens', single: 'Kitchen',
+        // Source: https://www.rawpixel.com/image/5906894 (CC0)
         photo: 'photos/kitchen-island.jpg', alt: 'A kitchen with white cabinets, a wood-paneled island and four wire bar stools',
         blurb: 'Layouts that work, cabinets to the ceiling and an island you can sit at.',
         sizes: [
@@ -58,6 +59,7 @@ const ROOMS = [
     },
     {
         id: 'bathroom', name: 'Bathrooms', single: 'Bathroom',
+        // Source: https://stocksnap.io/photo/modern-bathroom-F4CZ0LN5OO (CC0)
         photo: 'photos/bath-green-tile.jpg', alt: 'A bathroom with dark green wall tile, a white basin on a wood vanity and a round lit mirror',
         blurb: 'Curbless showers, heated floors and storage that hides the clutter.',
         sizes: [
@@ -68,6 +70,7 @@ const ROOMS = [
     },
     {
         id: 'basement', name: 'Basements', single: 'Basement', permit: true,
+        // Source: https://stocksnap.io/photo/house-interior-NF6P1OX124 (CC0)
         photo: 'photos/basement-brick.jpg', alt: 'A finished lower level with an exposed brick wall, a grey sectional sofa and wood floors',
         blurb: 'Dry, warm and bright enough to live in, with a bathroom if you want one.',
         sizes: [
@@ -78,6 +81,7 @@ const ROOMS = [
     },
     {
         id: 'living', name: 'Living spaces', single: 'Living space',
+        // Source: https://stocksnap.io/photo/interior-living-6SMA09U7Y8 (CC0)
         photo: 'photos/living-herringbone.jpg', alt: 'A bright living room with herringbone wood floors, a blue sofa and long low cabinets',
         blurb: 'Open up a closed floor plan, new floors, built-ins and lighting.',
         sizes: [
@@ -88,6 +92,7 @@ const ROOMS = [
     },
     {
         id: 'addition', name: 'Additions', single: 'Addition', permit: true,
+        // Source: https://www.rawpixel.com/image/9677220 (CC0)
         photo: 'photos/addition-framing.jpg', alt: 'A house addition framed in timber and sheathing, with a builder cutting boards in the yard',
         blurb: 'More room without moving: bump-outs, family rooms and second stories.',
         sizes: [
@@ -126,7 +131,9 @@ const BEFORE_AFTER = {
     title: 'A tired kitchen, taken back to the walls',
     body: 'The old kitchen had one fluorescent light, a worn checkerboard floor and almost nowhere to put anything. We stripped it to the walls, hung white shaker cabinets with the microwave over the range, and laid a new wood-look floor.',
     place: 'Riverside', weeks: 7, budget: '$41,000',
+    // Source: https://commons.wikimedia.org/wiki/File:Demolition_project_kitchen_about_to_undergo_renovation.JPG (CC0)
     before: { photo: 'photos/kitchen-before.jpg', alt: 'The kitchen before: bare walls, a stepladder, old checkerboard floor tile and a single ceiling light' },
+    // Source: https://commons.wikimedia.org/wiki/File:Kitchen_renovation_project_cabinets_finished_microwave_installed_new_floor_painted_walls_and_ceiling.JPG (CC0)
     after: { photo: 'photos/kitchen-after.jpg', alt: 'The kitchen after: white shaker cabinets, a stainless microwave over the range, dark counters and a wood-look floor' },
 };
 
@@ -134,31 +141,37 @@ const BEFORE_AFTER = {
 // one is also the photo and "Recently finished" card in the hero.
 const PROJECTS = [
     {
+        // Source: https://stocksnap.io/photo/house-interior-APBDJIC32G (CC0)
         room: 'kitchen', photo: 'photos/hero-kitchen.jpg', alt: 'A bright white kitchen with a teal island, pendant lights and blue bar stools',
         title: 'Teal island kitchen', place: 'Oak Hollow', when: 'Jun 2026', weeks: 9, budget: '$64,000',
         scope: 'Wall to the dining room removed, painted island with seating, cabinets to the ceiling.',
     },
     {
+        // Source: https://stocksnap.io/photo/modern-bathroom-F4CZ0LN5OO (CC0)
         room: 'bathroom', photo: 'photos/bath-green-tile.jpg', alt: 'A bathroom with dark green wall tile, a white basin on a wood vanity and a round lit mirror',
         title: 'Green tile guest bath', place: 'Fernbrook', when: 'Apr 2026', weeks: 4, budget: '$23,500',
         scope: 'Tub swapped for a walk-in shower, floating vanity, lit mirror.',
     },
     {
+        // Source: https://stocksnap.io/photo/house-interior-NF6P1OX124 (CC0)
         room: 'basement', photo: 'photos/basement-brick.jpg', alt: 'A finished lower level with an exposed brick wall, a grey sectional sofa and wood floors',
         title: 'Brick-wall family room', place: 'Millbrook', when: 'Feb 2026', weeks: 8, budget: '$52,000',
         scope: 'Waterproofed, insulated and floored. Original brick cleaned and sealed.',
     },
     {
+        // Source: https://stocksnap.io/photo/interior-living-6SMA09U7Y8 (CC0)
         room: 'living', photo: 'photos/living-herringbone.jpg', alt: 'A bright living room with herringbone wood floors, a blue sofa and long low cabinets',
         title: 'Herringbone living room', place: 'Riverside', when: 'Aug 2026', weeks: 5, budget: '$31,000',
         scope: 'Two small rooms joined, oak herringbone floor, built-in media wall.',
     },
     {
+        // Source: https://www.rawpixel.com/image/6043350 (CC0)
         room: 'bathroom', photo: 'photos/bath-primary.jpg', alt: 'A long primary bathroom with a white vanity, a makeup desk, a freestanding tub and tall windows',
         title: 'Primary suite with a soaking tub', place: 'Ashford', when: 'Sep 2026', weeks: 7, budget: '$46,000',
         scope: 'Closet borrowed for a double vanity, freestanding tub, basketweave marble floor.',
     },
     {
+        // Source: https://stocksnap.io/photo/farmhouse-kitchen-QSX4WH8BDB (CC0)
         room: 'kitchen', photo: 'photos/farmhouse-sink.jpg', alt: 'A white farmhouse sink under a bay window with a tall arched faucet',
         title: 'Bay window farmhouse kitchen', place: 'Cedar Bend', when: 'Mar 2026', weeks: 6, budget: '$38,000',
         scope: 'Sink moved under the new bay window, fireclay farmhouse sink, painted cabinets.',

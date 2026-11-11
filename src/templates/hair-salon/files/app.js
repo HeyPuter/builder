@@ -106,9 +106,13 @@ const SPECIALTIES = {
 
 // `days` are the days each stylist works, 0 = Sunday.
 const STYLISTS = [
+  // Source: https://stocksnap.io/photo/girl-autumn-KVJUCEE9JY (CC0)
   { id: 'ana', name: 'Ana Ortega', level: 'director', role: 'Founder', photo: 'photos/stylist-ana.jpg', specialties: ['lived-in', 'blonding', 'correction'], days: [2, 3, 4, 5], bio: 'Opened the studio after a decade in London salons. Plans color for how it will look in four months, not four days.' },
+  // Source: https://stocksnap.io/photo/hand-hair-IO9W6ZMG1V (CC0)
   { id: 'theo', name: 'Theo Marsh', level: 'senior', role: 'Senior stylist', photo: 'photos/stylist-theo.jpg', specialties: ['precision', 'events'], days: [3, 4, 5, 6], bio: 'Sharp bobs, clean fades and very honest advice about what a fringe does in Portland rain.' },
+  // Source: https://stocksnap.io/photo/braided-hair-Z0RZUNHVBR (CC0)
   { id: 'jordan', name: 'Jordan Bell', level: 'senior', role: 'Curl specialist', photo: 'photos/stylist-jordan.jpg', specialties: ['curls', 'silk-press'], days: [2, 4, 5, 6], bio: 'Trained in dry cutting for curls and coils. Teaches you the routine, not just the style.' },
+  // Source: https://stocksnap.io/photo/80s-fashion-JKGS2KDRN9 (CC0)
   { id: 'mae', name: 'Mae Lindqvist', level: 'stylist', role: 'Stylist', photo: 'photos/stylist-mae.jpg', specialties: ['vivid', 'blonding'], days: [2, 3, 5, 6], bio: 'Our vivid color person. If it glows under the lights, Mae has probably mixed it.' },
 ];
 
@@ -128,13 +132,21 @@ const COLOR_PREP = [
 
 // `focus` is the CSS object-position used when a tile crops the photo.
 const LOOKS = [
+  // Source: https://www.rawpixel.com/image/3298373 (CC0)
   { src: 'photos/look-copper.jpg', alt: 'Long copper curls, seen from behind at sunset', title: 'Sunset copper', tag: 'color', stylist: 'mae', w: 546, h: 683, focus: '50% 30%' },
+  // Source: https://www.rawpixel.com/image/5922241 (CC0)
   { src: 'photos/look-bridal.jpg', alt: 'A stylist pinning a soft bridal updo', title: 'Bridal updo', tag: 'styling', stylist: 'theo', w: 640, h: 480, focus: '50% 25%' },
+  // Source: https://stocksnap.io/photo/nature-plants-33E6Y3TB4E (CC0)
   { src: 'photos/look-curls.jpg', alt: 'Big, shaped curls with a violet tint', title: 'Shaped curls', tag: 'curls', stylist: 'jordan', w: 600, h: 600, focus: '50% 35%' },
+  // Source: https://www.rawpixel.com/image/5907993 (CC0)
   { src: 'photos/look-blue.jpg', alt: 'Long, straight hair colored teal blue', title: 'Glacier blue', tag: 'color', stylist: 'mae', w: 640, h: 800, focus: '50% 40%' },
+  // Source: https://stocksnap.io/photo/people-man-W5T564U6YN (CC0)
   { src: 'photos/look-fade.jpg', alt: 'A short textured cut with a skin fade', title: 'Textured fade', tag: 'cuts', stylist: 'theo', w: 640, h: 800, focus: '50% 35%' },
+  // Source: https://stocksnap.io/photo/woman-hair-XIEZSFATU3 (CC0)
   { src: 'photos/look-honey.jpg', alt: 'Loose honey-blonde waves over the shoulder', title: 'Honey balayage', tag: 'color', stylist: 'ana', w: 512, h: 640, focus: '60% 50%' },
+  // Source: StockSnap S7UEWWIRTD, https://cdn.stocksnap.io/img-thumbs/960w/S7UEWWIRTD.jpg (CC0)
   { src: 'photos/look-layers.jpg', alt: 'Scissors cutting soft layers into brown hair', title: 'Soft layers', tag: 'cuts', stylist: 'ana', w: 640, h: 480, focus: '50% 40%' },
+  // Source: https://stocksnap.io/photo/braided-hair-EH7GKJMHBV (CC0)
   { src: 'photos/look-braids.jpg', alt: 'Two Dutch braids from the hairline', title: 'Dutch braids', tag: 'styling', stylist: 'jordan', w: 640, h: 800, focus: '50% 30%' },
 ];
 const LOOK_TAGS = { color: 'Color', cuts: 'Cuts', curls: 'Curls', styling: 'Styling' };

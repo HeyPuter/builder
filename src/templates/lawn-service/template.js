@@ -1,7 +1,7 @@
 // Lawn service: a one-page static site for a local lawn care business, with no
 // backend. Business details, towns and crew days, prices, services, job photos,
-// reviews and FAQ are plain data at the top of files/app.js. Photos are CC0
-// stock (rawpixel, StockSnap, WordPress Photo Directory) standing in for the
+// reviews and FAQ are plain data at the top of files/app.js. Photos are
+// AI-generated samples standing in for the
 // business's own job photos. See scripts/build-templates.mjs for the shape.
 export default {
     slug: 'lawn-service',
@@ -13,7 +13,7 @@ export default {
 
     suggestions: [
         { label: 'Make it my business', prompt: 'Change the business name, phone, email, hours, address, license and the towns, ZIP codes and crew days we cover to mine. Here are my details: ' },
-        { label: 'Use my job photos', prompt: 'Replace the stock photos with my own job photos. I will upload them, and tell you the job, town and month for each.' },
+        { label: 'Use my job photos', prompt: 'Replace the sample photos with my own job photos. I will upload them, and tell you the job, town and month for each.' },
         { label: 'Set my prices', prompt: 'Update the lawn sizes, mowing prices for each plan and the "from" price of each service to my prices: ' },
         { label: 'Save enquiries', prompt: 'Make the enquiry form save each message instead of opening an email, and add a private page where only I can read them, filtered by service.' },
         { label: 'Add before and after', prompt: 'Add a before and after slider to the recent jobs section. I will upload a before and an after photo for each job.' },
@@ -26,7 +26,7 @@ export default {
         '- TOWNS is the service area. The ZIP checks, the map, the town list and the crew days all read it. PLANS and SIZES are the price list the price checker uses.',
         '- Each service names a TEAM member, and the enquiry form sends to that person, or to BUSINESS.email when they have no email. Keep this routing when adding services or people.',
         '- The reviews, the 4.9 rating, the review count, the job photos and the license number are placeholders, and SAMPLE_CONTENT = true labels them as samples on the page. Never invent reviews, ratings, licenses or job details for the user\'s real business; ask for real ones, or remove what they do not have. Set SAMPLE_CONTENT to false only once the reviews, rating and job photos are the user\'s own.',
-        '- The photos in photos/ are stock images. Suggest replacing them with real job photos.',
+        '- The photos in photos/ are AI-generated samples. Suggest replacing them with real job photos.',
         '- Keep the call, text and price buttons easy to reach on a phone, including the bar fixed to the bottom of small screens.',
     ].join('\n'),
 
@@ -38,7 +38,7 @@ export default {
         features: [
             { icon: 'calculator', title: 'Price checker in the hero', body: 'A visitor enters a ZIP code, a lawn size and how often, and sees a price per visit and the next date your crew can start.' },
             { icon: 'mapPin', title: 'Service area with crew days', body: 'A map and a list of the towns you cover, each with the weekday your crew works there, and a ZIP code check.' },
-            { icon: 'camera', title: 'Recent jobs', body: 'Job photos with the service, town and month, filtered by service. Swap the stock photos for your own.' },
+            { icon: 'camera', title: 'Recent jobs', body: 'Job photos with the service, town and month, filtered by service. Swap the sample photos for your own.' },
             { icon: 'mail', title: 'Enquiries sent to the right person', body: 'The enquiry form names who handles each service and opens an email to them with the details filled in.' },
             { icon: 'phone', title: 'Call and text on a phone', body: 'On small screens a bar stays at the bottom with call, text and price buttons.' },
             { icon: 'pen', title: 'Content kept in one place', body: 'Business details, towns, prices, services, reviews and questions are plain lists at the top of the script.' },
@@ -53,7 +53,7 @@ export default {
             {
                 q: 'Are the reviews and photos real?',
                 a: [
-                    'No. The business, the reviews and the rating are placeholders, and the photos are free stock images. Replace them with your own reviews and job photos before you publish.',
+                    'No. The business, the reviews and the rating are placeholders, and the photos are AI-generated. Replace them with your own reviews and job photos before you publish.',
                 ],
             },
             {

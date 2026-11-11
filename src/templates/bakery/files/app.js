@@ -45,15 +45,23 @@ const BAKES = [
 // The counter. `bake` links an item to a line on the oven board so it can
 // show as sold out. Tags: V vegetarian, VG vegan, N contains nuts, R contains rye.
 const COUNTER = [
+  // Source: https://commons.wikimedia.org/wiki/File:Boulangerie_de_Saint-Maurice-de-Beynost_(Ain,_France)_-_pains_spéciaux.JPG (CC0)
   { id: 'c-country', cat: 'Bread',   name: 'Country sourdough', desc: '36-hour loaf, blistered dark crust, open crumb. 900 g.', price: 9.5,  tags: ['VG'], img: 'images/sourdough.jpg', bake: 'country' },
+  // Source: https://commons.wikimedia.org/wiki/File:Baguette-246424.jpg (CC0)
   { id: 'c-baguette',cat: 'Bread',   name: 'Baguette',          desc: 'Poolish, long cold ferment, shatters when you squeeze it.', price: 4.25, tags: ['VG'], img: 'images/baguette.jpg', bake: 'baguette' },
+  // Source: https://commons.wikimedia.org/wiki/File:Cut_rye_bread_Kartoffelkruste_2025-02-20_02.jpg (CC0)
   { id: 'c-rye',     cat: 'Bread',   name: 'Dark rye & caraway',desc: '100% rye, molasses, caraway. Slice thin, keeps a week.', price: 10,   tags: ['VG', 'R'], img: 'images/rye.jpg', bake: 'rye' },
+  // Source: https://commons.wikimedia.org/wiki/File:Rustic_Bakery_Treats_(Unsplash).jpg (CC0)
   { id: 'c-croiss',  cat: 'Pastry',  name: 'Butter croissant',  desc: '27 layers, cultured butter, three-day lamination.', price: 4.5,  tags: ['V'], img: 'images/croissant.jpg', bake: 'croissant' },
+  // Source: https://commons.wikimedia.org/wiki/File:Cinnamon_Roll_-_Olea_2025-07-03.jpg (CC0)
   { id: 'c-pain',    cat: 'Pastry',  name: 'Pain au chocolat',  desc: 'Two batons of 70% chocolate in croissant dough.', price: 5,    tags: ['V'], img: 'images/painchoc.jpg', bake: 'pain' },
+  // Source: https://commons.wikimedia.org/wiki/File:Cinnamon_Swirl_-_Caffè_Nero_2026-01-04.jpg (CC0)
   { id: 'c-knot',    cat: 'Pastry',  name: 'Cardamom knot',     desc: 'Brioche, freshly ground cardamom, pearl sugar.', price: 4.75, tags: ['V'], img: 'images/bun.jpg', bake: 'knot' },
   { id: 'c-galette', cat: 'Pastry',  name: 'Fruit galette',     desc: 'Whatever the market has: plum, pear, then rhubarb.', price: 6.5,  tags: ['V'], img: '', bake: 'galette' },
   { id: 'c-focaccia',cat: 'Savoury', name: 'Potato focaccia',   desc: 'Waxy potato, rosemary, flaky salt. Sold by the slab.', price: 7,    tags: ['VG'], img: '', bake: 'focaccia' },
+  // Source: https://commons.wikimedia.org/wiki/File:Rustic_Bakery_Treats_(Unsplash).jpg (CC0)
   { id: 'c-ham',     cat: 'Savoury', name: 'Ham & gruyère croissant', desc: 'Second-bake croissant, béchamel, mustard.', price: 7.5, tags: [], img: 'images/croissant.jpg', bake: 'croissant2' },
+  // Source: https://commons.wikimedia.org/wiki/File:Milk_and_chocolate_chip_cookies_(6858180551).jpg (CC0)
   { id: 'c-cookie',  cat: 'Cake',    name: 'Brown butter cookie', desc: 'Dark chocolate, sea salt, crisp edge, soft middle.', price: 3.5, tags: ['V'], img: 'images/cookie.jpg', bake: 'cookie' },
   { id: 'c-loaf',    cat: 'Cake',    name: 'Hazelnut loaf cake',  desc: 'Brown butter, toasted hazelnut, sliced to order.', price: 5,   tags: ['V', 'N'], img: '' },
 ];

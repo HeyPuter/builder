@@ -43,6 +43,7 @@ const SECTIONS = { services: true, listings: true, areas: true, proof: true, abo
 // The headline under the hero, with a small photo set between its two halves.
 const STATEMENT = {
     before: 'I help families buy and sell homes in Cedar Bay',
+    // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
     photo: 'photos/dining-bright.jpg',
     after: 'with straight answers, local numbers and a plan you can follow.',
 };
@@ -57,21 +58,25 @@ const STATS = [
 // `topic` picks the matching option in the enquiry form.
 const SERVICES = [
     {
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         title: 'Buying a home', topic: 'buy', photo: 'photos/kitchen.jpg', tag: 'Buyers',
         body: 'I help you work out what you can afford, set up alerts for the streets you want, and see homes before they hit the big sites. When you find the one, I write an offer that fits the house and the seller.',
         includes: ['Price and payment plan', 'Private showings', 'Offer strategy', 'Inspection and closing'],
     },
     {
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         title: 'Selling your home', topic: 'sell', photo: 'photos/dining.jpg', tag: 'Sellers',
         body: 'You get a price based on what sold on your street, a short list of fixes worth doing, and professional photos. I run every showing and talk you through each offer line by line.',
         includes: ['Pricing report', 'Staging and photos', 'Open houses', 'Offer review'],
     },
     {
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         title: 'Relocating to Cedar Bay', topic: 'relocate', photo: 'photos/living-room.jpg', tag: 'Relocation',
         body: 'Moving from out of town? I tour neighborhoods with you by video, send honest notes on commute and schools, and can handle the whole purchase while you are still in your current city.',
         includes: ['Video tours', 'Neighborhood briefings', 'Remote closing'],
     },
     {
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         title: 'Downsizing', topic: 'both', photo: 'photos/sunroom.jpg', tag: 'Downsizing',
         body: 'Selling a family home and buying a smaller one at the same time takes careful timing. I line up both sides so you move once, and I can recommend movers, estate sale and cleaning help.',
         includes: ['Buy and sell timing', 'Trusted movers', 'Estate sale help'],
@@ -83,6 +88,7 @@ const SERVICES = [
 const LISTINGS = [
     {
         id: 'juniper-14', status: 'for-sale', price: 1185000, address: '14 Juniper Lane', area: 'Juniper Hill',
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         beds: 4, baths: 3.5, sqft: 3120, photo: 'photos/hero-craftsman.jpg', open: 'Open Sat, 1 to 3pm',
         alt: 'Craftsman house with a three-car garage and a lit porch at dusk',
         blurb: 'Craftsman on a quiet cul-de-sac, with a big kitchen and a fenced backyard.',
@@ -90,6 +96,7 @@ const LISTINGS = [
     },
     {
         id: 'orchard-208', status: 'for-sale', price: 689000, address: '208 Orchard Way', area: 'The Orchards',
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         beds: 3, baths: 2, sqft: 1840, photo: 'photos/stucco-ranch.jpg',
         alt: 'Single-story stucco house with a green lawn and a wide driveway',
         blurb: 'Single-story home on a corner lot, with a new roof and a two-car garage.',
@@ -97,6 +104,7 @@ const LISTINGS = [
     },
     {
         id: 'harbor-31', status: 'under-offer', price: 845000, address: '31 Mast Street', area: 'Old Harbor',
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         beds: 3, baths: 2.5, sqft: 1960, photo: 'photos/yellow-door.jpg',
         alt: 'White brick townhouse with a yellow front door and black railings',
         blurb: 'Restored 1910 townhouse two blocks from the water, with a garden patio.',
@@ -104,6 +112,7 @@ const LISTINGS = [
     },
     {
         id: 'west-9', status: 'for-sale', price: 529000, address: '9 Linden Row, Unit B', area: 'Westbrook',
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         beds: 2, baths: 2.5, sqft: 1420, photo: 'photos/townhomes.jpg',
         alt: 'Row of modern three-story townhomes with balconies and garages',
         blurb: 'End-unit townhome with a rooftop deck, close to the Westbrook station.',
@@ -111,6 +120,7 @@ const LISTINGS = [
     },
     {
         id: 'lake-77', status: 'sold', price: 972000, address: '77 Shoreline Drive', area: 'Lakeside',
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         beds: 4, baths: 3, sqft: 2680, photo: 'photos/modern-gable.jpg',
         alt: 'Modern house with dark cladding and a sloped roof against a blue sky',
         blurb: 'Sold in nine days with four offers, after a weekend of open houses.',
@@ -118,6 +128,7 @@ const LISTINGS = [
     },
     {
         id: 'harbor-5', status: 'sold', price: 615000, address: '5 Rope Walk', area: 'Old Harbor',
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         beds: 2, baths: 1, sqft: 1180, photo: 'photos/ivy-cottage.jpg',
         alt: 'Brick cottage with white windows, a white door and planters under the windows',
         blurb: 'A first home for a young couple, bought before it reached the open market.',
@@ -129,6 +140,7 @@ const STATUS_LABELS = { 'for-sale': 'For sale', 'under-offer': 'Under offer', so
 
 const AREAS = [
     {
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         name: 'Old Harbor', photo: 'photos/brick-terrace.jpg', alt: 'A row of brick terraced houses with pink and orange front doors',
         summary: 'Brick townhouses and small cottages from the early 1900s, a short walk from the ferry, cafes and the Saturday market.',
         median: '$742,000', typical: '1910s townhouse', days: '14 days', commute: '25 min by ferry',
@@ -136,6 +148,7 @@ const AREAS = [
         tip: 'Ask for the sewer line scope report. Many of these homes still have clay pipes, and replacing them runs $8,000 to $15,000.',
     },
     {
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         name: 'Juniper Hill', photo: 'photos/hillside-town.jpg', alt: 'Hillside houses with red roofs among trees under a cloudy sky',
         summary: 'Larger family homes on quarter-acre lots, with the top-rated elementary school in the district and views over the bay.',
         median: '$1,090,000', typical: '4-bed craftsman', days: '21 days', commute: '35 min by car',
@@ -143,6 +156,7 @@ const AREAS = [
         tip: 'Homes on the north slope sell for about 8% more for the view. The south slope gets more sun and has bigger gardens.',
     },
     {
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         name: 'Westbrook', photo: 'photos/suburban-street.jpg', alt: 'A wide suburban street with palm trees and single-story homes',
         summary: 'Newer townhomes and condos around the Westbrook rail station, with the lowest prices of the five neighborhoods.',
         median: '$498,000', typical: '2-bed townhome', days: '17 days', commute: '18 min by train',
@@ -150,6 +164,7 @@ const AREAS = [
         tip: 'Check the HOA reserve study before you offer. Two complexes here raised dues by over $100 a month last year.',
     },
     {
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         name: 'Lakeside', photo: 'photos/lake-dock.jpg', alt: 'A wooden dock on a still lake with pine trees behind',
         summary: 'Modern homes and a few older cabins around Lake Ardin, with private docks on the east shore.',
         median: '$935,000', typical: '3-bed modern', days: '28 days', commute: '40 min by car',
@@ -157,6 +172,7 @@ const AREAS = [
         tip: 'Lakefront homes need flood insurance. Get a quote in the first week of your inspection period, not at the end.',
     },
     {
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         name: 'The Orchards', photo: 'photos/aerial-pools.jpg', alt: 'Aerial view of houses with red roofs, gardens and backyard pools',
         summary: 'Single-story homes from the 1970s and 80s on former orchard land, many with pools and new kitchens.',
         median: '$664,000', typical: '3-bed ranch', days: '16 days', commute: '30 min by car',

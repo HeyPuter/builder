@@ -211,32 +211,39 @@ const MYTHS = [
 
 const TEAM = [
     { id: 'okafor', name: 'Dr. Ada Okafor', creds: 'DC', role: 'Clinic director',
+        // Source: https://commons.wikimedia.org/wiki/File:Smiling_woman_pink_shirt_(cropped).jpg (CC0)
         photo: 'photos/team-ada.jpg', alt: 'Portrait of Dr. Ada Okafor, smiling',
         bio: 'Fifteen years in practice and two kids of her own. Ada sees a lot of low backs, pregnancies and new parents, and she will happily explain anything twice.',
         focus: ['Low back & sciatica', 'Pregnancy & postpartum', 'Webster certified'] },
     { id: 'brandt', name: 'Dr. Owen Brandt', creds: 'DC, CCSP', role: 'Sports chiropractor',
+        // Source: https://commons.wikimedia.org/wiki/File:Always_smile_(Unsplash).jpg (CC0)
         photo: 'photos/team-owen.jpg', alt: 'Portrait of Dr. Owen Brandt, laughing',
         bio: 'A former college runner who looks after Boulder’s trail and climbing crowd. Owen pairs adjustments with the strength work that keeps an injury from coming back.',
         focus: ['Runners & climbers', 'Neck & shoulders', 'Return-to-sport plans'] },
     { id: 'reyes', name: 'Marco Reyes', creds: 'LMT', role: 'Massage therapist',
+        // Source: https://commons.wikimedia.org/wiki/File:Man_with_crossed_arms_(Unsplash).jpg (CC0)
         photo: 'photos/team-marco.jpg', alt: 'Portrait of Marco Reyes outdoors, arms crossed',
         bio: 'Deep tissue without the bruises. Marco works from the same plan as your doctor, so your massage targets the same problem. Habla español.',
         focus: ['Deep tissue', 'Desk tension', 'Before & after races'] },
 ];
 
 const STORIES = [
+    // Source: https://commons.wikimedia.org/wiki/File:Runner_in_Stainburn_Forest_(Unsplash).jpg (CC0)
     { photo: 'photos/story-running.jpg', alt: 'A runner on a gravel road under a blue sky',
         cameIn: 'Sciatica down the left leg', backTo: 'Trail half marathons', visits: 9, weeks: 6,
         quote: 'Owen didn’t just treat my back, he fixed how I was running. Nine visits later I was back on the Mesa Trail with no leg pain.',
         name: 'Daniel K.' },
+    // Source: https://commons.wikimedia.org/wiki/File:Cycling_in_the_countryside_(Unsplash).jpg (CC0)
     { photo: 'photos/story-cycling.jpg', alt: 'A cyclist riding a quiet road between green hills',
         cameIn: 'Neck pain on long rides', backTo: 'Eighty-mile Saturdays', visits: 6, weeks: 4,
         quote: 'They looked at photos of my bike fit and my desk. My neck stopped being the thing that ended the ride.',
         name: 'Sam T.' },
+    // Source: https://commons.wikimedia.org/wiki/File:Exploring_the_green_outdoors_(Unsplash).jpg (CC0)
     { photo: 'photos/story-hiking.jpg', alt: 'A hiker with a backpack on a leafy forest trail',
         cameIn: 'Low back pain after my second baby', backTo: 'Hiking with a toddler on my back', visits: 8, weeks: 6,
         quote: 'Ada was gentle and honest, and she never pushed extra visits. The exercises fit into nap time, and they worked.',
         name: 'Lena M.' },
+    // Source: https://commons.wikimedia.org/wiki/File:Woman_yoga_pose_sunrise_(Unsplash).jpg (CC0)
     { photo: 'photos/story-yoga.jpg', alt: 'A woman stretching her arms up in a meadow at sunset',
         cameIn: 'A stiff mid back from desk work', backTo: 'Sunrise yoga, no wincing', visits: 5, weeks: 4,
         quote: 'Five visits and a desk reset. I didn’t realise how much I’d stopped turning my body until I could again.',

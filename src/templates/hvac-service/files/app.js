@@ -94,6 +94,7 @@ const PLAN = {
 const SERVICES = [
     {
         id: 'cooling', title: 'Air conditioning', icon: 'snow',
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         photo: 'photos/condenser-check.jpg', alt: 'An outdoor air conditioning unit beside a brick house',
         items: [
             { title: 'AC repair', price: 'diag', issue: 'no-cool' },
@@ -103,6 +104,7 @@ const SERVICES = [
     },
     {
         id: 'heating', title: 'Heating', icon: 'flame',
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         photo: 'photos/winter-house.jpg', alt: 'A brick and siding house with snow on the shrubs and lawn',
         items: [
             { title: 'Furnace and heat pump repair', price: 'diag', issue: 'no-heat' },
@@ -148,6 +150,7 @@ const TOWNS = [
 
 const JOBS = [
     {
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         photo: 'photos/job-heat-pump.jpg', kind: 'Install',
         alt: 'A new outdoor heat pump unit on a paved patio beside a house',
         title: 'Old furnace swapped for a heat pump', place: 'Waverly Park', when: 'Sep 2026',
@@ -155,6 +158,7 @@ const JOBS = [
         fix: '3-ton variable-speed heat pump with gas backup, installed in one day.',
     },
     {
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         photo: 'photos/job-control-board.jpg', kind: 'Repair',
         alt: 'Technician in safety glasses wiring a control',
         title: 'Furnace shutting off at night', place: 'Hudson', when: 'Jan 2026',
@@ -162,6 +166,7 @@ const JOBS = [
         fix: 'Failed control board replaced and flame sensor cleaned. Heat back that afternoon.',
     },
     {
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         photo: 'photos/job-ductwork.jpg', kind: 'Install',
         alt: 'Technician running wiring through the open wall framing of a basement',
         title: 'Heat and air for a finished basement', place: 'Cedar Falls', when: 'Mar 2026',
@@ -169,6 +174,7 @@ const JOBS = [
         fix: 'Two duct runs and a return added, and a second thermostat zone wired in.',
     },
     {
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         photo: 'photos/job-thermostat.jpg', kind: 'Maintenance',
         alt: 'A finger setting a touchscreen thermostat on a wall',
         title: 'Fall tune-up and thermostat', place: 'Janesville', when: 'Oct 2026',

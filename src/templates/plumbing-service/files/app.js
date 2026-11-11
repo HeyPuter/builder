@@ -217,6 +217,7 @@ const TOWNS = [
 // Recent jobs, shown as work tickets. kind is the filter chip.
 const JOBS = [
     {
+        // Source: https://commons.wikimedia.org/wiki/File:Plumber_uses_two_wrenches_to_tighten_a_fitting.jpg (CC0)
         no: '2291', photo: 'photos/job-water-heater.jpg', kind: 'Water heaters',
         alt: 'A plumber tightening a fitting beside a water heater with two wrenches',
         title: 'Water heater replaced in a morning', place: 'Salt Point', when: 'Sep 2026',
@@ -224,6 +225,7 @@ const JOBS = [
         fix: '50 gal tank installed with a new expansion tank and shut-off valve. Hot water by noon.',
     },
     {
+        // Source: https://commons.wikimedia.org/wiki/File:PEX_pipes_and_valves_in_basement_ceiling_for_exterior_water_spigot.jpg (CC0)
         no: '2264', photo: 'photos/job-repipe.jpg', kind: 'Pipes',
         alt: 'Blue PEX water lines and a valve run along basement ceiling joists',
         title: 'Galvanized lines swapped for PEX', place: 'Millbrook', when: 'Aug 2026',
@@ -231,6 +233,7 @@ const JOBS = [
         fix: 'Supply lines rerun in PEX over two days, with a valve for every fixture.',
     },
     {
+        // Source: https://commons.wikimedia.org/wiki/File:247_Home_Rescue_back_of_sink_plumbing.jpg (CC0)
         no: '2237', photo: 'photos/job-sink.jpg', kind: 'Drains',
         alt: 'Supply valves and the drain trap under a kitchen sink',
         title: 'Kitchen drain that kept coming back', place: 'Clove Valley', when: 'Jul 2026',
@@ -238,6 +241,7 @@ const JOBS = [
         fix: 'Line cabled and camera-checked, then a sagging trap arm re-pitched so grease drains.',
     },
     {
+        // Source: https://www.rawpixel.com/image/5920469 (CC0)
         no: '2210', photo: 'photos/job-faucet.jpg', kind: 'Fixtures',
         alt: 'A chrome single-lever kitchen faucet over a stainless sink',
         title: 'Dripping faucet and stuck valves', place: 'Verbank', when: 'Jun 2026',

@@ -67,6 +67,7 @@ const CONSULT = {
 const ATTORNEYS = [
     {
         id: 'hale', name: 'Claire Hale', title: 'Founding partner',
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         photo: 'photos/attorney-1.jpg', alt: 'Claire Hale in a black blazer, smiling',
         focus: 'Divorce, custody and support',
         bio: 'Claire has practiced family law in Linden County since 2009. Most of her cases settle, and she prepares every one as if it will go to trial.',
@@ -77,6 +78,7 @@ const ATTORNEYS = [
     },
     {
         id: 'okafor', name: 'Daniel Okafor', title: 'Partner',
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         photo: 'photos/attorney-2.jpg', alt: 'Daniel Okafor in a navy suit and striped tie',
         focus: 'Wills, trusts and probate',
         bio: 'Daniel writes wills and trusts for families and small business owners, and guides executors through probate from the first filing to the final account.',
@@ -87,6 +89,7 @@ const ATTORNEYS = [
     },
     {
         id: 'reyes', name: 'Martín Reyes', title: 'Of counsel',
+        // Source: AI-generated with gpt-image-2.6-flare on Puter, 2026-11-10
         photo: 'photos/attorney-3.jpg', alt: 'Martín Reyes in a dark suit, seated in his office',
         focus: 'Prenups and guardianship',
         bio: 'Martín has drafted prenuptial agreements and handled guardianships for adult children and aging parents for over thirty years. He meets clients in English or Spanish.',
