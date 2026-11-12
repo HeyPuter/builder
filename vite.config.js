@@ -135,6 +135,9 @@ const SCRIPTS = [
   // After app.js: it reads isProcessing and the tray, and calls the composer
   // draft helpers and sendChatMessage.
   'js/message-queue.js',
+  // After app.js: a tap on a build notification reads currentChatId and
+  // savedChats and calls loadChat.
+  'js/build-notify.js',
   // After app.js: it calls ensureAuthenticated and autoResizeTextarea, and
   // reads currentChatId.
   'js/voice-input.js',

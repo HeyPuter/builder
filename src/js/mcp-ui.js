@@ -1,6 +1,7 @@
 // The Settings modal, opened by the toolbar's gear (beside <puter-user-menu>)
-// and by the account panel's MCP connections row. Two tabs: MCP connections
-// and Appearance (the Light / Dark / Device theme control).
+// and by the account panel's MCP connections row. Three tabs, MCP
+// connections, Appearance (the Light / Dark / Device theme control) and
+// Notifications (the build notifications switch, from js/build-notify.js).
 // The SDK is an ordinary Vite module; this UI follows the app's classic-script
 // and jQuery conventions. Server names, URLs, and tool names are always text.
 (function () {
@@ -8,7 +9,7 @@
     // The gear reopens the tab last shown; the MCP row asks for its own.
     let lastTab = 'mcp';
     window.openSettings = function (tab) {
-        if (tab === 'mcp' || tab === 'appearance') lastTab = tab;
+        if (tab === 'mcp' || tab === 'appearance' || tab === 'notifications') lastTab = tab;
         closePanel?.();
         window.closeUserPanel?.();
         document.querySelector('.user-menu-btn')?.focus();
@@ -21,6 +22,7 @@
                     <div class="settings-tabs" role="tablist" aria-label="Settings sections">
                         <button type="button" class="settings-tab" role="tab" id="settings-tab-mcp" aria-controls="settings-panel-mcp" data-tab="mcp">MCP connections</button>
                         <button type="button" class="settings-tab" role="tab" id="settings-tab-appearance" aria-controls="settings-panel-appearance" data-tab="appearance">Appearance</button>
+                        <button type="button" class="settings-tab" role="tab" id="settings-tab-notifications" aria-controls="settings-panel-notifications" data-tab="notifications">Notifications</button>
                     </div>
                     <div class="settings-panel" role="tabpanel" id="settings-panel-mcp" aria-labelledby="settings-tab-mcp" data-tab="mcp">
                     <p class="mcp-intro">Connect tools your AI can use across your projects. Only connect servers you trust to receive tool inputs and perform actions.</p>
@@ -42,6 +44,9 @@
                             ${window.themeSegmentHtml('settings-theme-label')}
                         </div>
                         <p class="mcp-note">Device follows your system’s light or dark setting.</p>
+                    </div>
+                    <div class="settings-panel" role="tabpanel" id="settings-panel-notifications" aria-labelledby="settings-tab-notifications" data-tab="notifications">
+                        ${window.BuildNotify?.settingsHtml?.() || ''}
                     </div>
                 </section>
             </div>`);

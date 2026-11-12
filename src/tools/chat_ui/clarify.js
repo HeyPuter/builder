@@ -444,7 +444,10 @@
 
             // Block here until the user resolves the card. The result is returned
             // as the tool_result, so the agentic loop continues and the model
-            // builds with these answers in the same turn.
+            // builds with these answers in the same turn. A user in another tab
+            // gets a notification, if they turned them on (js/build-notify.js),
+            // since the build waits for them.
+            window.BuildNotify?.needsAnswer?.();
             return await runClarification(questions, context || {});
         }
     });

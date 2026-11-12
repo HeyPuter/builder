@@ -5609,6 +5609,11 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         if (window.ModelPicker) turnModel = await window.ModelPicker.allowedForTurn(chosenModel);
         turnServiceSpeed = isFirstBuildTurn && window.ModelCore.supportsFast(turnModel) && window.experiment?.('speed') === 'fast' ? 'fast' : undefined;
         window.FastMode?.turnStarted?.({ model: turnModel, fast: !!turnServiceSpeed });
+        // A project's first build offers a notification for when it's done
+        // (js/build-notify.js), and a clarify card needs to know the turn.
+        // Not from a turn stopped during the plan check above. A newer turn
+        // may have started by then, and this one would take its place.
+        if (!turnAbandoned()) window.BuildNotify?.turnStarted?.({ chatId: turnChatId, firstBuild: isFirstBuildTurn });
         const turnTools = window.getTurnTools(turnModel);
         const turnUnavailableTools = window.getUnavailableTools?.(turnModel) || [];
         turnAccountRead = readTurnAccount().then(a => { turnAccount = a; }, () => {});
@@ -6043,6 +6048,19 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // Resume banner either.
     const sendingQueued = turnChatId === currentChatId && !isProcessing
         && !!window.MessageQueue?.afterTurn?.(turnSucceeded && !(context && context.usageLimited));
+
+    // A notification when the build is over and the user is in another tab or
+    // app (js/build-notify.js). None after a Stop, which the user did, after a
+    // switch to another project, or while queued messages carry the build on,
+    // since its last turn tells. Running out of credits ends a clean stream, so
+    // it counts as stopped, not done.
+    {
+        const usageLimited = !!(context && context.usageLimited);
+        const outcome = turnChatId !== currentChatId || sendingQueued ? null
+            : turnSucceeded && !usageLimited ? 'done'
+            : turnSucceeded || turnErrored || retryGaveUp ? 'stopped' : null;
+        window.BuildNotify?.turnEnded?.({ chatId: turnChatId, outcome });
+    }
 
     // After a completed turn, offer up to 5 one-click "what next?" suggestions
     // above the input. They come from the small suggestion model, started here

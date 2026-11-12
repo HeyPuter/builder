@@ -82,6 +82,34 @@ self.addEventListener('message', function (event) {
   }
 });
 
+// A tap on a build notification (js/build-notify.js) that the page couldn't
+// show itself, as on Android, where only a worker can. It brings forward the
+// builder tab showing that project, which a tab still starting up restores
+// from its address. Other tabs are left as they are, since one could be
+// building something else, or not know a project made in another tab. With
+// no tab showing the project, the tap opens it in a new one. Every other
+// notification is left alone.
+self.addEventListener('notificationclick', function (event) {
+  var data = event.notification && event.notification.data;
+  if (!data || data.source !== 'build-notify') return;
+  event.notification.close();
+  // Only a path on this site, never another origin.
+  var url = typeof data.url === 'string' && data.url.charAt(0) === '/' && data.url.charAt(1) !== '/' ? data.url : '/';
+  event.waitUntil((async function () {
+    var pages = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    // The builder itself, not a marketing page, and not inside another page.
+    var page = pages.filter(function (p) {
+      try {
+        var at = new URL(p.url);
+        return p.frameType !== 'nested' && at.pathname === '/' && at.searchParams.get('p') === data.chatId;
+      } catch (e) { return false; }
+    })[0];
+    if (!page) return self.clients.openWindow(url);
+    try { await page.focus(); } catch (e) { /* focus is the browser's call */ }
+    page.postMessage({ type: 'BUILD_NOTIFICATION_CLICK', chatId: data.chatId, kind: data.kind });
+  })());
+});
+
 function isHtmlNavigation(request) {
   if (request.mode === 'navigate') return true;
   var accept = request.headers.get('accept') || '';
