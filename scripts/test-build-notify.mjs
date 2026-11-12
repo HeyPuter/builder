@@ -512,12 +512,13 @@ function loadWorker() {
         c.focused[0] === 'https://builder.puter.com/?p=chat_2_b' && c.posted[0].m.type === 'BUILD_NOTIFICATION_CLICK' && c.posted[0].m.chatId === 'chat_2_b' && c.closed === 1);
     check('…counting tabs it doesn\'t control', c.matchOpts.includeUncontrolled === true && c.matchOpts.type === 'window');
     c = await w.tap(data, [
-        { url: 'https://builder.puter.com/guides/', frameType: 'top-level' },
+        { url: 'https://builder.puter.com/guides/?p=chat_2_b', frameType: 'top-level' },
         { url: 'https://builder.puter.com/', frameType: 'top-level' },
+        { url: 'https://builder.puter.com/?p=chat_1_a', frameType: 'top-level' },
+        { url: 'https://builder.puter.com/?p=chat_2_b', frameType: 'nested' },
     ]);
-    check('…else to a builder tab, never a marketing page', c.focused[0] === 'https://builder.puter.com/' && c.opened.length === 0);
-    c = await w.tap(data, [{ url: 'https://builder.puter.com/', frameType: 'nested' }]);
-    check('…with no builder tab of its own, it opens the project', c.opened[0] === '/?p=chat_2_b' && c.posted.length === 0);
+    check('…with no tab of its own showing the project, it opens it in a new one, and leaves the others be',
+        c.opened[0] === '/?p=chat_2_b' && c.focused.length === 0 && c.posted.length === 0);
     c = await w.tap({ ...data, url: '//evil.example/' }, []);
     check('…and only ever a path on this site', c.opened[0] === '/');
     c = await w.tap({ ...data, url: 'https://evil.example/' }, []);
@@ -542,7 +543,7 @@ function loadWorker() {
     const CSS = read('../src/css/styles.css');
 
     check('every turn tells it, with the project\'s first build marked',
-        /window\.FastMode\?\.turnStarted\?\.\([^\n]+\);\s*(\/\/[^\n]*\n\s*)*window\.BuildNotify\?\.turnStarted\?\.\(\{ chatId: turnChatId, firstBuild: isFirstBuildTurn \}\);/.test(APP));
+        /window\.FastMode\?\.turnStarted\?\.\([^\n]+\);\s*(\/\/[^\n]*\n\s*)*if \(!turnAbandoned\(\)\) window\.BuildNotify\?\.turnStarted\?\.\(\{ chatId: turnChatId, firstBuild: isFirstBuildTurn \}\);/.test(APP));
     const endAt = APP.indexOf('window.BuildNotify?.turnEnded?.(');
     check('the end of a turn tells it, after the queue has had its say and a superseded turn has gone',
         endAt > APP.indexOf('const sendingQueued = ') && APP.indexOf('const sendingQueued = ') > APP.indexOf('if (supersededInChat) return;'));
@@ -550,6 +551,7 @@ function loadWorker() {
     check('…no outcome for another project or a queued message', /const outcome = turnChatId !== currentChatId \|\| sendingQueued \? null/.test(endBlock));
     check('…done is a clean finish with credits left', /: turnSucceeded && !usageLimited \? 'done'/.test(endBlock));
     check('…stopped is credits running out, an error card, or retries given up', /: turnSucceeded \|\| turnErrored \|\| retryGaveUp \? 'stopped' : null;/.test(endBlock));
+    check('…but not from a turn stopped while its plan was checked', APP.includes('if (!turnAbandoned()) window.BuildNotify?.turnStarted?.({'));
     check('a clarify card tells it before it waits', /window\.BuildNotify\?\.needsAnswer\?\.\(\);\s*return await runClarification\(/.test(CLARIFY));
     check('Settings has a Notifications tab with the switch',
         MCP.includes('role="tab" id="settings-tab-notifications" aria-controls="settings-panel-notifications" data-tab="notifications">Notifications</button>')

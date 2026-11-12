@@ -5611,7 +5611,9 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         window.FastMode?.turnStarted?.({ model: turnModel, fast: !!turnServiceSpeed });
         // A project's first build offers a notification for when it's done
         // (js/build-notify.js), and a clarify card needs to know the turn.
-        window.BuildNotify?.turnStarted?.({ chatId: turnChatId, firstBuild: isFirstBuildTurn });
+        // Not from a turn stopped during the plan check above. A newer turn
+        // may have started by then, and this one would take its place.
+        if (!turnAbandoned()) window.BuildNotify?.turnStarted?.({ chatId: turnChatId, firstBuild: isFirstBuildTurn });
         const turnTools = window.getTurnTools(turnModel);
         const turnUnavailableTools = window.getUnavailableTools?.(turnModel) || [];
         turnAccountRead = readTurnAccount().then(a => { turnAccount = a; }, () => {});

@@ -9,8 +9,9 @@
 // tab is open when there is something to say. The page shows the notification
 // itself, and a tap brings the tab forward. Where a page can't (Android only
 // lets a service worker show one), the builder's worker shows it, and a tap
-// there goes through its notificationclick handler (src/sw.js), which tells
-// this tab which project to open, or opens it when no tab is left. Inside the
+// there goes through its notificationclick handler (src/sw.js), which brings
+// forward the tab showing that project, or opens the project in a new tab
+// when none does. Inside the
 // Puter desktop the builder is a frame, and browsers don't let a frame ask,
 // so the offer never shows there and the switch says why.
 //
@@ -250,8 +251,10 @@ window.BuildNotify = (function () {
     }
 
     // A tap on one of these notifications, from the page's own or from the
-    // worker's. The tab is in front by now. A tap for another project opens
-    // it, as its sidebar entry would.
+    // worker's. The tab is in front by now. The worker only picks a tab that
+    // shows the project already. The page's own notification comes back to
+    // the tab that sent it, which may have moved to another project since,
+    // so a tap there opens the project again, as its sidebar entry would.
     function opened(kind, chatId) {
         window.track?.('Notify Opened', { kind: kind || 'unknown' });
         if (typeof chatId !== 'string' || !chatId || !window._authInitDone) return;
