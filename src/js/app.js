@@ -5223,6 +5223,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // for. Set once the turn's model is settled, from the speed experiment
     // (experiments.js), so only a first build on a model with a fast tier
     // (ModelCore's fast, Opus) in the fast variant has one. A Resume never does.
+    // That test has ended, so it's unset unless a variant is forced.
     // Without it each request asks the user's fast mode (FastMode.requestSpeed)
     // as it is made, so switching it mid-build applies from the next request.
     let turnServiceSpeed;
@@ -5558,7 +5559,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // A plan that ended since the page loaded must not keep a paid model.
         if (window.ModelPicker) turnModel = await window.ModelPicker.allowedForTurn(chosenModel);
         turnServiceSpeed = isFirstBuildTurn && window.ModelCore.supportsFast(turnModel) && window.experiment?.('speed') === 'fast' ? 'fast' : undefined;
-        window.FastMode?.turnStarted?.({ model: turnModel, fast: !!turnServiceSpeed, firstBuild: isFirstBuildTurn });
+        window.FastMode?.turnStarted?.({ model: turnModel, fast: !!turnServiceSpeed });
         const turnTools = window.getTurnTools(turnModel);
         const turnUnavailableTools = window.getUnavailableTools?.(turnModel) || [];
         turnAccountRead = readTurnAccount().then(a => { turnAccount = a; }, () => {});

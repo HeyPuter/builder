@@ -65,9 +65,9 @@ window.FEATURE_FLAGS = {
     // Fast mode: a bolt button in the composer (js/fast-mode.js) that has the
     // AI answer at Puter's fast service speed, about 2.5x faster for 2x the
     // credits, on a model with a fast tier (Opus). Any signed-in account can
-    // switch it on, and a long build offers it once. When false the button
-    // and the hint are gone and every request keeps the model's usual speed
-    // (the speed experiment in js/experiments.js still runs).
+    // switch it on, and a long build offers it, up to three times. When false
+    // the button and the hint are gone and every request keeps the model's
+    // usual speed.
     fastMode: true,
     // The Code view: a View code button in the preview toolbar that shows
     // the project's files (js/code-editor.js, with the pure rules in

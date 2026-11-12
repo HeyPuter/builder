@@ -1,11 +1,12 @@
 import fs from 'node:fs';
 import vm from 'node:vm';
 
-// ---- Fast mode (premium) ------------------------------------------------------
-// js/fast-mode.js: who sees the button (hidden / locked / open), what the
-// switch does to each request, that a change mid-build applies from the next
-// request, and the long-build hint (once per browser, never on a build that
-// is fast already). Runs the REAL fast-mode.js and model-core.js with a small
+// ---- Fast mode ----------------------------------------------------------------
+// js/fast-mode.js: who sees the button, what the switch does to each request,
+// that a change mid-build applies from the next request, the long-build hint
+// (two weeks apart, three times per browser at most, done once fast mode has
+// been switched on, never on a build that is fast already), and the pointer
+// that What's new's Show me puts up. Runs the REAL fast-mode.js and model-core.js with a small
 // fake jQuery, DOM and clock that record what the button, panel and hint show.
 // Then text-asserts the wiring in the composer, the turn and its events.
 
@@ -36,13 +37,15 @@ const blocked = {
     removeItem() { throw new Error('SecurityError'); },
 };
 
-function setup({ user = { username: 'u' }, paid = true, flag = true, storage = memoryStorage(), projectModel = null } = {}) {
-    const state = { hidden: true, attrs: {}, classes: new Set(), btnFocus: 0, panel: null, hint: null, visible: true, modal: false };
+function setup({ user = { username: 'u' }, paid = true, flag = true, storage = memoryStorage(), projectModel = null, mobile = false, bodyClasses = [] } = {}) {
+    const state = { hidden: true, attrs: {}, classes: new Set(), btnFocus: 0, panel: null, hint: null, visible: true, modal: false, body: new Set(bodyClasses), chatToggles: 0, viewSynced: 0 };
     const calls = { upgrade: [], track: [], toast: [], announce: [] };
     const handlers = [];
 
     // The clock: setTimeout runs only when the test moves time on.
     let now = 0, nextId = 1;
+    // Date.now() follows the same clock, from a fixed day.
+    class ClockDate extends Date { static now() { return Date.UTC(2026, 10, 12) + now; } }
     const timers = [];
     const setTimeoutFake = (fn, ms) => { const id = nextId++; timers.push({ id, at: now + ms, fn }); return id; };
     const clearTimeoutFake = (id) => { const i = timers.findIndex((t) => t.id === id); if (i >= 0) timers.splice(i, 1); };
@@ -68,6 +71,7 @@ function setup({ user = { username: 'u' }, paid = true, flag = true, storage = m
             return btnApi;
         },
         toggleClass(c, on) { if (on) state.classes.add(c); else state.classes.delete(c); return btnApi; },
+        removeClass(c) { state.classes.delete(c); return btnApi; },
         trigger() { state.btnFocus++; return btnApi; },
     };
     const $ = (arg) => {
@@ -76,7 +80,13 @@ function setup({ user = { username: 'u' }, paid = true, flag = true, storage = m
         if (arg === '.fast-mode-panel') return { remove: () => { state.panel = null; }, trigger: () => {} };
         if (arg === '.fast-mode-hint') return { remove: () => { state.hint = null; } };
         if (arg === '.fast-mode-switch') return { trigger: () => {} };
-        if (arg === 'body') return { append: (el) => { if (el.html.includes('fast-mode-panel')) state.panel = el.html; else state.hint = el.html; } };
+        if (arg === 'body') return {
+            append: (el) => { if (el.html.includes('fast-mode-panel')) state.panel = el.html; else state.hint = el.html; },
+            hasClass: (c) => state.body.has(c),
+            addClass: (c) => { state.body.add(c); },
+        };
+        // The preview toolbar's chat toggle, whose click shows the chat panel.
+        if (arg === '.preview-toggle-chat') return { first: () => ({ trigger: () => { state.chatToggles++; state.body.delete('chat-hidden'); } }) };
         if (typeof arg === 'string' && arg.trim().startsWith('<')) return { html: arg };
         // A click target: inside the given surfaces, or nowhere.
         return { closest: (sel) => ({ length: arg && arg.inside && arg.inside.includes(sel) ? 1 : 0 }) };
@@ -114,7 +124,7 @@ function setup({ user = { username: 'u' }, paid = true, flag = true, storage = m
     };
 
     const env = {
-        console, Date, Promise, Math, $, document, localStorage: storage,
+        console, Date: ClockDate, Promise, Math, $, document, localStorage: storage,
         setTimeout: setTimeoutFake, clearTimeout: clearTimeoutFake,
         innerHeight: 800, innerWidth: 1200,
         htmlEscape: (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
@@ -132,6 +142,8 @@ function setup({ user = { username: 'u' }, paid = true, flag = true, storage = m
     env.track = (name, props) => calls.track.push({ name, props });
     env.showToast = (msg) => calls.toast.push(msg);
     env.announce = (msg) => calls.announce.push(msg);
+    env.isMobileViewport = () => mobile;
+    env.syncViewSeg = () => { state.viewSynced++; };
     if (projectModel) env.ModelPicker = { access: () => 'open', projectModel: () => projectModel };
     vm.createContext(env);
     vm.runInContext(MODEL_SRC, env);
@@ -153,6 +165,7 @@ function setup({ user = { username: 'u' }, paid = true, flag = true, storage = m
 }
 
 const HINT_AT = 30 * 1000;
+const DAY = 24 * 60 * 60 * 1000;
 
 // ---- Who sees it ---------------------------------------------------------------
 
@@ -175,7 +188,7 @@ const HINT_AT = 30 * 1000;
     t.fire('click', '.fast-mode-btn');
     check('the button opens the panel', !!t.state.panel && t.state.attrs['aria-expanded'] === 'true');
     check('…with the switch off', /role="switch" aria-checked="false"/.test(t.state.panel));
-    check('…the price and the speed', t.state.panel.includes('about 2.5x faster and uses 2x the credits'));
+    check('…the price and the speed, in plain words', t.state.panel.includes('The builder works up to 2.5x faster and uses 2x the credits.') && !/the AI|next step/.test(t.state.panel));
     check('…and no upgrade offer', !/upgrade/i.test(t.state.panel));
     const opened = t.tracked('Fast Mode Opened');
     check('opening is counted, with whether it was on', opened.length === 1 && opened[0].props.on === false && opened[0].props.mid_build === false);
@@ -220,7 +233,7 @@ const HINT_AT = 30 * 1000;
     const stats = {};
     const first = t.FM.requestSpeed(OPUS, stats);
     t.fire('click', '.fast-mode-btn');
-    check('mid-build the panel says when a change applies', t.state.panel.includes('next step'));
+    check('mid-build the panel adds no note about the AI\'s steps', !/the AI|next step|fast-mode-note/.test(t.state.panel));
     t.fire('click', '.fast-mode-panel .fast-mode-switch');
     const next = t.FM.requestSpeed(OPUS, stats);
     check('the request running when it was switched on kept the usual speed', first === undefined);
@@ -228,8 +241,6 @@ const HINT_AT = 30 * 1000;
     check('the change is counted as mid-build', t.tracked('Fast Mode Changed')[0].props.mid_build === true);
     t.fire('click', '.fast-mode-panel .fast-mode-switch');
     check('switched off mid-build, the next request is back to usual', t.FM.requestSpeed(OPUS, stats) === undefined);
-    t.FM.setBusy(false);
-    check('after the build the panel drops the mid-build note', !t.state.panel.includes('next step'));
 }
 
 // ---- The free plan ------------------------------------------------------------------
@@ -289,32 +300,99 @@ function build(t, turn = {}) {
     check('a build under 30 seconds gets no hint', !t.state.hint);
     t.advance(1);
     check('at 30 seconds the hint offers fast mode', !!t.state.hint && t.state.hint.includes('Speed up this build') && t.state.hint.includes('>Turn on<'));
-    check('…with the price and when it starts', t.state.hint.includes('2x the credits') && t.state.hint.includes('next step'));
+    check('…with the speed and the price, in plain words',
+        t.state.hint.includes('Fast mode makes the builder up to 2.5x faster and uses 2x the credits.') && !/the AI|next step/.test(t.state.hint));
     // The button is at 800-828 by 662-690, the hint 300 wide and 120 tall.
     check('…right above the button, its caret pointing at it',
         t.hintEl.style.top === '532px' && t.hintEl.style.left === '538px' && t.hintEl.style['--fast-caret-x'] === '276px' && !t.hintEl.classList.list.has('is-below'));
-    check('…remembered for this browser', !!t.storage.getItem('builder.fastModeHintShown'));
-    check('…counted', t.tracked('Fast Mode Hint Shown').length === 1);
+    check('…remembered for this browser, as its first showing', JSON.parse(t.storage.getItem('builder.fastModeHint')).shown === 1);
+    check('…counted as the first', t.tracked('Fast Mode Hint Shown').length === 1 && t.tracked('Fast Mode Hint Shown')[0].props.shown === 1);
     check('…and read out', t.calls.announce.some((m) => m.startsWith('Speed up this build.')));
     t.fire('click', '.fast-mode-hint-go');
     check('Turn on switches it on and closes the hint', t.FM.isOn() && !t.state.hint && t.state.classes.has('is-on'));
-    check('…says the step running now finishes first', t.calls.toast.some((m) => m.includes('next step')));
+    check('…and says it is on', t.calls.toast.includes('Fast mode is on.'));
     const c = t.tracked('Fast Mode Changed');
     check('…counted from the hint, mid-build', c.length === 1 && c[0].props.source === 'hint' && c[0].props.mid_build === true);
     check('…and the build\'s next request is fast', t.FM.requestSpeed(OPUS, {}) === 'fast');
 
-    // Once per browser.
+    // Switched on, it's done, even once switched off again.
     t.FM.setBusy(false);
     t.fire('click', '.fast-mode-btn');
     t.fire('click', '.fast-mode-panel .fast-mode-switch');
     t.fire('click', '.fast-mode-btn');
+    t.advance(30 * DAY);
     build(t);
     t.advance(HINT_AT * 3);
-    check('the next long build gets no hint', !t.state.hint);
+    check('after Turn on, and fast mode off again, a long build a month later gets no hint', !t.state.hint);
     const reload = setup({ storage: t.storage });
     build(reload);
     reload.advance(HINT_AT * 3);
     check('nor one after a reload', !reload.state.hint);
+}
+
+// Not now: back two weeks after it last showed, three times in all.
+{
+    const t = setup();
+    const longBuild = () => {
+        build(t);
+        t.advance(HINT_AT);
+        const shown = !!t.state.hint;
+        t.fire('click', '.fast-mode-hint-later');
+        t.FM.setBusy(false);
+        return shown;
+    };
+    check('Not now: the first long build shows it', longBuild());
+    check('…another long build the same day does not', !longBuild());
+    t.advance(13 * DAY);
+    check('…nor one 13 days later', !longBuild());
+    t.advance(DAY);
+    check('…one two weeks after it showed does', longBuild());
+    t.advance(14 * DAY);
+    check('…and one two weeks after that, a third time', longBuild());
+    t.advance(14 * DAY);
+    check('…then never again', !longBuild());
+    t.advance(365 * DAY);
+    check('…however long it has been', !longBuild());
+    check('each showing is counted with which one it is', t.tracked('Fast Mode Hint Shown').map((x) => x.props.shown).join() === '1,2,3');
+    const reload = setup({ storage: t.storage });
+    build(reload);
+    reload.advance(HINT_AT * 3);
+    check('…and a reload keeps the count', !reload.state.hint);
+}
+{
+    const t = setup();
+    build(t, { firstBuild: true });
+    t.advance(HINT_AT);
+    check('a project\'s first build gets the hint like any other', !!t.state.hint);
+}
+{
+    const t = setup();
+    build(t);
+    t.advance(HINT_AT);
+    t.fire('click', '.fast-mode-hint-close');
+    t.FM.setBusy(false);
+    t.advance(DAY);
+    build(t);
+    t.advance(HINT_AT);
+    check('× waits two weeks like Not now', !t.state.hint);
+}
+{
+    const t = setup();
+    t.fire('click', '.fast-mode-btn');
+    t.fire('click', '.fast-mode-panel .fast-mode-switch');
+    t.fire('click', '.fast-mode-panel .fast-mode-switch');
+    t.fire('click', '.fast-mode-btn');
+    build(t);
+    t.advance(HINT_AT * 3);
+    check('switched on from the panel, even if off again, the hint never shows', !t.state.hint && t.tracked('Fast Mode Hint Shown').length === 0);
+}
+{
+    for (const junk of ['1794460306679', 'not json', '[]']) {
+        const t = setup({ storage: memoryStorage({ 'builder.fastModeHint': junk }) });
+        build(t);
+        t.advance(HINT_AT);
+        check(`something else stored (${junk}) counts as never shown`, !!t.state.hint);
+    }
 }
 
 {
@@ -357,8 +435,7 @@ function build(t, turn = {}) {
         t.advance(HINT_AT * 3);
         check(label, !t.state.hint && t.tracked('Fast Mode Hint Shown').length === 0);
     };
-    none('no hint on a build fast already (the speed experiment)', {}, { fast: true });
-    none('no hint on a project\'s first build, which the speed experiment compares', {}, { firstBuild: true });
+    none('no hint on a build fast already (the speed experiment, forced)', {}, { fast: true });
     none('no hint with fast mode on', { storage: memoryStorage({ 'builder.fastMode': '1' }) });
     none('no hint on a model without a fast tier', {}, { model: SONNET });
     none('no hint signed out', { user: null });
@@ -369,7 +446,7 @@ function build(t, turn = {}) {
     ended.FM.setBusy(false);
     ended.advance(HINT_AT * 3);
     check('a build that ends before 30 seconds never shows it', !ended.state.hint);
-    check('…and the browser can still see it on a later build', !ended.storage.getItem('builder.fastModeHintShown'));
+    check('…and the browser can still see it on a later build', !ended.storage.getItem('builder.fastModeHint'));
 }
 
 {
@@ -377,7 +454,7 @@ function build(t, turn = {}) {
     t.state.visible = false;
     build(t);
     t.advance(HINT_AT);
-    check('the chat out of sight (a phone on the app view): the hint waits', !t.state.hint && !t.storage.getItem('builder.fastModeHintShown'));
+    check('the chat out of sight (a phone on the app view): the hint waits', !t.state.hint && !t.storage.getItem('builder.fastModeHint'));
     t.state.visible = true;
     t.env.document.visibilityState = 'hidden';
     t.advance(5000);
@@ -403,7 +480,90 @@ function build(t, turn = {}) {
     t.fire('click', '.fast-mode-hint-later');
     build(t);
     t.advance(HINT_AT * 2);
-    check('with storage blocked the hint still shows only once per load', t.tracked('Fast Mode Hint Shown').length === 1);
+    check('with storage blocked the hint still keeps its count for this load', t.tracked('Fast Mode Hint Shown').length === 1);
+}
+
+// ---- Show me (What's new) ------------------------------------------------------------------
+
+{
+    const t = setup();
+    const focus = t.state.btnFocus;
+    check('Show me puts up a pointer', t.FM.showMe() === true && !!t.state.hint && t.state.hint.includes('Fast mode is here'));
+    check('…that says what the bolt does, with one Got it button',
+        t.state.hint.includes('Press the bolt to switch fast mode on or off.') && t.state.hint.includes('>Got it<')
+        && !t.state.hint.includes('fast-mode-hint-close') && !t.state.hint.includes('>Turn on<'));
+    check('…in the hint\'s place over the button, its caret pointing at it',
+        / is-pointer"/.test(t.state.hint) && t.hintEl.style.top === '532px' && t.hintEl.style['--fast-caret-x'] === '276px');
+    check('…while the button pulses', t.state.classes.has('is-pointed'));
+    check('…and focus moves to the button', t.state.btnFocus === focus + 1);
+    check('…read out, and not counted as the long-build hint',
+        t.calls.announce.some((m) => m.startsWith('Fast mode is here.')) && t.tracked('Fast Mode Hint Shown').length === 0
+        && !t.storage.getItem('builder.fastModeHint'));
+    check('…and it follows the window', typeof t.winListeners.resize === 'function');
+    t.fire('click', '.fast-mode-hint-got');
+    check('Got it takes it away and stops the pulse', !t.state.hint && !t.state.classes.has('is-pointed') && !t.winListeners.resize);
+    check('…leaving fast mode as it was', !t.FM.isOn() && t.tracked('Fast Mode Changed').length === 0);
+}
+
+{
+    const btn = setup();
+    btn.FM.showMe();
+    btn.fire('click', '.fast-mode-btn');
+    check('pressing the bolt opens the panel in the pointer\'s place', !btn.state.hint && !!btn.state.panel && !btn.state.classes.has('is-pointed'));
+    const out = setup();
+    out.FM.showMe();
+    out.fire('click', null, { target: { inside: ['.fast-mode-hint'] } });
+    check('a click inside the pointer keeps it', !!out.state.hint);
+    out.fire('click', null, { target: {} });
+    check('a click anywhere else takes it away', !out.state.hint && !out.state.classes.has('is-pointed'));
+    const esc = setup();
+    esc.FM.showMe();
+    esc.fire('keydown', null, { key: 'Enter' });
+    check('another key keeps it', !!esc.state.hint);
+    esc.fire('keydown', null, { key: 'Escape' });
+    check('Escape takes it away', !esc.state.hint);
+    const busy = setup();
+    busy.FM.setBusy(true);
+    busy.FM.showMe();
+    busy.FM.setBusy(false);
+    check('a build ending leaves it up, since it is not the build\'s', !!busy.state.hint);
+    const open = setup();
+    open.fire('click', '.fast-mode-btn');
+    open.FM.showMe();
+    check('with the panel open, the panel closes for it', !open.state.panel && !!open.state.hint);
+}
+
+{
+    const t = setup();
+    build(t);
+    t.advance(HINT_AT - 1000);
+    t.FM.showMe();
+    t.advance(1000);
+    check('the long-build hint waits while the pointer is up', t.state.hint.includes('Fast mode is here') && !t.storage.getItem('builder.fastModeHint'));
+    t.fire('click', '.fast-mode-hint-got');
+    t.advance(5000);
+    check('…and shows once it goes', !!t.state.hint && t.state.hint.includes('Speed up this build'));
+}
+
+{
+    const phone = setup({ mobile: true, bodyClasses: ['preview-active'] });
+    phone.FM.showMe();
+    check('a phone on the app view switches to the chat first', phone.state.body.has('mobile-view-chat') && phone.state.viewSynced === 1 && !!phone.state.hint);
+    const chat = setup({ mobile: true, bodyClasses: ['preview-active', 'mobile-view-chat'] });
+    chat.FM.showMe();
+    check('…and one on the chat stays there', chat.state.viewSynced === 0 && !!chat.state.hint);
+    const desk = setup({ bodyClasses: ['preview-active'] });
+    desk.FM.showMe();
+    check('a wide screen with the preview open keeps its layout', !desk.state.body.has('mobile-view-chat'));
+    const hidden = setup({ bodyClasses: ['preview-active', 'chat-hidden'] });
+    hidden.FM.showMe();
+    check('a hidden chat panel is shown, through its toggle', hidden.state.chatToggles === 1 && !hidden.state.body.has('chat-hidden'));
+    const unseen = setup();
+    unseen.state.visible = false;
+    check('the button still out of sight: a toast says where it is, and no pointer',
+        unseen.FM.showMe() === false && !unseen.state.hint && unseen.calls.toast.some((m) => m.includes('bolt button in the chat box')));
+    const out = setup({ user: null });
+    check('signed out: nothing to show', out.FM.showMe() === false && !out.state.hint && out.calls.toast.length === 0);
 }
 
 // ---- The wiring ---------------------------------------------------------------------------
@@ -430,7 +590,7 @@ function build(t, turn = {}) {
     check('…but the composer lock leaves it usable', !/lockComposerForTurn[\s\S]{0,500}fast-mode-btn/.test(HELPERS));
     check('it is drawn whenever the model picker is', /function render\(\) \{\s*(\/\/[^\n]*\n\s*)*window\.FastMode\?\.render\?\.\(\);/.test(PICKER));
     check('the turn tells it its model, once the speed experiment has settled the speed',
-        /turnServiceSpeed = [^\n]+;\s*window\.FastMode\?\.turnStarted\?\.\(\{ model: turnModel, fast: !!turnServiceSpeed, firstBuild: isFirstBuildTurn \}\);/.test(APP));
+        /turnServiceSpeed = [^\n]+;\s*window\.FastMode\?\.turnStarted\?\.\(\{ model: turnModel, fast: !!turnServiceSpeed \}\);/.test(APP));
     check('the first request of every attempt reads it as it is made',
         APP.includes('serviceSpeed: turnServiceSpeed || window.FastMode?.requestSpeed(turnModel, turnStats) })'));
     check('every later round reads it as it starts',
