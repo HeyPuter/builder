@@ -347,6 +347,48 @@
     // a restore goes ahead, but not a version id.
     const NOTHING_TO_SNAPSHOT = Object.freeze({ nothingToSnapshot: true });
 
+    // The README.md every new project starts with (js/project-readme.js). A
+    // project is new while it has no versions, so this covers a first build, a
+    // template copy, an attached zip and a first hand edit alike. A project
+    // with any readme of its own keeps it, and one whose README was deleted
+    // after its first version stays without. The write never replaces a file
+    // (overwrite off), and a failure only means this project goes without, so
+    // it never holds up the snapshot. Each project is asked about once a
+    // session, and the step is kept, so a project without a readme costs one
+    // index read per session, not one per snapshot, and a download that comes
+    // while the step is still running waits for the same one.
+    const _readmeSteps = new Map();
+    function addReadmeToNewProject(chatId, appDir, items) {
+        const R = window.ProjectReadme;
+        if (!R || !(window.FEATURE_FLAGS && window.FEATURE_FLAGS.projectReadme)) return Promise.resolve();
+        if (_readmeSteps.has(chatId)) return _readmeSteps.get(chatId);
+        const step = R.hasReadme(items) ? Promise.resolve() : (async () => {
+            try {
+                const index = await readIndex(chatId);
+                if (index.versions.length) return;
+                await puter.fs.write(appDir + '/' + R.FILE_NAME, R.TEXT, { overwrite: false, dedupeName: false });
+            } catch (e) {
+                console.warn('README for the new project was not added:', e);
+            }
+        })();
+        _readmeSteps.set(chatId, step);
+        return step;
+    }
+
+    // For the zip download (downloadProject in helpers.js). The first version
+    // is queued without being awaited, so a download straight after a first
+    // build or a template copy could list the folder before the README is in.
+    // This runs the same step, or waits for the one already running. An empty
+    // or missing folder is left for its first version. Never throws.
+    window.ensureProjectReadme = async function (chatId, appDir) {
+        if (!chatId || !appDir) return;
+        if (_readmeSteps.has(chatId)) return _readmeSteps.get(chatId);
+        let items;
+        try { items = await puter.fs.readdir(appDir); } catch (e) { return; }
+        if (!Array.isArray(items) || !items.some(it => !(it && it.is_dir && it.name === '.puter'))) return;
+        return addReadmeToNewProject(chatId, appDir, items);
+    };
+
     async function performCreateVersion(opts) {
         opts = opts || {};
         try {
@@ -386,6 +428,10 @@
             // Puter's own .puter folder (its screenshots, the preview canary)
             // doesn't count as content.
             if (!items.some(it => !(it && it.is_dir && it.name === '.puter'))) return NOTHING_TO_SNAPSHOT;
+
+            // A new project's first version brings the builder's README.md,
+            // written before the copy so the version holds it too.
+            if (!opts.fromRestore) await addReadmeToNewProject(chatId, appDir, items);
 
             const versionId = generateVersionId();
             const root = versionsRootForChat(chatId);

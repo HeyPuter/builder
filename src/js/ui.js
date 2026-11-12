@@ -4423,7 +4423,7 @@ $(document).on('click', '.preview-download', async function() {
         const title = generateChatTitle(chatHistory).replace(/[^a-zA-Z0-9_-]/g, '_');
         // Read before the wait, while chatHistory is still this project's.
         const template = templateProp(chatHistory);
-        await downloadProject(currentAppDir, title || 'project');
+        await downloadProject(currentAppDir, title || 'project', currentChatId);
         window.track?.('Project Downloaded', template);
     } catch (e) {
         console.error('Download failed:', e);
@@ -6257,7 +6257,7 @@ $(document).on('click', '.chat-menu-btn', function(e) {
                         const appDir = `/${window.user.username}/AppData/${puter.appID}/${chatId}`;
                         const chat = savedChats.find(c => c.id === chatId);
                         const title = (chat?.title || 'project').replace(/[^a-zA-Z0-9_-]/g, '_');
-                        await downloadProject(appDir, title);
+                        await downloadProject(appDir, title, chatId);
                     } catch (e) {
                         console.error('Download failed:', e);
                         puter.ui.alert('Download failed: ' + (e.message || e));

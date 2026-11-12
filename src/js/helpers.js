@@ -98,6 +98,13 @@ window.FEATURE_FLAGS = {
     // js/github-core.js). It needs codeEditor, whose hidden note and
     // overwrite guard tell the AI about pulled files.
     githubSync: true,
+    // A README.md in every new project (js/project-readme.js): the same fixed
+    // text each time, never written by the AI, that says the project was made
+    // with the builder and links back to it, so a project put on GitHub shows
+    // it. It is added with the project's first version, only when the project
+    // has no readme of its own. When false no project gets one and the prompt
+    // rule about it is gone. Projects that have one keep it.
+    projectReadme: true,
     // Context compaction. Once a request passes the model's threshold
     // (compactAt in js/model-core.js), the model summarizes the older history
     // and later requests start from that summary. When false no request asks
@@ -1782,8 +1789,11 @@ async function addDirToZip(dirPath, zip) {
  * Download the project at `appDir` as a .zip file.
  * @param {string} appDir - absolute Puter path of the project directory
  * @param {string} [name] - optional zip file name (without extension)
+ * @param {string} [chatId] - the project's id, so a new project's README is
+ *     in the zip even while its first version is still being saved
  */
-async function downloadProject(appDir, name) {
+async function downloadProject(appDir, name, chatId) {
+    if (chatId) await window.ensureProjectReadme?.(chatId, appDir);
     const zip = new JSZip();
     await addDirToZip(appDir, zip);
     const blob = await zip.generateAsync({ type: 'blob' });
