@@ -94,6 +94,20 @@ function harness({ storage = memStorage(), uuid = 'user-a', puter = null, naviga
     check('in a fork: the template it came from', h.win._calls.length === 1 && h.win._calls[0][1].from_template === true && h.win._calls[0][1].template === 'feedback-board');
 }
 
+// Whether fast mode was on when the credits ran out rides along
+{
+    const fast = harness();
+    fast.recordUsageLimitHit('credits', '', true);
+    fast.setNow(T0 + 10 * 60 * 1000);
+    fast.reportUnblockAfterLimit();
+    check('a limit hit in a fast build: Unblocked After Limit says fast_mode', fast.win._calls.length === 1 && fast.win._calls[0][1].fast_mode === true);
+    const usual = harness();
+    usual.recordUsageLimitHit('credits');
+    usual.setNow(T0 + 10 * 60 * 1000);
+    usual.reportUnblockAfterLimit();
+    check('…and false for one at the usual speed', usual.win._calls.length === 1 && usual.win._calls[0][1].fast_mode === false);
+}
+
 // A record saved before the template was: neither prop, rather than a wrong false
 {
     const h = harness();
@@ -327,10 +341,10 @@ function tab(box, storage, navigator) {
     h.win.user = { uuid: 'user-a', subscribed: c.subscribed, paid_storage: c.paid_storage };
     return h;
 }
-async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, otherAccountLater = false, failUserAtHit = false, template = '' } = {}) {
+async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, otherAccountLater = false, failUserAtHit = false, template = '', fastMode = false } = {}) {
     const box = { state: before, cached, failUser: failUserAtHit };
     const h = tab(box, memStorage(), { locks: lockManager() });
-    await h.recordPlanAtLimit('credits', template);
+    await h.recordPlanAtLimit('credits', template, fastMode);
     box.state = after;
     box.failUser = false;
     if (otherAccountLater) box.uuid = 'user-b';
@@ -361,6 +375,11 @@ async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, other
     h = await paidHarness({ before: free, after: paid, template: 'feedback-board' });
     c = paidCalls(h);
     check('paid after a limit hit in a fork → the template it came from', c.length === 1 && c[0][1].from_template === true && c[0][1].template === 'feedback-board');
+
+    check('paid after a limit hit at the usual speed → fast_mode false', paidCalls(h)[0][1].fast_mode === false);
+    h = await paidHarness({ before: free, after: paid, fastMode: true });
+    c = paidCalls(h);
+    check('paid after a limit hit in a fast build → fast_mode true', c.length === 1 && c[0][1].fast_mode === true);
 
     h = await paidHarness({ before: free, after: free });
     check('no payment → no event, record kept', paidCalls(h).length === 0 && h.storage._m.has(h.LIMIT_PAY_PREFIX + 'user-a'));
@@ -574,9 +593,9 @@ async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, other
 {
     const send = APP.slice(APP.indexOf('async function sendChatMessage('));
     check('tier branch records the limit hit',
-        /trackLimitHit\([^\n]*kind: 'tier'[^\n]*\n\s*recordUsageLimitHit\('tier', turnTemplate\.template\);/.test(send));
+        /trackLimitHit\([^\n]*kind: 'tier'[^\n]*\n\s*recordUsageLimitHit\('tier', turnTemplate\.template, turnStats\.fastMode\);/.test(send));
     check('credits branch records the limit hit',
-        /trackLimitHit\([^\n]*kind: 'credits'[^\n]*\n\s*recordUsageLimitHit\('credits', turnTemplate\.template\);/.test(send));
+        /trackLimitHit\([^\n]*kind: 'credits'[^\n]*\n\s*recordUsageLimitHit\('credits', turnTemplate\.template, turnStats\.fastMode\);/.test(send));
     check('every limit branch sends the extra props',
         (send.match(/trackLimitHit\([^\n]*\.\.\.usageLimitHitProps\(turnSaveContext\.chatHistory, savedChats, turnChatId, window\.currentPublishedUrl\)/g) || []).length === 3);
     check('the limit hit waits for the account read, then adds the turn props',
@@ -593,8 +612,8 @@ async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, other
     check('error branch counts only Low Balance refusals',
         /if \(isLowBalanceRefusal\(error\)\) \{\s*trackLimitHit\(/.test(send));
     check('a stream cut short for credits records the hit instead of an unblock',
-        /'Build Completed',[\s\S]{0,1100}if \(context && context\.usageLimited\) \{\s*trackLimitHit\([^\n]*kind: 'credits'[^\n]*\n\s*recordUsageLimitHit\('credits', turnTemplate\.template\);\s*\} else \{\s*reportUnblockAfterLimit\(\);/.test(send));
-    check('the limit hit also saves the plan', /function recordUsageLimitHit\(kind, template\) \{[\s\S]{0,300}recordPlanAtLimit\(kind, template\);/.test(APP));
+        /'Build Completed',[\s\S]{0,1100}if \(context && context\.usageLimited\) \{\s*trackLimitHit\([^\n]*kind: 'credits'[^\n]*\n\s*recordUsageLimitHit\('credits', turnTemplate\.template, turnStats\.fastMode\);\s*\} else \{\s*reportUnblockAfterLimit\(\);/.test(send));
+    check('the limit hit also saves the plan', /function recordUsageLimitHit\(kind, template, fastMode = false\) \{[\s\S]{0,400}recordPlanAtLimit\(kind, template, fastMode\);/.test(APP));
     check('paid check runs on focus, on return to the tab and on load',
         /addEventListener\('focus', \(\) => \{ checkPaidAfterLimit\(\); \}\)/.test(APP) &&
         /visibilitychange[\s\S]{0,120}checkPaidAfterLimit\(\)/.test(APP) &&

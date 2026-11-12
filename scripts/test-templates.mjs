@@ -759,7 +759,7 @@ if (built) {
     check('Build Abandoned learns the template from the build it reports',
         send.includes('_activeBuild = { turnSeq, startedAt: turnStartedAt, firstBuild: isFirstBuildTurn, template: turnTemplate.template, stats: turnStats };'));
     check('every limit hit passes the template on to Upgrade After Limit',
-        (send.match(/recordUsageLimitHit\('(credits|tier)', turnTemplate\.template\);/g) || []).length === 3);
+        (send.match(/recordUsageLimitHit\('(credits|tier)', turnTemplate\.template, turnStats\.fastMode\);/g) || []).length === 3);
     check('Project Published carries the template of the project it published', UI.includes('...templateProp(startHistory),'));
     check('Project Downloaded carries the template, read before the download',
         /const template = templateProp\(chatHistory\);\s*await downloadProject\([^\n]*\n\s*window\.track\?\.\('Project Downloaded', template\);/.test(UI));
