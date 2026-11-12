@@ -1789,8 +1789,11 @@ async function addDirToZip(dirPath, zip) {
  * Download the project at `appDir` as a .zip file.
  * @param {string} appDir - absolute Puter path of the project directory
  * @param {string} [name] - optional zip file name (without extension)
+ * @param {string} [chatId] - the project's id, so a new project's README is
+ *     in the zip even while its first version is still being saved
  */
-async function downloadProject(appDir, name) {
+async function downloadProject(appDir, name, chatId) {
+    if (chatId) await window.ensureProjectReadme?.(chatId, appDir);
     const zip = new JSZip();
     await addDirToZip(appDir, zip);
     const blob = await zip.generateAsync({ type: 'blob' });

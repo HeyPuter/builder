@@ -353,23 +353,41 @@
     // with any readme of its own keeps it, and one whose README was deleted
     // after its first version stays without. The write never replaces a file
     // (overwrite off), and a failure only means this project goes without, so
-    // it never holds up the snapshot. Projects asked about this session are
-    // remembered, so a project without a readme costs one index read per
-    // session, not one per snapshot.
-    const _readmeAsked = new Set();
-    async function addReadmeToNewProject(chatId, appDir, items) {
+    // it never holds up the snapshot. Each project is asked about once a
+    // session, and the step is kept, so a project without a readme costs one
+    // index read per session, not one per snapshot, and a download that comes
+    // while the step is still running waits for the same one.
+    const _readmeSteps = new Map();
+    function addReadmeToNewProject(chatId, appDir, items) {
         const R = window.ProjectReadme;
-        if (!R || !(window.FEATURE_FLAGS && window.FEATURE_FLAGS.projectReadme)) return;
-        if (_readmeAsked.has(chatId) || R.hasReadme(items)) return;
-        _readmeAsked.add(chatId);
-        try {
-            const index = await readIndex(chatId);
-            if (index.versions.length) return;
-            await puter.fs.write(appDir + '/' + R.FILE_NAME, R.TEXT, { overwrite: false, dedupeName: false });
-        } catch (e) {
-            console.warn('README for the new project was not added:', e);
-        }
+        if (!R || !(window.FEATURE_FLAGS && window.FEATURE_FLAGS.projectReadme)) return Promise.resolve();
+        if (_readmeSteps.has(chatId)) return _readmeSteps.get(chatId);
+        const step = R.hasReadme(items) ? Promise.resolve() : (async () => {
+            try {
+                const index = await readIndex(chatId);
+                if (index.versions.length) return;
+                await puter.fs.write(appDir + '/' + R.FILE_NAME, R.TEXT, { overwrite: false, dedupeName: false });
+            } catch (e) {
+                console.warn('README for the new project was not added:', e);
+            }
+        })();
+        _readmeSteps.set(chatId, step);
+        return step;
     }
+
+    // For the zip download (downloadProject in helpers.js). The first version
+    // is queued without being awaited, so a download straight after a first
+    // build or a template copy could list the folder before the README is in.
+    // This runs the same step, or waits for the one already running. An empty
+    // or missing folder is left for its first version. Never throws.
+    window.ensureProjectReadme = async function (chatId, appDir) {
+        if (!chatId || !appDir) return;
+        if (_readmeSteps.has(chatId)) return _readmeSteps.get(chatId);
+        let items;
+        try { items = await puter.fs.readdir(appDir); } catch (e) { return; }
+        if (!Array.isArray(items) || !items.some(it => !(it && it.is_dir && it.name === '.puter'))) return;
+        return addReadmeToNewProject(chatId, appDir, items);
+    };
 
     async function performCreateVersion(opts) {
         opts = opts || {};

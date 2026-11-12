@@ -60,7 +60,7 @@ Do not mention the manifest, the icon file, or installability in your replies, t
 const readmeSnippet = (window.FEATURE_FLAGS && window.FEATURE_FLAGS.projectReadme)
     ? `
 
-IMPORTANT: The builder adds a README.md file to each project's root directory. Do not create a README yourself, and do not edit, move or delete the builder's README.md unless the user asks you to. Do not mention the README in your replies, todos, or suggestions.`
+IMPORTANT: The builder adds a README.md file to each project's root directory. Unless the user asks you to, do not create a README of your own, and do not edit, move or delete the builder's README.md. When the user does ask, do what they ask. Do not mention the README in your replies, todos, or suggestions unless the user asks about it.`
     : '';
 // Hidden app tests (js/app-tests.js, the AppTests tool, half 3 of
 // src/runtime.js). update_preview runs them after every change, so the rule
