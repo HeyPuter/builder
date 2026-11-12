@@ -449,10 +449,12 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
     // The turn's model (c.model, fixed when the turn started) drives the
     // history shape and the request options for every round, and its service
     // speed (c.serviceSpeed, see the speed experiment in experiments.js) holds
-    // for every round too.
+    // for every round too. Without one, the user's fast mode is read for each
+    // round as it starts (js/fast-mode.js), so turning it on mid-build lets the
+    // round already running finish and speeds up the next.
     const stream = await abortableAwait(puter.ai.chat(
         prepareHistoryForAI(c.chatHistory, c.model, { unavailableTools: c.unavailableTools }),
-        window.ModelCore.buildChatOptions(c.model, { tools: c.tools || window.builtinTools(), signal: c.abortController.signal, serviceSpeed: c.serviceSpeed })
+        window.ModelCore.buildChatOptions(c.model, { tools: c.tools || window.builtinTools(), signal: c.abortController.signal, serviceSpeed: c.serviceSpeed || window.FastMode?.requestSpeed(c.model, c.turnStats) })
     ), c.abortController.signal);
     // Round handoff = liveness for the background-freeze watchdog (see
     // mobile-lifecycle-keepalive in app.js). Guarded so a stale turn's rounds

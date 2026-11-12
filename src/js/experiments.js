@@ -4,10 +4,10 @@
 // is null outside the test, and its events spread experimentProps(name).
 //
 // To pick a variant by hand, in the console:
-//   experiment()                         every test, your variant, the valid ones
-//   experiment('speed')                  your variant
-//   experiment.set('speed', 'standard')  force one in this browser
-//   experiment.reset('speed')            back to your own (reset() for all)
+//   experiment()                            every test, your variant, the valid ones
+//   experiment('starter')                   your variant
+//   experiment.set('starter', 'developer')  force one in this browser
+//   experiment.reset('starter')             back to your own (reset() for all)
 // A forced variant is kept in localStorage under experimentOverrides and wins
 // even in a test you're outside of. Your own variant stays stored, for when
 // you reset. Reload after a change, since some tests read it as the page loads.
@@ -76,13 +76,17 @@
         return STARTER_TEST_SOURCES.includes(source) ? source : null;
     })();
 
-    // ---- speed: the fast first build -----------------------------------------
-    // Every browser is split in half. The 'fast' variant builds each project's
-    // first build on Opus at Puter's fast service speed (serviceSpeed 'fast',
-    // see turnServiceSpeed in app.js), the 'standard' variant at the usual
-    // speed. Other models and every later build run the same in both. The
-    // question is whether a faster first build means fewer people give up on
-    // it. The variant is drawn once per browser and kept.
+    // ---- speed: the fast first build (ended) ---------------------------------
+    // Ended 2026-11-12, when fast mode (js/fast-mode.js) opened to every
+    // signed-in account. A fast build is now the user's to switch on, and
+    // every first build runs at the usual speed. The code stays for a rerun.
+    //
+    // While it ran, every browser was split in half. The 'fast' variant built
+    // each project's first build on Opus at Puter's fast service speed
+    // (serviceSpeed 'fast', see turnServiceSpeed in app.js), the 'standard'
+    // variant at the usual speed. Other models and later builds ran the same
+    // in both. The question was whether a faster first build means fewer
+    // people give up on it. The variant is drawn once per browser and kept.
     //
     // Build Started, Build Completed, Build Abandoned and Usage Limit Hit carry
     // it as speed_variant, on every build, and Build Completed's took says how
@@ -90,6 +94,10 @@
     // result. Fast costs more, so first-build Usage Limit Hit per variant shows
     // whether fewer abandons only means more builds ran out of credits first (a
     // limit hit is never counted as abandoned).
+    //
+    // A rerun has to deal with fast mode. Its switch makes a standard
+    // variant's first build fast too, and the fast variant's events don't
+    // record it as fast_mode, since app.js asks this test's speed first.
 
     // ---- limitDialog: the builder's own Low Balance dialog --------------------
     // On the web, half of accounts see the builder's own out-of-credits dialog in
@@ -116,7 +124,10 @@
     // forced. It's one of variants, or null for a visitor outside the test.
     // excluded(), when a test has one, gives the value for a visitor who can't
     // take part at all (null when they can). That one wins over a forced
-    // variant too.
+    // variant too. ended, when a test has one, is the day it stopped
+    // (YYYY-MM-DD). Nobody is put in it, so it reads null and its events carry
+    // nothing, but a forced variant still applies, to try one by hand. Taking
+    // ended out runs it again, with the draws browsers kept.
     const EXPERIMENTS = {
         starter: {
             variants: ['developer', 'default'], prop: 'pill_variant',
@@ -124,6 +135,7 @@
         },
         speed: {
             variants: ['fast', 'standard'], prop: 'speed_variant',
+            ended: '2026-11-12',
             assign: variants => drawOnce('speedTestArm', variants),
         },
         limitDialog: {
@@ -166,6 +178,7 @@
         if (excluded != null) return { variant: excluded, forced: false };
         const forced = forcedVariant(name);
         if (forced) return { variant: forced, forced: true };
+        if (e.ended) return { variant: null, forced: false };
         return { variant: e.assign(e.variants), forced: false };
     }
 
@@ -179,7 +192,7 @@
                 rows[n] = {
                     variant,
                     valid: EXPERIMENTS[n].variants.join(' | '),
-                    how: forced ? 'forced' : EXPERIMENTS[n].variants.includes(variant) ? 'drawn' : 'not in test',
+                    how: forced ? 'forced' : EXPERIMENTS[n].ended ? 'ended' : EXPERIMENTS[n].variants.includes(variant) ? 'drawn' : 'not in test',
                 };
             }
             console.table(rows);

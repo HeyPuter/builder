@@ -21,9 +21,9 @@
 //   none, since Puter only documents compaction for OpenAI and Anthropic.
 //   Anthropic won't compact below 50k. Only used while FEATURE_FLAGS.compaction
 //   is on.
-// - fast: a first build on this model asks for Puter's fast service speed in
-//   the speed experiment's fast variant (experiments.js). Opus only, the model
-//   the test is about.
+// - fast: the user's fast mode (fast-mode.js) speeds up builds on this model,
+//   as did the ended speed experiment's fast variant (experiments.js) for
+//   first builds. Opus only, the one whose fast tier fast mode prices.
 window.ModelCore = (function () {
     const DEFAULT_MODEL = 'claude-opus-5-5';
 
@@ -106,8 +106,8 @@ window.ModelCore = (function () {
     // moment the model starts it, and its arguments as they're written, ahead
     // of the usual complete call. It changes only what Puter sends back, not
     // the request upstream, and handleMessageStream shows it beside the dots.
-    // serviceSpeed is only sent when given (the speed experiment in
-    // experiments.js), so every other request keeps the model's usual speed.
+    // serviceSpeed is only sent when given (fast mode, or a forced speed
+    // experiment variant), so every other request keeps the model's usual speed.
     function buildChatOptions(modelId, { tools, signal, serviceSpeed } = {}) {
         const id = idOrDefault(modelId);
         const m = MODELS[id];

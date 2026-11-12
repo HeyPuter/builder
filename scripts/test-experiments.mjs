@@ -47,77 +47,100 @@ function load({ referrer = '', search = '', local = memoryStorage(), random = 0.
     return { experiment: win.experiment, experimentProps: win.experimentProps, win, local, warnings, tables };
 }
 
+// The starter test is the running one these use. A visitor from
+// developer.puter.com is in it, and random < 0.5 draws 'developer'.
+const DEV = 'https://developer.puter.com/';
+
 // ---- The printed list -----------------------------------------------------------
 
 {
-    const h = load({ random: 0.1 });
+    const h = load({ referrer: DEV, random: 0.1 });
     const ret = h.experiment();
     const t = h.tables[0] || {};
     check('experiment() prints one table and returns nothing', h.tables.length === 1 && ret === undefined);
     check('…with every test', JSON.stringify(Object.keys(t)) === '["starter","speed","limitDialog"]');
     check('…the valid values of each', t.speed.valid === 'fast | standard' && t.starter.valid === 'developer | default' && t.limitDialog.valid === 'custom | default');
-    check('…your variant and that it was drawn', t.speed.variant === 'fast' && t.speed.how === 'drawn');
-    check('…and the tests you are outside of', t.starter.variant === null && t.starter.how === 'not in test'
-        && t.limitDialog.variant === 'app' && t.limitDialog.how === 'not in test');
+    check('…your variant and that it was drawn', t.starter.variant === 'developer' && t.starter.how === 'drawn');
+    check('…the tests you are outside of', t.limitDialog.variant === 'app' && t.limitDialog.how === 'not in test');
+    check('…and the ones that ended', t.speed.variant === null && t.speed.how === 'ended');
+    const out = load();
+    out.experiment();
+    check('a visitor from elsewhere is outside the starter test', out.tables[0].starter.variant === null && out.tables[0].starter.how === 'not in test');
 }
 
 // ---- set and reset --------------------------------------------------------------
 
 {
-    const h = load({ random: 0.1 });
-    check('speed draws fast here', h.experiment('speed') === 'fast');
-    h.experiment.set('speed', 'standard');
-    check('set forces a variant', h.experiment('speed') === 'standard' && h.warnings.length === 0);
-    check('…kept under experimentOverrides', h.local.getItem('experimentOverrides') === '{"speed":"standard"}');
-    check('…without touching the drawn one', h.local.getItem('speedTestArm') === 'fast');
+    const h = load({ referrer: DEV, random: 0.1 });
+    check('starter draws developer here', h.experiment('starter') === 'developer');
+    h.experiment.set('starter', 'default');
+    check('set forces a variant', h.experiment('starter') === 'default' && h.warnings.length === 0);
+    check('…kept under experimentOverrides', h.local.getItem('experimentOverrides') === '{"starter":"default"}');
+    check('…without touching the drawn one', h.local.getItem('starterTestArm') === 'developer');
     h.experiment();
-    check('the list says it is forced', h.tables[0].speed.variant === 'standard' && h.tables[0].speed.how === 'forced');
-    check('events report the forced variant', JSON.stringify(h.experimentProps('speed')) === '{"speed_variant":"standard"}');
+    check('the list says it is forced', h.tables[0].starter.variant === 'default' && h.tables[0].starter.how === 'forced');
+    check('events report the forced variant', JSON.stringify(h.experimentProps('starter')) === '{"pill_variant":"default"}');
 
-    check('a later load keeps the forced variant', load({ local: h.local, random: 0.9 }).experiment('speed') === 'standard');
+    check('a later load keeps the forced variant', load({ referrer: DEV, local: h.local, random: 0.9 }).experiment('starter') === 'default');
 
-    h.experiment.set('speed', 'Fast');
-    check('a variant that does not exist warns with the valid ones', /speed has no variant "Fast"\. Valid: fast, standard/.test(h.warnings.at(-1) || ''));
-    check('…and changes nothing', h.experiment('speed') === 'standard');
+    h.experiment.set('starter', 'Developer');
+    check('a variant that does not exist warns with the valid ones', /starter has no variant "Developer"\. Valid: developer, default/.test(h.warnings.at(-1) || ''));
+    check('…and changes nothing', h.experiment('starter') === 'default');
 
-    h.experiment.set('sped', 'fast');
-    check('a test that does not exist warns with the known ones', /no "sped"\. Known: starter, speed, limitDialog/.test(h.warnings.at(-1) || ''));
-    check('…and stores nothing for it', h.local.getItem('experimentOverrides') === '{"speed":"standard"}');
+    h.experiment.set('startr', 'developer');
+    check('a test that does not exist warns with the known ones', /no "startr"\. Known: starter, speed, limitDialog/.test(h.warnings.at(-1) || ''));
+    check('…and stores nothing for it', h.local.getItem('experimentOverrides') === '{"starter":"default"}');
 
     const before = h.warnings.length;
-    check('reading a test that does not exist warns and gives null', h.experiment('sped') === null && h.warnings.length === before + 1);
-    check('…and its props are empty', JSON.stringify(h.experimentProps('sped')) === '{}');
+    check('reading a test that does not exist warns and gives null', h.experiment('startr') === null && h.warnings.length === before + 1);
+    check('…and its props are empty', JSON.stringify(h.experimentProps('startr')) === '{}');
     check('Object built-ins are not tests', h.experiment('toString') === null && h.experiment('__proto__') === null);
 
     h.experiment.set('limitDialog', 'custom');
-    h.experiment.reset('speed');
-    check('reset(name) goes back to the drawn variant', h.experiment('speed') === 'fast');
+    h.experiment.reset('starter');
+    check('reset(name) goes back to the drawn variant', h.experiment('starter') === 'developer');
     check('…and leaves the other overrides', h.local.getItem('experimentOverrides') === '{"limitDialog":"custom"}');
     h.experiment.reset();
     check('reset() clears every override', h.local.getItem('experimentOverrides') === null && h.experiment('limitDialog') === 'app');
 }
 
 {
-    const h = load({ local: memoryStorage({ experimentOverrides: 'not json' }) });
-    check('unreadable overrides are ignored', h.experiment('speed') === 'fast');
-    const g = load({ local: memoryStorage({ experimentOverrides: '{"speed":"Fast","starter":"developer"}' }) });
-    check('a stored override that is not a variant is ignored', g.experiment('speed') === 'fast');
-    check('…while the valid one beside it still counts', g.experiment('starter') === 'developer');
-    const arr = load({ local: memoryStorage({ experimentOverrides: '["fast"]' }) });
-    check('an override list that is not an object is ignored', arr.experiment('speed') === 'fast');
+    const h = load({ referrer: DEV, local: memoryStorage({ experimentOverrides: 'not json' }) });
+    check('unreadable overrides are ignored', h.experiment('starter') === 'developer');
+    const g = load({ referrer: DEV, random: 0.9, local: memoryStorage({ experimentOverrides: '{"starter":"Developer","speed":"fast"}' }) });
+    check('a stored override that is not a variant is ignored', g.experiment('starter') === 'default');
+    check('…while the valid one beside it still counts', g.experiment('speed') === 'fast');
+    const arr = load({ referrer: DEV, local: memoryStorage({ experimentOverrides: '["default"]' }) });
+    check('an override list that is not an object is ignored', arr.experiment('starter') === 'developer');
 }
 
 {
     let threw = false, h = null;
     try {
-        h = load({ local: blocked, random: 0.9 });
-        h.experiment.set('speed', 'fast');
+        h = load({ referrer: DEV, local: blocked, random: 0.9 });
+        h.experiment.set('starter', 'developer');
         h.experiment.reset();
         h.experiment();
     } catch (e) { threw = true; }
     check('blocked storage never throws', !threw);
     check('…set says nothing could be forced', h && /storage is blocked/.test(h.warnings.join('\n')));
-    check('…and the variant is still drawn', h && h.experiment('speed') === 'standard');
+    check('…and the variant is still drawn', h && h.experiment('starter') === 'default');
+}
+
+// ---- An ended test (speed) --------------------------------------------------------
+
+{
+    const h = load({ random: 0.1 });
+    check('an ended test puts nobody in it', h.experiment('speed') === null);
+    check('…so its events carry nothing', JSON.stringify(h.experimentProps('speed')) === '{}');
+    check('…and nothing is drawn or stored for it', h.local.getItem('speedTestArm') === null);
+    check('a browser drawn before it ended is out of it too',
+        load({ local: memoryStorage({ speedTestArm: 'fast' }) }).experiment('speed') === null);
+    h.experiment.set('speed', 'fast');
+    check('a forced variant still applies, to try it by hand',
+        h.experiment('speed') === 'fast' && JSON.stringify(h.experimentProps('speed')) === '{"speed_variant":"fast"}');
+    h.experiment();
+    check('…and the list says it is forced', h.tables[0].speed.how === 'forced');
 }
 
 // ---- limitDialog: the same cohort as before it moved ----------------------------

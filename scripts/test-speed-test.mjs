@@ -1,13 +1,12 @@
 import fs from 'node:fs';
 
 // ---- The fast first build test (speed, src/js/experiments.js) ------------------
-// Every browser is split in half. The 'fast' variant builds each project's
-// first build with serviceSpeed 'fast', the 'standard' variant at the model's
-// usual speed. This runs the real draw from experiments.js against stubbed
-// storage: that the variant sticks, that a forced one wins, and that blocked
-// storage still yields one. Then it runs app.js's turn speed for each case and
-// text-asserts the wiring: every round of that build asks for it, and the four
-// build events carry the variant.
+// Ended 2026-11-12, when fast mode opened to every account. Nobody is drawn
+// into it anymore, so every first build runs at the usual speed and the build
+// events carry no speed_variant. Its code stays for a rerun: a forced variant
+// still applies, and with 'fast' forced, app.js still builds an Opus first
+// build fast. This runs the real experiments.js against stubbed storage, then
+// app.js's turn speed for each case, and text-asserts the wiring.
 
 let failures = 0;
 function check(name, cond) {
@@ -50,30 +49,22 @@ function load({ local = memoryStorage(), random = 0.1 } = {}) {
     return { arm: () => win.experiment('speed'), props: () => win.experimentProps('speed'), win, local };
 }
 
-const first = load({ random: 0.1 });
-check('random < 0.5 draws the fast arm', first.arm() === 'fast');
-check('the arm rides on events as speed_variant', JSON.stringify(first.props()) === '{"speed_variant":"fast"}');
-check('the arm is kept in localStorage', first.local.getItem('speedTestArm') === 'fast');
+const fresh = load({ random: 0.1 });
+check('it has ended, so nobody is in it', fresh.arm() === null);
+check('…the build events carry no speed_variant', JSON.stringify(fresh.props()) === '{}');
+check('…and nothing is drawn or stored', fresh.local.getItem('speedTestArm') === null);
 
-const reload = load({ local: first.local, random: 0.9 });
-check('a later load keeps the arm, not a fresh draw', reload.arm() === 'fast');
+const drawnBefore = load({ local: memoryStorage({ speedTestArm: 'fast' }) });
+check('a browser drawn into the fast arm before it ended is out of it too', drawnBefore.arm() === null);
+check('…its draw kept for a rerun', drawnBefore.local.getItem('speedTestArm') === 'fast');
 
-const other = load({ random: 0.9 });
-check('random >= 0.5 draws the standard arm', other.arm() === 'standard');
+const forced = load({ local: memoryStorage({ experimentOverrides: '{"speed":"fast"}' }) });
+check('a forced variant still applies', forced.arm() === 'fast');
+check('…and rides on events as speed_variant', JSON.stringify(forced.props()) === '{"speed_variant":"fast"}');
 
-const forced = load({ local: memoryStorage({ speedTestArm: 'standard', experimentOverrides: '{"speed":"fast"}' }) });
-check('a forced variant overrides the stored arm', forced.arm() === 'fast');
-check('…without overwriting the stored arm', forced.local.getItem('speedTestArm') === 'standard');
-
-const junk = load({ local: memoryStorage({ speedTestArm: 'bogus' }), random: 0.9 });
-check('a junk stored arm is redrawn', junk.arm() === 'standard' && junk.local.getItem('speedTestArm') === 'standard');
-
-let threw = false, noStorage = null;
-try { noStorage = load({ local: blocked, random: [0.1, 0.9] }); noStorage.arm(); }
-catch (e) { threw = true; }
+let threw = false;
+try { load({ local: blocked }).arm(); } catch (e) { threw = true; }
 check('blocked storage does not throw', !threw);
-check('…and the browser still gets an arm for this load', noStorage && noStorage.arm() === 'fast');
-check('…the same one for the whole load', noStorage && noStorage.props().speed_variant === 'fast');
 
 // ---- The turn's speed (app.js) ------------------------------------------------
 // Decided once the turn's model is settled, so a plan that lapsed (Opus again)
@@ -85,23 +76,29 @@ const TOOLS = fs.readFileSync(new URL('../src/js/tools.js', import.meta.url), 'u
 const speedLine = APP.match(/turnModel = await window\.ModelPicker\.allowedForTurn\(chosenModel\);\s*turnServiceSpeed = ([^\n]+);/);
 check('the speed is decided once, right after the model is settled', !!speedLine && (APP.match(/turnServiceSpeed = /g) || []).length === 1);
 const turnSpeed = speedLine && new Function('isFirstBuildTurn', 'turnModel', 'window', `return ${speedLine[1]};`);
+// arm: 'fast' or 'standard' forced, 'none' for nothing forced, null for no
+// experiments.js at all.
 const speedFor = (firstBuild, arm, model = 'claude-opus-5-5') => {
-    const win = arm ? load({ random: arm === 'fast' ? 0.1 : 0.9 }).win : {};
+    const local = memoryStorage(arm && arm !== 'none' ? { experimentOverrides: JSON.stringify({ speed: arm }) } : {});
+    const win = arm ? load({ local, random: 0.1 }).win : {};
     win.ModelCore = ModelCore;
     return turnSpeed(firstBuild, model, win);
 };
-check('an Opus first build in the fast arm asks for fast', turnSpeed && speedFor(true, 'fast') === 'fast');
-check('a later build in the fast arm keeps the usual speed', turnSpeed && speedFor(false, 'fast') === undefined);
-check('a first build in the standard arm keeps the usual speed', turnSpeed && speedFor(true, 'standard') === undefined);
-check('a first build on another model keeps the usual speed, even in the fast arm',
+check('now it has ended, an Opus first build keeps the usual speed', turnSpeed && speedFor(true, 'none') === undefined);
+check('with fast forced, an Opus first build asks for fast', turnSpeed && speedFor(true, 'fast') === 'fast');
+check('…a later build keeps the usual speed', turnSpeed && speedFor(false, 'fast') === undefined);
+check('with standard forced, a first build keeps the usual speed', turnSpeed && speedFor(true, 'standard') === undefined);
+check('a first build on another model keeps the usual speed, even with fast forced',
     turnSpeed && ['claude-sonnet-5-5', 'gpt-6.1-sol', 'gemini-4-argon'].every(m => speedFor(true, 'fast', m) === undefined));
 check('without experiments.js a build keeps the usual speed', turnSpeed && speedFor(true, null) === undefined);
 
+// Without the experiment's speed, a request asks the user's fast mode
+// (js/fast-mode.js, see test-fast-mode.mjs), so the experiment's wins.
 check('the first request of every attempt asks for it',
-    /buildChatOptions\(turnModel, \{ tools: turnTools, signal: abortController\.signal, serviceSpeed: turnServiceSpeed \}\)/.test(APP));
+    /buildChatOptions\(turnModel, \{ tools: turnTools, signal: abortController\.signal, serviceSpeed: turnServiceSpeed \|\| window\.FastMode\?\.requestSpeed\(turnModel, turnStats\) \}\)/.test(APP));
 check('the turn context carries it to the later rounds', /model: turnModel, serviceSpeed: turnServiceSpeed,/.test(APP));
 check('every later round asks for it',
-    /buildChatOptions\(c\.model, \{ tools: c\.tools \|\| window\.builtinTools\(\), signal: c\.abortController\.signal, serviceSpeed: c\.serviceSpeed \}\)/.test(TOOLS));
+    /buildChatOptions\(c\.model, \{ tools: c\.tools \|\| window\.builtinTools\(\), signal: c\.abortController\.signal, serviceSpeed: c\.serviceSpeed \|\| window\.FastMode\?\.requestSpeed\(c\.model, c\.turnStats\) \}\)/.test(TOOLS));
 
 const props = /\.\.\.window\.experimentProps\?\.\('speed'\)/.source;
 check('Build Started carries the arm', new RegExp(`window\\.track\\?\\.\\('Build Started', \\{[^\\n]*${props} \\}\\);`).test(APP));

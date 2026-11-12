@@ -1278,6 +1278,199 @@ puter-user-menu::part(sign-in):hover {
 }
 .model-panel-upsell p { margin: 0; color: #555; font-size: 12.5px; line-height: 1.35; }
 
+/* ---- Fast mode (composer) ----
+   A bolt button before the mic (js/fast-mode.js). While fast mode is on the
+   bolt alone fills orange, with no square behind it, and hovering it shows
+   the grey square the other buttons get. The panel, the hint and What's new
+   light their bolts the same orange. Its panel and the long-build hint open over the composer like
+   the model picker's panel, from its right edge. */
+.fast-mode-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    margin-left: auto;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: #666;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+.fast-mode-btn[hidden] { display: none; }
+.fast-mode-btn:hover,
+.fast-mode-btn[aria-expanded="true"] { background: #f0f0f0; color: #222; }
+.fast-mode-btn.is-on svg { fill: #ff8a00; stroke: #ff8a00; }
+/* The bolt takes the push-right margin from the mic and sits close to it. */
+.fast-mode-btn:not([hidden]) ~ .voice-input-button { margin-left: -4px; }
+.fast-mode-btn:not([hidden]) ~ .send { margin-left: 6px; }
+
+/* Fixed on <body> and placed by place() in fast-mode.js, at the model
+   picker panel's layer, with a caret that points at the button: ▼ above it,
+   ▲ when there's only room below (.is-below). --fast-caret-x is set there. */
+.fast-mode-panel,
+.fast-mode-hint {
+    position: fixed;
+    top: 0;
+    left: 0;
+    box-sizing: border-box;
+    max-width: calc(100vw - 16px);
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+    z-index: 1002;
+    font-size: 13px;
+    text-align: left;
+    /* visible so the caret can poke out of the edge. */
+    overflow: visible;
+    --panel-caret-border: #ddd;
+    --panel-caret-fill: #fff;
+}
+.fast-mode-panel::before,
+.fast-mode-panel::after,
+.fast-mode-hint::before,
+.fast-mode-hint::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: var(--fast-caret-x, calc(100% - 24px));
+    transform: translateX(-50%);
+    border: 8px solid transparent;
+    border-bottom: none;
+    border-top-color: var(--panel-caret-border);
+    pointer-events: none;
+}
+.fast-mode-panel::after,
+.fast-mode-hint::after { bottom: -7px; border-top-color: var(--panel-caret-fill); }
+.fast-mode-panel.is-below::before,
+.fast-mode-panel.is-below::after,
+.fast-mode-hint.is-below::before,
+.fast-mode-hint.is-below::after {
+    bottom: auto;
+    top: -8px;
+    border: 8px solid transparent;
+    border-top: none;
+    border-bottom-color: var(--panel-caret-border);
+}
+.fast-mode-panel.is-below::after,
+.fast-mode-hint.is-below::after { top: -7px; border-bottom-color: var(--panel-caret-fill); }
+.fast-mode-panel {
+    width: 280px;
+    padding: 6px;
+}
+.fast-mode-panel:focus,
+.fast-mode-panel:focus-visible { outline: none; }
+.fast-mode-switch {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    padding: 8px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: #333;
+    font: inherit;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+}
+.fast-mode-switch:hover { background: #f2f2f2; }
+.fast-mode-name { display: inline-flex; align-items: center; gap: 6px; }
+/* The panel's bolt is lit only while the switch is on, like the button's. */
+.fast-mode-name svg { width: 15px; height: 15px; flex: 0 0 auto; color: #888; }
+.fast-mode-switch[aria-checked="true"] .fast-mode-name svg { fill: #ff8a00; stroke: #ff8a00; }
+.fast-mode-hint-title svg { width: 15px; height: 15px; flex: 0 0 auto; fill: #ff8a00; stroke: #ff8a00; }
+.fast-mode-track {
+    position: relative;
+    flex: 0 0 auto;
+    width: 30px;
+    height: 18px;
+    border-radius: 999px;
+    background: #c9c9cf;
+    transition: background-color 0.15s ease;
+}
+.fast-mode-track::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    transition: transform 0.15s ease;
+}
+.fast-mode-switch[aria-checked="true"] .fast-mode-track { background: #ff8a00; }
+.fast-mode-switch[aria-checked="true"] .fast-mode-track::after { transform: translateX(12px); }
+.fast-mode-text,
+.fast-mode-note { margin: 0; padding: 0 8px 8px; color: #666; font-size: 12.5px; line-height: 1.4; text-wrap: pretty; }
+.fast-mode-note { color: #8a5a00; }
+
+/* The long-build hint. */
+.fast-mode-hint {
+    width: 300px;
+    padding: 12px 14px;
+    animation: suggestionsIn 0.2s ease;
+}
+.fast-mode-hint-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    border-radius: 5px;
+    background: transparent;
+    color: #555;
+    cursor: pointer;
+}
+.fast-mode-hint-close:hover { background: #ececec; }
+.fast-mode-hint-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 24px 6px 0;
+    font-weight: 600;
+    color: #1a1a1a;
+}
+.fast-mode-hint-text { margin: 0; color: #555; font-size: 12.5px; line-height: 1.45; text-wrap: pretty; }
+.fast-mode-hint-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.fast-mode-hint-later {
+    border: none;
+    border-radius: 8px;
+    padding: 7px 12px;
+    background: transparent;
+    color: #555;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+.fast-mode-hint-later:hover { background: #f0f0f0; color: #222; }
+
+/* showMe's pointer, and the ring that pulses on the button while it's up. */
+.fast-mode-hint.is-pointer { width: auto; }
+.fast-mode-btn.is-pointed {
+    box-shadow: 0 0 0 2px rgba(255, 138, 0, 0.55);
+    animation: fast-mode-pulse 1.4s ease-out infinite;
+}
+@keyframes fast-mode-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(255, 138, 0, 0.55); }
+    70%, 100% { box-shadow: 0 0 0 8px rgba(255, 138, 0, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .fast-mode-btn.is-pointed { animation: none; }
+}
+
 .attachment-button:disabled {
     cursor: default;
     opacity: 0.5;
@@ -2554,7 +2747,9 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
 }
 .upgrade-card-inner span { flex: 1 1 auto; min-width: 0; }
 .upgrade-card-btn,
-.model-panel-upgrade {
+.model-panel-upgrade,
+.fast-mode-hint-go,
+.fast-mode-hint-got {
     flex: 0 0 auto;
     border: none;
     border-radius: 8px;
@@ -2568,7 +2763,9 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
     transition: background-color 0.15s ease;
 }
 .upgrade-card-btn:hover,
-.model-panel-upgrade:hover { background: #000; }
+.model-panel-upgrade:hover,
+.fast-mode-hint-go:hover,
+.fast-mode-hint-got:hover { background: #000; }
 
 /* The Publish card the AI puts in the chat (tools/chat_ui/publish.js): one
    row, either the address to publish at and a Publish button, or the live
@@ -5543,6 +5740,7 @@ body.preview-active.chat-hidden .chat {
         height: 34px;
         font-size: 13px;
     }
+    .fast-mode-btn { width: 34px; height: 34px; }
     .chat-input-message-actions {
         height: 48px;
     }
@@ -6549,8 +6747,8 @@ a.upgrade-more-link:hover { background: none; color: #111; }
 }
 .whats-new-steps strong { font-weight: 600; color: #1a1a1a; }
 .whats-new-body .whats-new-note { margin: 0; font-size: 13px; color: #76767f; }
-.whats-new-actions { grid-area: actions; padding: 20px 32px 32px; }
-.whats-new-continue { width: 100%; padding: 11px 18px; }
+.whats-new-actions { grid-area: actions; display: flex; gap: 10px; padding: 20px 32px 32px; }
+.whats-new-actions .confirm-modal-btn { flex: 1 1 0; padding: 11px 18px; }
 .whats-new-x {
     position: absolute;
     top: 14px;
@@ -6578,7 +6776,7 @@ a.upgrade-more-link:hover { background: none; color: #111; }
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    background: linear-gradient(155deg, #78b0ff 0%, #2f74ea 100%);
+    background: linear-gradient(155deg, #ffc56b 0%, #f0821e 100%);
 }
 /* Two faint rings behind the drawing. */
 .whats-new-art::before,
@@ -6602,97 +6800,64 @@ a.upgrade-more-link:hover { background: none; color: #111; }
     .whats-new-title { margin-top: 12px; font-size: 20px; }
     .whats-new-body p { margin-bottom: 14px; }
     .whats-new-art { height: 200px; margin: 18px 20px 0; border-radius: 12px; }
-    .whats-new-art .wn-domain { transform: scale(0.72); }
+    .whats-new-art .wn-fast { transform: scale(0.8); }
     .whats-new-actions { padding: 16px 20px 20px; }
     .whats-new-x { background: #f0f0f3; color: #555; }
     .whats-new-x:hover { background: #e5e5e8; }
 }
 
-/* The custom domain drawing: a site in a browser, and its DNS records card
-   over the corner. The records' checks land one after the other, then the
-   address turns from the puter.site address to the domain. Each element's
-   resting style is the end state, so reduced motion shows just that. */
-.wn-domain { position: relative; flex: 0 0 auto; width: 304px; height: 264px; }
-.wn-browser {
+/* The fast mode drawing: a card where two builds race, and a composer below
+   it whose bolt a cursor presses. The bolt lights, then both builds run, and
+   the fast one is done while the usual one is 40% along. Each
+   element's resting style is the end state, so reduced motion shows just
+   that. */
+.wn-fast { position: relative; flex: 0 0 auto; width: 304px; height: 200px; }
+.wn-race {
     position: absolute;
     top: 0;
     right: 0;
     width: 272px;
+    padding: 12px 14px 8px;
+    box-sizing: border-box;
     border-radius: 12px;
     background: #fff;
-    box-shadow: 0 10px 30px rgba(14, 42, 99, 0.25);
-    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(110, 50, 0, 0.25);
 }
-.wn-browser-bar {
+.wn-race-head {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 9px 10px;
-    background: #f4f5f8;
-    border-bottom: 1px solid #e9eaef;
-}
-.wn-dots { display: flex; gap: 4px; }
-.wn-dots i { width: 7px; height: 7px; border-radius: 50%; background: #d4d5dc; }
-.wn-url {
-    position: relative;
-    flex: 1 1 auto;
-    height: 22px;
-    border: 1px solid #e3e4ea;
-    border-radius: 999px;
-    background: #fff;
-    overflow: hidden;
+    justify-content: space-between;
+    margin-bottom: 4px;
     font-size: 11px;
-    animation: wn-url-glow 1.2s ease 1.8s both;
+    font-weight: 600;
+    color: #333;
 }
-.wn-url > span {
-    position: absolute;
-    inset: 0;
-    display: flex;
+.wn-race-chip {
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
-    gap: 4px;
-    white-space: nowrap;
+    gap: 3px;
+    padding: 3px 8px 3px 6px;
+    border-radius: 999px;
+    background: #fef3c7;
+    color: #b45309;
+    font-size: 10px;
+    font-weight: 700;
+    animation: wn-pop 0.3s cubic-bezier(0.3, 1.6, 0.6, 1) 3s both;
 }
-.wn-url-old { color: #8a8b95; opacity: 0; animation: wn-url-out 0.4s ease 1.8s both; }
-.wn-url-new { color: #1a1a1a; font-weight: 600; animation: wn-url-in 0.4s ease 1.8s both; }
-.wn-url-new svg { width: 10px; height: 10px; color: #2d7d46; }
-.wn-page { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px 16px; }
-.wn-page-nav { display: flex; align-items: center; gap: 6px; }
-.wn-page-nav b { width: 36px; height: 7px; margin-right: auto; border-radius: 4px; background: #c9cbd4; }
-.wn-page-nav i { width: 18px; height: 5px; border-radius: 3px; background: #e3e4ea; }
-.wn-page-hero { height: 64px; border-radius: 8px; background: linear-gradient(135deg, #ffe3c9 0%, #ffbf9f 100%); }
-.wn-page-title { width: 60%; height: 9px; border-radius: 4px; background: #c9cbd4; }
-.wn-page-line { width: 85%; height: 6px; border-radius: 3px; background: #e6e7ec; }
-.wn-page-line.short { width: 55%; }
-.wn-page-btn { width: 64px; height: 16px; margin-top: 2px; border-radius: 6px; background: #1a1a1a; }
-.wn-dns {
-    position: absolute;
-    left: 0;
-    bottom: 0;
-    width: 196px;
-    padding: 10px 12px 6px;
-    box-sizing: border-box;
-    border-radius: 12px;
-    background: #fff;
-    box-shadow: 0 14px 34px rgba(14, 42, 99, 0.3);
-}
-.wn-dns-head { margin-bottom: 4px; font-size: 10.5px; font-weight: 600; color: #555; }
-.wn-dns-row { display: flex; align-items: center; gap: 8px; height: 26px; }
-.wn-dns-row + .wn-dns-row { border-top: 1px solid #f0f0f3; }
-.wn-dns-type { flex: 0 0 38px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.02em; color: #0a6ae0; }
-.wn-dns-val { flex: 1 1 auto; height: 6px; border-radius: 3px; background: #e6e7ec; }
-.wn-dns-state { position: relative; flex: 0 0 16px; height: 16px; }
-.wn-dns-wait {
-    position: absolute;
-    inset: 2px;
-    box-sizing: border-box;
-    border: 2px solid #d4d5dc;
-    border-top-color: #8a8b95;
-    border-radius: 50%;
-    opacity: 0;
-    animation: wn-spin 0.8s linear infinite, wn-fade-out 0.2s ease var(--d) both;
-}
-.wn-dns-ok {
+.wn-race-chip svg,
+.wn-lane-name svg { width: 10px; height: 10px; flex: 0 0 auto; fill: currentColor; }
+.wn-lane { display: flex; align-items: center; gap: 8px; height: 30px; }
+.wn-lane + .wn-lane { border-top: 1px solid #f0f0f3; }
+.wn-lane-name { display: inline-flex; align-items: center; gap: 3px; flex: 0 0 44px; font-size: 10.5px; color: #76767f; }
+.wn-lane.is-fast .wn-lane-name { color: #1a1a1a; font-weight: 600; }
+.wn-lane-name svg { fill: #ff8a00; stroke: #ff8a00; }
+.wn-lane-bar { flex: 1 1 auto; height: 8px; border-radius: 4px; background: #eef0f4; overflow: hidden; }
+/* Both bars fill over the same 1.6s, so the usual one gets 40% along (one
+   in 2.5) while the fast one gets all the way. */
+.wn-lane-bar i { display: block; width: 40%; height: 100%; border-radius: 4px; background: #b4b6bf; animation: wn-grow 1.6s linear 1.3s both; }
+.wn-lane.is-fast .wn-lane-bar i { width: 100%; background: #ff8a00; }
+.wn-lane-state { position: relative; flex: 0 0 16px; height: 16px; }
+.wn-ok {
     position: absolute;
     inset: 0;
     display: flex;
@@ -6701,17 +6866,60 @@ a.upgrade-more-link:hover { background: none; color: #111; }
     border-radius: 50%;
     background: #2d7d46;
     color: #fff;
-    animation: wn-pop 0.3s cubic-bezier(0.3, 1.6, 0.6, 1) var(--d) both;
+    animation: wn-pop 0.3s cubic-bezier(0.3, 1.6, 0.6, 1) 2.9s both;
 }
-.wn-dns-ok svg { width: 10px; height: 10px; }
-@keyframes wn-url-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-100%); } }
-@keyframes wn-url-in { from { opacity: 0; transform: translateY(100%); } to { opacity: 1; transform: none; } }
-@keyframes wn-url-glow {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(45, 125, 70, 0); }
-    35% { box-shadow: 0 0 0 3px rgba(45, 125, 70, 0.25); }
+.wn-ok svg { width: 10px; height: 10px; }
+.wn-composer {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 232px;
+    padding: 12px 12px 10px;
+    box-sizing: border-box;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 14px 34px rgba(110, 50, 0, 0.3);
 }
-@keyframes wn-spin { to { transform: rotate(360deg); } }
-@keyframes wn-fade-out { from { opacity: 1; } to { opacity: 0; } }
+.wn-composer-line { display: block; width: 70%; height: 6px; border-radius: 3px; background: #e6e7ec; }
+.wn-composer-line.short { width: 42%; margin-top: 6px; }
+.wn-composer-row { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 14px; }
+.wn-composer-row > span {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
+    color: #8a8b95;
+    --wn-off: #8a8b95;
+}
+.wn-composer-row > span > svg { width: 14px; height: 14px; }
+.wn-composer-bolt > svg { fill: #ff8a00; stroke: #ff8a00; animation: wn-light 0.25s ease 1.05s both; }
+.wn-composer-row > .wn-composer-send { border-radius: 50%; background: #1a1a1a; color: #fff; }
+/* Rings out twice as the bolt lights, then stays out of sight. */
+.wn-ring {
+    position: absolute;
+    inset: -3px;
+    border: 2px solid #ff8a00;
+    border-radius: 9px;
+    opacity: 0;
+    animation: wn-ring 0.8s ease-out 1.1s 2 forwards;
+}
+/* The pointer's tip rests on the bolt's lower right, so the bolt shows. */
+.wn-cursor {
+    position: absolute;
+    top: 55%;
+    left: 55%;
+    animation: wn-cursor-in 0.7s cubic-bezier(0.2, 0.7, 0.3, 1) 0.2s both;
+}
+.wn-cursor > span { display: block; transform-origin: 3px 4px; animation: wn-press 0.25s ease 0.95s both; }
+.wn-cursor svg { display: block; width: 20px; height: 20px; fill: #1a1a1a; stroke: #fff; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.25)); }
+@keyframes wn-grow { from { width: 0; } }
+@keyframes wn-light { from { fill: transparent; stroke: var(--wn-off); } }
+@keyframes wn-ring { from { opacity: 0.9; transform: scale(0.9); } to { opacity: 0; transform: scale(1.45); } }
+@keyframes wn-cursor-in { from { opacity: 0; transform: translate(64px, 46px); } }
+@keyframes wn-press { 50% { transform: scale(0.8); } }
 @keyframes wn-pop { from { opacity: 0; transform: scale(0.4); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) {
     .whats-new-art * { animation: none !important; }
@@ -6726,26 +6934,20 @@ html[data-theme="dark"] .whats-new-steps li::before { background: var(--surface-
 html[data-theme="dark"] .whats-new-body .whats-new-note { color: var(--text-muted); }
 html[data-theme="dark"] .whats-new-x { background: rgba(255, 255, 255, 0.12); color: var(--text); }
 html[data-theme="dark"] .whats-new-x:hover { background: rgba(255, 255, 255, 0.2); }
-html[data-theme="dark"] .whats-new-art { background: linear-gradient(155deg, #2d5eae 0%, #163874 100%); }
-html[data-theme="dark"] .wn-browser,
-html[data-theme="dark"] .wn-dns { background: var(--surface); box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45); }
-html[data-theme="dark"] .wn-browser-bar { background: var(--surface-subtle); border-bottom-color: var(--border-subtle); }
-html[data-theme="dark"] .wn-dots i { background: var(--border-strong); }
-html[data-theme="dark"] .wn-url { background: var(--surface); border-color: var(--border); }
-html[data-theme="dark"] .wn-url-old { color: var(--text-muted); }
-html[data-theme="dark"] .wn-url-new { color: var(--text); }
-html[data-theme="dark"] .wn-url-new svg { color: var(--success); }
-html[data-theme="dark"] .wn-page-nav b,
-html[data-theme="dark"] .wn-page-title { background: var(--border-strong); }
-html[data-theme="dark"] .wn-page-nav i,
-html[data-theme="dark"] .wn-page-line,
-html[data-theme="dark"] .wn-dns-val { background: var(--surface-active); }
-html[data-theme="dark"] .wn-page-hero { opacity: 0.85; }
-html[data-theme="dark"] .wn-page-btn { background: #eef2f7; }
-html[data-theme="dark"] .wn-dns-head { color: var(--text-secondary); }
-html[data-theme="dark"] .wn-dns-type { color: var(--accent); }
-html[data-theme="dark"] .wn-dns-row + .wn-dns-row { border-top-color: var(--border-subtle); }
-html[data-theme="dark"] .wn-dns-wait { border-color: var(--border-strong); border-top-color: var(--text-muted); }
+html[data-theme="dark"] .whats-new-art { background: linear-gradient(155deg, #a8600f 0%, #5a2f06 100%); }
+html[data-theme="dark"] .wn-race,
+html[data-theme="dark"] .wn-composer { background: var(--surface); box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45); }
+html[data-theme="dark"] .wn-race-head,
+html[data-theme="dark"] .wn-lane.is-fast .wn-lane-name { color: var(--text); }
+html[data-theme="dark"] .wn-lane-name { color: var(--text-muted); }
+html[data-theme="dark"] .wn-lane + .wn-lane { border-top-color: var(--border-subtle); }
+html[data-theme="dark"] .wn-lane-bar,
+html[data-theme="dark"] .wn-composer-line { background: var(--surface-active); }
+html[data-theme="dark"] .wn-lane-bar i { background: var(--border-strong); }
+html[data-theme="dark"] .wn-lane.is-fast .wn-lane-bar i { background: #ff8a00; }
+html[data-theme="dark"] .wn-composer-row > span { color: var(--text-muted); --wn-off: var(--text-muted); }
+html[data-theme="dark"] .wn-race-chip { background: rgba(251, 191, 36, 0.14); color: #fbbf24; }
+html[data-theme="dark"] .wn-composer-row > .wn-composer-send { background: #eef2f7; color: #0b1118; }
 
 /* Project Properties dialog — reuses .confirm-modal-overlay for the backdrop. */
 .properties-modal {
@@ -7239,6 +7441,29 @@ html[data-theme="dark"] .model-option-check { color: #8fe3ab; }
 html[data-theme="dark"] .model-option-lock { color: var(--text-muted); }
 html[data-theme="dark"] .model-panel-option.locked .model-option-name { color: var(--text-secondary); }
 html[data-theme="dark"] .model-panel-upsell { border-top-color: var(--border); }
+html[data-theme="dark"] .fast-mode-btn { color: var(--text-muted); }
+html[data-theme="dark"] .fast-mode-btn:hover,
+html[data-theme="dark"] .fast-mode-btn[aria-expanded="true"] { background: var(--surface-hover); color: var(--text); }
+html[data-theme="dark"] .fast-mode-panel,
+html[data-theme="dark"] .fast-mode-hint {
+    background: var(--surface);
+    border-color: var(--border);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    --panel-caret-border: var(--border);
+    --panel-caret-fill: var(--surface);
+}
+html[data-theme="dark"] .fast-mode-switch { color: var(--text); }
+html[data-theme="dark"] .fast-mode-switch:hover { background: var(--surface-hover); }
+html[data-theme="dark"] .fast-mode-name svg { color: var(--text-muted); }
+html[data-theme="dark"] .fast-mode-track { background: var(--border-strong); }
+html[data-theme="dark"] .fast-mode-text,
+html[data-theme="dark"] .fast-mode-hint-text { color: var(--text-secondary); }
+html[data-theme="dark"] .fast-mode-note { color: #fcd34d; }
+html[data-theme="dark"] .fast-mode-hint-title { color: var(--text); }
+html[data-theme="dark"] .fast-mode-hint-close,
+html[data-theme="dark"] .fast-mode-hint-later { color: var(--text-secondary); }
+html[data-theme="dark"] .fast-mode-hint-close:hover,
+html[data-theme="dark"] .fast-mode-hint-later:hover { background: var(--surface-hover); color: var(--text); }
 html[data-theme="dark"] .attachment-button { color: var(--text-muted); }
 html[data-theme="dark"] .attachment-button svg { stroke: currentColor; }
 html[data-theme="dark"] .attachment-button:hover:not(:disabled) {
@@ -7723,11 +7948,15 @@ html[data-theme="dark"] .publish-card-gone,
 html[data-theme="dark"] .publish-card-note { color: var(--text-muted); }
 html[data-theme="dark"] .upgrade-card-btn,
 html[data-theme="dark"] .model-panel-upgrade,
+html[data-theme="dark"] .fast-mode-hint-go,
+html[data-theme="dark"] .fast-mode-hint-got,
 html[data-theme="dark"] .publish-branding-btn,
 html[data-theme="dark"] .upgrade-btn,
 html[data-theme="dark"] a.upgrade-go { background: #eef2f7; border-color: #eef2f7; color: #0b1118; }
 html[data-theme="dark"] .upgrade-card-btn:hover,
 html[data-theme="dark"] .model-panel-upgrade:hover,
+html[data-theme="dark"] .fast-mode-hint-go:hover,
+html[data-theme="dark"] .fast-mode-hint-got:hover,
 html[data-theme="dark"] .publish-branding-btn:hover,
 html[data-theme="dark"] .upgrade-btn:hover,
 html[data-theme="dark"] a.upgrade-go:hover { background: #fff; }

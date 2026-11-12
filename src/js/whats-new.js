@@ -2,10 +2,11 @@
 // feature, with the words on the left and a drawing of it on the right (one
 // above the other on a phone).
 // It shows once per account, at startup, to a signed-in user who has built
-// something. Closing it in any way (Continue, ✕, Escape, a click outside)
-// saves the announcement's start date in puter.kv, under one key per user
-// that every later announcement overwrites. A reload with the dialog still up
-// shows it again.
+// something. Show me closes it and points at the feature (the
+// announcement's showMe). Closing it any other way (Later, ✕, Escape, a
+// click outside) just closes it. Either way it saves the announcement's start
+// date in puter.kv, under one key per user that every later announcement
+// overwrites. A reload with the dialog still up shows it again.
 //
 // The upgrade dialog comes first. Startup leaves this one out while an
 // upgrade is pending (app.js), and the upgrade dialog opening over it closes
@@ -20,63 +21,63 @@
 (function () {
     'use strict';
 
-    const LOCK_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+    const BOLT_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>';
+    const MIC_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>';
+    const SEND_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>';
+    const CURSOR_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M4.04 4.69a.5.5 0 0 1 .65-.65l16 6.5a.5.5 0 0 1-.06.95l-6.13 1.58a2 2 0 0 0-1.44 1.44l-1.58 6.12a.5.5 0 0 1-.95.07z"/></svg>';
     const CHECK_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
     const CLOSE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
 
-    // A DNS record in the drawing, its check landing `delay` after the
-    // dialog opens.
-    const dnsRow = (type, delay) =>
-        `<div class="wn-dns-row" style="--d:${delay}s">` +
-            `<span class="wn-dns-type">${type}</span><span class="wn-dns-val"></span>` +
-            `<span class="wn-dns-state"><i class="wn-dns-wait"></i><span class="wn-dns-ok">${CHECK_SVG}</span></span>` +
+    // One build in the drawing's race. The fast one ends with a check.
+    const lane = (name, fast) =>
+        `<div class="wn-lane${fast ? ' is-fast' : ''}">` +
+            `<span class="wn-lane-name">${fast ? BOLT_SVG : ''}${name}</span>` +
+            '<span class="wn-lane-bar"><i></i></span>' +
+            `<span class="wn-lane-state">${fast ? `<span class="wn-ok">${CHECK_SVG}</span>` : ''}</span>` +
         '</div>';
 
     const ANNOUNCEMENT = {
         // The day it went out (YYYY-MM-DD). It is what kv keeps, so a later
         // announcement needs a later start.
-        start: '2026-11-05',
+        start: '2026-11-12',
         // Names it in analytics.
-        id: 'custom-domain',
-        title: 'Publish on your own domain',
-        // There is no step to take from here. The domain is connected from a
-        // project's Publish menu, so the dialog says where that is.
-        body: ({ paid }) =>
-            '<p>Your published sites can now use a domain you own, like yourname.com.</p>' +
-            '<ol class="whats-new-steps" role="list">' +
-                '<li>Open a project and press <strong>Publish</strong>.</li>' +
-                '<li>Choose <strong>Use custom domain</strong> next to the site address.</li>' +
-                '<li>Add the DNS records it lists where you manage your domain. The site starts showing there a few minutes later.</li>' +
-            '</ol>' +
-            `<p class="whats-new-note">${paid ? 'Custom domains are part of your Puter plan.' : 'Custom domains come with a paid Puter plan.'}</p>`,
-        // The records go green one after the other, then the address bar
-        // turns from the puter.site address to the domain (styles.css,
-        // .wn-*). Under reduced motion it shows the end straight away.
-        art:
-            '<div class="wn-domain">' +
-                '<div class="wn-browser">' +
-                    '<div class="wn-browser-bar">' +
-                        '<span class="wn-dots"><i></i><i></i><i></i></span>' +
-                        '<span class="wn-url">' +
-                            '<span class="wn-url-old">yourname.puter.site</span>' +
-                            `<span class="wn-url-new">${LOCK_SVG}yourname.com</span>` +
-                        '</span>' +
-                    '</div>' +
-                    '<div class="wn-page">' +
-                        '<span class="wn-page-nav"><b></b><i></i><i></i><i></i></span>' +
-                        '<span class="wn-page-hero"></span>' +
-                        '<span class="wn-page-title"></span>' +
-                        '<span class="wn-page-line"></span>' +
-                        '<span class="wn-page-line short"></span>' +
-                        '<span class="wn-page-btn"></span>' +
-                    '</div>' +
+        id: 'fast-mode',
+        // The bolt button needs a real account and the flag (FastMode), so
+        // without them the dialog waits for a load that has both.
+        when: () => !!window.FastMode?.available(),
+        title: 'Build faster with fast mode',
+        // For people who don't code, so it keeps to plain words and leaves
+        // the details (only Opus goes faster) to the fast mode panel.
+        body: () =>
+            `<p>Fast mode makes the builder work up to ${window.FastMode.SPEED} faster. It uses ${window.FastMode.COST} the credits while it’s on.</p>` +
+            '<p>Switch it on with the bolt button in the chat box.</p>',
+        // A cursor presses the bolt in a composer, then two builds race, the
+        // fast one done while the usual one is a little over a third along
+        // (styles.css, .wn-*). Under reduced motion it shows the end straight
+        // away.
+        art: () =>
+            '<div class="wn-fast">' +
+                '<div class="wn-race">' +
+                    '<div class="wn-race-head"><span>Building your app</span>' +
+                        `<span class="wn-race-chip">${BOLT_SVG}${window.FastMode.SPEED} faster</span></div>` +
+                    lane('Usual', false) +
+                    lane('Fast', true) +
                 '</div>' +
-                '<div class="wn-dns">' +
-                    '<div class="wn-dns-head">DNS records</div>' +
-                    dnsRow('CNAME', 0.9) +
-                    dnsRow('TXT', 1.3) +
+                '<div class="wn-composer">' +
+                    '<span class="wn-composer-line"></span>' +
+                    '<span class="wn-composer-line short"></span>' +
+                    '<div class="wn-composer-row">' +
+                        '<span class="wn-composer-bolt">' +
+                            `${BOLT_SVG}<i class="wn-ring"></i>` +
+                            `<span class="wn-cursor"><span>${CURSOR_SVG}</span></span>` +
+                        '</span>' +
+                        `<span class="wn-composer-mic">${MIC_SVG}</span>` +
+                        `<span class="wn-composer-send">${SEND_SVG}</span>` +
+                    '</div>' +
                 '</div>' +
             '</div>',
+        // Show me closes the dialog and points at the bolt button.
+        showMe: () => window.FastMode.showMe(),
     };
 
     // The start of the last announcement the user closed. puter.kv is the
@@ -95,6 +96,7 @@
         const a = ANNOUNCEMENT;
         const user = window.user;
         if (!user || user.is_temp || !user.uuid || !hasProjects) return false;
+        if (a.when && !a.when()) return false;
         let seen;
         // If kv can't be reached there's no telling, so a later load tries again.
         try { seen = await puter.kv.get(KV_KEY); }
@@ -118,9 +120,10 @@
                         <h2 class="whats-new-title" id="whats-new-title">${a.title}</h2>
                         <div class="whats-new-body" id="whats-new-body">${a.body({ paid })}</div>
                     </div>
-                    <div class="whats-new-art" aria-hidden="true">${a.art}</div>
+                    <div class="whats-new-art" aria-hidden="true">${a.art()}</div>
                     <div class="whats-new-actions">
-                        <button type="button" class="confirm-modal-btn upgrade-primary whats-new-continue">Continue</button>
+                        <button type="button" class="confirm-modal-btn confirm-modal-cancel whats-new-later">Later</button>
+                        <button type="button" class="confirm-modal-btn upgrade-primary whats-new-show">Show me</button>
                     </div>
                     <button type="button" class="whats-new-x" title="Close" aria-label="Close">${CLOSE_SVG}</button>
                 </div>
@@ -133,6 +136,7 @@
 
     function open(a = ANNOUNCEMENT) {
         if (document.querySelector('.whats-new-overlay')) return false;
+        if (a.when && !a.when()) return false;
         const $overlay = $(modalHtml(a, !!window.Branding?.isSubscribed(window.user)));
         let releaseFocus = null;
         let closed = false;
@@ -142,7 +146,11 @@
             closeOpen = null;
             $(document).off('keydown.whatsNew');
             $overlay.removeClass('open');
-            setTimeout(() => $overlay.remove(), 150);
+            setTimeout(() => {
+                $overlay.remove();
+                // Once the dialog is gone, so it doesn't cover what it shows.
+                if (how === 'show') a.showMe();
+            }, 150);
             if (releaseFocus) releaseFocus();
             // Gave way to another dialog, so not seen.
             if (how === 'hidden') return;
@@ -150,7 +158,8 @@
             window.track?.('Whats New Closed', { id: a.id, how });
         };
         closeOpen = close;
-        $overlay.find('.whats-new-continue').on('click', () => close('continue'));
+        $overlay.find('.whats-new-show').on('click', () => close('show'));
+        $overlay.find('.whats-new-later').on('click', () => close('later'));
         $overlay.find('.whats-new-x').on('click', () => close('close'));
         $overlay.on('mousedown', (e) => { if (e.target === $overlay[0]) close('outside'); });
         $overlay.find('.whats-new-modal').on('mousedown click', (e) => e.stopPropagation());

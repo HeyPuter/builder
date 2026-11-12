@@ -171,6 +171,11 @@ function renderSkeleton() {
                 if (window.FEATURE_FLAGS?.modelPicker) {
                     h += `<button type="button" class="model-picker-btn" aria-haspopup="dialog" aria-expanded="false" hidden><span class="model-picker-label">Opus 5.5</span><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg></button>`;
                 }
+                // Fast mode (js/fast-mode.js), shown once the account is
+                // known, and lit while it's on.
+                if (window.FEATURE_FLAGS?.fastMode) {
+                    h += `<button type="button" class="fast-mode-btn" title="Fast mode: off" aria-label="Fast mode: off" aria-haspopup="dialog" aria-expanded="false" hidden>${window.zap_svg || ''}</button>`;
+                }
                 // Dictation (js/voice-input.js) — hidden until it confirms the
                 // browser can record.
                 h += `<button type="button" class="voice-input-button" title="Dictate" aria-label="Dictate a message" hidden>${window.mic_svg || ''}</button>`;

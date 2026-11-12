@@ -4,10 +4,12 @@ import vm from 'node:vm';
 // ---- The What's new dialog ------------------------------------------------------
 // js/whats-new.js tells a returning user about the newest feature, once. It
 // shows at startup to a signed-in account with at least one project, never over
-// a build or another dialog, and closing it in any way saves the
-// announcement's start date in puter.kv, under one key per user that a later
-// announcement overwrites. Runs the real whats-new.js with a small fake jQuery
-// and kv, then checks the startup wiring in app.js and the bundle list.
+// a build or another dialog. Show me closes it and points at the feature
+// (fast mode's bolt button), Later just closes it, and closing it in any way
+// saves the announcement's start date in puter.kv, under one key per user that
+// a later announcement overwrites. Runs the real whats-new.js with a small
+// fake jQuery, kv and FastMode, then checks the startup wiring in app.js and
+// the bundle list.
 
 let failures = 0;
 function check(name, cond, detail) {
@@ -22,8 +24,8 @@ const KV_KEY = 'whats_new_seen';
 const START = (source.match(/start: '(\d{4}-\d{2}-\d{2})'/) || [])[1];
 check('the announcement has a YYYY-MM-DD start', !!START);
 
-function setup({ user = { uuid: 'u1', username: 'ann' }, paid = false, kv = {}, kvFails = false, kvSetFails = false, otherDialog = false } = {}) {
-    const calls = { kvGet: [], kvSet: [], kvDel: [], track: [], released: 0, warn: [] };
+function setup({ user = { uuid: 'u1', username: 'ann' }, paid = false, fast = true, kv = {}, kvFails = false, kvSetFails = false, otherDialog = false } = {}) {
+    const calls = { kvGet: [], kvSet: [], kvDel: [], track: [], released: 0, warn: [], showMe: [] };
     const kvStore = new Map(Object.entries(kv));
     const overlays = [];
     const docHandlers = {};
@@ -81,6 +83,12 @@ function setup({ user = { uuid: 'u1', username: 'ann' }, paid = false, kv = {}, 
     env.window = env;
     env.user = user ? { ...user } : null;
     env.Branding = { isSubscribed: () => paid };
+    // Show me records whether the dialog was still up when it ran.
+    env.FastMode = {
+        SPEED: '2.5x', COST: '2x',
+        available: () => fast,
+        showMe: () => { calls.showMe.push({ dialogUp: overlays.some((o) => !o[0].removed) }); return true; },
+    };
     env.track = (name, props) => calls.track.push({ name, ...props });
     vm.createContext(env);
     vm.runInContext(source, env);
@@ -114,7 +122,7 @@ function setup({ user = { uuid: 'u1', username: 'ann' }, paid = false, kv = {}, 
     const r = await t.W.maybeShow({ hasProjects: true });
     check('a returning user with nothing recorded sees it', r === true && t.shown().length === 1);
     check('… after asking puter.kv under its one key', t.calls.kvGet.join() === KV_KEY, t.calls.kvGet.join());
-    check('… and it is counted as shown', t.calls.track.some((c) => c.name === 'Whats New Shown' && c.id === 'custom-domain'));
+    check('… and it is counted as shown', t.calls.track.some((c) => c.name === 'Whats New Shown' && c.id === 'fast-mode'));
     check('… opening records nothing yet, so a reload with it still up shows it again',
         t.calls.kvSet.length === 0);
 
@@ -123,25 +131,47 @@ function setup({ user = { uuid: 'u1', username: 'ann' }, paid = false, kv = {}, 
         && /aria-labelledby="whats-new-title"/.test(html) && /aria-describedby="whats-new-body"/.test(html));
     check('the words come before the drawing, and the drawing is hidden from screen readers',
         html.indexOf('whats-new-text') < html.indexOf('whats-new-art') && /class="whats-new-art" aria-hidden="true"/.test(html));
-    check('it has a New badge and the custom domain title', /whats-new-badge">New</.test(html) && /Publish on your own domain/.test(html));
-    check('its one action is Continue', (html.match(/<button/g) || []).length === 2 && />Continue</.test(html) && /aria-label="Close"/.test(html));
-    check('it says where the feature is, in the words the publish menu uses',
-        /<strong>Publish<\/strong>/.test(html) && /<strong>Use custom domain<\/strong>/.test(html));
+    check('it has a New badge and the fast mode title', /whats-new-badge">New</.test(html) && /Build faster with fast mode/.test(html));
+    check('its actions are Later and Show me, in that order, and ✕',
+        (html.match(/<button/g) || []).length === 3 && html.indexOf('>Later<') > 0 && html.indexOf('>Later<') < html.indexOf('>Show me<')
+        && /upgrade-primary whats-new-show/.test(html) && /aria-label="Close"/.test(html) && !/>Continue</.test(html));
+    check('it gives the speed, the price and where the button is',
+        /makes the builder work up to 2\.5x faster/.test(html) && /2x the credits/.test(html) && /bolt button in the chat box\./.test(html));
+    check('… in plain words, without the AI’s steps or model names', !/the AI|next step|Opus|whats-new-note/.test(html));
+    check('the drawing races a usual build against a fast one, with no spinner',
+        /class="wn-fast"/.test(html) && /wn-lane is-fast/.test(html) && /2\.5x faster<\/span>/.test(html) && !/wn-wait/.test(html));
 
-    t.fire('.whats-new-continue click');
+    t.fire('.whats-new-later click');
     await tick();
-    check('Continue closes it', t.shown().length === 0 && t.calls.released === 1 && !t.docHandlers['keydown.whatsNew']);
+    check('Later closes it', t.shown().length === 0 && t.calls.released === 1 && !t.docHandlers['keydown.whatsNew']);
+    check('… without pointing at anything', t.calls.showMe.length === 0);
     check('… saves the announcement’s start in puter.kv', t.calls.kvSet.join() === KV_KEY && t.kvStore.get(KV_KEY) === START, String(t.kvStore.get(KV_KEY)));
     check('… under the one key, nothing else', [...t.kvStore.keys()].join() === KV_KEY);
-    check('… and is counted with how it closed', t.calls.track.some((c) => c.name === 'Whats New Closed' && c.how === 'continue'));
+    check('… and is counted with how it closed', t.calls.track.some((c) => c.name === 'Whats New Closed' && c.how === 'later'));
 
-    t.fire('.whats-new-continue click');
+    t.fire('.whats-new-later click');
     await tick();
     check('a second click does not record or count it twice',
         t.calls.kvSet.length === 1 && t.calls.track.filter((c) => c.name === 'Whats New Closed').length === 1);
 
     check('the next startup skips it',
         (await t.W.maybeShow({ hasProjects: true })) === false && t.shown().length === 0);
+}
+
+// --- Show me -------------------------------------------------------------------------
+{
+    const t = setup();
+    await t.W.maybeShow({ hasProjects: true });
+    t.fire('.whats-new-show click');
+    await tick();
+    check('Show me closes it and hands focus back', t.shown().length === 0 && t.calls.released === 1 && !t.docHandlers['keydown.whatsNew']);
+    check('… then points at the bolt button, once the dialog is gone',
+        t.calls.showMe.length === 1 && t.calls.showMe[0].dialogUp === false);
+    check('… saves it as seen', t.kvStore.get(KV_KEY) === START);
+    check('… and is counted as show', t.calls.track.some((c) => c.name === 'Whats New Closed' && c.how === 'show'));
+    t.fire('.whats-new-show click');
+    await tick();
+    check('a second click does not point again', t.calls.showMe.length === 1);
 }
 
 // --- Every way out records it -----------------------------------------------------
@@ -154,8 +184,8 @@ for (const [how, act] of [
     await t.W.maybeShow({ hasProjects: true });
     act(t);
     await tick();
-    check(`closing by ${how} records it too`, t.shown().length === 0 && t.kvStore.get(KV_KEY) === START
-        && t.calls.track.some((c) => c.name === 'Whats New Closed' && c.how === how));
+    check(`closing by ${how} records it too, and points at nothing`, t.shown().length === 0 && t.kvStore.get(KV_KEY) === START
+        && t.calls.track.some((c) => c.name === 'Whats New Closed' && c.how === how) && t.calls.showMe.length === 0);
 }
 {
     const t = setup();
@@ -179,7 +209,7 @@ for (const [how, act] of [
 {
     const t = setup({ kv: { [KV_KEY]: '2026-01-01' } });
     check('an earlier announcement closed: this one shows', (await t.W.maybeShow({ hasProjects: true })) === true);
-    t.fire('.whats-new-continue click');
+    t.fire('.whats-new-later click');
     await tick();
     check('… and closing it overwrites the same key', t.kvStore.size === 1 && t.kvStore.get(KV_KEY) === START);
 }
@@ -198,7 +228,7 @@ for (const junk of [1730000000000, true, { at: 1 }, '']) {
 {
     const t = setup({ kvSetFails: true });
     await t.W.maybeShow({ hasProjects: true });
-    t.fire('.whats-new-continue click');
+    t.fire('.whats-new-later click');
     await tick();
     await tick();
     check('kv failing on close: it still closes', t.shown().length === 0);
@@ -229,14 +259,20 @@ for (const junk of [1730000000000, true, { at: 1 }, '']) {
     check('startup does not stack a second one on it', (await t.W.maybeShow({ hasProjects: true })) === false && t.overlays.length === 1);
 }
 
-// --- Plan line ---------------------------------------------------------------------
+// --- Fast mode not there -------------------------------------------------------------
+{
+    const t = setup({ fast: false });
+    check('fast mode unavailable (its flag off): not shown, and kv is not asked',
+        (await t.W.maybeShow({ hasProjects: true })) === false && t.shown().length === 0 && t.calls.kvGet.length === 0);
+    check('… nor from the console', t.W.open() === false && t.shown().length === 0);
+    check('… and nothing recorded, so a load with it shows it', t.calls.kvSet.length === 0);
+}
 {
     const free = setup();
     await free.W.maybeShow({ hasProjects: true });
-    check('free plan: says custom domains come with a paid plan', /come with a paid Puter plan/.test(free.shown()[0].html));
     const paid = setup({ paid: true });
     await paid.W.maybeShow({ hasProjects: true });
-    check('paid plan: says they are part of the plan', /part of your Puter plan/.test(paid.shown()[0].html));
+    check('every plan gets the same words', free.shown()[0].html === paid.shown()[0].html);
 }
 
 // --- Giving way to the upgrade dialog ---------------------------------------------
@@ -251,7 +287,7 @@ for (const junk of [1730000000000, true, { at: 1 }, '']) {
     check('… without marking it seen or counting a close',
         t.calls.kvSet.length === 0 && !t.calls.track.some((c) => c.name === 'Whats New Closed'));
     check('… so a later load shows it again', (await t.W.maybeShow({ hasProjects: true })) === true);
-    t.fire('.whats-new-continue click');
+    t.fire('.whats-new-later click');
     await tick();
     check('closing it then records it as usual', t.kvStore.get(KV_KEY) === START);
 }

@@ -62,6 +62,13 @@ window.FEATURE_FLAGS = {
     // with the default model, whatever it was set to. Disabled for now;
     // re-enable by setting true.
     modelPicker: false,
+    // Fast mode: a bolt button in the composer (js/fast-mode.js) that has the
+    // AI answer at Puter's fast service speed, about 2.5x faster for 2x the
+    // credits, on a model with a fast tier (Opus). Any signed-in account can
+    // switch it on, and a long build offers it, up to three times. When false
+    // the button and the hint are gone and every request keeps the model's
+    // usual speed.
+    fastMode: true,
     // The Code view: a View code button in the preview toolbar that shows
     // the project's files (js/code-editor.js, with the pure rules in
     // js/editor-core.js). Free users read, search and copy them, and a paid
@@ -469,6 +476,11 @@ function updateSendButtonState(processing) {
     if (typeof window.refreshIssuesSendState === 'function') window.refreshIssuesSendState();
     // The model picker is part of the composer: locked for the whole turn.
     window.ModelPicker?.setBusy?.(processing);
+    // Fast mode stays usable for the whole turn, but its long-build hint
+    // belongs to the turn and goes when it ends. Like the PWA offers below,
+    // it gets the real turn state, since the clarify card shows Send mid-turn
+    // and a false here dropped the hint's timer for the rest of the turn.
+    window.FastMode?.setBusy?.(typeof isProcessing !== 'undefined' ? !!isProcessing : processing);
     // The PWA offers (js/pwa.js) key on the turn. The install toast shows
     // when one starts, and an update prompt found mid-turn waits for its end.
     // They get the real turn state, not the icon's, since the clarify card
