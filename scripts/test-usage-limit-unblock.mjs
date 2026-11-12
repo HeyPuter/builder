@@ -65,7 +65,7 @@ function harness({ storage = memStorage(), uuid = 'user-a', puter = null, naviga
         static now() { return now; }
     }
     const win = { user: uuid ? { uuid } : null, _calls: [] };
-    win.track = (event, props) => { win._calls.push([event, props]); };
+    win.track = (event, props, revenue) => { win._calls.push([event, props, revenue]); };
     addExperiments(win, storage, puter);
     const api = make(win, storage, FakeDate, puter, navigator, costBand, contextBand, templateProp, templatePropFor);
     return { ...api, win, storage, setNow: t => { now = t; } };
@@ -293,6 +293,39 @@ for (const bad of ['not json', 'null', '{}', '{"at":"yesterday"}']) {
     check('unreadable credits never count as a purchase', pc({ ...free, purchased: null }, { ...free, purchased: 5000 }) === null);
 }
 
+// Upgrade After Limit, which plans and how many dollars
+{
+    const { planChange: pc } = harness();
+    // Allowances in credits at 2000 a dollar: Free $0.50, Basic $9, Plus $22.50, Pro $90.
+    const free = { subscribed: false, paid_storage: 0, allowance: 1000, purchased: 0, unit: 'credits' };
+    const basic = { subscribed: true, paid_storage: 0, allowance: 18000, purchased: 0, unit: 'credits' };
+    const plus = { subscribed: true, paid_storage: 0, allowance: 45000, purchased: 0, unit: 'credits' };
+    const pro = { subscribed: true, paid_storage: 0, allowance: 180000, purchased: 0, unit: 'credits' };
+    const f = (a, b) => { const r = pc(a, b); return r && [r.change, r.plan_from, r.plan_to, r.usd].join(' '); };
+    check('free → Basic: $10', f(free, basic) === 'started_paying free basic 10');
+    check('free → Plus (45000, as Puter reports it): $25', f(free, plus) === 'started_paying free plus 25');
+    check('free → Pro: $100', f(free, pro) === 'started_paying free pro 100');
+    check('Basic → Plus: the $15 difference', f(basic, plus) === 'plan_up basic plus 15');
+    check('Plus → Pro: the $75 difference', f(plus, pro) === 'plan_up plus pro 75');
+    check('storage plays no part', f(free, { ...plus, paid_storage: 2048 * 1024 ** 3 }) === 'started_paying free plus 25');
+    check('a deployment without a multiplier: Plus in microcents',
+        f({ ...free, unit: 'microcents', allowance: 5e7 }, { ...plus, unit: 'microcents', allowance: 2.25e9 }) === 'started_paying free plus 25');
+    check('bought 20000 credits on Plus: $10, plan unchanged', f(plus, { ...plus, purchased: 20000 }) === 'bought_credits plus plus 10');
+    check('bought credits in microcents: $5',
+        f({ ...plus, unit: 'microcents', allowance: 2.25e9 }, { ...plus, unit: 'microcents', allowance: 2.25e9, purchased: 5e8 }) === 'bought_credits plus plus 5');
+    check('a record saved before the unit was: the unit read now, for the plan and the credits',
+        f({ ...basic, unit: undefined }, { ...plus, purchased: 4000 }) === 'plan_up basic plus 17');
+    check('started paying and bought credits in one visit: both', f(free, { ...plus, purchased: 10000 }) === 'started_paying free plus 30');
+    check('an allowance no plan gives (part of a month): unknown, no plan dollars',
+        f(free, { ...plus, allowance: 30000 }) === 'started_paying free unknown 0' &&
+        f(plus, { ...plus, allowance: 120000 }) === 'plan_up plus unknown 0');
+    check('an allowance that couldn\'t be read: unknown',
+        f(free, { ...plus, allowance: null, purchased: null }) === 'started_paying free unknown 0' &&
+        f({ ...basic, allowance: null, paid_storage: 1 }, { ...pro, allowance: null, paid_storage: 2 }) === 'plan_up unknown unknown 0');
+    check('an unknown plan still counts the credits', f(free, { ...plus, allowance: 30000, purchased: 2000 }) === 'started_paying free unknown 1');
+    check('rounded to the cent', pc(plus, { ...plus, purchased: 1 }).usd === 0);
+}
+
 // Upgrade After Limit end to end, with a fake Puter
 // A Web Locks stand-in for { ifAvailable: true }. A held name hands the
 // callback null instead of waiting.
@@ -313,7 +346,7 @@ function lockManager() {
 function fakePuter(box) {
     return {
         auth: {
-            getMonthlyUsage: async () => ({ allowanceInfo: { monthUsageAllowance: box.state.allowance, addons: { purchasedCredits: box.state.purchased } } }),
+            getMonthlyUsage: async () => ({ allowanceInfo: { monthUsageAllowance: box.state.allowance, addons: { purchasedCredits: box.state.purchased }, ...(box.state.unit && { unit: box.state.unit }) } }),
             getUser: async () => {
                 if (box.failUser) throw new Error('offline');
                 return { uuid: box.uuid || 'user-a', subscribed: box.state.subscribed, paid_storage: box.state.paid_storage };
@@ -351,6 +384,13 @@ async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, other
     check('paid after a limit hit outside a fork → from_template false, no template', c[0] && c[0][1].from_template === false && !('template' in c[0][1]));
     await h.checkPaidAfterLimit();
     check('paid after limit → reported once', paidCalls(h).length === 1);
+    check('paid after limit, an allowance no plan gives → no revenue', c[0] && c[0][2] === undefined && c[0][1].plan_from === 'free' && c[0][1].plan_to === 'unknown');
+
+    h = await paidHarness({ before: { ...free, unit: 'credits' }, after: { ...paid, purchased: 6000, unit: 'credits' } });
+    c = paidCalls(h);
+    check('free → Plus with 6000 credits → plans and $28 revenue',
+        c.length === 1 && c[0][1].plan_from === 'free' && c[0][1].plan_to === 'plus' &&
+        c[0][2] && c[0][2].currency === 'USD' && c[0][2].amount === 28);
 
     for (const [mins, bucket] of [[30, '10-60m'], [5 * 60, '1-24h']]) {
         h = await paidHarness({ before: free, after: { ...free, purchased: 5000 }, ageMs: mins * 60 * 1000 });

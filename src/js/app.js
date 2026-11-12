@@ -3776,9 +3776,41 @@ function recordUsageLimitHit(kind, template) {
 //                   (paid_storage when the allowance couldn't be read)
 //   bought_credits  purchasedCredits went up, which only a purchase does
 // bought_credits rides along as a flag when it comes with a plan change, so
-// one payment visit is one event.
+// one payment visit is one event. plan_from and plan_to name the plans, and the
+// event's revenue is what the visit paid, a month of the new plan (the
+// difference, for plan_up) plus the credits bought. That puts the limit
+// dialog's cohorts side by side in dollars.
 const LIMIT_PAY_PREFIX = 'usage_limit_pay:';
 const LIMIT_PAY_WINDOW_MS = 24 * 36e5;
+
+// What each paid plan costs a month, and the monthly allowance it gives, in
+// dollars. A plan is told apart by its allowance, matched to the cent, so an
+// allowance no plan gives (a part-month one Puter sets after a plan change,
+// say) reads as unknown rather than as the wrong plan. Plus's is what Puter
+// reports, 45000 credits. Basic's and Pro's assume the same 90% of the price.
+const PAID_PLANS = [
+    { plan: 'basic', usd: 10, allowanceUsd: 9 },
+    { plan: 'plus', usd: 25, allowanceUsd: 22.5 },
+    { plan: 'pro', usd: 100, allowanceUsd: 90 },
+];
+// Puter sells 2000 credits for a dollar.
+const CREDITS_PER_USD = 2000;
+
+// The plan in a snapshot and its monthly price. usd is null for a paid plan
+// whose allowance matches none, or couldn't be read.
+function planOf(snapshot, unit) {
+    if (!snapshot.subscribed) return { plan: 'free', usd: 0 };
+    const a = snapshot.allowance;
+    const dollars = typeof a === 'number' ? creditToUsd(a, unit) : null;
+    const found = dollars !== null && PAID_PLANS.find(p => Math.abs(dollars - p.allowanceUsd) < 0.005);
+    return found ? { plan: found.plan, usd: found.usd } : { plan: 'unknown', usd: null };
+}
+
+// Dollars for an amount of credit from getMonthlyUsage. A deployment with a
+// credit multiplier reports credits, and one without reports microcents.
+function creditToUsd(amount, unit) {
+    return unit === 'credits' ? amount / CREDITS_PER_USD : amount / 1e8;
+}
 
 function limitPayKey() {
     const id = window.user && window.user.uuid;
@@ -3787,10 +3819,10 @@ function limitPayKey() {
 
 // What a payment changes. subscribed and paid_storage come from getUser, and the
 // monthly allowance and lifetime purchased credits from getMonthlyUsage, which
-// reports them for the whole account. A field that couldn't be read is null
-// and never compared.
+// reports them for the whole account, in `unit`. A field that couldn't be read
+// is null and never compared.
 async function readPlanSnapshot(user) {
-    let allowance = null, purchased = null;
+    let allowance = null, purchased = null, unit = null;
     try {
         const usage = await puter.auth.getMonthlyUsage();
         const info = usage && usage.allowanceInfo;
@@ -3798,6 +3830,7 @@ async function readPlanSnapshot(user) {
             allowance = info.monthUsageAllowance;
             const p = info.addons && info.addons.purchasedCredits;
             purchased = typeof p === 'number' ? p : 0;
+            unit = info.unit === 'credits' ? 'credits' : 'microcents';
         }
     } catch (e) {}
     return {
@@ -3805,6 +3838,7 @@ async function readPlanSnapshot(user) {
         paid_storage: user && typeof user.paid_storage === 'number' ? user.paid_storage : null,
         allowance,
         purchased,
+        unit,
     };
 }
 
@@ -3818,7 +3852,15 @@ function planChange(before, after) {
             ? up(before.allowance, after.allowance)
             : up(before.paid_storage, after.paid_storage))) change = 'plan_up';
     else if (bought) change = 'bought_credits';
-    return change ? { change, bought_credits: bought } : null;
+    if (!change) return null;
+    // The unit is the deployment's, so a record saved before it was has the
+    // same one as now.
+    const unit = after.unit || before.unit;
+    const from = planOf(before, unit), to = planOf(after, unit);
+    let usd = 0;
+    if (change !== 'bought_credits' && from.usd !== null && to.usd !== null) usd += Math.max(0, to.usd - from.usd);
+    if (bought) usd += creditToUsd(after.purchased - before.purchased, unit);
+    return { change, bought_credits: bought, plan_from: from.plan, plan_to: to.plan, usd: Math.round(usd * 100) / 100 };
 }
 
 async function recordPlanAtLimit(kind, template) {
@@ -3890,11 +3932,13 @@ async function consumePaidAfterLimit(key) {
         window.track?.('Upgrade After Limit', {
             change: found.change,
             bought_credits: found.bought_credits,
+            plan_from: found.plan_from,
+            plan_to: found.plan_to,
             kind: hit.kind,
             cohort: hit.cohort || 'unknown',
             since_limit: mins < 10 ? '<10m' : mins < 60 ? '10-60m' : '1-24h',
             ...(typeof hit.template === 'string' && templatePropFor(hit.template)),
-        });
+        }, found.usd > 0 ? { currency: 'USD', amount: found.usd } : undefined);
         // Credit bought in another tab reaches the build that stopped too. The
         // purchase is on the account by now, so there is no wait for it.
         if (found.bought_credits) window.resumeAfterCredits?.({ landed: true });
