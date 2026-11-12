@@ -7002,6 +7002,56 @@ html[data-theme="dark"] .wn-composer-row > .wn-composer-send { background: #eef2
 .settings-theme .user-theme-seg { max-width: 360px; }
 .mcp-modal .user-theme-opt { border: none; border-radius: 6px; background: transparent; padding: 7px 0; font-size: 13px; }
 .mcp-modal .user-theme-opt:hover { background: transparent; }
+/* Notifications: the build notifications switch (js/build-notify.js), drawn
+   like fast mode's, in the Settings accent. */
+.settings-notify { display: flex; flex-direction: column; gap: 4px; margin-top: 16px; max-width: 420px; }
+.settings-notify p { margin: 0; }
+.settings-notify .settings-notify-state:empty { display: none; }
+.mcp-modal .settings-switch {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    padding: 6px 0;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+}
+.mcp-modal .settings-switch:hover { background: transparent; }
+.mcp-modal .settings-switch:disabled { cursor: default; opacity: 0.55; }
+.settings-switch-track {
+    position: relative;
+    flex: 0 0 auto;
+    width: 30px;
+    height: 18px;
+    border-radius: 999px;
+    background: #c9c9cf;
+    transition: background-color 0.15s ease;
+}
+.settings-switch-track::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    transition: transform 0.15s ease;
+}
+.settings-switch[aria-checked="true"] .settings-switch-track { background: #2563eb; }
+.settings-switch[aria-checked="true"] .settings-switch-track::after { transform: translateX(12px); }
+@media (prefers-reduced-motion: reduce) {
+    .settings-switch-track, .settings-switch-track::after { transition: none; }
+}
 .mcp-modal .user-theme-opt.active { background: #fff; }
 /* A backdrop click doesn't close Settings; the modal jolts instead. */
 .confirm-modal-overlay.open .settings-modal.is-jolting { animation: settings-jolt 0.3s ease; }
@@ -7050,9 +7100,11 @@ html[data-theme="dark"] .wn-composer-row > .wn-composer-send { background: #eef2
 }
 html[data-theme="dark"] .mcp-modal { color: var(--text); }
 html[data-theme="dark"] .mcp-modal input { background: var(--surface); border-color: var(--border); }
-html[data-theme="dark"] .mcp-modal button:not(.mcp-primary, .mcp-close, .settings-tab, .user-theme-opt) { background: var(--surface-hover); border-color: var(--border); }
-html[data-theme="dark"] .mcp-modal button:not(.mcp-primary, .mcp-close, .settings-tab, .user-theme-opt):hover { background: var(--surface-active); }
+html[data-theme="dark"] .mcp-modal button:not(.mcp-primary, .mcp-close, .settings-tab, .user-theme-opt, .settings-switch) { background: var(--surface-hover); border-color: var(--border); }
+html[data-theme="dark"] .mcp-modal button:not(.mcp-primary, .mcp-close, .settings-tab, .user-theme-opt, .settings-switch):hover { background: var(--surface-active); }
 html[data-theme="dark"] .settings-tabs { border-color: var(--border); }
+html[data-theme="dark"] .settings-switch-track { background: var(--border-strong); }
+html[data-theme="dark"] .settings-switch[aria-checked="true"] .settings-switch-track { background: var(--accent); }
 html[data-theme="dark"] .mcp-modal .settings-tab { color: var(--text-secondary); }
 html[data-theme="dark"] .mcp-modal .settings-tab:hover,
 html[data-theme="dark"] .mcp-modal .settings-tab[aria-selected="true"] { color: var(--text); }

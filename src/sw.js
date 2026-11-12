@@ -82,6 +82,33 @@ self.addEventListener('message', function (event) {
   }
 });
 
+// A tap on a build notification (js/build-notify.js) that the page couldn't
+// show itself, as on Android, where only a worker can. It brings a builder tab
+// forward, the one showing that project when there is one, and tells it which
+// project to open. With no builder tab left it opens the project. Every other
+// notification is left alone.
+self.addEventListener('notificationclick', function (event) {
+  var data = event.notification && event.notification.data;
+  if (!data || data.source !== 'build-notify') return;
+  event.notification.close();
+  // Only a path on this site, never another origin.
+  var url = typeof data.url === 'string' && data.url.charAt(0) === '/' && data.url.charAt(1) !== '/' ? data.url : '/';
+  event.waitUntil((async function () {
+    var pages = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    // The builder itself, not a marketing page, and not inside another page.
+    var builders = pages.filter(function (p) {
+      try { return p.frameType !== 'nested' && new URL(p.url).pathname === '/'; } catch (e) { return false; }
+    });
+    var same = builders.filter(function (p) {
+      try { return new URL(p.url).searchParams.get('p') === data.chatId; } catch (e) { return false; }
+    });
+    var page = same[0] || builders[0];
+    if (!page) return self.clients.openWindow(url);
+    try { await page.focus(); } catch (e) { /* focus is the browser's call */ }
+    page.postMessage({ type: 'BUILD_NOTIFICATION_CLICK', chatId: data.chatId, kind: data.kind });
+  })());
+});
+
 function isHtmlNavigation(request) {
   if (request.mode === 'navigate') return true;
   var accept = request.headers.get('accept') || '';
