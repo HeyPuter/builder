@@ -53,6 +53,15 @@ IMPORTANT: Every app you build is automatically made installable — its web app
 - Include <meta name="theme-color" content="#rrggbb"> in the <head> of the main HTML file, matching the app's primary color.
 Do not mention the manifest, the icon file, or installability in your replies, todos, or suggestions.`
     : '';
+// The README.md the builder adds to a new project (js/project-readme.js). It is
+// the same fixed text for every project, so the model leaves it alone and
+// writes no README of its own, which would take its place. Static
+// (flag-derived at load), so it does not break the cache-stable prefix.
+const readmeSnippet = (window.FEATURE_FLAGS && window.FEATURE_FLAGS.projectReadme)
+    ? `
+
+IMPORTANT: The builder adds a README.md file to each project's root directory. Do not create a README yourself, and do not edit, move or delete the builder's README.md unless the user asks you to. Do not mention the README in your replies, todos, or suggestions.`
+    : '';
 // Hidden app tests (js/app-tests.js, the AppTests tool, half 3 of
 // src/runtime.js). update_preview runs them after every change, so the rule
 // only says when to write them and how to keep them honest and out of sight.
@@ -178,7 +187,7 @@ window.onunhandledrejection=function(e){window.parent.postMessage({type:'app-err
 window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&t.tagName==='SCRIPT'){var u=t.src||'';window.parent.postMessage({type:'app-error',message:'Failed to load script'+(u?': '+u:' (inline module)'),source:u},'*');}},true);
 (function(){var _f=window.fetch;window.fetch=function(){var a=arguments,u=typeof a[0]==='string'?a[0]:(a[0]&&a[0].url)||'';var p=_f.apply(this,a);p.then(function(r){if(r.status===500){r.clone().text().then(function(b){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:b},'*');}).catch(function(){window.parent.postMessage({type:'fetch-error',url:u,status:500,body:''},'*');});}}).catch(function(e){window.parent.postMessage({type:'fetch-error',url:u,status:0,body:e.message||'fetch failed'},'*');});return p;};})();
 </script>
-Do NOT skip this. Do NOT modify it. Place it as the very first <script> tag in the <head> of the main HTML file.${runtimeSnippet}${manifestSnippet}
+Do NOT skip this. Do NOT modify it. Place it as the very first <script> tag in the <head> of the main HTML file.${runtimeSnippet}${manifestSnippet}${readmeSnippet}
 
 Example workflow:
 - User asks to build a website

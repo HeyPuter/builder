@@ -138,6 +138,8 @@ const SCRIPTS = [
   // After app.js: it calls ensureAuthenticated and autoResizeTextarea, and
   // reads currentChatId.
   'js/voice-input.js',
+  // The README.md text a new project's first version adds (versions.js).
+  'js/project-readme.js',
   'js/versions.js',
   // After app.js and versions.js: it reads their shared state (isProcessing,
   // currentChatId, currentAppDir) and calls their helpers.

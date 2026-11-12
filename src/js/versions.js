@@ -347,6 +347,30 @@
     // a restore goes ahead, but not a version id.
     const NOTHING_TO_SNAPSHOT = Object.freeze({ nothingToSnapshot: true });
 
+    // The README.md every new project starts with (js/project-readme.js). A
+    // project is new while it has no versions, so this covers a first build, a
+    // template copy, an attached zip and a first hand edit alike. A project
+    // with any readme of its own keeps it, and one whose README was deleted
+    // after its first version stays without. The write never replaces a file
+    // (overwrite off), and a failure only means this project goes without, so
+    // it never holds up the snapshot. Projects asked about this session are
+    // remembered, so a project without a readme costs one index read per
+    // session, not one per snapshot.
+    const _readmeAsked = new Set();
+    async function addReadmeToNewProject(chatId, appDir, items) {
+        const R = window.ProjectReadme;
+        if (!R || !(window.FEATURE_FLAGS && window.FEATURE_FLAGS.projectReadme)) return;
+        if (_readmeAsked.has(chatId) || R.hasReadme(items)) return;
+        _readmeAsked.add(chatId);
+        try {
+            const index = await readIndex(chatId);
+            if (index.versions.length) return;
+            await puter.fs.write(appDir + '/' + R.FILE_NAME, R.TEXT, { overwrite: false, dedupeName: false });
+        } catch (e) {
+            console.warn('README for the new project was not added:', e);
+        }
+    }
+
     async function performCreateVersion(opts) {
         opts = opts || {};
         try {
@@ -386,6 +410,10 @@
             // Puter's own .puter folder (its screenshots, the preview canary)
             // doesn't count as content.
             if (!items.some(it => !(it && it.is_dir && it.name === '.puter'))) return NOTHING_TO_SNAPSHOT;
+
+            // A new project's first version brings the builder's README.md,
+            // written before the copy so the version holds it too.
+            if (!opts.fromRestore) await addReadmeToNewProject(chatId, appDir, items);
 
             const versionId = generateVersionId();
             const root = versionsRootForChat(chatId);
