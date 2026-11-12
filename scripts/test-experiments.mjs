@@ -196,7 +196,7 @@ check('the old per-test code and debug keys are gone',
     !/limitDialogCohort|starterTest\b|starterTestProps|speedTest\b|speedTestProps|debugLimitCohort|debugStarterArm|debugSpeedArm/.test(APP + UI));
 check('the limit hit and its pay record carry the cohort',
     /cohort: window\.experiment\('limitDialog'\),\n\s*\.\.\.templateProp\(history\)/.test(APP)
-    && /plan, cohort: window\.experiment\('limitDialog'\), template \}/.test(APP));
+    && /plan, cohort: window\.experiment\('limitDialog'\), template, fast_mode: !!fastMode \}/.test(APP));
 check('the Low Balance dialog and its funnel read the cohort',
     (UI.match(/const cohort = window\.experiment\('limitDialog'\);/g) || []).length === 2);
 

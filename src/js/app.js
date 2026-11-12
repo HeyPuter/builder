@@ -3756,14 +3756,17 @@ function limitHitKey() {
 // `template` is the slug of the template the project was copied from, if any,
 // passed on to Unblocked After Limit and Upgrade After Limit. Saved as '' for a
 // project from scratch, so a record from before it was saved (no template at
-// all) reports neither from_template nor template.
-function recordUsageLimitHit(kind, template) {
+// all) reports neither from_template nor template. fastMode is Usage Limit
+// Hit's fast_mode, whether the build ran fast through the user's fast mode,
+// passed on the same way. It doesn't say fast mode spent the credits, only
+// that it was on when they ran out.
+function recordUsageLimitHit(kind, template, fastMode = false) {
     template = template || '';
     try {
         const key = limitHitKey();
-        if (key) localStorage.setItem(key, JSON.stringify({ at: Date.now(), kind, template }));
+        if (key) localStorage.setItem(key, JSON.stringify({ at: Date.now(), kind, template, fast_mode: !!fastMode }));
     } catch (e) {}
-    recordPlanAtLimit(kind, template);
+    recordPlanAtLimit(kind, template, fastMode);
 }
 
 // ---- Upgrade After Limit ---------------------------------------------------
@@ -3821,7 +3824,7 @@ function planChange(before, after) {
     return change ? { change, bought_credits: bought } : null;
 }
 
-async function recordPlanAtLimit(kind, template) {
+async function recordPlanAtLimit(kind, template, fastMode = false) {
     try {
         const id = window.user && window.user.uuid;
         if (!id) return;
@@ -3834,7 +3837,7 @@ async function recordPlanAtLimit(kind, template) {
         const user = await puter.auth.getUser();
         if (!user || user.uuid !== id) return;
         const plan = await readPlanSnapshot(user);
-        localStorage.setItem(LIMIT_PAY_PREFIX + id, JSON.stringify({ at, kind, plan, cohort: window.experiment('limitDialog'), template }));
+        localStorage.setItem(LIMIT_PAY_PREFIX + id, JSON.stringify({ at, kind, plan, cohort: window.experiment('limitDialog'), template, fast_mode: !!fastMode }));
     } catch (e) {}
 }
 
@@ -3893,6 +3896,7 @@ async function consumePaidAfterLimit(key) {
             kind: hit.kind,
             cohort: hit.cohort || 'unknown',
             since_limit: mins < 10 ? '<10m' : mins < 60 ? '10-60m' : '1-24h',
+            fast_mode: !!hit.fast_mode,
             ...(typeof hit.template === 'string' && templatePropFor(hit.template)),
         });
         // Credit bought in another tab reaches the build that stopped too. The
@@ -3935,6 +3939,7 @@ function reportUnblockAfterLimit() {
             kind: hit.kind,
             since_limit: since,
             same_month: then.getUTCFullYear() === now.getUTCFullYear() && then.getUTCMonth() === now.getUTCMonth(),
+            fast_mode: !!hit.fast_mode,
             ...(typeof hit.template === 'string' && templatePropFor(hit.template)),
         });
     } catch (e) { /* analytics must never break the app */ }
@@ -5744,7 +5749,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             // for it, so count the limit hit, and don't take it as an unblock.
             if (context && context.usageLimited) {
                 trackLimitHit({ first_build: isFirstBuildTurn, model: turnModel, kind: 'credits', ...usageLimitHitProps(turnSaveContext.chatHistory, savedChats, turnChatId, window.currentPublishedUrl) });
-                recordUsageLimitHit('credits', turnTemplate.template);
+                recordUsageLimitHit('credits', turnTemplate.template, turnStats.fastMode);
             } else {
                 reportUnblockAfterLimit();
             }
@@ -5771,7 +5776,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             turnErrored = true;
             if(error.error?.delegate === "usage-limited-chat"){
                 trackLimitHit({ first_build: isFirstBuildTurn, model: turnModel, kind: 'tier', ...usageLimitHitProps(turnSaveContext.chatHistory, savedChats, turnChatId, window.currentPublishedUrl) });
-                recordUsageLimitHit('tier', turnTemplate.template);
+                recordUsageLimitHit('tier', turnTemplate.template, turnStats.fastMode);
                 // An account with a plan can buy credit instead of changing it.
                 if (window.canAddCredits?.()) {
                     appendMessage('You have reached your plan\'s usage limit. Add credits to your Puter account to continue. <button class="upgrade-button top-up-button">Add credits</button>', false, false, false, true);
@@ -5791,7 +5796,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                 // would show its Low Balance prompt for it.
                 if (isLowBalanceRefusal(error)) {
                     trackLimitHit({ first_build: isFirstBuildTurn, model: turnModel, kind: 'credits', ...usageLimitHitProps(turnSaveContext.chatHistory, savedChats, turnChatId, window.currentPublishedUrl) });
-                    recordUsageLimitHit('credits', turnTemplate.template);
+                    recordUsageLimitHit('credits', turnTemplate.template, turnStats.fastMode);
                 }
                 const friendlyError = friendlyErrorMessage(errorText);
                 appendErrorMessage(friendlyError);
