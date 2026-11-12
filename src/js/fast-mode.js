@@ -1,13 +1,11 @@
 // The composer's fast mode: a switch that has the AI answer at Puter's fast
 // service speed (serviceSpeed 'fast'), about 2.5x faster for 2x the credits.
 //
-// It is part of a paid Puter plan and follows the model picker's three states
-// (ModelCore.pickerAccess): hidden without a real account, locked on the free
-// plan (the panel has an Upgrade button where the switch goes), open on a
-// paid plan. Only a model with
-// a fast tier (ModelCore's fast, Opus) goes faster. On any other model the
-// switch stays where it is, builds run at the usual speed and the panel says
-// so.
+// Every signed-in account can switch it on, on any plan. Without a real
+// account (signed out, or a temporary one) the button is hidden, since a
+// build asks the user to sign in first. Only a model with a fast tier
+// (ModelCore's fast, Opus) goes faster. On any other model the switch stays
+// where it is, builds run at the usual speed and the panel says so.
 //
 // The switch belongs to this browser, not to a project, and starts off. Each
 // request reads it as it is made (requestSpeed, called by sendChatMessage and
@@ -16,16 +14,16 @@
 // runs for that reason.
 //
 // A build still running after HINT_AFTER_MS gets a hint over the composer
-// that offers fast mode, or the upgrade on the free plan. It shows once per
-// browser, and never on a build that is fast already (see turnStarted).
+// that offers fast mode. It shows once per browser, and never on a build that
+// is fast already (see turnStarted).
 window.FastMode = (function () {
     const ON_KEY = 'builder.fastMode';
     const HINT_KEY = 'builder.fastModeHintShown';
-    const HINT_AFTER_MS = 45 * 1000;
+    const HINT_AFTER_MS = 30 * 1000;
     // How soon the hint tries again when the user can't see it yet.
     const HINT_RETRY_MS = 5 * 1000;
     // Opus's fast tier against its usual one. Change them here if its price
-    // does, and the panel, the hint and the Upgrade dialog follow.
+    // does, and the panel and the hint follow.
     const SPEED = '2.5x';
     const COST = '2x';
     const SUMMARY = `The AI works about ${SPEED} faster and uses ${COST} the credits.`;
@@ -66,14 +64,10 @@ window.FastMode = (function () {
         try { localStorage.setItem(HINT_KEY, String(Date.now())); } catch (e) { /* once per load then */ }
     }
 
-    function access(user) {
-        const u = user === undefined ? window.user : user;
-        return core().pickerAccess({
-            flagOn: !!(window.FEATURE_FLAGS && window.FEATURE_FLAGS.fastMode),
-            signedIn: !!u,
-            isTemp: !!(u && u.is_temp),
-            subscribed: !!(u && window.Branding && window.Branding.isSubscribed(u)),
-        });
+    // A real account, with the flag on.
+    function available() {
+        const u = window.user;
+        return !!(window.FEATURE_FLAGS && window.FEATURE_FLAGS.fastMode && u && !u.is_temp);
     }
 
     // The model the open project builds with (see ModelPicker), the default
@@ -83,10 +77,10 @@ window.FastMode = (function () {
         return p && p.access() === 'open' ? p.projectModel() : core().DEFAULT_MODEL;
     }
 
-    // Whether a request on this model goes fast: the switch is on, the plan
-    // is paid and the model has a fast tier.
+    // Whether a request on this model goes fast: the switch is on, the
+    // account is real and the model has a fast tier.
     function applies(model) {
-        return isOn() && access() === 'open' && core().supportsFast(model);
+        return isOn() && available() && core().supportsFast(model);
     }
 
     // The serviceSpeed of one request, or undefined for the model's usual
@@ -101,7 +95,7 @@ window.FastMode = (function () {
     function render() {
         const $btn = $('.fast-mode-btn');
         if (!$btn.length) return;
-        if (access() === 'hidden') {
+        if (!available()) {
             closePanel();
             hideHint();
             $btn.prop('hidden', true);
@@ -116,32 +110,26 @@ window.FastMode = (function () {
     }
 
     function renderPanel() {
-        const a = access();
         const model = shownModel();
-        const on = a === 'open' && isOn();
+        const on = isOn();
         const esc = (s) => (typeof htmlEscape === 'function' ? htmlEscape(s) : String(s));
         let note = '';
-        if (a === 'open' && !core().supportsFast(model)) {
+        if (!core().supportsFast(model)) {
             const fastModels = core().ids().filter(core().supportsFast).map((id) => core().get(id).label);
             note = `Fast mode works with ${fastModels.join(' and ')}. This project builds with ${core().get(model).label}, which runs at its usual speed.`;
-        } else if (a === 'open' && _busy) {
+        } else if (_busy) {
             note = 'A change takes effect at the AI’s next step.';
         }
-        // The switch on a paid plan. The free plan gets the upgrade offer in
-        // its place.
-        const name = `<span class="fast-mode-name">${zap()}<span>Fast mode</span></span>`;
-        const head = a === 'open'
-            ? `<button type="button" class="fast-mode-switch" role="switch" aria-checked="${on}" aria-describedby="fast-mode-summary">` +
-                name + '<span class="fast-mode-track" aria-hidden="true"></span>' +
-              '</button>'
-            : `<div class="fast-mode-head">${name}<button type="button" class="fast-mode-upgrade" aria-describedby="fast-mode-summary">Upgrade</button></div>`;
         // The switch is drawn again on every change, so keyboard focus moves
         // to the new one.
         const active = typeof document !== 'undefined' ? document.activeElement : null;
         const refocus = !!(active && active.classList && active.classList.contains('fast-mode-switch'));
         const $panel = $(
             '<div class="fast-mode-panel" role="dialog" aria-label="Fast mode" tabindex="-1">' +
-                head +
+                `<button type="button" class="fast-mode-switch" role="switch" aria-checked="${on}" aria-describedby="fast-mode-summary">` +
+                    `<span class="fast-mode-name">${zap()}<span>Fast mode</span></span>` +
+                    '<span class="fast-mode-track" aria-hidden="true"></span>' +
+                '</button>' +
                 `<p class="fast-mode-text" id="fast-mode-summary">${SUMMARY}</p>` +
                 (note ? `<p class="fast-mode-note">${esc(note)}</p>` : '') +
             '</div>');
@@ -211,7 +199,7 @@ window.FastMode = (function () {
     }
 
     function openPanel() {
-        if (access() === 'hidden') return;
+        if (!available()) return;
         hideHint();
         _open = true;
         $('.fast-mode-btn').attr('aria-expanded', 'true');
@@ -220,11 +208,7 @@ window.FastMode = (function () {
         // The dialog takes focus (not the switch) so Escape works and Tab
         // reaches the switch, without a focus ring from a mouse open.
         $('.fast-mode-panel').trigger('focus');
-        window.track?.('Fast Mode Opened', { access: access() });
-        // A plan can start or end while the page is open. When it changed,
-        // refreshUserPlan redraws the composer (updateUserMenu), and this panel
-        // with it.
-        window.refreshUserPlan?.();
+        window.track?.('Fast Mode Opened', { on: isOn(), mid_build: _busy });
     }
 
     function closePanel({ focus = false } = {}) {
@@ -237,7 +221,7 @@ window.FastMode = (function () {
     }
 
     function setOn(on, source) {
-        if (access() !== 'open' || on === isOn()) return;
+        if (!available() || on === isOn()) return;
         writeOn(on);
         render();
         window.track?.('Fast Mode Changed', { on, source, mid_build: _busy });
@@ -251,15 +235,6 @@ window.FastMode = (function () {
         clearTimeout(_hintTimer);
         _hintTimer = null;
         _turn = { model, fast: !!fast, firstBuild: !!firstBuild };
-        // A plan can end while the page is open. The turn's first request
-        // doesn't wait for this, and the ones after it go at the usual speed.
-        if (isOn() && access() === 'open' && window.refreshUserPlan) {
-            Promise.resolve(window.refreshUserPlan()).then((u) => {
-                if (access(u) !== 'locked') return;
-                window.showToast?.('Your paid Puter plan has ended, so fast mode is off.', { key: 'fast-mode-plan-ended', throttleMs: 10 * 60 * 1000 });
-                render();
-            }, () => {});
-        }
         if (!_turn.fast && !_turn.firstBuild && !hintShown()) _hintTimer = setTimeout(maybeShowHint, HINT_AFTER_MS);
     }
 
@@ -272,8 +247,7 @@ window.FastMode = (function () {
     function maybeShowHint() {
         _hintTimer = null;
         if (!_busy || !_turn || _hintOpen || hintShown()) return;
-        const a = access();
-        if (a === 'hidden' || !core().supportsFast(_turn.model) || applies(_turn.model)) return;
+        if (!available() || !core().supportsFast(_turn.model) || applies(_turn.model)) return;
         // Wait until the user can see it: the tab in front, the chat showing
         // the button (a phone can be on the app view), no dialog and not the
         // panel itself.
@@ -283,16 +257,13 @@ window.FastMode = (function () {
             _hintTimer = setTimeout(maybeShowHint, HINT_RETRY_MS);
             return;
         }
-        showHint(a);
+        showHint();
     }
 
-    function showHint(a) {
+    function showHint() {
         markHintShown();
-        const paid = a === 'open';
-        const title = paid ? 'Speed up this build' : 'Build faster with fast mode';
-        const text = paid
-            ? `Fast mode makes the AI about ${SPEED} faster and uses ${COST} the credits. It starts with the AI’s next step.`
-            : `Fast mode makes the AI about ${SPEED} faster. It comes with a paid Puter plan.`;
+        const title = 'Speed up this build';
+        const text = `Fast mode makes the AI about ${SPEED} faster and uses ${COST} the credits. It starts with the AI’s next step.`;
         const $hint = $(
             '<div class="fast-mode-hint" role="dialog" aria-labelledby="fast-mode-hint-title" aria-describedby="fast-mode-hint-text">' +
                 `<button type="button" class="fast-mode-hint-close" title="Close" aria-label="Close">${window.cross_svg || '×'}</button>` +
@@ -300,7 +271,7 @@ window.FastMode = (function () {
                 `<p class="fast-mode-hint-text" id="fast-mode-hint-text">${text}</p>` +
                 '<div class="fast-mode-hint-actions">' +
                     '<button type="button" class="fast-mode-hint-later">Not now</button>' +
-                    `<button type="button" class="fast-mode-hint-go">${paid ? 'Turn on' : 'Upgrade'}</button>` +
+                    '<button type="button" class="fast-mode-hint-go">Turn on</button>' +
                 '</div>' +
             '</div>');
         $('.fast-mode-hint').remove();
@@ -309,7 +280,7 @@ window.FastMode = (function () {
         place(document.querySelector('.fast-mode-hint'));
         syncListeners();
         window.announce?.(title + '. ' + text);
-        window.track?.('Fast Mode Hint Shown', { access: a });
+        window.track?.('Fast Mode Hint Shown');
     }
 
     function hideHint() {
@@ -345,12 +316,6 @@ window.FastMode = (function () {
         setOn(!isOn(), 'panel');
         window.announce?.(isOn() ? 'Fast mode is on.' : 'Fast mode is off.');
     });
-    $(document).on('click', '.fast-mode-upgrade', function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        closePanel();
-        window.openUpgradeModal?.('fast_mode');
-    });
     $(document).on('keydown', '.fast-mode-panel', function (e) {
         if (e.key === 'Escape') {
             e.preventDefault();
@@ -362,10 +327,6 @@ window.FastMode = (function () {
         e.preventDefault();
         e.stopPropagation();
         hideHint();
-        if (access() !== 'open') {
-            window.openUpgradeModal?.('fast_mode_hint');
-            return;
-        }
         setOn(true, 'hint');
         window.showToast?.('Fast mode is on. It starts with the AI’s next step.');
     });
@@ -384,5 +345,5 @@ window.FastMode = (function () {
     // A switch in another tab changes this one's next request too.
     window.addEventListener?.('storage', (e) => { if (e.key === ON_KEY) render(); });
 
-    return { SPEED, COST, render, setBusy, turnStarted, requestSpeed, applies, access, isOn, close: closePanel };
+    return { SPEED, COST, render, setBusy, turnStarted, requestSpeed, applies, available, isOn, close: closePanel };
 })();

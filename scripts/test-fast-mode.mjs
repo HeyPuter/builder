@@ -36,9 +36,9 @@ const blocked = {
     removeItem() { throw new Error('SecurityError'); },
 };
 
-function setup({ user = { username: 'u' }, paid = true, flag = true, storage = memoryStorage(), projectModel = null, fresh } = {}) {
+function setup({ user = { username: 'u' }, paid = true, flag = true, storage = memoryStorage(), projectModel = null } = {}) {
     const state = { hidden: true, attrs: {}, classes: new Set(), btnFocus: 0, panel: null, hint: null, visible: true, modal: false };
-    const calls = { upgrade: [], track: [], toast: [], announce: [], refresh: 0 };
+    const calls = { upgrade: [], track: [], toast: [], announce: [] };
     const handlers = [];
 
     // The clock: setTimeout runs only when the test moves time on.
@@ -132,7 +132,6 @@ function setup({ user = { username: 'u' }, paid = true, flag = true, storage = m
     env.track = (name, props) => calls.track.push({ name, props });
     env.showToast = (msg) => calls.toast.push(msg);
     env.announce = (msg) => calls.announce.push(msg);
-    env.refreshUserPlan = async () => { calls.refresh++; if (fresh !== undefined) env.user = fresh; return env.user; };
     if (projectModel) env.ModelPicker = { access: () => 'open', projectModel: () => projectModel };
     vm.createContext(env);
     vm.runInContext(MODEL_SRC, env);
@@ -149,28 +148,27 @@ function setup({ user = { username: 'u' }, paid = true, flag = true, storage = m
         }
     }
     const tracked = (name) => calls.track.filter((t) => t.name === name);
-    const flush = () => new Promise((r) => setImmediate(r));
     FM.render();
-    return { FM, env, state, calls, fire, advance, tracked, flush, storage, hintEl, panelEl, winListeners };
+    return { FM, env, state, calls, fire, advance, tracked, storage, hintEl, panelEl, winListeners };
 }
 
-const HINT_AT = 45 * 1000;
+const HINT_AT = 30 * 1000;
 
 // ---- Who sees it ---------------------------------------------------------------
 
 {
     check('signed out: no button', setup({ user: null }).state.hidden === true);
     check('a temporary account: no button', setup({ user: { username: 'g', is_temp: true } }).state.hidden === true);
-    check('with the flag off: no button, even on a paid plan', setup({ flag: false }).state.hidden === true);
+    check('with the flag off: no button', setup({ flag: false }).state.hidden === true);
     const free = setup({ paid: false });
-    check('the free plan sees the button', free.state.hidden === false && free.FM.access() === 'locked');
+    check('the free plan sees the button', free.state.hidden === false && free.FM.available());
     const paid = setup();
-    check('a paid plan sees the button', paid.state.hidden === false && paid.FM.access() === 'open');
+    check('a paid plan sees the button', paid.state.hidden === false && paid.FM.available());
     check('it starts off', paid.FM.isOn() === false && paid.state.attrs['aria-label'] === 'Fast mode: off' && !paid.state.classes.has('is-on'));
     check('…and every request keeps the usual speed', paid.FM.requestSpeed(OPUS, {}) === undefined);
 }
 
-// ---- The switch, on a paid plan --------------------------------------------------
+// ---- The switch ---------------------------------------------------------------------
 
 {
     const t = setup();
@@ -178,9 +176,9 @@ const HINT_AT = 45 * 1000;
     check('the button opens the panel', !!t.state.panel && t.state.attrs['aria-expanded'] === 'true');
     check('…with the switch off', /role="switch" aria-checked="false"/.test(t.state.panel));
     check('…the price and the speed', t.state.panel.includes('about 2.5x faster and uses 2x the credits'));
-    check('…no upgrade offer', !t.state.panel.includes('fast-mode-upgrade'));
-    check('…and checks the plan again', t.calls.refresh === 1);
-    check('opening is counted', t.tracked('Fast Mode Opened').length === 1 && t.tracked('Fast Mode Opened')[0].props.access === 'open');
+    check('…and no upgrade offer', !/upgrade/i.test(t.state.panel));
+    const opened = t.tracked('Fast Mode Opened');
+    check('opening is counted, with whether it was on', opened.length === 1 && opened[0].props.on === false && opened[0].props.mid_build === false);
 
     t.fire('click', '.fast-mode-panel .fast-mode-switch');
     check('the switch turns it on and keeps it in this browser', t.FM.isOn() && t.storage.getItem('builder.fastMode') === '1');
@@ -234,20 +232,18 @@ const HINT_AT = 45 * 1000;
     check('after the build the panel drops the mid-build note', !t.state.panel.includes('next step'));
 }
 
-// ---- The free plan --------------------------------------------------------------------
+// ---- The free plan ------------------------------------------------------------------
+// No paywall. The free plan gets the same switch, and its requests go fast.
 
 {
-    const t = setup({ paid: false, storage: memoryStorage({ 'builder.fastMode': '1' }) });
-    check('stored on, a free plan is not lit', !t.state.classes.has('is-on'));
-    check('…and its requests keep the usual speed', t.FM.requestSpeed(OPUS, {}) === undefined);
+    const t = setup({ paid: false });
     t.fire('click', '.fast-mode-btn');
-    check('the panel has Upgrade where the switch goes', !t.state.panel.includes('role="switch"')
-        && /<div class="fast-mode-head">.*Fast mode.*<button type="button" class="fast-mode-upgrade"[^>]*>Upgrade<\/button><\/div>/.test(t.state.panel));
-    check('…over the price and the speed', t.state.panel.includes('about 2.5x faster and uses 2x the credits'));
+    check('the free plan gets the switch', /role="switch" aria-checked="false"/.test(t.state.panel) && !/upgrade/i.test(t.state.panel));
     t.fire('click', '.fast-mode-panel .fast-mode-switch');
-    check('a switch click that slips through does nothing', t.tracked('Fast Mode Changed').length === 0 && t.storage.getItem('builder.fastMode') === '1');
-    t.fire('click', '.fast-mode-upgrade');
-    check('Upgrade opens the dialog from fast mode and closes the panel', t.calls.upgrade.join() === 'fast_mode' && !t.state.panel);
+    check('…turns it on', t.FM.isOn() && t.state.classes.has('is-on') && t.tracked('Fast Mode Changed').length === 1);
+    const stats = {};
+    check('…and its requests on Opus go fast', t.FM.requestSpeed(OPUS, stats) === 'fast' && stats.fastMode === true);
+    check('nothing offers the upgrade', t.calls.upgrade.length === 0);
 }
 
 // ---- A model without a fast tier ------------------------------------------------------
@@ -290,15 +286,15 @@ function build(t, turn = {}) {
     const t = setup();
     build(t);
     t.advance(HINT_AT - 1);
-    check('a build under 45 seconds gets no hint', !t.state.hint);
+    check('a build under 30 seconds gets no hint', !t.state.hint);
     t.advance(1);
-    check('at 45 seconds the hint offers fast mode', !!t.state.hint && t.state.hint.includes('Speed up this build') && t.state.hint.includes('>Turn on<'));
+    check('at 30 seconds the hint offers fast mode', !!t.state.hint && t.state.hint.includes('Speed up this build') && t.state.hint.includes('>Turn on<'));
     check('…with the price and when it starts', t.state.hint.includes('2x the credits') && t.state.hint.includes('next step'));
     // The button is at 800-828 by 662-690, the hint 300 wide and 120 tall.
     check('…right above the button, its caret pointing at it',
         t.hintEl.style.top === '532px' && t.hintEl.style.left === '538px' && t.hintEl.style['--fast-caret-x'] === '276px' && !t.hintEl.classList.list.has('is-below'));
     check('…remembered for this browser', !!t.storage.getItem('builder.fastModeHintShown'));
-    check('…counted', t.tracked('Fast Mode Hint Shown').length === 1 && t.tracked('Fast Mode Hint Shown')[0].props.access === 'open');
+    check('…counted', t.tracked('Fast Mode Hint Shown').length === 1);
     check('…and read out', t.calls.announce.some((m) => m.startsWith('Speed up this build.')));
     t.fire('click', '.fast-mode-hint-go');
     check('Turn on switches it on and closes the hint', t.FM.isOn() && !t.state.hint && t.state.classes.has('is-on'));
@@ -348,9 +344,9 @@ function build(t, turn = {}) {
     const t = setup({ paid: false });
     build(t);
     t.advance(HINT_AT);
-    check('on the free plan the hint offers the upgrade', !!t.state.hint && t.state.hint.includes('>Upgrade<') && t.state.hint.includes('paid Puter plan'));
+    check('on the free plan the hint offers fast mode too', !!t.state.hint && t.state.hint.includes('>Turn on<') && !/upgrade|paid/i.test(t.state.hint));
     t.fire('click', '.fast-mode-hint-go');
-    check('…which opens the dialog from the hint', t.calls.upgrade.join() === 'fast_mode_hint' && !t.state.hint && !t.FM.isOn());
+    check('…and Turn on switches it on', t.FM.isOn() && !t.state.hint && t.calls.upgrade.length === 0);
 }
 
 {
@@ -372,7 +368,7 @@ function build(t, turn = {}) {
     ended.advance(HINT_AT - 1000);
     ended.FM.setBusy(false);
     ended.advance(HINT_AT * 3);
-    check('a build that ends before 45 seconds never shows it', !ended.state.hint);
+    check('a build that ends before 30 seconds never shows it', !ended.state.hint);
     check('…and the browser can still see it on a later build', !ended.storage.getItem('builder.fastModeHintShown'));
 }
 
@@ -410,22 +406,6 @@ function build(t, turn = {}) {
     check('with storage blocked the hint still shows only once per load', t.tracked('Fast Mode Hint Shown').length === 1);
 }
 
-// ---- A plan that ends while the page is open ---------------------------------------------
-
-{
-    const t = setup({ storage: memoryStorage({ 'builder.fastMode': '1' }), fresh: { username: 'u', paid: false } });
-    build(t);
-    await t.flush();
-    check('a build with fast mode on checks the plan', t.calls.refresh === 1);
-    check('…and on finding it ended, says fast mode is off', t.calls.toast.some((m) => m.includes('plan has ended, so fast mode is off')));
-    check('…unlights the button', !t.state.classes.has('is-on'));
-    check('…and the build\'s next requests keep the usual speed', t.FM.requestSpeed(OPUS, {}) === undefined);
-    const off = setup({ fresh: { username: 'u', paid: false } });
-    build(off);
-    await off.flush();
-    check('with fast mode off a build does not check the plan for it', off.calls.refresh === 0);
-}
-
 // ---- The wiring ---------------------------------------------------------------------------
 
 {
@@ -460,8 +440,7 @@ function build(t, turn = {}) {
     check('Build Completed says whether it ran', /'Build Completed',\s*\{[^\n]*fast_mode: !!turnStats\.fastMode,/.test(APP));
     check('Build Abandoned says whether it ran', /'Build Abandoned', \{[\s\S]{0,200}fast_mode: !!\(build\.stats && build\.stats\.fastMode\),/.test(APP));
     check('Usage Limit Hit says whether it ran', /function limitHitTurnProps[\s\S]{0,500}fast_mode: !!stats\.fastMode,/.test(APP));
-    check('the Upgrade dialog lists it, and leads with it from fast mode',
-        /\{ id: 'fast', title: 'Fast mode'/.test(UI) && /source === 'fast_mode' \|\| source === 'fast_mode_hint' \? 'fast'/.test(UI));
+    check('the Upgrade dialog leaves it out, since every plan has it', !/id: 'fast'/.test(UI) && !/fast_mode_hint|'fast_mode'/.test(UI));
 }
 
 if (failures) { console.error(`\n${failures} check(s) failed`); process.exit(1); }

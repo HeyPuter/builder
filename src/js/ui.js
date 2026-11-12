@@ -6424,11 +6424,6 @@ function openUpgradeModal(source, { justUpgraded = false } = {}) {
         return frame('upgrade-model', ids.slice(0, 3).map((id, i) =>
             `<span class="upgrade-model-row${i === 1 ? ' is-on' : ''}"><span>${htmlEscape(core.get(id).label)}</span>${i === 1 ? check : ''}</span>`).join(''));
     };
-    // Fast mode switched on, and how far a build gets in the same time.
-    const fastArt = frame('upgrade-fast',
-        `<span class="upgrade-fast-head">${window.zap_svg || ''}<span>Fast mode</span><i></i></span>` +
-        '<span class="upgrade-fast-row"><em>Usual</em><span><b></b></span></span>' +
-        '<span class="upgrade-fast-row is-fast"><em>Fast</em><span><b></b></span></span>');
     // A branch's commits.
     const githubArt = frame('upgrade-gh',
         `<span class="upgrade-gh-head">${window.source_control_svg || ''}<span>main</span></span>` +
@@ -6451,7 +6446,6 @@ function openUpgradeModal(source, { justUpgraded = false } = {}) {
         { id: 'credits', title: 'More credits', text: 'A bigger monthly allowance for building and changing your apps.', art: creditsArt },
         { id: 'badge', title: 'Remove the badge', text: 'Publish your sites without the “Made with Puter” badge.', art: badgeArt },
         { id: 'domain', title: 'Use your own domain', text: 'Put your sites on a domain you own, like yourname.com.', art: domainArt },
-        ...(window.FEATURE_FLAGS?.fastMode && window.FastMode ? [{ id: 'fast', title: 'Fast mode', text: `Switch it on and the AI works about ${window.FastMode.SPEED} faster, for ${window.FastMode.COST} the credits.`, art: fastArt }] : []),
         ...(window.FEATURE_FLAGS?.modelPicker && window.ModelCore ? [{ id: 'model', title: 'Choose the AI model', text: 'Pick the model that builds each project, from Claude, GPT and Gemini.', art: modelArt() }] : []),
         ...(window.FEATURE_FLAGS?.codeEditor ? [{ id: 'code', title: 'Edit the code yourself', text: 'Change any file in the Code view and save it. The free plan can only read it.', art: codeArt }] : []),
         // GitHub sync is only there with its flags on (see github-sync.js).
@@ -6460,7 +6454,6 @@ function openUpgradeModal(source, { justUpgraded = false } = {}) {
     // Lead with the benefit the user came for.
     const lead = forCode ? 'code'
         : source === 'model_picker' ? 'model'
-            : source === 'fast_mode' || source === 'fast_mode_hint' ? 'fast'
             : source === 'github' ? 'github'
                 : source === 'custom_domain' ? 'domain'
                     : source === 'chat' || source === 'publish_panel' || source === 'publish_success' ? 'badge' : null;

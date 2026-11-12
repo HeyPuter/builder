@@ -1381,18 +1381,6 @@ puter-user-menu::part(sign-in):hover {
     cursor: pointer;
 }
 .fast-mode-switch:hover { background: #f2f2f2; }
-/* The free plan's row: the Upgrade button where the switch goes, small
-   enough that the row keeps the switch row's height. */
-.fast-mode-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    padding: 4px 4px 4px 8px;
-    color: #333;
-    font-weight: 600;
-}
-.fast-mode-head .fast-mode-upgrade { padding: 5px 12px; border-radius: 6px; font-size: 12.5px; }
 .fast-mode-name { display: inline-flex; align-items: center; gap: 6px; }
 /* The panel's bolt is lit only while the switch is on, like the button's. */
 .fast-mode-name svg { width: 15px; height: 15px; flex: 0 0 auto; color: #888; }
@@ -2747,7 +2735,6 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
 .upgrade-card-inner span { flex: 1 1 auto; min-width: 0; }
 .upgrade-card-btn,
 .model-panel-upgrade,
-.fast-mode-upgrade,
 .fast-mode-hint-go {
     flex: 0 0 auto;
     border: none;
@@ -2763,7 +2750,6 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
 }
 .upgrade-card-btn:hover,
 .model-panel-upgrade:hover,
-.fast-mode-upgrade:hover,
 .fast-mode-hint-go:hover { background: #000; }
 
 /* The Publish card the AI puts in the chat (tools/chat_ui/publish.js): one
@@ -6454,39 +6440,6 @@ body.preview-active.chat-hidden .chat {
     white-space: nowrap;
 }
 .upgrade-domain-url svg { width: 9px; height: 9px; flex: 0 0 auto; }
-/* Fast mode switched on over two bars, the fast one further along. */
-.upgrade-fast .upgrade-art-body {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 7px;
-}
-.upgrade-fast-head { display: flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 600; color: #555; }
-.upgrade-fast-head svg { width: 12px; height: 12px; color: #d97706; fill: currentColor; }
-.upgrade-fast-head i {
-    position: relative;
-    margin-left: auto;
-    width: 20px;
-    height: 12px;
-    border-radius: 999px;
-    background: #d97706;
-}
-.upgrade-fast-head i::after {
-    content: '';
-    position: absolute;
-    top: 2px;
-    right: 2px;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #fff;
-}
-.upgrade-fast-row { display: flex; align-items: center; gap: 8px; }
-.upgrade-fast-row em { flex: 0 0 26px; font-size: 10px; font-style: normal; color: #76767f; }
-.upgrade-fast-row > span { flex: 1 1 auto; }
-.upgrade-fast-row b { display: block; width: 40%; height: 8px; border-radius: 4px; background: #c4c4cc; }
-.upgrade-fast-row.is-fast em { color: #1a1a1a; font-weight: 600; }
-.upgrade-fast-row.is-fast b { width: 100%; background: #d97706; }
 /* Features still to come: an empty page. */
 .upgrade-future { border-style: dashed; border-color: #d4d4da; }
 .upgrade-future .upgrade-art-body { display: flex; align-items: center; justify-content: center; color: #a3a3ad; }
@@ -7483,8 +7436,7 @@ html[data-theme="dark"] .fast-mode-hint {
     --panel-caret-border: var(--border);
     --panel-caret-fill: var(--surface);
 }
-html[data-theme="dark"] .fast-mode-switch,
-html[data-theme="dark"] .fast-mode-head { color: var(--text); }
+html[data-theme="dark"] .fast-mode-switch { color: var(--text); }
 html[data-theme="dark"] .fast-mode-switch:hover { background: var(--surface-hover); }
 html[data-theme="dark"] .fast-mode-name svg { color: var(--text-muted); }
 html[data-theme="dark"] .fast-mode-switch[aria-checked="true"] .fast-mode-name svg,
@@ -7983,14 +7935,12 @@ html[data-theme="dark"] .publish-card-gone,
 html[data-theme="dark"] .publish-card-note { color: var(--text-muted); }
 html[data-theme="dark"] .upgrade-card-btn,
 html[data-theme="dark"] .model-panel-upgrade,
-html[data-theme="dark"] .fast-mode-upgrade,
 html[data-theme="dark"] .fast-mode-hint-go,
 html[data-theme="dark"] .publish-branding-btn,
 html[data-theme="dark"] .upgrade-btn,
 html[data-theme="dark"] a.upgrade-go { background: #eef2f7; border-color: #eef2f7; color: #0b1118; }
 html[data-theme="dark"] .upgrade-card-btn:hover,
 html[data-theme="dark"] .model-panel-upgrade:hover,
-html[data-theme="dark"] .fast-mode-upgrade:hover,
 html[data-theme="dark"] .fast-mode-hint-go:hover,
 html[data-theme="dark"] .publish-branding-btn:hover,
 html[data-theme="dark"] .upgrade-btn:hover,
@@ -8023,13 +7973,6 @@ html[data-theme="dark"] .upgrade-gh-head + .upgrade-gh-commit i { border-color: 
 html[data-theme="dark"] .upgrade-domain .upgrade-art-body > span:not(.upgrade-domain-url) { background: var(--surface-active); }
 html[data-theme="dark"] .upgrade-domain .upgrade-art-body b { background: var(--border-strong); }
 html[data-theme="dark"] .upgrade-domain-url { background: var(--accent-soft); color: var(--accent); }
-html[data-theme="dark"] .upgrade-fast-head { color: var(--text-secondary); }
-html[data-theme="dark"] .upgrade-fast-head svg { color: #fbbf24; }
-html[data-theme="dark"] .upgrade-fast-head i,
-html[data-theme="dark"] .upgrade-fast-row.is-fast b { background: #f59e0b; }
-html[data-theme="dark"] .upgrade-fast-row em { color: var(--text-muted); }
-html[data-theme="dark"] .upgrade-fast-row.is-fast em { color: var(--text); }
-html[data-theme="dark"] .upgrade-fast-row b { background: var(--border-strong); }
 html[data-theme="dark"] .upgrade-future { border-color: var(--border-strong); }
 html[data-theme="dark"] .upgrade-future .upgrade-art-body { color: var(--text-faint); }
 html[data-theme="dark"] .upgrade-modal .upgrade-actions { background: var(--surface-raised); border-top-color: var(--border); }
