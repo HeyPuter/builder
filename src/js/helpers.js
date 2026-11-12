@@ -477,8 +477,10 @@ function updateSendButtonState(processing) {
     // The model picker is part of the composer: locked for the whole turn.
     window.ModelPicker?.setBusy?.(processing);
     // Fast mode stays usable for the whole turn, but its long-build hint
-    // belongs to the turn and goes when it ends.
-    window.FastMode?.setBusy?.(processing);
+    // belongs to the turn and goes when it ends. Like the PWA offers below,
+    // it gets the real turn state, since the clarify card shows Send mid-turn
+    // and a false here dropped the hint's timer for the rest of the turn.
+    window.FastMode?.setBusy?.(typeof isProcessing !== 'undefined' ? !!isProcessing : processing);
     // The PWA offers (js/pwa.js) key on the turn. The install toast shows
     // when one starts, and an update prompt found mid-turn waits for its end.
     // They get the real turn state, not the icon's, since the clarify card

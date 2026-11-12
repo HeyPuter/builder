@@ -50,16 +50,23 @@ window.FastMode = (function () {
     // The bubble over the button: 'hint' (the long-build hint), 'pointer'
     // (showMe) or null.
     let _bubble = null;
-    // Stand-ins for blocked storage, for this load.
+    // Stand-ins for storage that can't be read or written, for this load.
+    // Once a write fails (storage blocked, or full while reads still work),
+    // reads take the stand-in until a write goes through again, or the old
+    // stored value would hide the change.
     let _hintFallback = { shown: 0, at: 0, used: false };
+    let _hintUnsaved = false;
     let _onFallback = false;
+    let _onUnsaved = false;
     let _listening = false;
     let _composerObserver = null;
+    let _bodyObserver = null;
 
     const core = () => window.ModelCore;
     const zap = () => window.zap_svg || '';
 
     function isOn() {
+        if (_onUnsaved) return _onFallback;
         try { return localStorage.getItem(ON_KEY) === '1'; } catch (e) { return _onFallback; }
     }
     function writeOn(on) {
@@ -67,11 +74,13 @@ window.FastMode = (function () {
         try {
             if (on) localStorage.setItem(ON_KEY, '1');
             else localStorage.removeItem(ON_KEY);
-        } catch (e) { /* kept for this load */ }
+            _onUnsaved = false;
+        } catch (e) { _onUnsaved = true; }
     }
     // The hint in this browser: how many times it has shown, when it last
     // did, and whether fast mode has been switched on (used).
     function hintRecord() {
+        if (_hintUnsaved) return _hintFallback;
         let raw;
         try { raw = localStorage.getItem(HINT_KEY); } catch (e) { return _hintFallback; }
         let r = null;
@@ -82,7 +91,10 @@ window.FastMode = (function () {
     }
     function writeHintRecord(r) {
         _hintFallback = r;
-        try { localStorage.setItem(HINT_KEY, JSON.stringify(r)); } catch (e) { /* kept for this load */ }
+        try {
+            localStorage.setItem(HINT_KEY, JSON.stringify(r));
+            _hintUnsaved = false;
+        } catch (e) { _hintUnsaved = true; }
     }
     function hintDue() {
         const r = hintRecord();
@@ -195,11 +207,16 @@ window.FastMode = (function () {
 
     // The button moves with the window and the landing column's scroll, and
     // with the composer as it grows while the user types, while the panel or
-    // the bubble is up.
+    // the bubble is up. Once it can't be seen (a phone switched to the app
+    // view, which the body's classes say), both go.
     function reposition(e) {
         const target = e && e.target;
         if (target && target.closest && target.closest('.fast-mode-panel, .fast-mode-hint')) return;
-        if (_bubble && !buttonVisible()) { hideBubble(); return; }
+        if (!buttonVisible()) {
+            hideBubble();
+            closePanel();
+            return;
+        }
         place(document.querySelector('.fast-mode-panel'));
         place(document.querySelector('.fast-mode-hint'));
     }
@@ -215,10 +232,15 @@ window.FastMode = (function () {
                 _composerObserver = new ResizeObserver(() => reposition());
                 _composerObserver.observe(composer);
             }
+            if (document.body && typeof MutationObserver !== 'undefined') {
+                _bodyObserver = new MutationObserver(() => reposition());
+                _bodyObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+            }
         } else {
             window.removeEventListener?.('resize', reposition);
             window.removeEventListener?.('scroll', reposition, true);
             if (_composerObserver) { _composerObserver.disconnect(); _composerObserver = null; }
+            if (_bodyObserver) { _bodyObserver.disconnect(); _bodyObserver = null; }
         }
     }
 
@@ -263,10 +285,18 @@ window.FastMode = (function () {
         if (!_turn.fast && hintDue()) _hintTimer = setTimeout(maybeShowHint, HINT_AFTER_MS);
     }
 
+    // A phone's app view covers the chat without taking it out of the
+    // layout (the preview pane is fixed over it, styles.css), so the button
+    // keeps its box there.
+    function chatCovered() {
+        const $body = $('body');
+        return !!(window.isMobileViewport?.() && $body.hasClass('preview-active') && !$body.hasClass('mobile-view-chat'));
+    }
+
     function buttonVisible() {
         if (typeof document === 'undefined' || !document.querySelector) return false;
         const btn = document.querySelector('.fast-mode-btn');
-        return !!(btn && !btn.hidden && btn.getClientRects().length);
+        return !!(btn && !btn.hidden && btn.getClientRects().length && !chatCovered());
     }
 
     function maybeShowHint() {
@@ -275,9 +305,10 @@ window.FastMode = (function () {
         if (!available() || !core().supportsFast(_turn.model) || applies(_turn.model)) return;
         // Wait until the user can see it: the tab in front, the chat showing
         // the button (a phone can be on the app view), no dialog, and not the
-        // panel itself or showMe's pointer.
+        // panel itself or showMe's pointer. Not while a clarify card waits on
+        // the user either, since the build isn't what's slow then.
         const blocked = _open || !!_bubble || !buttonVisible() || document.visibilityState === 'hidden'
-            || !!document.querySelector('[aria-modal="true"]');
+            || !!document.querySelector('[aria-modal="true"]') || !!document.querySelector('.clarify-card');
         if (blocked) {
             _hintTimer = setTimeout(maybeShowHint, HINT_RETRY_MS);
             return;
@@ -333,7 +364,7 @@ window.FastMode = (function () {
     function showMe() {
         if (!available()) return false;
         const $body = $('body');
-        if (window.isMobileViewport?.() && $body.hasClass('preview-active') && !$body.hasClass('mobile-view-chat')) {
+        if (chatCovered()) {
             $body.addClass('mobile-view-chat');
             window.syncViewSeg?.();
         }

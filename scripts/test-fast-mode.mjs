@@ -31,6 +31,12 @@ function memoryStorage(seed = {}) {
         removeItem: (k) => { m.delete(k); },
     };
 }
+// Storage that reads but won't take a write, as when it's full.
+const full = (seed = {}) => {
+    const st = memoryStorage(seed);
+    st.setItem = () => { throw new Error('QuotaExceededError'); };
+    return st;
+};
 const blocked = {
     getItem() { throw new Error('SecurityError'); },
     setItem() { throw new Error('SecurityError'); },
@@ -119,6 +125,7 @@ function setup({ user = { username: 'u' }, paid = true, flag = true, storage = m
             if (sel === '.fast-mode-hint') return state.hint ? hintEl : null;
             if (sel === '.chat-input') return composerEl;
             if (sel === '[aria-modal="true"]') return state.modal ? {} : null;
+            if (sel === '.clarify-card') return state.clarify ? {} : null;
             return null;
         },
     };
@@ -483,6 +490,64 @@ function build(t, turn = {}) {
     check('with storage blocked the hint still keeps its count for this load', t.tracked('Fast Mode Hint Shown').length === 1);
 }
 
+// Storage that reads but won't take a write (full): what this load changed
+// wins over the old stored value.
+{
+    const t = setup({ storage: full() });
+    t.fire('click', '.fast-mode-btn');
+    t.fire('click', '.fast-mode-panel .fast-mode-switch');
+    check('storage full: the switch still turns it on for this load', t.FM.isOn() && t.state.classes.has('is-on') && t.FM.requestSpeed(OPUS) === 'fast');
+    t.fire('click', '.fast-mode-panel .fast-mode-switch');
+    check('…and off again', !t.FM.isOn() && t.FM.requestSpeed(OPUS) === undefined);
+    const h = setup({ storage: full() });
+    build(h);
+    h.advance(HINT_AT);
+    h.fire('click', '.fast-mode-hint-later');
+    h.FM.setBusy(false);
+    build(h);
+    h.advance(HINT_AT * 2);
+    check('storage full: the hint keeps its count and waits its two weeks', h.tracked('Fast Mode Hint Shown').length === 1);
+    const on = setup({ storage: full({ 'builder.fastMode': '1' }) });
+    on.fire('click', '.fast-mode-btn');
+    on.fire('click', '.fast-mode-panel .fast-mode-switch');
+    check('storage full with it stored on: switching it off holds for this load', !on.FM.isOn() && !on.state.classes.has('is-on'));
+}
+
+// A phone's app view covers the chat but keeps it in the layout.
+{
+    const t = setup({ mobile: true, bodyClasses: ['preview-active'] });
+    build(t);
+    t.advance(HINT_AT);
+    check('a phone on the app view: the hint waits, though the button keeps its box', !t.state.hint && t.tracked('Fast Mode Hint Shown').length === 0);
+    t.state.body.add('mobile-view-chat');
+    t.advance(5000);
+    check('…and shows once the chat is in view', !!t.state.hint);
+    t.state.body.delete('mobile-view-chat');
+    t.winListeners.resize();
+    check('switching back to the app view takes it away', !t.state.hint);
+    t.state.body.add('mobile-view-chat');
+    t.fire('click', '.fast-mode-btn');
+    t.state.body.delete('mobile-view-chat');
+    t.winListeners.resize();
+    check('…and closes the panel too', !t.state.panel && t.state.attrs['aria-expanded'] === 'false');
+    const wide = setup({ bodyClasses: ['preview-active'] });
+    build(wide);
+    wide.advance(HINT_AT);
+    check('a wide screen with the preview open shows it, the chat being beside it', !!wide.state.hint);
+}
+
+// A clarify card waiting on the user: the build isn't what's slow.
+{
+    const t = setup();
+    build(t);
+    t.state.clarify = true;
+    t.advance(HINT_AT);
+    check('a clarify card waiting on an answer: the hint waits', !t.state.hint);
+    t.state.clarify = false;
+    t.advance(5000);
+    check('…and shows once it is answered', !!t.state.hint);
+}
+
 // ---- Show me (What's new) ------------------------------------------------------------------
 
 {
@@ -586,7 +651,8 @@ function build(t, turn = {}) {
     check('the bolt is drawn in index.html', HTML.includes('window.zap_svg = '));
     check('fast-mode.js loads after model-picker.js',
         VITE.indexOf("'js/model-picker.js'") > 0 && VITE.indexOf("'js/fast-mode.js'") > VITE.indexOf("'js/model-picker.js'"));
-    check('the composer\'s turn state reaches it', /window\.ModelPicker\?\.setBusy\?\.\(processing\);[\s\S]{0,200}window\.FastMode\?\.setBusy\?\.\(processing\);/.test(HELPERS));
+    check('the turn\'s real state reaches it, not the Send icon a clarify card shows mid-turn',
+        /window\.ModelPicker\?\.setBusy\?\.\(processing\);[\s\S]{0,500}window\.FastMode\?\.setBusy\?\.\(typeof isProcessing !== 'undefined' \? !!isProcessing : processing\);/.test(HELPERS));
     check('…but the composer lock leaves it usable', !/lockComposerForTurn[\s\S]{0,500}fast-mode-btn/.test(HELPERS));
     check('it is drawn whenever the model picker is', /function render\(\) \{\s*(\/\/[^\n]*\n\s*)*window\.FastMode\?\.render\?\.\(\);/.test(PICKER));
     check('the turn tells it its model, once the speed experiment has settled the speed',
