@@ -83,18 +83,54 @@ check('grid tiles keep their own size',
 // each card was 22×63px with the drawing 20×14px inside it. Measured in
 // headless Chromium. Now an SVG card takes the placeholder's box, narrowed by
 // the drawing's shape once it loads. A 1600×1100 viewBox gives 422×338, the
-// same as with width and height set, and a 1:3 one 175×569.
+// same as with width and height set, and a 1:3 one 175×569. A 1:10 one is
+// held at the caption bar's 90px (92×569) so the Open button still shows.
+// The shape is applied only after holdSizeUntilLoaded has checked whether
+// the reader was at the bottom. Applied first, it shrank the square loading
+// box (a 1:3 drawing 420px → 173px), the browser clamped the scroll to the
+// shorter chat, and a reader a little way up was pulled to the bottom.
 {
-    const { document, $ } = makeDom();
-    const win = {};
+    const { document, body, $ } = makeDom();
+    const box = document.createElement('div');
+    box.setAttribute('class', 'chat-box');
+    body.appendChild(box);
+    box.scrollHeight = 1000;
+    box.clientHeight = 500;
+    // What the card looked like when the chat checked the reader's position,
+    // and when it scrolled after the image loaded.
+    const seen = { measured: [], scrolled: [] };
+    let loading = null;
+    let top = 0;
+    Object.defineProperty(box, 'scrollTop', {
+        get() { return top; },
+        set(v) { top = v; if (loading) seen.scrolled.push(loading.style['--gm-ar']); },
+    });
+    const win = {
+        chatBoxNearBottom: () => {
+            if (loading) seen.measured.push({ ar: loading.style['--gm-ar'], held: loading.hasClass('is-loading') });
+            return true;
+        },
+    };
     new Function('window', '$', 'document', 'puter', 'localStorage', 'setInterval', 'clearInterval', src)(
         win, $, document, {}, { getItem: () => null }, () => 1, () => {},
     );
     const fill = (filename) => {
         const $c = win.GeneratedMedia.pendingCard({ kind: 'image', prompt: 'assets/' + filename });
+        win.GeneratedMedia.appendToChat($c);
         win.GeneratedMedia.fillCard($c, { kind: 'image', url: 'https://read.example/' + filename, path: '/p/assets/' + filename, filename, prompt: 'assets/' + filename });
         return { fig: $c.find('.generated-media').els[0], img: $c.find('img').els[0] };
     };
+    {
+        const tall = fill('phone.svg');
+        loading = tall.fig;
+        tall.img.naturalWidth = 50; tall.img.naturalHeight = 150;
+        tall.img.fire('load');
+        loading = null;
+        check('a tall SVG\'s position is checked while the card still holds the square loading box',
+            seen.measured.length === 1 && seen.measured[0].held && seen.measured[0].ar === undefined, JSON.stringify(seen.measured));
+        check('…and the chat follows it with the drawing\'s shape applied',
+            seen.scrolled.length === 1 && Math.abs(parseFloat(seen.scrolled[0]) - 1 / 3) < 1e-9, JSON.stringify(seen.scrolled));
+    }
     const svg = fill('1-landing.svg');
     check('an SVG card is marked for the full card width', svg.fig.hasClass('is-svg'), svg.fig.className);
     svg.img.naturalWidth = 218; svg.img.naturalHeight = 150;
@@ -106,9 +142,20 @@ check('grid tiles keep their own size',
     check('…or keeps the full width when the browser reports no size', unknown.fig.hasClass('is-svg') && unknown.fig.style['--gm-ar'] === undefined, JSON.stringify(unknown.fig.style));
     const png = fill('photo.png');
     check('a PNG card still sizes to its picture', !png.fig.hasClass('is-svg'), png.fig.className);
-    const svgRule = css.match(pendRe('\\.generated-media\\.is-svg'));
-    check('an SVG card is the placeholder\'s box', !!svgRule && !!img && svgRule.slice(1).join() === img.slice(1).join(), svgRule && svgRule[0]);
-    check('…and its picture fills it', /\.generated-media\.is-svg \.generated-media-el \{ width: 100%; \}/.test(css));
+    const svgRule = css.match(/\n\.generated-media\.is-svg \{ width: min\(100% - (\d+)px, (\d+)px, max\((\d+)px, (\d+)px \* var\(--gm-ar, 1\)\)\); \}/);
+    check('an SVG card is the placeholder\'s box', !!svgRule && !!img && [svgRule[1], svgRule[2], svgRule[4]].join() === img.slice(1).join(), svgRule && svgRule[0]);
+    // The bar's padding (left + right), its gap, and the two buttons with
+    // the gap between them.
+    const barCss = (css.match(/\n\.generated-media-bar \{\n[^}]*\}/) || [''])[0];
+    const pad = (barCss.match(/padding: (\d+)px (\d+)px (\d+)px (\d+)px;/) || []).map(Number);
+    const barGap = +(barCss.match(/gap: (\d+)px;/) || [])[1];
+    const actGap = +(css.match(/\.generated-media-actions \{[^}]*gap: (\d+)px;/) || [])[1];
+    const btnW = px(/\.generated-media-download,\s*\.generated-media-open \{[^}]*width: (\d+)px;/, 'the action buttons\' width');
+    const barNeeds = pad[2] + pad[4] + barGap + 2 * btnW + actGap;
+    check(`…never narrower than the caption bar's ${barNeeds}px, so Download and Open both show`,
+        !!svgRule && +svgRule[3] >= barNeeds, svgRule && svgRule[0]);
+    check('…and its picture fills it, kept to its shape',
+        /\.generated-media\.is-svg \.generated-media-el \{ width: 100%; object-fit: contain; \}/.test(css));
 }
 
 if (failures) { console.error(`\n${failures} check(s) FAILED`); process.exit(1); }
