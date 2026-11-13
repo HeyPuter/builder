@@ -525,18 +525,6 @@ function hasActiveTodos() {
     return $list.find('li').not('.todo-completed').length > 0;
 }
 
-/**
- * Returns true if the progress checklist is visibly showing work: an item is
- * rendered in progress (shimmering — buildTodoListHTML only emits
- * .todo-in_progress while animating). This, not hasActiveTodos, is what may
- * stand in for the thinking dots: a build that stopped mid-checklist leaves
- * only pending items, and suppressing the dots then left a new turn with no
- * activity indicator at all.
- */
-function hasRunningTodo() {
-    return $('.chat-box .todo-list').last().find('li.todo-in_progress').length > 0;
-}
-
 // A stream owns its preview: neither its text nor its DOM enters chat history.
 // Keep only a short tail and batch paints so token-sized deltas stay cheap.
 function createThinkingPreview(context) {
@@ -599,14 +587,11 @@ function createThinkingPreview(context) {
     };
 }
 
+// The thinking dots, below the latest message. They show next to a running
+// checklist item too, under the list: the item's shimmer only says a step is
+// under way, and the dots' words say what the builder is doing in it right now
+// (setSpinnerLabel), so a long step doesn't look stuck.
 function showSpinner() {
-    // Don't show the thinking dots while a checklist item is in progress — its
-    // shimmer already indicates activity (see hasRunningTodo).
-    if (hasRunningTodo()) {
-        $('.floating-spinner').remove();
-        return null;
-    }
-
     // Check if spinner already exists
     const existingSpinner = $('.floating-spinner');
     if (existingSpinner.length) {
@@ -662,8 +647,7 @@ function showSpinner() {
 // stalled. New words fade in rather than snap. Words stay up for at least a
 // second, even once they're out of date, so a run of quick steps doesn't flash
 // past too fast to read. Whatever arrives in that second waits, and only the
-// latest is shown. A no-op while there are no dots (a running checklist item
-// stands in for them).
+// latest is shown. A no-op while there are no dots.
 const SPINNER_IDLE_LABEL = 'Working';
 const SPINNER_IDLE_MS = 1000;
 const SPINNER_LABEL_MIN_MS = 1000;
