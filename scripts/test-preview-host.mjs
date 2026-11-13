@@ -29,7 +29,7 @@ const BLOCK =
     slice('// Monotonic counter identifying the latest preview operation', '// --- Project-loading skeleton') +
     fn('function previewSubdomain(url) {') +
     slice('// Wait for the latest changes to reach the live site', 'let previewRefreshPending = false;') +
-    fn('async function loadPreviewOnAnsweringHost(url) {');
+    fn('let _previewOpenSeq = 0;'); // its counter, then loadPreviewOnAnsweringHost
 
 const DIR = '/u/AppData/app/c1';
 const SITE = 'https://preview-x.puter.site/';
@@ -99,10 +99,10 @@ function makeEnv(opts = {}) {
     const api = new Function('$', 'window', 'puter', 'fetch', 'Date', 'setTimeout', 'clearTimeout', 'AbortSignal', 'console',
         'currentChatId', 'currentAppDir', 'chatHistory', 'generateChatTitle', 'isProcessing', 'previewRefreshPending',
         BLOCK + '\nreturn { refreshPreviewWhenReady, reloadPreviewFrame, checkPuterHost, toPuterHost, previewShownUrl,' +
-        ' loadPreviewOnAnsweringHost, bump: () => { _previewRefreshSeq++; } };'
+        ' loadPreviewOnAnsweringHost };'
     )($, win, puter, fetch, { now: () => now }, later, () => {}, undefined, quiet, 'c1', DIR, [], () => '', true, opts.pending !== false);
     return {
-        ...api, win, calls, steps, reloads,
+        ...api, win, calls, steps, reloads, frameData,
         startEarly: () => win.startEarlyPreviewClear(),
         sleep: (ms) => new Promise((r) => later(r, ms)),
         async run(promise) {
@@ -144,7 +144,8 @@ function makeEnv(opts = {}) {
     check('the check is one HEAD to the draft on puter.host',
         env.calls.hostChecks.length === 1 && env.calls.hostChecks[0].method === 'HEAD' && env.calls.hostChecks[0].url === HOST,
         JSON.stringify(env.calls.hostChecks));
-    check('an answer means puter.host, and the frame\'s address follows it', ok === true && env.previewShownUrl(SITE) === HOST);
+    check('an answer means puter.host', ok === true);
+    check('…but the answer alone changes nothing on screen, only what loads does', env.previewShownUrl(SITE) === SITE);
 }
 for (const [host, want, name] of [
     [204, true, 'any 2xx means puter.host'],
@@ -157,7 +158,7 @@ for (const [host, want, name] of [
     const env = makeEnv({ host });
     let ok;
     await env.run(env.checkPuterHost(SITE).then((v) => { ok = v; }));
-    check(name, ok === want && env.previewShownUrl(SITE) === (want ? HOST : SITE), String(ok));
+    check(name, ok === want, String(ok));
 }
 {
     const env = makeEnv({ host: 'hang' });
@@ -206,23 +207,29 @@ for (const [host, want, name] of [
 
 // ---- The early clear --------------------------------------------------------------
 
+// The project is opened first, so the frame is on the host its check chose.
+async function opened(env) {
+    await env.run(env.loadPreviewOnAnsweringHost(SITE));
+    await env.run(env.sleep(50));
+}
 {
     const env = makeEnv({ host: 'up' });
-    await env.run(env.checkPuterHost(SITE));
+    await opened(env);
     env.startEarly();
     await env.run(env.sleep(50));
-    check('a round that wrote starts no early clear while puter.host answers',
+    check('a round that wrote starts no early clear while the frame is on puter.host',
         env.calls.canaryWrites === 0 && env.calls.hostingUpdate === 0, JSON.stringify(env.calls));
 }
 {
     const env = makeEnv({ host: 'blocked' });
-    await env.run(env.checkPuterHost(SITE));
+    await opened(env);
     env.startEarly();
     await env.run(env.sleep(1000));
-    check('…but does while puter.host is blocked', env.calls.canaryWrites === 1, JSON.stringify(env.calls));
+    check('…but does while it is on puter.site', env.calls.canaryWrites === 1, JSON.stringify(env.calls));
+    const t = env.reloads.length;
     await env.run(env.refreshPreviewWhenReady());
     check('the refresh takes the early clear over, with no second canary',
-        env.calls.canaryWrites === 1 && env.calls.hostingUpdate === 1 && env.reloads.length === 1 && env.reloads[0].url.startsWith(SITE),
+        env.calls.canaryWrites === 1 && env.calls.hostingUpdate === 1 && env.reloads.length === t + 1 && env.reloads[t].url.startsWith(SITE),
         JSON.stringify({ calls: env.calls, reloads: env.reloads }));
 }
 
@@ -230,7 +237,7 @@ for (const [host, want, name] of [
     // puter.host starts answering between the round's end and the refresh.
     const opts = { host: 'blocked' };
     const env = makeEnv(opts);
-    await env.run(env.checkPuterHost(SITE));
+    await opened(env);
     env.startEarly();
     await env.run(env.sleep(500));
     opts.host = 'up';
@@ -239,6 +246,22 @@ for (const [host, want, name] of [
     check('if puter.host answers by the refresh, the early clear is dropped and the reload goes there',
         env.reloads.length === t + 1 && env.reloads[t].url.startsWith(HOST + '?__pv=') && env.reloads[t].at < 4000,
         JSON.stringify(env.reloads));
+}
+
+{
+    // The refresh starts right after the round, while the early clear is still
+    // preparing, and the check takes long enough for the early clear to reach
+    // its next step before failing. It used to see the refresh's counter, stop,
+    // and leave the refresh nothing to reload.
+    const env = makeEnv({ host: 'blocked', hostMs: 1500 });
+    await opened(env);
+    env.startEarly();
+    const t = env.reloads.length;
+    await env.run(env.refreshPreviewWhenReady());
+    check('a slow failed check during an early clear still ends in a reload on puter.site',
+        env.reloads.length === t + 1 && env.reloads[t].url.startsWith(SITE + '?__pv='),
+        JSON.stringify({ calls: env.calls, reloads: env.reloads.slice(t) }));
+    check('…with the one canary the early clear wrote', env.calls.canaryWrites === 1, JSON.stringify(env.calls));
 }
 
 // ---- Opening a project ------------------------------------------------------------
@@ -259,11 +282,48 @@ for (const [host, want, name] of [
 }
 {
     const env = makeEnv({ host: 'up', hostMs: 150 });
+    const first = env.loadPreviewOnAnsweringHost(SITE);
+    const second = env.loadPreviewOnAnsweringHost(SITE); // the same project opened again
+    await env.run(Promise.all([first, second]));
+    await env.run(env.sleep(50));
+    check('a newer open of the project replaces the older one, so it loads once', env.reloads.length === 1, JSON.stringify(env.reloads));
+}
+{
+    // The previous project is on screen, and the badge sync (or the toolbar's
+    // Reload) reloads the frame while the new project's check is out.
+    const env = makeEnv({ host: 'up', hostMs: 150 });
+    const OLD = 'https://preview-old.puter.host/?__pv=1_a';
+    env.frameData['preview-url'] = OLD;
     const p = env.loadPreviewOnAnsweringHost(SITE);
-    env.bump(); // a reload, refresh or hide during the check
+    env.reloadPreviewFrame(null, { keepPendingUpdate: true });
     await env.run(p);
     await env.run(env.sleep(50));
-    check('an open superseded during the check never loads', env.reloads.length === 0, JSON.stringify(env.reloads));
+    check('a reload during the check loads the new project, never the previous one',
+        env.reloads.length > 0 && env.reloads.every((r) => !r.url.includes('preview-old')), JSON.stringify(env.reloads));
+    check('…and the open still lands on the host its check chose',
+        env.reloads.length > 0 && env.reloads[env.reloads.length - 1].url.startsWith(HOST + '?__pv='), JSON.stringify(env.reloads));
+}
+{
+    // A refresh starts while the open's check is out (puter.host blocked, so
+    // the refresh waits about 4 s for puter.site's clear).
+    const env = makeEnv({ host: 'blocked', hostMs: 200 });
+    const p = env.loadPreviewOnAnsweringHost(SITE);
+    const refresh = env.refreshPreviewWhenReady();
+    await env.run(Promise.all([p, refresh]));
+    check('a refresh starting during the check doesn\'t hold the page back, it shows right away',
+        env.reloads.length === 2 && env.reloads[0].at < 1000 && env.reloads[0].url.startsWith(SITE), JSON.stringify(env.reloads));
+    check('…and the refresh still reloads once its clear lands', env.reloads[1] && env.reloads[1].at >= 4000, JSON.stringify(env.reloads));
+}
+{
+    // A failed check (an older project's, or one that timed out) answers after
+    // this project loaded on puter.host.
+    const opts = { host: 'up' };
+    const env = makeEnv(opts);
+    await opened(env);
+    opts.host = 'blocked';
+    await env.run(env.checkPuterHost(SITE));
+    check('a late failed check doesn\'t move the Share link, tests or error mapping off the host on screen',
+        env.previewShownUrl(SITE) === HOST);
 }
 {
     const env = makeEnv({ host: 'up', hostMs: 150 });
@@ -284,7 +344,7 @@ for (const [host, want, name] of [
 
 for (const [host, want] of [['up', HOST], ['blocked', SITE]]) {
     const env = makeEnv({ host });
-    await env.run(env.checkPuterHost(SITE));
+    await opened(env);
     let html = '';
     const panel = { length: 1, find: () => ({ html: (h) => { html = h; } }) };
     const render = new Function('$', 'window', 'htmlEscape', 'previewShownUrl',

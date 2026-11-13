@@ -688,8 +688,7 @@ function withoutPreviewBust(u) {
 function reloadPreviewFrame(url, opts) {
     const $frame = $('.preview-frame');
     if (!$frame.length) return;
-    // A draft's puter.site address goes to the host the latest check chose.
-    const target = url ? previewShownUrl(url) : $frame.data('preview-url');
+    const target = url || $frame.data('preview-url');
     if (!target) return;
     // The toolbar's Reload while "Applying changes…" is mid-flight
     // (keepPendingUpdate): reload the frame now, but leave that update alive.
@@ -849,14 +848,20 @@ function toPuterHost(url) {
     return m ? 'https://' + m[1] + '.puter.host' + m[2] : null;
 }
 
-// What the latest check said, so a reload between checks (a version restore)
-// stays on the host the frame is on, and the tool loop knows whether to start
-// an early clear (startEarlyPreviewClear).
-let _previewOnPuterHost = false;
+// Whether the frame shows the draft at `url` on puter.host. Read from the
+// address the frame last loaded, never from a check's answer, so it always
+// matches what's on screen. A late answer to an older check (another project's,
+// or one that timed out) changes nothing until something loads.
+function frameOnPuterHost(url) {
+    const host = _originOf(toPuterHost(url));
+    return !!host && _originOf($('.preview-frame').data('preview-url')) === host;
+}
 
-// The address the frame loads for the draft at `url`.
+// The address of the draft at `url` as the frame shows it: on puter.host while
+// the frame is there, else `url` itself. The Share draft link, the hidden tests
+// and the Code view's error mapping use it.
 function previewShownUrl(url) {
-    return (_previewOnPuterHost && toPuterHost(url)) || url;
+    return frameOnPuterHost(url) ? toPuterHost(url) : url;
 }
 window.previewShownUrl = previewShownUrl;
 
@@ -868,7 +873,8 @@ window.previewShownUrl = previewShownUrl;
 // 404) gets puter.site, which only costs the slower refresh. A failed request
 // or no answer within PUTER_HOST_CHECK_MS means no too. The timer is separate
 // from the request's own timeout, so a request that never ends can't hold the
-// preview on a browser without AbortSignal.timeout.
+// preview on a browser without AbortSignal.timeout. Only answers. The caller
+// decides what to load, once it has made sure it's still current.
 async function checkPuterHost(url) {
     const hostUrl = toPuterHost(url);
     let ok = false;
@@ -880,7 +886,6 @@ async function checkPuterHost(url) {
         ok = await Promise.race([request, timeout]);
         clearTimeout(timer);
     }
-    _previewOnPuterHost = ok;
     return ok;
 }
 
@@ -1049,18 +1054,22 @@ async function runPreviewRefresh($frame, baseUrl, ownerChatId, seq, early) {
     const hostCheck = checkPuterHost(baseUrl);
     let onHost;
     if (early) {
+        // The early clear is this refresh's now, and bows out with it. Handed
+        // over before the check, since this refresh has already moved the
+        // counter the early clear was watching, and the early clear would stop
+        // at its next step and leave nothing to reload. It keeps its own
+        // dropped flag, so finding puter.host can still stop it.
+        early.live = () => !early.dropped && live();
         onHost = await hostCheck;
-        if (!live()) { early.dropped = true; return; } // superseded while checking
+        if (!live()) return; // superseded while checking
         if (onHost) {
             // puter.host serves the files as they are now, so the clear isn't
             // needed. This happens only when puter.host has started answering
             // since the early clear began.
             early.dropped = true;
             if (await preparePreviewFiles(toPuterHost(baseUrl), dir, live) === null) return;
-        } else {
-            // The early clear is this refresh's now, and bows out with it.
-            early.live = live;
-            if (await early.cleared === null) return; // superseded
+        } else if (await early.cleared === null) {
+            return; // superseded
         }
     } else {
         const shown = hostCheck.then((ok) => (ok ? toPuterHost(baseUrl) : baseUrl));
@@ -1227,11 +1236,12 @@ window.startEarlyPreviewClear = function () {
     // write failed, or whose publish_site already started its own refresh
     // (showAppPreview), leaves nothing for an early clear to cover.
     if (!previewRefreshPending) return;
-    // puter.host needs no clear. If it has stopped answering by the time the
-    // refresh checks again, the refresh clears puter.site itself.
-    if (_previewOnPuterHost) return;
     const baseUrl = window.currentPreviewUrl;
     if (!baseUrl || !$('.preview-frame').length || !$('body').hasClass('preview-active')) return;
+    // The frame is on puter.host, which needs no clear. If puter.host has
+    // stopped answering by the time the refresh checks again, the refresh
+    // clears puter.site itself.
+    if (frameOnPuterHost(baseUrl)) return;
     const run = { baseUrl, dir: publishedRootDir(), chatId: currentChatId, seq: _previewRefreshSeq, dropped: false };
     // Superseded like a refresh, or dropped. The refresh that takes it over
     // swaps in its own test.
@@ -1390,14 +1400,23 @@ window.showAppPreview = function(url, opts) {
 };
 
 // Load the draft at `url` (its puter.site address) in the frame, on puter.host
-// when it answers (see "Which host shows the draft"). Bows out if anything
-// reloads, refreshes or hides the preview, or another project's preview opens,
-// during the check.
+// when it answers (see "Which host shows the draft"). The frame leaves the
+// previous project before the check, and its stored address becomes this
+// project's, so a reload that lands during the check (the toolbar's Reload,
+// the badge sync refreshPublishButton runs) loads this project, not the one
+// before. Only a newer open, or the preview closing or moving to another
+// project, cancels the load. A refresh that starts during the check is left
+// running (keepPendingUpdate), so the page shows now, as it did before the
+// check existed, and the refresh reloads it once its files are ready.
+let _previewOpenSeq = 0;
 async function loadPreviewOnAnsweringHost(url) {
-    const seq = _previewRefreshSeq;
-    await checkPuterHost(url);
-    if (seq !== _previewRefreshSeq || window.currentPreviewUrl !== url) return;
-    reloadPreviewFrame(url);
+    const open = ++_previewOpenSeq;
+    const $frame = $('.preview-frame');
+    $frame.data('preview-url', url);
+    $frame.attr('src', 'about:blank');
+    const onHost = await checkPuterHost(url);
+    if (open !== _previewOpenSeq || window.currentPreviewUrl !== url || !$('body').hasClass('preview-active')) return;
+    reloadPreviewFrame(onHost ? toPuterHost(url) : url, { keepPendingUpdate: true });
 }
 
 /** Hide the preview pane and restore the centered chat layout. */

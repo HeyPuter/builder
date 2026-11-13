@@ -1043,7 +1043,7 @@
                 if (typeof window.refreshPreviewWhenReady === 'function') {
                     window.refreshPreviewWhenReady();
                 } else if (typeof reloadPreviewFrame === 'function') {
-                    reloadPreviewFrame(window.currentPreviewUrl || undefined);
+                    reloadPreviewFrame(window.previewShownUrl?.(window.currentPreviewUrl) || window.currentPreviewUrl || undefined);
                 }
 
                 // Leave a note in the conversation so the model's context stays

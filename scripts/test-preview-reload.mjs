@@ -37,9 +37,7 @@ const BLOCK =
     slice('function bustedUrl(base) {', '\n\n// The canary file in the published directory');
 
 // A frame stub recording every src it is pointed at, plus its .data() store.
-// opts.onHost: the latest host check found puter.host answering, so a draft's
-// puter.site address is shown there (previewShownUrl in ui.js).
-function makeEnv(opts = {}) {
+function makeEnv() {
     const srcs = [];
     const data = {};
     const timers = [];
@@ -57,13 +55,12 @@ function makeEnv(opts = {}) {
         srcs, data,
         flush: () => { while (timers.length) timers.shift()(); },
     };
-    const previewShownUrl = (u) => (opts.onHost ? u.replace('.puter.site', '.puter.host') : u);
-    const fn = new Function('$', 'window', 'showPreviewUpdating', 'setTimeout', 'previewShownUrl',
+    const fn = new Function('$', 'window', 'showPreviewUpdating', 'setTimeout',
         BLOCK +
         '\nreturn { reloadPreviewFrame, bustedUrl, seq: () => _previewRefreshSeq,' +
         '  setActive: (v) => { _previewRefreshActiveSeq = v; },' +
         '  strip: typeof withoutPreviewBust === "function" ? withoutPreviewBust : null };'
-    )($, env.window, env.showPreviewUpdating, env.setTimeout, previewShownUrl);
+    )($, env.window, env.showPreviewUpdating, env.setTimeout);
     return { ...env, ...fn };
 }
 
@@ -104,18 +101,23 @@ function makeEnv(opts = {}) {
     check('the stored url is the one actually loaded', env.data['preview-url'] === third);
 }
 
-// === A draft's address goes to the host the latest check chose =============
-// A version restore reloads with the puter.site address (currentPreviewUrl).
-// While puter.host answers, the frame must stay there.
+// === A draft on puter.host stays there =====================================
+// The open and the refresh choose the host and pass that address. The toolbar
+// Reload and the badge sync pass none, so they reload whatever the frame is on.
 {
-    const env = makeEnv({ onHost: true });
-    env.reloadPreviewFrame('https://a.puter.site/');
+    const env = makeEnv();
+    env.reloadPreviewFrame('https://a.puter.host/');
     env.flush();
     const url = env.srcs[env.srcs.length - 1];
-    check('with puter.host answering, a draft\'s address loads on puter.host', url.startsWith('https://a.puter.host/?__pv='), url);
+    check('a puter.host address loads as given', url.startsWith('https://a.puter.host/?__pv='), url);
     env.reloadPreviewFrame();
     env.flush();
     check('…and the toolbar Reload stays there', env.srcs[env.srcs.length - 1].startsWith('https://a.puter.host/?__pv='));
+}
+{
+    const versions = fs.readFileSync(new URL('../src/js/versions.js', import.meta.url), 'utf8');
+    check('the version-restore fallback reloads on the host the frame is on',
+        versions.includes('reloadPreviewFrame(window.previewShownUrl?.(window.currentPreviewUrl)'));
 }
 
 // === Existing query params and fragments survive ===========================
