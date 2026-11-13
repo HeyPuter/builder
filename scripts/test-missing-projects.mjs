@@ -39,6 +39,7 @@ if (start < 0 || end < 0 || !LOCK) throw new Error('could not extract the chat-l
 const CODE = LOCK + '\n' + app.slice(start, end) + `
 globalThis.__list = () => savedChats;
 globalThis.__setList = (l) => { savedChats = l; };
+globalThis.__setCurrent = (id) => { currentChatId = id; };
 globalThis.__loaded = () => chatListLoaded;
 globalThis.__adopt = (id, chat) => adoptChatFileIntoEntry(id, chat);
 globalThis.__verify = (id) => verifyChatListEntry(id);
@@ -82,6 +83,7 @@ function world() {
         stat: async () => ({}), mkdir: async () => {},
         // Only the direct children, directories included, as Puter lists them.
         readdir: async (p) => {
+            if (take(readFailures, 'readdir')) throw new Error('network error');
             const names = new Map();
             for (const k of disk.keys()) {
                 if (!k.startsWith(p + '/')) continue;
@@ -284,6 +286,27 @@ const settle = async () => { for (let i = 0; i < 20; i++) await new Promise(setI
     const merged = T.__merge(mine, disk, new Map(), new Set());
     const b = merged.find((c) => c.id === 'B');
     check('merge: the complete entry on disk wins over a stand-in', b.title === 'Real' && !b.unverified && merged.length === 2, JSON.stringify(merged));
+}
+
+{
+    // Boot could read neither the list nor the directory, so the list loads at
+    // the first save instead. A project made meanwhile is in memory, complete;
+    // if that late rebuild can't read its file, the stand-in must not replace
+    // the entry this session already has (a save would take the stand-in's
+    // title and pin for the project's own).
+    const w = world();
+    seed(w, null, ['A']);
+    w.failRead(LIST, Infinity);
+    w.failRead('readdir', 1);
+    const T = w.tab();
+    await T.loadSavedChats();
+    check('late load: boot left the list unloaded', T.__loaded() === false);
+    w.failRead(fileOf('N'), Infinity);
+    T.__setCurrent('N');
+    await T.saveCurrentChat({ currentChatId: 'N', chatHistory: [{ role: 'user', content: 'N' }, { role: 'assistant', content: 'x' }], interrupted: true });
+    const n = T.__list().find((c) => c.id === 'N');
+    check('late load: the list is loaded by the save', T.__loaded() === true && ids(T.__list()) === 'A,N', ids(T.__list()));
+    check('late load: the project made this session keeps its own entry', !!n && !n.unverified && n.title === 'title:N', JSON.stringify(n));
 }
 
 // ============ 2. A save never writes over a list it couldn't read ==============

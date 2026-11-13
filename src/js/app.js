@@ -399,6 +399,11 @@ async function saveChatList() {
                 { type: 'warning', key: 'persist-failed', throttleMs: 15000 });
             return;
         }
+        // What this session holds for a project is complete; a stand-in the
+        // reload made for the same project (its file couldn't be read just
+        // now) knows less, and must not replace it.
+        const held = new Map(inMemory.filter(c => c && c.id && !c.unverified).map(c => [c.id, c]));
+        savedChats = savedChats.map(c => (c && c.unverified && held.has(c.id)) ? held.get(c.id) : c);
         const onDisk = new Set(savedChats.map(c => c && c.id));
         const missing = inMemory.filter(c => c && c.id && !onDisk.has(c.id) && !_deletedChatIds.has(c.id));
         if (missing.length) savedChats = [...missing, ...savedChats];
