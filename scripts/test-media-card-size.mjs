@@ -77,5 +77,39 @@ check('the caption bar is the action buttons\' height from the start', (bar.matc
 check('grid tiles keep their own size',
     /\.generated-media-grid \.generated-media,\s*\.generated-media-grid \.generated-media\.is-pending,\s*\.generated-media-grid \.generated-media\.is-loading \{ width: 100%; max-width: none; display: flex; \}/.test(css));
 
+// === An SVG with no size of its own still gets a full card ================
+// The card is as wide as its picture, and an SVG written with a viewBox and no
+// width or height (the four layout sketches ShowImage showed) has no width, so
+// each card was 22×63px with the drawing 20×14px inside it. Measured in
+// headless Chromium. Now an SVG card takes the placeholder's box, narrowed by
+// the drawing's shape once it loads. A 1600×1100 viewBox gives 422×338, the
+// same as with width and height set, and a 1:3 one 175×569.
+{
+    const { document, $ } = makeDom();
+    const win = {};
+    new Function('window', '$', 'document', 'puter', 'localStorage', 'setInterval', 'clearInterval', src)(
+        win, $, document, {}, { getItem: () => null }, () => 1, () => {},
+    );
+    const fill = (filename) => {
+        const $c = win.GeneratedMedia.pendingCard({ kind: 'image', prompt: 'assets/' + filename });
+        win.GeneratedMedia.fillCard($c, { kind: 'image', url: 'https://read.example/' + filename, path: '/p/assets/' + filename, filename, prompt: 'assets/' + filename });
+        return { fig: $c.find('.generated-media').els[0], img: $c.find('img').els[0] };
+    };
+    const svg = fill('1-landing.svg');
+    check('an SVG card is marked for the full card width', svg.fig.hasClass('is-svg'), svg.fig.className);
+    svg.img.naturalWidth = 218; svg.img.naturalHeight = 150;
+    svg.img.fire('load');
+    check('…and takes the drawing\'s shape once it loads', Math.abs(parseFloat(svg.fig.style['--gm-ar']) - 218 / 150) < 1e-9, JSON.stringify(svg.fig.style));
+    const unknown = fill('logo.SVG');
+    unknown.img.naturalWidth = 0; unknown.img.naturalHeight = 0;
+    unknown.img.fire('load');
+    check('…or keeps the full width when the browser reports no size', unknown.fig.hasClass('is-svg') && unknown.fig.style['--gm-ar'] === undefined, JSON.stringify(unknown.fig.style));
+    const png = fill('photo.png');
+    check('a PNG card still sizes to its picture', !png.fig.hasClass('is-svg'), png.fig.className);
+    const svgRule = css.match(pendRe('\\.generated-media\\.is-svg'));
+    check('an SVG card is the placeholder\'s box', !!svgRule && !!img && svgRule.slice(1).join() === img.slice(1).join(), svgRule && svgRule[0]);
+    check('…and its picture fills it', /\.generated-media\.is-svg \.generated-media-el \{ width: 100%; \}/.test(css));
+}
+
 if (failures) { console.error(`\n${failures} check(s) FAILED`); process.exit(1); }
 console.log('\nAll media card size checks passed.');

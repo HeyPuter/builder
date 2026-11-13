@@ -8983,6 +8983,11 @@ html[data-theme="dark"] .template-origin-sub { color: var(--text-muted); }
 .generated-media.is-pending,
 .generated-media.is-broken,
 .generated-media.is-loading { width: min(100% - 2px, 420px, 520px * var(--gm-ar, 1)); }
+/* An SVG may have no width of its own (a viewBox but no width or height), and
+   then the card shrank to about 20px. It takes the placeholder's box instead,
+   from the drawing's shape once it has loaded (media.js sizeSvgCard). */
+.generated-media.is-svg { width: min(100% - 2px, 420px, 520px * var(--gm-ar, 1)); }
+.generated-media.is-svg .generated-media-el { width: 100%; }
 /* A video keeps that box once it is playing too: until its metadata loads a
    <video> is 300×150, and iOS may not load it until it is played. */
 .generated-media.kind-video.is-pending,

@@ -140,6 +140,7 @@ window.GeneratedMedia = (function () {
             const $img = $('<img class="generated-media-el" decoding="async">').attr('src', url).attr('alt', alt);
             $a.append($img);
             $frame.append($a);
+            if (/\.svg$/i.test(path || filename || '')) sizeSvgCard($fig, $img[0]);
         }
         refreshOnError($fig, $frame.find('.generated-media-el')[0], url);
         const $bar = $fig.find('.generated-media-bar');
@@ -157,6 +158,24 @@ window.GeneratedMedia = (function () {
         const $box = chatBox();
         if (window.shouldAutoScroll !== false && $box[0] && $msg.closest('.chat-box').length) $box.scrollTop($box[0].scrollHeight);
         return $msg;
+    }
+
+    // The card is as wide as its picture, but an SVG drawn with a viewBox and
+    // no width or height (most that the model writes, ShowImage) has no width
+    // of its own, so its card shrank to about 20px with the picture a speck
+    // inside it. An SVG card takes the full card width instead (.is-svg,
+    // styles.css), narrowed for a tall drawing once its shape is known.
+    // Chromium reports a viewBox-only SVG's natural size at its viewBox's
+    // shape (1600×1100 reads as 218×150). A browser that reports nothing
+    // leaves the card at the full width.
+    function sizeSvgCard($fig, img) {
+        $fig.addClass('is-svg');
+        const fit = () => {
+            const w = img.naturalWidth, h = img.naturalHeight;
+            if (w > 0 && h > 0) $fig[0].style.setProperty('--gm-ar', String(w / h));
+        };
+        $(img).on('load', fit);
+        if (img.complete) fit();
     }
 
     // A reused read URL (displayURL) whose token no longer works: drop it and
