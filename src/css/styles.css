@@ -3685,6 +3685,7 @@ body.preview-active .preview-pane {
    disabled to block re-entry, so undo the :disabled dim — a spinner at 35%
    opacity reads as broken, not busy. */
 .preview-toolbar .preview-download.is-downloading { opacity: 1; }
+.preview-toolbar .preview-overflow.is-downloading > svg { display: none; }
 .download-spinner {
     width: 14px;
     height: 14px;
@@ -4038,6 +4039,8 @@ body.preview-active .preview-pane {
    The chrome is shared with publish/share above. These are its own pieces:
    headings, form controls, the collision card and the footer. */
 .preview-github-btn { position: relative; }
+/* On "…" the attention dot sits opposite the unsaved-code dot. */
+.preview-toolbar .preview-overflow .preview-github-dot { top: 3px; right: auto; left: 3px; }
 .preview-github-dot {
     position: absolute;
     top: 4px;
@@ -5619,7 +5622,12 @@ body.preview-active.chat-hidden .chat {
    display:flex }` (0,1,1) — a bare `.preview-overflow` would lose to it and the
    button would leak onto desktop. */
 .view-seg { display: none; }
-.preview-toolbar .preview-overflow { display: none; }
+.preview-toolbar .preview-overflow:not(.has-dev-tools) { display: none; }
+/* With no "…" its right-hand separator would double the one on its left. */
+.preview-toolbar .preview-overflow:not(.has-dev-tools) + .preview-toolbar-divider { display: none; }
+/* The developer tools (code, download, GitHub) open from the "…" menu
+   beside Publish at every width; their buttons stay in the DOM for it to drive. */
+.preview-toolbar .preview-dev-tools { display: none; }
 
 /* The segmented control itself. A pill-shaped track holding two equal segments;
    the active one (set by syncViewSeg from the body view-state) gets a raised
@@ -5927,6 +5935,10 @@ body.preview-active.chat-hidden .chat {
     .preview-toolbar-divider {
         display: none;
     }
+    /* …except the one between the "…" menu and Publish (always shown here). */
+    body.preview-active .preview-toolbar-right .preview-overflow + .preview-toolbar-divider {
+        display: block;
+    }
 
     /* Keep the preview toolbar's buttons from overflowing. */
     .preview-toolbar {
@@ -6063,7 +6075,7 @@ body.preview-active.chat-hidden .chat {
         }
     }
 
-    /* Phones can't fit the version-history / download buttons beside the centered
+    /* Phones can't fit the version-history buttons beside the centered
        switcher and Publish, so they collapse into the overflow ("…") menu. The
        buttons stay in the DOM (hidden) — the menu triggers their clicks — so all
        their existing logic is reused. */

@@ -481,7 +481,7 @@ window.monitor_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height=
 window.back_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>`;
 window.code_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>`;
 window.bubble_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
-window.more_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>`;
+window.more_svg = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>`;
 
 // Markup for the mobile chat⇄app switcher: a two-segment control showing both
 // destinations with the current view highlighted. Shown by CSS only on small
@@ -1340,16 +1340,22 @@ window.showAppPreview = function(url, opts) {
                             ${window.FEATURE_FLAGS.issues ? `<button class="preview-issues" title="Issues" aria-haspopup="dialog" aria-expanded="false">${window.issues_svg}<span class="issues-count-badge" aria-hidden="true" hidden></span></button>` : ''}
                             <button class="preview-versions" title="Version history" aria-haspopup="dialog" aria-expanded="false">${window.history_svg}</button>
                             ${window.FEATURE_FLAGS.shareDraftLink ? `<button class="preview-share" title="Share draft" aria-haspopup="dialog" aria-expanded="false">${window.link_svg}</button>` : ''}
-                            <!-- Developer tools: the code, the download, and source control. -->
-                            ${window.FEATURE_FLAGS.codeEditor ? `<span class="preview-toolbar-divider"></span><button type="button" class="pane-mode-btn pane-mode-code" data-mode="code" title="View code" aria-pressed="false">${window.code_svg}<span class="sr-only">View code</span><span class="pane-mode-dot" aria-label="Unsaved changes" hidden></span></button>` : ''}
-                            ${window.FEATURE_FLAGS.downloadProject ? `<button class="preview-download" title="Download project">${window.download_svg}</button>` : ''}
-                            ${window.GitHubSync ? `<button class="preview-github-btn" title="Source control" aria-label="Source control" aria-haspopup="dialog" aria-expanded="false">${window.source_control_svg || ''}<span class="preview-github-dot" aria-hidden="true" hidden></span></button>` : ''}
                         </div>
-                        <!-- Phones don't have room for the history/download buttons next to the
-                             centered switcher + Publish, so they collapse into this overflow
-                             menu (shown only on mobile via CSS); the buttons above stay in the
-                             DOM, hidden, so the menu can drive their existing handlers. -->
-                        <button class="preview-overflow" title="More" aria-haspopup="true" aria-expanded="false">${window.more_svg}<span class="pane-mode-dot" aria-hidden="true" hidden></span></button>
+                        <span class="preview-toolbar-divider"></span>
+                        <!-- Developer tools: the code, the download, and GitHub.
+                             They open from the "…" menu beside Publish, so these buttons
+                             are never shown (CSS); they stay in the DOM so the menu can
+                             drive their existing handlers. -->
+                        <div class="preview-dev-tools">
+                            ${window.FEATURE_FLAGS.codeEditor ? `<button type="button" class="pane-mode-btn pane-mode-code" data-mode="code" title="View code" aria-pressed="false">${window.code_svg}<span class="sr-only">View code</span><span class="pane-mode-dot" aria-label="Unsaved changes" hidden></span></button>` : ''}
+                            ${window.FEATURE_FLAGS.downloadProject ? `<button class="preview-download" title="Download project">${window.download_svg}</button>` : ''}
+                            ${window.GitHubSync ? `<button class="preview-github-btn" title="GitHub" aria-label="GitHub" aria-haspopup="dialog" aria-expanded="false">${window.source_control_svg || ''}<span class="preview-github-dot" aria-hidden="true" hidden></span></button>` : ''}
+                        </div>
+                        <!-- The "…" menu holds the developer tools above. Phones also don't
+                             have room for the history buttons next to the centered switcher
+                             + Publish, so on mobile they join the menu too (the group above
+                             is hidden via CSS and the menu drives its buttons). -->
+                        <button class="preview-overflow${window.FEATURE_FLAGS.codeEditor || window.FEATURE_FLAGS.downloadProject || window.GitHubSync ? ' has-dev-tools' : ''}" title="More" aria-haspopup="true" aria-expanded="false">${window.more_svg}<span class="pane-mode-dot" aria-hidden="true" hidden></span><span class="preview-github-dot" aria-hidden="true" hidden></span></button>
                         <span class="preview-toolbar-divider"></span>
                         <button class="preview-publish-btn" data-state="unpublished" title="Publish your site" aria-haspopup="dialog" aria-expanded="false">
                             <span class="preview-publish-label">Publish</span>
@@ -4547,6 +4553,10 @@ $(document).on('click', '.preview-download', async function() {
     const $btn = $(this);
     $btn.prop('disabled', true).addClass('is-downloading')
         .html('<span class="download-spinner"></span>');
+    // The button opens from the "…" menu and is never shown, so the spinner
+    // shows on "…" instead.
+    const $more = $('.preview-overflow').addClass('is-downloading');
+    $more.prepend('<span class="download-spinner"></span>');
     const minSpin = new Promise(resolve => setTimeout(resolve, 1000));
     try {
         const title = generateChatTitle(chatHistory).replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -4560,6 +4570,7 @@ $(document).on('click', '.preview-download', async function() {
     } finally {
         await minSpin;
         $btn.html(window.download_svg).removeClass('is-downloading').prop('disabled', false);
+        $more.removeClass('is-downloading').children('.download-spinner').remove();
     }
 });
 
@@ -4593,10 +4604,12 @@ $(document).on('click', '.view-seg-btn', function() {
     }
 });
 
-// Mobile only: overflow ("…") menu in the preview toolbar. History/download don't
-// fit alongside the centered switcher + Publish on a phone, so they live here.
-// The menu items drive the existing (CSS-hidden) toolbar buttons so all their
-// logic — panel toggle, download flow, disabled states — is reused as-is.
+// Overflow ("…") menu beside Publish in the preview toolbar. It always holds
+// the developer tools (code, download, GitHub); on a phone, where the
+// history buttons don't fit alongside the centered switcher + Publish, they
+// join it too. The menu items drive the existing (CSS-hidden) toolbar buttons
+// so all their logic — panel toggle, download flow, disabled states — is
+// reused as-is.
 let overflowMenuOpen = false;
 // Outside interaction: puter's capture-phase pointerdown removes the menu; sync
 // the flag + aria (which also drives the button's active look) the same way the
@@ -4620,7 +4633,9 @@ $(document).on('click', '.preview-overflow', function(e) {
 
     const rect = this.getBoundingClientRect();
     const items = [];
-    if (window.FEATURE_FLAGS.issues) {
+    // The history group is hidden on phones only; there its tools join the menu.
+    const historyInMenu = !$('.preview-history-group').is(':visible');
+    if (historyInMenu && window.FEATURE_FLAGS.issues) {
         // The toolbar button's count badge is hidden with it on mobile, so the
         // open-issue count rides the menu label instead.
         const openIssues = window.getOpenIssuesCount?.() || 0;
@@ -4630,20 +4645,22 @@ $(document).on('click', '.preview-overflow', function(e) {
             action: () => $('.preview-issues').trigger('click'),
         });
     }
-    items.push({
-        icon: svgDataUri(window.history_svg),
-        label: 'Version history',
-        action: () => $('.preview-versions').trigger('click'),
-    });
-    if (window.FEATURE_FLAGS.shareDraftLink) {
+    if (historyInMenu) {
+        items.push({
+            icon: svgDataUri(window.history_svg),
+            label: 'Version history',
+            action: () => $('.preview-versions').trigger('click'),
+        });
+    }
+    if (historyInMenu && window.FEATURE_FLAGS.shareDraftLink) {
         items.push({
             icon: svgDataUri(window.link_svg),
             label: 'Share draft',
             action: () => $('.preview-share').trigger('click'),
         });
     }
-    // The code view opens from here on phones; while it is open, the toolbar's
-    // Back to preview button is the way out, so the row goes.
+    // While the code view is open, the toolbar's Back to preview button is the
+    // way out, so the row goes.
     if (window.FEATURE_FLAGS.codeEditor && !$('.preview-pane').hasClass('code-mode')) {
         // The dot on "…" means unsaved code edits; the label says so in words.
         const unsaved = !$('.pane-mode-code .pane-mode-dot').prop('hidden');
@@ -4661,12 +4678,14 @@ $(document).on('click', '.preview-overflow', function(e) {
         });
     }
     if (window.GitHubSync && window.source_control_svg) {
+        const attention = !$('.preview-github-btn .preview-github-dot').prop('hidden');
         items.push({
             icon: svgDataUri(window.source_control_svg),
-            label: 'Source control',
+            label: attention ? 'GitHub (needs attention)' : 'GitHub',
             action: () => $('.preview-github-btn').trigger('click'),
         });
     }
+    if (!items.length) return;
     puter.ui.contextMenu({
         ...menuThemeOption(),
         // Right-anchored trigger: x is the menu's left edge but flips to
