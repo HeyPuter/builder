@@ -1948,7 +1948,9 @@
             S.heldErrors.set(chatId, {
                 report: err.report,
                 message: err.message || '',
-                file: err.source ? C.errorFile(err.source, window.currentPreviewUrl, servedRoot()) : null,
+                // The host the preview shows (puter.host or puter.site), which
+                // the error's script URL is on.
+                file: err.source ? C.errorFile(err.source, window.previewShownUrl?.(window.currentPreviewUrl) || window.currentPreviewUrl, servedRoot()) : null,
                 line: err.lineno || null,
                 col: err.colno || null,
             });

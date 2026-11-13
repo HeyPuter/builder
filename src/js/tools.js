@@ -232,7 +232,7 @@ window.hasToolResultFor = hasToolResultFor;
 // preview check says what that is: after a clean one comes the closing line,
 // after one that found errors comes a fix, and after one still failing on its
 // last try the model explains. "Working" in the wait after any other call
-// read as going backwards after "Applying changes". '' otherwise, and the
+// read as going backwards after "Checking your app". '' otherwise, and the
 // dots say "Working" if the wait lasts (setSpinnerLabel in helpers.js).
 function nextStepLabel(toolCalls, history) {
     const check = toolCalls.find(t => t && t.name === 'update_preview');

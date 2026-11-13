@@ -37,7 +37,9 @@ const BLOCK =
     slice('function bustedUrl(base) {', '\n\n// The canary file in the published directory');
 
 // A frame stub recording every src it is pointed at, plus its .data() store.
-function makeEnv() {
+// opts.onHost: the latest host check found puter.host answering, so a draft's
+// puter.site address is shown there (previewShownUrl in ui.js).
+function makeEnv(opts = {}) {
     const srcs = [];
     const data = {};
     const timers = [];
@@ -55,12 +57,13 @@ function makeEnv() {
         srcs, data,
         flush: () => { while (timers.length) timers.shift()(); },
     };
-    const fn = new Function('$', 'window', 'showPreviewUpdating', 'setTimeout',
+    const previewShownUrl = (u) => (opts.onHost ? u.replace('.puter.site', '.puter.host') : u);
+    const fn = new Function('$', 'window', 'showPreviewUpdating', 'setTimeout', 'previewShownUrl',
         BLOCK +
         '\nreturn { reloadPreviewFrame, bustedUrl, seq: () => _previewRefreshSeq,' +
         '  setActive: (v) => { _previewRefreshActiveSeq = v; },' +
         '  strip: typeof withoutPreviewBust === "function" ? withoutPreviewBust : null };'
-    )($, env.window, env.showPreviewUpdating, env.setTimeout);
+    )($, env.window, env.showPreviewUpdating, env.setTimeout, previewShownUrl);
     return { ...env, ...fn };
 }
 
@@ -99,6 +102,20 @@ function makeEnv() {
     check('tokens replace, never accumulate', (third.match(/__pv=/g) || []).length === 1, third);
     check('the base URL survives every reload', third.split('?')[0] === 'https://a.puter.site/');
     check('the stored url is the one actually loaded', env.data['preview-url'] === third);
+}
+
+// === A draft's address goes to the host the latest check chose =============
+// A version restore reloads with the puter.site address (currentPreviewUrl).
+// While puter.host answers, the frame must stay there.
+{
+    const env = makeEnv({ onHost: true });
+    env.reloadPreviewFrame('https://a.puter.site/');
+    env.flush();
+    const url = env.srcs[env.srcs.length - 1];
+    check('with puter.host answering, a draft\'s address loads on puter.host', url.startsWith('https://a.puter.host/?__pv='), url);
+    env.reloadPreviewFrame();
+    env.flush();
+    check('…and the toolbar Reload stays there', env.srcs[env.srcs.length - 1].startsWith('https://a.puter.host/?__pv='));
 }
 
 // === Existing query params and fragments survive ===========================

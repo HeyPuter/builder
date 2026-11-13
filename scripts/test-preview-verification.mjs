@@ -15,9 +15,9 @@ import fs from 'node:fs';
 //     errors discarded, no-preview, aborted).
 
 let failures = 0;
-function check(name, cond) {
+function check(name, cond, detail) {
     if (cond) console.log('ok   - ' + name);
-    else { console.error('FAIL - ' + name); failures++; }
+    else { console.error('FAIL - ' + name + (detail ? '\n       ' + detail : '')); failures++; }
 }
 
 const UI = fs.readFileSync(new URL('../src/js/ui.js', import.meta.url), 'utf8');
@@ -61,7 +61,7 @@ check('ui: verifyPreview returns no-preview when no pane is open',
     UI.includes("return { status: 'no-preview' };"));
 
 // -- update_preview.js: awaits verify, retry ceiling, conservative return ------
-check('tool: awaits window.verifyPreview', TOOL.includes('await window.verifyPreview(state)'));
+check('tool: awaits window.verifyPreview', TOOL.includes('await window.verifyPreview(state, {'));
 check('tool: falls back to the plain refresh when verify is unavailable',
     TOOL.includes("typeof window.verifyPreview !== 'function'") &&
     TOOL.includes('window.schedulePreviewRefresh?.();') &&
@@ -111,6 +111,7 @@ function makeInstance(opts) {
             setTimeout(() => {
                 win._notifyPreviewReloadCommit && win._notifyPreviewReloadCommit();
                 loadHandlers.slice().forEach((h) => h());
+                if (opts.abortOnLoad) opts.aborted = true;
                 for (const e of opts.errorsAfterLoad) {
                     listeners.forEach((fn) => fn({ data: { type: 'app-error', message: e }, source: {} }));
                 }
@@ -118,12 +119,16 @@ function makeInstance(opts) {
         },
     };
     const post = (msg) => listeners.forEach((fn) => fn({ data: { type: 'app-error', message: msg }, source: {} }));
+    // When verifyPreview said the new page had loaded (opts.onLoaded), and how
+    // many errors it had collected by then.
+    const loadedAt = [];
+    const verify = (state) => win.verifyPreview(state || {}, { onLoaded: () => loadedAt.push(Date.now()) });
     // isRuntimeAssetError is the REAL implementation sliced out of ui.js, so this
     // harness exercises the production runtime filter, not a stand-in.
     // eslint-disable-next-line no-new-func
     new Function('window', '$', 'isTrustedPreviewMessage', 'isRuntimeAssetError',
         sliceSrc + '\nreturn null;')(win, $, () => true, isRuntimeAssetError);
-    return { win, post };
+    return { win, post, loadedAt, verify };
 }
 
 async function run() {
@@ -153,17 +158,18 @@ async function run() {
     preCommit.post('This fired before the reload committed');
 
     const [rClean, rErrs, rDedup, rNoPane, rAborted, rPreCommit, rBadge, rLegacy, rBadgeMixed, rSuperseded] = await Promise.all([
-        clean.win.verifyPreview({}),
-        errs.win.verifyPreview({}),
+        clean.verify(),
+        errs.verify(),
         dedup.win.verifyPreview({}),
-        noPane.win.verifyPreview({}),
-        aborted.win.verifyPreview({}),
+        noPane.verify(),
+        aborted.verify(),
         preCommitPromise,
         badge.win.verifyPreview({}),
         legacy.win.verifyPreview({}),
         badgeMixed.win.verifyPreview({}),
-        superseded.win.verifyPreview({}),
+        superseded.verify(),
     ]);
+    const cleanDone = Date.now();
     const supersededMs = Date.now() - supersededStart;
 
     check('verify: clean load with no errors → ok', rClean.status === 'ok');
@@ -182,6 +188,52 @@ async function run() {
     check('verify: runtime failure filtered, real error still reported',
         rBadgeMixed.status === 'errors' && rBadgeMixed.errors.length === 1 &&
         rBadgeMixed.errors[0].includes('Boom happened'));
+
+    // update_preview's status switches to "Checking your app" at this point.
+    check('verify: says once that the new page has loaded', clean.loadedAt.length === 1 && errs.loadedAt.length === 1);
+    check('verify: …before the 3 s watch, not at the end of it',
+        clean.loadedAt[0] !== undefined && cleanDone - clean.loadedAt[0] >= 2500);
+    check('verify: …and never when nothing loaded (no preview, stopped turn, superseded refresh)',
+        noPane.loadedAt.length === 0 && aborted.loadedAt.length === 0 && superseded.loadedAt.length === 0);
+    {
+        // Stopped in the same moment the page loaded: the dots may be another
+        // turn's by now, so the status is left alone.
+        const stopped = makeInstance({ abortOnLoad: true });
+        const throwing = makeInstance({ errorsAfterLoad: [] });
+        const [rStopped, rThrow] = await Promise.all([
+            stopped.verify(),
+            throwing.win.verifyPreview({}, { onLoaded: () => { throw new Error('no dots'); } }),
+        ]);
+        check('verify: a turn stopped as the page loaded leaves the status alone',
+            rStopped.status === 'skipped' && stopped.loadedAt.length === 0);
+        check('verify: a status change that throws never fails the check', rThrow.status === 'ok');
+    }
+}
+
+// === 3. The real tool switches its status after the load ======================
+
+{
+    const labels = [];
+    const win = {
+        setSpinnerLabel: (t) => labels.push(t),
+        isAborted: () => false,
+        isStaleTurn: () => false,
+        tools: [],
+        verifyPreview: async (state, opts) => {
+            labels.push('(loaded)');
+            opts && opts.onLoaded && opts.onLoaded();
+            labels.push('(checked)');
+            return { status: 'ok' };
+        },
+    };
+    win.window = win;
+    // eslint-disable-next-line no-new-func
+    new Function('window', TOOL)(win);
+    const t = win.tools.find((x) => x.function && x.function.name === 'update_preview');
+    const r = t && await t.exec({}, {});
+    check('tool: the status says "Checking your app" once the new page has loaded, during the check',
+        labels.join(' | ') === '(loaded) | Checking your app | (checked)', labels.join(' | '));
+    check('tool: a clean check still returns plain success', r && r.success === true && !r.verification);
 }
 
 await run();

@@ -12,6 +12,10 @@ import fs from 'node:fs';
 // without a canary gets one first. With no old value at all it waits for the
 // limit instead.
 //
+// The preview is shown on puter.host when that host answers, and this canary
+// runs only when it doesn't (see test-preview-host.mjs). So puter.host is
+// blocked here, as some networks and filters do.
+//
 // Runs the real functions sliced out of ui.js against stubs, a fake edge and a
 // fake clock.
 
@@ -45,6 +49,7 @@ function makeEnv(opts = {}) {
     let now = START;
     const timers = [];
     const reloads = [];
+    const reloadUrls = [];
     const calls = { hostingUpdate: 0, canaryWrites: 0 };
     const clearDelay = 'clearDelay' in opts ? opts.clearDelay : 4000;
     const disk = {};
@@ -55,7 +60,7 @@ function makeEnv(opts = {}) {
     const frame = {
         length: 1,
         data: (k, v) => (v === undefined ? frameData[k] : (frameData[k] = v)),
-        attr: (k, v) => { if (k === 'src' && v !== 'about:blank') reloads.push(now); return frame; },
+        attr: (k, v) => { if (k === 'src' && v !== 'about:blank') { reloads.push(now); reloadUrls.push(v); } return frame; },
         one: () => frame,
     };
     const body = { length: 1, find: () => ({ length: 0, remove() {} }), append() {}, hasClass: () => true };
@@ -83,6 +88,7 @@ function makeEnv(opts = {}) {
     };
     const fetch = async (url) => {
         if (opts.down) throw new Error('offline');
+        if (new URL(url).hostname.endsWith('.puter.host')) { calls.hostChecks = (calls.hostChecks || 0) + 1; throw new TypeError('Failed to fetch'); }
         const n = new URL(url).pathname.slice(1);
         if (!n) return { ok: true, headers: { get: (h) => (/cache-control/i.test(h) ? 'no-store' : null) }, text: async () => '' };
         if (!(n in copy)) {
@@ -99,7 +105,7 @@ function makeEnv(opts = {}) {
         ' limit: typeof PREVIEW_CANARY_LIMIT_MS === "number" ? PREVIEW_CANARY_LIMIT_MS : null };'
     )($, win, puter, fetch, { now: () => now }, later, undefined, quiet, 'c1', DIR, [], () => '', opts.processing !== false, opts.pending !== false);
     return {
-        ...api, calls, reloads, disk, copy,
+        ...api, calls, reloads, reloadUrls, disk, copy,
         startEarly: () => win.startEarlyPreviewClear(),
         dropEarly: () => win.dropEarlyPreviewClear(),
         sleep: (ms) => new Promise((r) => later(r, ms)),
@@ -128,6 +134,9 @@ check('there is an upper limit, under the old 22 s', typeof L === 'number' && L 
     const env = makeEnv({ clearDelay: 4000 });
     const finished = await env.run(env.refreshPreviewWhenReady());
     check('the refresh finishes', finished);
+    check('it asked puter.host first, and stayed on puter.site when it got no answer',
+        env.calls.hostChecks === 1 && env.reloadUrls[0] && env.reloadUrls[0].startsWith('https://preview-x.puter.site/?__pv='),
+        JSON.stringify({ checks: env.calls.hostChecks, url: env.reloadUrls[0] }));
     check('it writes the canary and asks for the clear once each', env.calls.canaryWrites === 1 && env.calls.hostingUpdate === 1,
         JSON.stringify(env.calls));
     check('it reloads once, when the clear lands, not after a 10 s floor',
