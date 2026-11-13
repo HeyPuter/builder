@@ -93,7 +93,9 @@ function isNotFoundError(error) {
 async function loadSavedChats() {
     let raw;
     try {
-        raw = await puter.fs.read('chat-history/chat-list.json').then(data => data.text());
+        // Retried (readTextWithRetry) so one dropped request doesn't send a
+        // healthy index down the rebuild path below.
+        raw = await readTextWithRetry('chat-history/chat-list.json');
     } catch (error) {
         if (isNotFoundError(error)) {
             // No index. Usually a brand-new account — but the per-chat files
@@ -119,6 +121,9 @@ async function loadSavedChats() {
         savedChats = parsed;
         noteChatListSynced(savedChats);
         chatListLoaded = true;
+        // Entries an earlier rebuild had to list without reading their file
+        // (see unverifiedChatListEntry) are completed now, in the background.
+        if (savedChats.some(c => c && c.unverified)) verifyChatListEntries().catch(() => {});
     } catch (parseError) {
         // The index exists but is corrupt (e.g. a truncated/interleaved write).
         // Rebuild it from the individual chat files rather than treating the
@@ -143,34 +148,41 @@ async function recoverChatListFromFiles() {
         return;
     }
 
+    // A file that can't be read right now is still a project. This loop used
+    // to skip it, and the list written below — valid from then on, so never
+    // rebuilt again — no longer had it: one failed request during a rebuild
+    // took a project out of the sidebar for good, its files untouched. Each
+    // read is retried, and a file that still can't be read (or parsed: a cut
+    // short response looks the same) is listed under its file's name, to be
+    // completed from the file the next time it can be read.
     const rebuilt = [];
+    const listed = new Set();
+    let failedReads = 0;
     for (const entry of entries) {
         const name = entry?.name || entry;
         if (typeof name !== 'string' || !name.endsWith('.json') || name === 'chat-list.json') continue;
+        if (entry && entry.is_dir) continue;
+        const fileId = name.slice(0, -'.json'.length);
+        let chat;
         try {
-            const text = await puter.fs.read(`chat-history/${name}`).then(d => d.text());
-            const chat = JSON.parse(text);
-            if (!chat || !chat.id) continue;
-            rebuilt.push({
-                id: chat.id,
-                title: chat.title || generateChatTitle(chat.history || []),
-                customTitle: !!chat.customTitle,
-                aiTitled: !!chat.aiTitled,
-                timestamp: chat.timestamp || chat.lastModified || null,
-                lastModified: chat.lastModified || chat.timestamp || null,
-                previewUrl: chat.previewUrl || null,
-                // The sidebar renders its "open app" link from the list entry's
-                // publishedUrl (updateChatHistorySidebar) — carry it over or a
-                // rebuilt index shows every published project as unpublished
-                // until each one happens to be re-saved.
-                publishedUrl: chat.publishedUrl || null,
-                publishedDomainUrl: window.CustomDomain?.domainUrl(chat.publishedDomains, chat.publishedUrl) || null,
-                publishedDomainHost: window.CustomDomain?.hostOf(chat.publishedDomains) || null,
-                pinned: !!chat.pinned
-            });
+            chat = JSON.parse(await readTextWithRetry(`chat-history/${name}`, { retry: failedReads < READ_RETRY_GIVE_UP_AFTER }));
         } catch (e) {
-            console.warn(`Skipping unreadable chat file ${name}:`, e);
+            // Gone since the directory was listed (deleted in another tab).
+            if (isNotFoundError(e)) continue;
+            // A file that was read and doesn't parse says nothing about the
+            // connection; only failed reads count toward giving up on retries.
+            if (!(e instanceof SyntaxError)) failedReads++;
+            console.warn(`Could not read chat file ${name}; keeping it listed:`, e);
+            if (fileId && !listed.has(fileId) && !_deletedChatIds.has(fileId)) {
+                listed.add(fileId);
+                rebuilt.push(unverifiedChatListEntry(fileId, entry));
+            }
+            continue;
         }
+        // Valid JSON that isn't a saved chat (no id): not a project.
+        if (!chat || !chat.id || listed.has(chat.id)) continue;
+        listed.add(chat.id);
+        rebuilt.push(chatListEntryFromFile(chat));
     }
 
     // Newest first, matching the unshift ordering used on save.
@@ -180,6 +192,110 @@ async function recoverChatListFromFiles() {
     console.log(`Recovered ${rebuilt.length} chat(s) from individual files.`);
     // Persist the repaired index so future loads are fast and the recovered
     // files stay reachable. Safe now that chatListLoaded is true.
+    await saveChatList();
+}
+
+// The sidebar entry for a saved chat, from its file. The rebuild above, the
+// completion of an unverified entry and Settings' "restore missing projects"
+// all derive it here, so they can't drift apart.
+function chatListEntryFromFile(chat) {
+    return {
+        id: chat.id,
+        title: chat.title || generateChatTitle(chat.history || []),
+        customTitle: !!chat.customTitle,
+        aiTitled: !!chat.aiTitled,
+        timestamp: chat.timestamp || chat.lastModified || null,
+        lastModified: chat.lastModified || chat.timestamp || null,
+        previewUrl: chat.previewUrl || null,
+        // The sidebar renders its "open app" link from the list entry's
+        // publishedUrl (updateChatHistorySidebar) — carry it over or a
+        // rebuilt index shows every published project as unpublished
+        // until each one happens to be re-saved.
+        publishedUrl: chat.publishedUrl || null,
+        publishedDomainUrl: window.CustomDomain?.domainUrl(chat.publishedDomains, chat.publishedUrl) || null,
+        publishedDomainHost: window.CustomDomain?.hostOf(chat.publishedDomains) || null,
+        pinned: !!chat.pinned
+    };
+}
+
+// The entry for a chat file a rebuild could not read. All that is known is
+// that the file exists, so the project stays in the sidebar under a stand-in
+// title; `unverified` marks the rest as unknown rather than empty. It is
+// completed from the file by verifyChatListEntry: in the background at the
+// next load, when the project is opened, and before it is deleted.
+const UNVERIFIED_PROJECT_TITLE = 'Untitled project';
+function unverifiedChatListEntry(chatId, dirEntry) {
+    // Puter lists a file's times in seconds.
+    const at = Number(dirEntry && (dirEntry.modified || dirEntry.created)) || 0;
+    const when = at > 0 ? new Date(at < 1e12 ? at * 1000 : at).toISOString() : null;
+    return {
+        id: chatId,
+        title: UNVERIFIED_PROJECT_TITLE,
+        customTitle: false,
+        aiTitled: false,
+        timestamp: when,
+        lastModified: when,
+        previewUrl: null,
+        publishedUrl: null,
+        publishedDomainUrl: null,
+        publishedDomainHost: null,
+        pinned: false,
+        unverified: true
+    };
+}
+
+// Complete an unverified entry from its chat file, once that has been read.
+// Looked up at the time of the swap, never from an index taken before an
+// await. A rename or pin the user made on the stand-in entry is kept.
+// Returns whether the list changed.
+function adoptChatFileIntoEntry(chatId, chat) {
+    const index = savedChats.findIndex(c => c && c.id === chatId);
+    const live = index >= 0 ? savedChats[index] : null;
+    if (!live || !live.unverified || !chat || chat.id !== chatId) return false;
+    const entry = chatListEntryFromFile(chat);
+    if (live.customTitle) { entry.title = live.title; entry.customTitle = true; }
+    if (live.pinned) entry.pinned = true;
+    savedChats[index] = entry;
+    return true;
+}
+
+// Read an unverified entry's file and complete the entry from it. Resolves to
+// 'verified' (it is complete now, or already was), 'unreadable' (the file
+// could not be read, so nothing is known yet), 'corrupt' (the file was read
+// and is not a saved chat) or 'missing' (there is no file). Never writes the
+// chat file, and changes the entry only on 'verified'.
+async function verifyChatListEntry(chatId) {
+    const entry = savedChats.find(c => c && c.id === chatId);
+    if (!entry || !entry.unverified) return 'verified';
+    let text;
+    try {
+        text = await readTextWithRetry(chatFilePath(chatId));
+    } catch (e) {
+        return isNotFoundError(e) ? 'missing' : 'unreadable';
+    }
+    let chat;
+    try { chat = JSON.parse(text); } catch (e) { return 'corrupt'; }
+    if (!chat || chat.id !== chatId) return 'corrupt';
+    adoptChatFileIntoEntry(chatId, chat);
+    return 'verified';
+}
+
+// Complete every unverified entry whose file can be read now, then save the
+// list once. Runs in the background after a load; one at a time, so it never
+// competes with the project being opened.
+async function verifyChatListEntries() {
+    let changed = false;
+    for (const id of savedChats.filter(c => c && c.unverified).map(c => c.id)) {
+        if (_deletedChatIds.has(id)) continue;
+        const before = savedChats.find(c => c && c.id === id);
+        const state = await verifyChatListEntry(id);
+        if (state === 'verified' && savedChats.find(c => c && c.id === id) !== before) changed = true;
+        // Still can't be read, retries included: the rest wait for the next
+        // load rather than each spending the same second finding that out.
+        if (state === 'unreadable') break;
+    }
+    if (!changed) return;
+    updateChatHistorySidebar();
     await saveChatList();
 }
 
@@ -194,6 +310,29 @@ async function recoverChatListFromFiles() {
 const CHAT_LIST_PATH = 'chat-history/chat-list.json';
 function withChatListLock(fn) {
     return typeof window.withFileLock === 'function' ? window.withFileLock(CHAT_LIST_PATH, fn) : fn();
+}
+
+// Read a file as text, trying again after a failure that says nothing about
+// the file (a dropped request, throttling, a 5xx). "Not found" is an answer,
+// not a failure, and is thrown at once. Throws the last error otherwise.
+// `retry: false` reads once, for a caller working through many files that has
+// already seen the retries not help (READ_RETRY_GIVE_UP_AFTER).
+const READ_RETRY_DELAYS_MS = [250, 750];
+// Retrying is for the odd dropped request. When reads are failing across the
+// board (offline, throttled) each retried file costs a second and two more
+// requests, so a pass over hundreds of chat files took minutes, with boot
+// waiting on it, and tripled the load on a service already refusing it. After
+// this many files have failed despite their retries, the rest are read once.
+const READ_RETRY_GIVE_UP_AFTER = 2;
+async function readTextWithRetry(path, { retry = true } = {}) {
+    for (let attempt = 0; ; attempt++) {
+        try {
+            return await puter.fs.read(path).then(d => d.text());
+        } catch (error) {
+            if (!retry || isNotFoundError(error) || attempt >= READ_RETRY_DELAYS_MS.length) throw error;
+            await new Promise(resolve => setTimeout(resolve, READ_RETRY_DELAYS_MS[attempt]));
+        }
+    }
 }
 
 // A save already waiting its turn will serialize the same in-memory array this
@@ -215,8 +354,11 @@ let _chatListSavePending = null;
 //   * an entry on disk this tab never knew was created elsewhere (it goes
 //     first, where a new project lands), unless this tab deleted it.
 let _chatListSynced = new Map(); // chatId -> JSON of the entry as last read/written
+function chatListSyncedMap(list) {
+    return new Map((list || []).filter(c => c && c.id).map(c => [c.id, JSON.stringify(c)]));
+}
 function noteChatListSynced(list) {
-    _chatListSynced = new Map((list || []).filter(c => c && c.id).map(c => [c.id, JSON.stringify(c)]));
+    _chatListSynced = chatListSyncedMap(list);
 }
 function mergeChatLists(mine, disk, synced, deleted) {
     const onDisk = new Map((disk || []).filter(c => c && c.id).map(c => [c.id, c]));
@@ -227,7 +369,9 @@ function mergeChatLists(mine, disk, synced, deleted) {
         if (!c || !c.id || seen.has(c.id)) continue;
         seen.add(c.id);
         const theirs = onDisk.get(c.id);
-        if (theirs) merged.push(untouched(c) ? theirs : c);
+        // A stand-in for a file this tab couldn't read (unverifiedChatListEntry)
+        // never replaces the complete entry already on disk.
+        if (theirs) merged.push(untouched(c) || (c.unverified && !theirs.unverified) ? theirs : c);
         else if (!untouched(c)) merged.push(c);
     }
     const added = [];
@@ -258,6 +402,11 @@ async function saveChatList() {
                 { type: 'warning', key: 'persist-failed', throttleMs: 15000 });
             return;
         }
+        // What this session holds for a project is complete; a stand-in the
+        // reload made for the same project (its file couldn't be read just
+        // now) knows less, and must not replace it.
+        const held = new Map(inMemory.filter(c => c && c.id && !c.unverified).map(c => [c.id, c]));
+        savedChats = savedChats.map(c => (c && c.unverified && held.has(c.id)) ? held.get(c.id) : c);
         const onDisk = new Set(savedChats.map(c => c && c.id));
         const missing = inMemory.filter(c => c && c.id && !onDisk.has(c.id) && !_deletedChatIds.has(c.id));
         if (missing.length) savedChats = [...missing, ...savedChats];
@@ -269,12 +418,32 @@ async function saveChatList() {
         _chatListSavePending = null;
         try {
             // Fold in what other tabs wrote since this tab last synced (see
-            // mergeChatLists). An unreadable or missing file merges nothing.
-            let disk = null;
+            // mergeChatLists). A missing file has nothing to merge, and a
+            // corrupt one is replaced by this tab's list, as before. A read
+            // that FAILED is neither: the index may be intact and hold
+            // projects this tab doesn't have (one made in another tab, or one
+            // a rebuild from the chat files left out), and writing this tab's
+            // list then replaced it with a list without them. So that write is
+            // not made. The list in memory stays as it is and the next save
+            // tries again.
+            let raw = null;
             try {
-                const parsed = JSON.parse(await puter.fs.read(CHAT_LIST_PATH).then(d => d.text()));
-                if (Array.isArray(parsed)) disk = parsed;
-            } catch (e) { /* write this tab's list as before */ }
+                raw = await readTextWithRetry(CHAT_LIST_PATH);
+            } catch (e) {
+                if (!isNotFoundError(e)) {
+                    console.warn('Skipping chat-list.json write: the list on disk could not be read, so it is left as it is.', e);
+                    window.showToast?.("Couldn't save your changes — they may be lost if you reload. Check your connection.",
+                        { type: 'warning', key: 'persist-failed', throttleMs: 15000 });
+                    return;
+                }
+            }
+            let disk = null;
+            if (raw !== null) {
+                try {
+                    const parsed = JSON.parse(raw);
+                    if (Array.isArray(parsed)) disk = parsed;
+                } catch (e) { /* corrupt: this tab's list replaces it */ }
+            }
             if (disk) {
                 const merged = mergeChatLists(savedChats, disk, _chatListSynced, _deletedChatIds);
                 const changed = JSON.stringify(merged) !== JSON.stringify(savedChats);
@@ -285,8 +454,19 @@ async function saveChatList() {
             // list as it stands now rather than as it stood when the call was
             // made — a save that waited behind a slow one still lands the newest
             // state, and never an older one on top of it.
-            await puter.fs.write(CHAT_LIST_PATH, JSON.stringify(savedChats));
-            noteChatListSynced(savedChats);
+            //
+            // What is remembered as synced is the list as it was written (taken
+            // here, in the same tick as the text), not the list as it stands
+            // once the write returns. A project created
+            // (or renamed, or pinned) while the write was in flight is in
+            // memory by then and not on disk; recording it as synced made the
+            // next save read it as "untouched here and gone from disk", which
+            // is how a project deleted in another tab looks. That save dropped
+            // the new project from the list, and the sidebar, for good.
+            const written = JSON.stringify(savedChats);
+            const synced = chatListSyncedMap(savedChats);
+            await puter.fs.write(CHAT_LIST_PATH, written);
+            _chatListSynced = synced;
         } catch (error) {
             console.error('Error saving chat list:', error);
             // Don't fail silently: the user believes their history is saved. One
@@ -299,6 +479,116 @@ async function saveChatList() {
     _chatListSavePending = pending;
     return pending;
 }
+
+// ---- Restore missing projects (Settings → Projects) --------------------------
+// A project is a chat file plus its app directory; the sidebar lists only what
+// chat-list.json names. A project whose entry was lost from that list (an
+// interrupted or overlapping save in an older version, a rebuild that could
+// not read its file) is intact on disk and invisible: the list is valid, so
+// nothing rebuilds it, and ?p= refuses an id that isn't listed.
+//
+// These two put such entries back, and do nothing else. They never write,
+// move or delete a chat file, an app directory or anything a project owns, and
+// never take an entry out of the list. The one file written is chat-list.json,
+// through saveChatList like every other change to it, after a copy of it as
+// it stood has been saved and read back.
+const CHAT_LIST_BACKUP_DIR = 'chat-history/list-backups';
+
+// Read-only. The chat files that no list entry names, as the entries they
+// would get (newest first), plus the names of files that could not be read or
+// are not a saved chat. Those are reported and left alone.
+async function findMissingProjects() {
+    if (!chatListLoaded) throw new Error('The project list has not loaded yet.');
+    const known = new Set(savedChats.filter(c => c && c.id).map(c => c.id));
+    // A project another tab just created is on disk and not yet in this tab's
+    // list. It isn't missing.
+    let raw = null;
+    try { raw = await readTextWithRetry(CHAT_LIST_PATH); }
+    catch (e) { if (!isNotFoundError(e)) throw e; }
+    if (raw !== null) {
+        try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) for (const c of parsed) if (c && c.id) known.add(c.id);
+        } catch (e) { /* a corrupt list names nothing */ }
+    }
+    const entries = await puter.fs.readdir('chat-history');
+    const missing = [];
+    const unreadable = [];
+    let failedReads = 0;
+    for (const entry of entries) {
+        const name = entry?.name || entry;
+        if (typeof name !== 'string' || !name.endsWith('.json') || name === 'chat-list.json') continue;
+        if (entry && entry.is_dir) continue;
+        const fileId = name.slice(0, -'.json'.length);
+        if (!fileId || known.has(fileId) || _deletedChatIds.has(fileId)) continue;
+        let chat;
+        try {
+            chat = JSON.parse(await readTextWithRetry(`chat-history/${name}`, { retry: failedReads < READ_RETRY_GIVE_UP_AFTER }));
+        } catch (e) {
+            if (isNotFoundError(e)) continue; // deleted since the listing
+            if (!(e instanceof SyntaxError)) failedReads++;
+            unreadable.push(name);
+            continue;
+        }
+        // Only a file that opens as a project is offered: its id is its file
+        // name (what loadChat reads) and it holds a conversation.
+        if (!chat || typeof chat !== 'object' || chat.id !== fileId || !Array.isArray(chat.history)) {
+            unreadable.push(name);
+            continue;
+        }
+        known.add(fileId);
+        missing.push(chatListEntryFromFile(chat));
+    }
+    missing.sort((a, b) => String(b.lastModified || '').localeCompare(String(a.lastModified || '')));
+    return { missing, unreadable };
+}
+
+// Put the given missing projects back in the list. Looks again first, so it
+// only ever adds what is missing now. Throws, having changed nothing, if the
+// list can't be read or its copy can't be saved. Resolves to the entries
+// added, where the copy of the old list is, and whether the new list was read
+// back from disk with every one of them in it.
+async function restoreMissingProjects(chatIds) {
+    const wanted = new Set(chatIds || []);
+    const found = await findMissingProjects();
+    const toRestore = found.missing.filter(c => wanted.has(c.id));
+    if (!toRestore.length) return { restored: [], saved: true, backupPath: null };
+
+    // Keep the list exactly as it is now, and confirm the copy, before the
+    // list is written. A list that doesn't exist has nothing to keep.
+    let raw = null;
+    try { raw = await readTextWithRetry(CHAT_LIST_PATH); }
+    catch (e) { if (!isNotFoundError(e)) throw e; }
+    let backupPath = null;
+    if (raw !== null) {
+        try { await puter.fs.mkdir(CHAT_LIST_BACKUP_DIR, { recursive: true }); } catch (e) { /* it exists; the write below settles it */ }
+        backupPath = `${CHAT_LIST_BACKUP_DIR}/chat-list-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+        await puter.fs.write(backupPath, raw, { createMissingParents: true });
+        if (await readTextWithRetry(backupPath) !== raw) throw new Error('The copy of the project list could not be confirmed.');
+    }
+
+    // No await between the check and the insert: nothing can add or delete an
+    // entry in between.
+    const have = new Set(savedChats.filter(c => c && c.id).map(c => c.id));
+    const added = toRestore.filter(c => !have.has(c.id) && !_deletedChatIds.has(c.id));
+    if (added.length) {
+        savedChats = [...added, ...savedChats];
+        updateChatHistorySidebar();
+    }
+    await saveChatList();
+
+    // saveChatList reports a failed write with a toast, not a throw; read the
+    // list back to know. Unsaved entries stay in memory for the next save.
+    let saved = false;
+    try {
+        const onDisk = JSON.parse(await readTextWithRetry(CHAT_LIST_PATH));
+        const ids = new Set((Array.isArray(onDisk) ? onDisk : []).map(c => c && c.id));
+        saved = toRestore.every(c => ids.has(c.id));
+    } catch (e) { /* saved stays false */ }
+    return { restored: toRestore, saved, backupPath };
+}
+window.findMissingProjects = findMissingProjects;
+window.restoreMissingProjects = restoreMissingProjects;
 
 // Every writer of a chat's file goes through its per-path lock (the same
 // window.withFileLock the app-dir writers use). saveCurrentChat rewrites the
@@ -1054,6 +1344,13 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
 
         const chat = preloaded
             || JSON.parse(await puter.fs.read(`chat-history/${chatId}.json`).then(data => data.text()));
+        // An entry a rebuild listed without reading this file is completed
+        // from it now, before this project can be saved: a save takes the
+        // entry's title and pin as the project's own.
+        if (adoptChatFileIntoEntry(chatId, chat)) {
+            updateChatHistorySidebar();
+            saveChatList().catch(() => {});
+        }
         // Rapid sidebar clicks (or New chat) start a newer load while this one
         // is still reading; only the LATEST may install its state. Before this
         // check the slower load finishing last won: the user clicked B, ended up
@@ -1471,6 +1768,23 @@ async function deleteChat(chatId) {
         const err = new Error('Delete refused: the project is ' + busy);
         err.busy = true;
         throw err;
+    }
+    // An entry a rebuild listed without reading its file (unverified) doesn't
+    // hold the project's site addresses, and the sweep below deletes its sites
+    // by them: deleting from it would leave a public site live with nothing
+    // pointing at it. Complete the entry from the file first, and refuse while
+    // the file can't be read. A file that is gone or isn't a saved chat has no
+    // addresses to give, so that delete goes ahead.
+    if (savedChats.find(c => c.id === chatId)?.unverified) {
+        const state = await verifyChatListEntry(chatId);
+        if (state === 'verified') updateChatHistorySidebar();
+        if (state === 'unreadable') {
+            window.showToast?.("This project couldn't be loaded just now, so it wasn't deleted. Check your connection and try again.",
+                { type: 'warning', key: 'delete-unverified', throttleMs: 3000 });
+            const err = new Error('Delete refused: the project file could not be read');
+            err.busy = true;
+            throw err;
+        }
     }
     try {
         const chat = savedChats.find(c => c.id === chatId);
@@ -2756,7 +3070,35 @@ async function initAuthenticatedState() {
         // landing page.
             window.hideProjectLoading?.();
         }
+        openSettingsFromLink();
         window._authInitDone = true;
+}
+
+// A link that opens Settings on one of its tabs: /?settings=projects is the
+// one support sends to someone whose project is missing from the sidebar. It
+// only opens the dialog; nothing there runs until the user asks. The param is
+// taken out of the address bar so a reload or a copied link doesn't reopen it.
+function openSettingsFromLink() {
+    let tab;
+    try {
+        const url = new URL(window.location.href);
+        tab = url.searchParams.get('settings');
+        if (tab === null) return;
+        url.searchParams.delete('settings');
+        history.replaceState(history.state, '', url.pathname + url.search + url.hash);
+    } catch (e) { return; }
+    if (!['mcp', 'appearance', 'notifications', 'projects'].includes(tab)) return;
+    // Settings is built on the MCP manager, a module that can finish loading
+    // after this runs. Never opened in this same tick: the rest of boot
+    // focuses the composer, which would take focus out of the dialog.
+    // If it never loads, open anyway: Settings then says it isn't ready, as
+    // its button does, rather than the link doing nothing at all.
+    let tries = 0;
+    const open = () => {
+        if ((window.mcpManager || ++tries >= 60) && typeof window.openSettings === 'function') { window.openSettings(tab); return; }
+        if (tries < 60) setTimeout(open, 250);
+    };
+    setTimeout(open, 300);
 }
 
 // Reveal the cloaked UI only once the fonts it paints with and the tagline logo
@@ -2806,9 +3148,9 @@ document.addEventListener('input', () => { _typedSinceLoad = true; }, true);
 
 $(document).ready(async function(){
     // A link that starts something (a template, a marketing page's prompt or
-    // send), read before those are taken out of the address bar. The What's
+    // send, Settings), read before those are taken out of the address bar. The What's
     // new dialog stays out of its way.
-    const startedFromLink = /[?&](?:template|prompt|handoff)=/.test(window.location.search);
+    const startedFromLink = /[?&](?:template|prompt|handoff|settings)=/.test(window.location.search);
 
     // set the marked options
     marked.use(window.MARKED_OPTIONS);

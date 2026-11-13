@@ -6976,14 +6976,21 @@ html[data-theme="dark"] .wn-composer-row > .wn-composer-send { background: #eef2
 .mcp-heading h2 { font-size: 19px; margin: 0; }
 .mcp-modal h4 { font-size: 14px; margin: 0 0 8px; overflow-wrap: anywhere; }
 /* Settings tabs: an underlined strip under the title. Selectors go through
-   .mcp-modal so they outrank its generic button look. */
-.settings-tabs { display: flex; gap: 4px; margin: 14px 0 4px; border-bottom: 1px solid #e3e5e8; }
+   .mcp-modal so they outrank its generic button look.
+   Four tabs are wider than a phone, so the strip scrolls sideways (no
+   scrollbar; the tab cut off at the edge says there is more) instead of
+   pushing the last tab, and the whole dialog, off to the right. The strip's
+   line is an inset shadow, not a border: a scroll container clips its
+   children at the border, which would shave the selected tab's underline. */
+.settings-tabs { display: flex; gap: 4px; margin: 14px 0 4px; box-shadow: inset 0 -1px 0 #e3e5e8; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.settings-tabs::-webkit-scrollbar { display: none; }
 .mcp-modal .settings-tab {
+    flex: none;
+    white-space: nowrap;
     border: none;
     border-bottom: 2px solid transparent;
     border-radius: 0;
     background: none;
-    margin-bottom: -1px;
     padding: 8px 10px;
     font-size: 13px;
     font-weight: 500;
@@ -6997,6 +7004,23 @@ html[data-theme="dark"] .wn-composer-row > .wn-composer-send { background: #eef2
    shift the tab strip; a longer server list scrolls inside, as on a short
    screen. */
 .settings-modal { height: min(560px, 100%); }
+/* Projects: the list of saved projects the sidebar is missing. */
+.mcp-modal .settings-restore-title { margin-top: 16px; }
+.settings-restore-result { margin-top: 12px; }
+/* No height cap: a long list scrolls with the dialog, like the server list.
+   A second scroller inside it cut the last row and the note under the button
+   off, and a list with nothing focusable in it can't be scrolled by keyboard
+   in every browser. */
+.settings-restore-list { list-style: none; margin: 14px 0 8px; padding: 0; border: 1px solid #e3e5e8; border-radius: 7px; }
+.settings-restore-list li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 10px; font-size: 13px; border-top: 1px solid #e3e5e8; }
+.settings-restore-list li:first-child { border-top: none; }
+.settings-restore-name { overflow-wrap: anywhere; min-width: 0; }
+.settings-restore-date { color: #62676e; white-space: nowrap; }
+.mcp-modal .settings-restore-scan[aria-disabled="true"], .mcp-modal .settings-restore-go[aria-disabled="true"] { opacity: 0.6; cursor: default; }
+.mcp-modal .mcp-note.settings-restore-error { color: #b42318; }
+html[data-theme="dark"] .mcp-modal .mcp-note.settings-restore-error { color: var(--danger); }
+html[data-theme="dark"] .settings-restore-list, html[data-theme="dark"] .settings-restore-list li { border-color: var(--border); }
+html[data-theme="dark"] .settings-restore-date { color: var(--text-secondary); }
 /* Appearance: the account panel's Light / Dark / Device control, roomier. */
 .settings-theme { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
 .settings-theme .user-theme-seg { max-width: 360px; }
@@ -7102,7 +7126,7 @@ html[data-theme="dark"] .mcp-modal { color: var(--text); }
 html[data-theme="dark"] .mcp-modal input { background: var(--surface); border-color: var(--border); }
 html[data-theme="dark"] .mcp-modal button:not(.mcp-primary, .mcp-close, .settings-tab, .user-theme-opt, .settings-switch) { background: var(--surface-hover); border-color: var(--border); }
 html[data-theme="dark"] .mcp-modal button:not(.mcp-primary, .mcp-close, .settings-tab, .user-theme-opt, .settings-switch):hover { background: var(--surface-active); }
-html[data-theme="dark"] .settings-tabs { border-color: var(--border); }
+html[data-theme="dark"] .settings-tabs { box-shadow: inset 0 -1px 0 var(--border); }
 html[data-theme="dark"] .settings-switch-track { background: var(--border-strong); }
 html[data-theme="dark"] .settings-switch[aria-checked="true"] .settings-switch-track { background: var(--accent); }
 html[data-theme="dark"] .mcp-modal .settings-tab { color: var(--text-secondary); }

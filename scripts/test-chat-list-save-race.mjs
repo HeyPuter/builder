@@ -39,6 +39,17 @@ const CODE = [
 
 const LIST_PATH = 'chat-history/chat-list.json';
 
+// saveChatList reads the list on disk before each write (to merge what other
+// tabs wrote), and only writes when that read answered: the file's text, or
+// "not found". The fake disk answers the same two ways.
+const NOT_FOUND = 'subject_does_not_exist';
+const isNotFoundError = (e) => !!e && e.code === NOT_FOUND;
+const readFrom = (disk) => async (path) => {
+    if (!disk.has(path)) throw Object.assign(new Error('not found ' + path), { code: NOT_FOUND });
+    const data = disk.get(path);
+    return { text: async () => data };
+};
+
 function makeSandbox() {
     const disk = new Map();
     const writes = [];
@@ -51,8 +62,10 @@ function makeSandbox() {
         loadSavedChats: async () => {},
         console: { warn() {}, error() {} },
         window: { showToast() {} },
+        isNotFoundError, setTimeout,
         puter: {
             fs: {
+                read: readFrom(disk),
                 write: async (path, data) => {
                     const n = writes.length;
                     writes.push(data);
@@ -127,8 +140,10 @@ const tick = async (n = 5) => { for (let i = 0; i < n; i++) await new Promise(se
         loadSavedChats: async () => {},
         console: { warn() {}, error() {} },
         window: { showToast() {} },
+        isNotFoundError, setTimeout,
         puter: {
             fs: {
+                read: readFrom(disk),
                 write: async (path, data) => {
                     if (++calls === 1) throw new Error('network down');
                     disk.set(path, data);
