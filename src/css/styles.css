@@ -7007,7 +7007,11 @@ html[data-theme="dark"] .wn-composer-row > .wn-composer-send { background: #eef2
 /* Projects: the list of saved projects the sidebar is missing. */
 .mcp-modal .settings-restore-title { margin-top: 16px; }
 .settings-restore-result { margin-top: 12px; }
-.settings-restore-list { list-style: none; margin: 8px 0 14px; padding: 0; max-height: 220px; overflow-y: auto; border: 1px solid #e3e5e8; border-radius: 7px; }
+/* No height cap: a long list scrolls with the dialog, like the server list.
+   A second scroller inside it cut the last row and the note under the button
+   off, and a list with nothing focusable in it can't be scrolled by keyboard
+   in every browser. */
+.settings-restore-list { list-style: none; margin: 14px 0 8px; padding: 0; border: 1px solid #e3e5e8; border-radius: 7px; }
 .settings-restore-list li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 10px; font-size: 13px; border-top: 1px solid #e3e5e8; }
 .settings-restore-list li:first-child { border-top: none; }
 .settings-restore-name { overflow-wrap: anywhere; min-width: 0; }

@@ -256,7 +256,12 @@
                     sayUnreadable(found.unreadable);
                     return;
                 }
-                say(`Found ${plural(found.missing.length, 'project')} that ${found.missing.length === 1 ? 'isn’t' : 'aren’t'} in your sidebar:`);
+                // The action comes before the list: a long list scrolls with the
+                // dialog, and the button must not end up below the fold.
+                say(`Found ${plural(found.missing.length, 'project')} that ${found.missing.length === 1 ? 'isn’t' : 'aren’t'} in your sidebar. Restoring puts ${found.missing.length === 1 ? 'it' : 'them'} back. No project files are changed.`);
+                const ids = found.missing.map(c => c.id);
+                const $go = $('<button type="button" class="mcp-primary settings-restore-go"></button>')
+                    .text(`Restore ${plural(ids.length, 'project')}`).appendTo($restore);
                 const $list = $('<ul class="settings-restore-list"></ul>').appendTo($restore);
                 for (const chat of found.missing) {
                     const $item = $('<li></li>').appendTo($list);
@@ -265,10 +270,6 @@
                     if (when && !isNaN(when)) $('<span class="settings-restore-date"></span>').text(when.toLocaleDateString()).appendTo($item);
                 }
                 sayUnreadable(found.unreadable);
-                const ids = found.missing.map(c => c.id);
-                const $go = $('<button type="button" class="mcp-primary settings-restore-go"></button>')
-                    .text(`Restore ${plural(ids.length, 'project')}`).appendTo($restore);
-                say('Restoring puts them back in your sidebar. No project files are changed.');
                 $go.on('click', async function () {
                     if (restoreBusy) return;
                     restoreBusy = true;
