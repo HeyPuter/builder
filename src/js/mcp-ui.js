@@ -1,7 +1,9 @@
 // The Settings modal, opened by the toolbar's gear (beside <puter-user-menu>)
-// and by the account panel's MCP connections row. Three tabs, MCP
-// connections, Appearance (the Light / Dark / Device theme control) and
-// Notifications (the build notifications switch, from js/build-notify.js).
+// and by the account panel's MCP connections row. Four tabs, MCP
+// connections, Appearance (the Light / Dark / Device theme control),
+// Notifications (the build notifications switch, from js/build-notify.js) and
+// Projects (restore projects missing from the sidebar; /?settings=projects
+// opens it, see openSettingsFromLink in app.js).
 // The SDK is an ordinary Vite module; this UI follows the app's classic-script
 // and jQuery conventions. Server names, URLs, and tool names are always text.
 (function () {
@@ -9,7 +11,7 @@
     // The gear reopens the tab last shown; the MCP row asks for its own.
     let lastTab = 'mcp';
     window.openSettings = function (tab) {
-        if (tab === 'mcp' || tab === 'appearance' || tab === 'notifications') lastTab = tab;
+        if (tab === 'mcp' || tab === 'appearance' || tab === 'notifications' || tab === 'projects') lastTab = tab;
         closePanel?.();
         window.closeUserPanel?.();
         document.querySelector('.user-menu-btn')?.focus();
@@ -23,6 +25,7 @@
                         <button type="button" class="settings-tab" role="tab" id="settings-tab-mcp" aria-controls="settings-panel-mcp" data-tab="mcp">MCP connections</button>
                         <button type="button" class="settings-tab" role="tab" id="settings-tab-appearance" aria-controls="settings-panel-appearance" data-tab="appearance">Appearance</button>
                         <button type="button" class="settings-tab" role="tab" id="settings-tab-notifications" aria-controls="settings-panel-notifications" data-tab="notifications">Notifications</button>
+                        <button type="button" class="settings-tab" role="tab" id="settings-tab-projects" aria-controls="settings-panel-projects" data-tab="projects">Projects</button>
                     </div>
                     <div class="settings-panel" role="tabpanel" id="settings-panel-mcp" aria-labelledby="settings-tab-mcp" data-tab="mcp">
                     <p class="mcp-intro">Connect tools your AI can use across your projects. Only connect servers you trust to receive tool inputs and perform actions.</p>
@@ -47,6 +50,12 @@
                     </div>
                     <div class="settings-panel" role="tabpanel" id="settings-panel-notifications" aria-labelledby="settings-tab-notifications" data-tab="notifications">
                         ${window.BuildNotify?.settingsHtml?.() || ''}
+                    </div>
+                    <div class="settings-panel" role="tabpanel" id="settings-panel-projects" aria-labelledby="settings-tab-projects" data-tab="projects">
+                        <h4 class="settings-restore-title">Restore missing projects</h4>
+                        <p class="mcp-note">If a project is missing from your sidebar, Builder can look through your saved projects for any that aren’t listed. Looking changes nothing.</p>
+                        <button type="button" class="settings-restore-scan">Look for missing projects</button>
+                        <div class="settings-restore-result" role="status"></div>
                     </div>
                 </section>
             </div>`);
@@ -197,6 +206,73 @@
                 form.reset();
                 void manager.connect(id, token);
             } catch (error) { $error.text(error.message); }
+        });
+        // Projects: look for saved projects the sidebar doesn't list, then put
+        // back the ones found (findMissingProjects / restoreMissingProjects in
+        // app.js). Looking is read-only; restoring only adds list entries.
+        // Titles come from the user's files and are always set as text.
+        const $restore = $overlay.find('.settings-restore-result');
+        const $scan = $overlay.find('.settings-restore-scan');
+        const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+        const say = (text, cls) => $('<p class="mcp-note"></p>').addClass(cls || '').text(text).appendTo($restore);
+        const sayUnreadable = (names) => {
+            if (names.length) say(`${plural(names.length, 'saved file')} couldn’t be read and ${names.length === 1 ? 'was' : 'were'} left as ${names.length === 1 ? 'it is' : 'they are'}.`);
+        };
+        let restoreBusy = false;
+        $scan.on('click', async function () {
+            if (restoreBusy) return;
+            restoreBusy = true;
+            $scan.prop('disabled', true).text('Looking…');
+            $restore.empty();
+            try {
+                const found = await window.findMissingProjects();
+                if (!found.missing.length) {
+                    say('Every saved project is already in your sidebar.');
+                    sayUnreadable(found.unreadable);
+                    return;
+                }
+                say(`Found ${plural(found.missing.length, 'project')} that ${found.missing.length === 1 ? 'isn’t' : 'aren’t'} in your sidebar:`);
+                const $list = $('<ul class="settings-restore-list"></ul>').appendTo($restore);
+                for (const chat of found.missing) {
+                    const $item = $('<li></li>').appendTo($list);
+                    $('<span class="settings-restore-name"></span>').text(chat.title || 'Untitled project').appendTo($item);
+                    const when = chat.lastModified ? new Date(chat.lastModified) : null;
+                    if (when && !isNaN(when)) $('<span class="settings-restore-date"></span>').text(when.toLocaleDateString()).appendTo($item);
+                }
+                sayUnreadable(found.unreadable);
+                const ids = found.missing.map(c => c.id);
+                const $go = $('<button type="button" class="mcp-primary settings-restore-go"></button>')
+                    .text(`Restore ${plural(ids.length, 'project')}`).appendTo($restore);
+                say('Restoring puts them back in your sidebar. No project files are changed.');
+                $go.on('click', async function () {
+                    if (restoreBusy) return;
+                    restoreBusy = true;
+                    $go.prop('disabled', true).text('Restoring…');
+                    $scan.prop('disabled', true);
+                    try {
+                        const done = await window.restoreMissingProjects(ids);
+                        $restore.empty();
+                        if (!done.restored.length) say('Those projects are already in your sidebar.');
+                        else if (done.saved) say(`Restored ${plural(done.restored.length, 'project')}. ${done.restored.length === 1 ? 'It’s' : 'They’re'} at the top of your sidebar.`);
+                        else say(`${done.restored.length === 1 ? 'The project is' : 'The projects are'} back in your sidebar, but that couldn’t be saved yet. Keep this tab open: Builder saves it with your next change.`, 'settings-restore-error');
+                        if (done.restored.length) window.track?.('Missing Projects Restored', { count: done.restored.length, saved: !!done.saved });
+                    } catch (error) {
+                        console.error('Restore missing projects failed:', error);
+                        $restore.empty();
+                        say('Couldn’t restore just now, and nothing was changed. Check your connection and try again.', 'settings-restore-error');
+                    } finally {
+                        restoreBusy = false;
+                        $scan.prop('disabled', false);
+                    }
+                });
+            } catch (error) {
+                console.error('Looking for missing projects failed:', error);
+                $restore.empty();
+                say('Couldn’t look just now. Check your connection and try again.', 'settings-restore-error');
+            } finally {
+                restoreBusy = false;
+                $scan.prop('disabled', false).text('Look for missing projects');
+            }
         });
         window.addEventListener('mcp-connections-changed', render);
         render();

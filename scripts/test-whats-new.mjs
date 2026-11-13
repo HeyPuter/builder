@@ -315,7 +315,7 @@ for (const junk of [1730000000000, true, { at: 1 }, '']) {
 {
     const app = read('../src/js/app.js');
     const ready = app.slice(app.indexOf('$(document).ready(async function(){'));
-    const linkAt = ready.indexOf('const startedFromLink = /[?&](?:template|prompt|handoff)=/.test(window.location.search);');
+    const linkAt = ready.indexOf('const startedFromLink = /[?&](?:template|prompt|handoff|settings)=/.test(window.location.search);');
     check('startup notes a template/prompt/handoff link before those are taken out of the URL',
         linkAt >= 0 && linkAt < ready.indexOf('captureTemplateDeepLink') && linkAt < ready.indexOf('applyPromptDeepLink()'));
     const callAt = ready.indexOf('window.WhatsNew?.maybeShow(');
