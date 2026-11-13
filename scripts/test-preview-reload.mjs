@@ -101,6 +101,25 @@ function makeEnv() {
     check('the stored url is the one actually loaded', env.data['preview-url'] === third);
 }
 
+// === A draft on puter.host stays there =====================================
+// The open and the refresh choose the host and pass that address. The toolbar
+// Reload and the badge sync pass none, so they reload whatever the frame is on.
+{
+    const env = makeEnv();
+    env.reloadPreviewFrame('https://a.puter.host/');
+    env.flush();
+    const url = env.srcs[env.srcs.length - 1];
+    check('a puter.host address loads as given', url.startsWith('https://a.puter.host/?__pv='), url);
+    env.reloadPreviewFrame();
+    env.flush();
+    check('…and the toolbar Reload stays there', env.srcs[env.srcs.length - 1].startsWith('https://a.puter.host/?__pv='));
+}
+{
+    const versions = fs.readFileSync(new URL('../src/js/versions.js', import.meta.url), 'utf8');
+    check('the version-restore fallback reloads on the host the frame is on',
+        versions.includes('reloadPreviewFrame(window.previewShownUrl?.(window.currentPreviewUrl)'));
+}
+
 // === Existing query params and fragments survive ===========================
 {
     const env = makeEnv();

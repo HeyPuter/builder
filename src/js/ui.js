@@ -825,6 +825,70 @@ function previewHostSkipsBrowserCache(baseUrl) {
 }
 window.previewHostSkipsBrowserCache = previewHostSkipsBrowserCache;
 
+// ---- Which host shows the draft -------------------------------------------
+// Puter serves every site twice, at <sub>.puter.site and at <sub>.puter.host,
+// the same files with no edge cache in front. On puter.host a refresh only
+// prepares the files and reloads, with no canary and no wait for a clear. But
+// puter.host isn't on the Public Suffix List yet, and some networks, filters
+// and ad blockers block it. So each time the preview opens or refreshes, the
+// builder first asks puter.host for the draft's page (a HEAD, so no body). If
+// it answers, the frame shows puter.host. If not, the frame shows puter.site
+// and the refresh clears its cache as described above.
+//
+// The frame and the Share draft link move. window.currentPreviewUrl, the saved
+// project and what the AI sees keep the puter.site address the hosting API
+// gives, and previewShownUrl turns it into the one to show.
+const PUTER_HOST_CHECK_MS = 3000;
+
+// The draft at `url` (a puter.site address) on puter.host, or null for any
+// other address.
+function toPuterHost(url) {
+    if (typeof url !== 'string') return null;
+    const m = url.match(/^https?:\/\/([a-z0-9-]+)\.puter\.site(?=[/?#]|$)(.*)$/i);
+    return m ? 'https://' + m[1] + '.puter.host' + m[2] : null;
+}
+
+// Whether the frame shows the draft at `url` on puter.host. Read from the
+// address the frame last loaded, never from a check's answer, so it always
+// matches what's on screen. A late answer to an older check (another project's,
+// or one that timed out) changes nothing until something loads.
+function frameOnPuterHost(url) {
+    const host = _originOf(toPuterHost(url));
+    return !!host && _originOf($('.preview-frame').data('preview-url')) === host;
+}
+
+// The address of the draft at `url` as the frame shows it: on puter.host while
+// the frame is there, else `url` itself. The Share draft link, the hidden tests
+// and the Code view's error mapping use it.
+function previewShownUrl(url) {
+    return frameOnPuterHost(url) ? toPuterHost(url) : url;
+}
+window.previewShownUrl = previewShownUrl;
+
+// Whether puter.host answers for the draft at `url`. Only a 2xx counts. A
+// block page usually fails the request outright, since it can't show a
+// certificate for puter.host or the CORS header the builder needs to read it,
+// but a proxy that has both (a company network with its own certificate) could
+// send a 403, and that must not count. A draft with no page at its root (a
+// 404) gets puter.site, which only costs the slower refresh. A failed request
+// or no answer within PUTER_HOST_CHECK_MS means no too. The timer is separate
+// from the request's own timeout, so a request that never ends can't hold the
+// preview on a browser without AbortSignal.timeout. Only answers. The caller
+// decides what to load, once it has made sure it's still current.
+async function checkPuterHost(url) {
+    const hostUrl = toPuterHost(url);
+    let ok = false;
+    if (hostUrl && typeof fetch === 'function') {
+        let timer;
+        const timeout = new Promise((r) => { timer = setTimeout(() => r(false), PUTER_HOST_CHECK_MS); });
+        const request = fetch(hostUrl, { method: 'HEAD', cache: 'no-store', signal: _probeAbortSignal(PUTER_HOST_CHECK_MS) })
+            .then((resp) => resp.ok, () => false);
+        ok = await Promise.race([request, timeout]);
+        clearTimeout(timer);
+    }
+    return ok;
+}
+
 function showPreviewUpdating(show) {
     const $body = $('.preview-body');
     if (!$body.length) return;
@@ -984,15 +1048,35 @@ async function runPreviewRefresh($frame, baseUrl, ownerChatId, seq, early) {
     showPreviewUpdating(true);
 
     const live = () => seq === _previewRefreshSeq;
-    let cleared;
+    const dir = publishedRootDir();
+    // puter.host or puter.site (see "Which host shows the draft"). The check
+    // runs alongside the manifest pass, or alongside the early clear.
+    const hostCheck = checkPuterHost(baseUrl);
+    let onHost;
     if (early) {
-        // The early clear is this refresh's now, and bows out with it.
-        early.live = live;
-        cleared = await early.cleared;
+        // The early clear is this refresh's now, and bows out with it. Handed
+        // over before the check, since this refresh has already moved the
+        // counter the early clear was watching, and the early clear would stop
+        // at its next step and leave nothing to reload. It keeps its own
+        // dropped flag, so finding puter.host can still stop it.
+        early.live = () => !early.dropped && live();
+        onHost = await hostCheck;
+        if (!live()) return; // superseded while checking
+        if (onHost) {
+            // puter.host serves the files as they are now, so the clear isn't
+            // needed. This happens only when puter.host has started answering
+            // since the early clear began.
+            early.dropped = true;
+            if (await preparePreviewFiles(toPuterHost(baseUrl), dir, live) === null) return;
+        } else if (await early.cleared === null) {
+            return; // superseded
+        }
     } else {
-        cleared = await clearPreviewCache(baseUrl, publishedRootDir(), live);
+        const shown = hostCheck.then((ok) => (ok ? toPuterHost(baseUrl) : baseUrl));
+        if (await preparePreviewFiles(shown, dir, live) === null) return; // superseded
+        onHost = await hostCheck;
+        if (!onHost && await waitForPreviewClear(baseUrl, dir, live) === null) return; // superseded
     }
-    if (cleared === null) return; // superseded
 
     // Bail if a newer reload/refresh/chat-switch happened, or the live preview
     // URL changed under us — never reload the iframe to a now-stale target.
@@ -1002,7 +1086,7 @@ async function runPreviewRefresh($frame, baseUrl, ownerChatId, seq, early) {
     }
 
     // Reload the iframe with a unique query so the browser re-fetches the page.
-    const url = bustedUrl(baseUrl);
+    const url = bustedUrl(onHost ? toPuterHost(baseUrl) : baseUrl);
     $frame.data('preview-url', url);
     // Hide only if we're still the latest op, so a stale timer can't uncover a
     // newer refresh's overlay.
@@ -1027,21 +1111,31 @@ async function runPreviewRefresh($frame, baseUrl, ownerChatId, seq, early) {
     window.refreshChatThumb?.(ownerChatId);
 }
 
-// Get the live site serving the project's current files, up to the reload.
+// Get puter.site serving the project's current files, up to the reload.
 // Resolves true once the canary shows the site-wide clear, false at the limit,
 // and null as soon as `live()` turns false, checked after every await.
 async function clearPreviewCache(baseUrl, dir, live) {
+    if (await preparePreviewFiles(baseUrl, dir, live) === null) return null;
+    return waitForPreviewClear(baseUrl, dir, live);
+}
+
+// Prepare the project's files for the reload: the install block, then the
+// cache-bust tokens. `shownUrl` is the address the frame will load (or a
+// promise of it, so the manifest pass can start before the host check ends),
+// since whether tokens are needed depends on that host's cache policy.
+// Resolves true, or null as soon as `live()` turns false.
+async function preparePreviewFiles(shownUrl, dir, live) {
     // Stamp cache-bust tokens onto the served HTML's local assets so the browser
     // re-fetches changed CSS/JS/images, not just the page. SKIPPED when the live
     // host already returns a no-store/no-cache policy: the browser then never
     // serves stale sub-resources, so stamping is redundant — and skipping it
     // removes the only background writer that races AI edits (see withFileLock).
     // Best-effort; never blocks the reload. Must run before the canary
-    // below, so the clear it proves covers the stamped pages too.
+    // (waitForPreviewClear), so the clear it proves covers the stamped pages too.
     // Make the app installable: generate/refresh its manifest.json, icons and
     // the <head> block that links them (see js/manifest.js). Runs BEFORE the
     // cache-bust pass, so the tags it writes get their tokens in the same sweep,
-    // and before the canary below, so the clear it proves covers the new files.
+    // and before the canary, so the clear it proves covers the new files.
     // Skips its own IO when nothing about the app's identity changed.
     // Best-effort; never blocks the reload.
     try {
@@ -1051,15 +1145,21 @@ async function clearPreviewCache(baseUrl, dir, live) {
     } catch (e) { /* best effort */ }
     if (!live()) return null; // superseded while generating
 
-    const skipStamp = await previewHostSkipsBrowserCache(baseUrl);
+    const skipStamp = await previewHostSkipsBrowserCache(await shownUrl);
     if (!live()) return null; // superseded while probing cache policy
     if (!skipStamp) {
         try { await window.applyPreviewCacheBust?.(dir); } catch (e) { /* best effort */ }
         if (!live()) return null; // superseded while stamping
     }
+    return true;
+}
 
+// The canary wait on puter.site (see the top of this section), once the files
+// are prepared. Resolves like clearPreviewCache.
+async function waitForPreviewClear(baseUrl, dir, live) {
     // The canary (see the top of this section). Every step comes after the
-    // project's writes above, so the clear it proves covers all of them.
+    // project's writes and preparePreviewFiles, so the clear it proves covers
+    // all of them.
     // 1. Read it, so this page's copy holds the old value. A project without
     //    one yet gets one first and reads that. With no old value at all (a
     //    failed fetch or write) a later change proves nothing.
@@ -1138,6 +1238,10 @@ window.startEarlyPreviewClear = function () {
     if (!previewRefreshPending) return;
     const baseUrl = window.currentPreviewUrl;
     if (!baseUrl || !$('.preview-frame').length || !$('body').hasClass('preview-active')) return;
+    // The frame is on puter.host, which needs no clear. If puter.host has
+    // stopped answering by the time the refresh checks again, the refresh
+    // clears puter.site itself.
+    if (frameOnPuterHost(baseUrl)) return;
     const run = { baseUrl, dir: publishedRootDir(), chatId: currentChatId, seq: _previewRefreshSeq, dropped: false };
     // Superseded like a refresh, or dropped. The refresh that takes it over
     // swaps in its own test.
@@ -1288,12 +1392,32 @@ window.showAppPreview = function(url, opts) {
         refreshPreviewWhenReady();
     } else {
         // Just (re)display an already-live site (e.g. restoring a saved chat).
-        reloadPreviewFrame(url);
+        loadPreviewOnAnsweringHost(url);
     }
     // The reload paths above already reflect the latest files; no end-of-turn
     // refresh needed.
     previewRefreshPending = false;
 };
+
+// Load the draft at `url` (its puter.site address) in the frame, on puter.host
+// when it answers (see "Which host shows the draft"). The frame leaves the
+// previous project before the check, and its stored address becomes this
+// project's, so a reload that lands during the check (the toolbar's Reload,
+// the badge sync refreshPublishButton runs) loads this project, not the one
+// before. Only a newer open, or the preview closing or moving to another
+// project, cancels the load. A refresh that starts during the check is left
+// running (keepPendingUpdate), so the page shows now, as it did before the
+// check existed, and the refresh reloads it once its files are ready.
+let _previewOpenSeq = 0;
+async function loadPreviewOnAnsweringHost(url) {
+    const open = ++_previewOpenSeq;
+    const $frame = $('.preview-frame');
+    $frame.data('preview-url', url);
+    $frame.attr('src', 'about:blank');
+    const onHost = await checkPuterHost(url);
+    if (open !== _previewOpenSeq || window.currentPreviewUrl !== url || !$('body').hasClass('preview-active')) return;
+    reloadPreviewFrame(onHost ? toPuterHost(url) : url, { keepPendingUpdate: true });
+}
 
 /** Hide the preview pane and restore the centered chat layout. */
 window.hideAppPreview = function() {
@@ -4282,7 +4406,9 @@ let _sharePanelOpen = false;
 function renderSharePanel() {
     const $panel = $('.preview-share-panel');
     if (!$panel.length) return;
-    const url = window.currentPreviewUrl || '';
+    // The host the preview is on, puter.host when it answers, else puter.site
+    // (see "Which host shows the draft").
+    const url = previewShownUrl(window.currentPreviewUrl || '');
     const host = htmlEscape(url.replace(/^https?:\/\//, '').replace(/\/+$/, ''));
     const safeUrl = htmlEscape(url);
     const copySvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
@@ -4358,8 +4484,11 @@ $(document).on('click', '.preview-share', function (e) {
 // (same flash pattern as the publish popover's copy button).
 $(document).on('click', '.preview-share-panel .share-copy', async function (e) {
     e.preventDefault();
-    const url = window.currentPreviewUrl;
-    if (!url) return;
+    if (!window.currentPreviewUrl) return;
+    // The address the panel shows (renderSharePanel), even if a refresh has
+    // moved the preview to the other host since it opened.
+    const url = $(this).closest('.publish-url-row').find('.publish-url-display').attr('href')
+        || previewShownUrl(window.currentPreviewUrl);
     const $btn = $(this);
     if ($btn.hasClass('copied')) return; // already flashing — ignore rapid re-clicks
     const originalHTML = $btn.html();
@@ -4585,9 +4714,11 @@ function isTrustedPreviewMessage(event) {
     // a data: URL — whose messages are not the app's. The previous fallback
     // accepted those, so such a page could start billed auto-fix turns and
     // (before the armed-only gate) raise the editing chip with its own text.
+    // Either of the draft's hosts: the frame shows puter.host when it answers
+    // and puter.site when it doesn't (see "Which host shows the draft").
     const expected = _originOf(window.currentPreviewUrl);
     if (!expected) return false;
-    return event.origin === expected;
+    return event.origin === expected || event.origin === _originOf(toPuterHost(window.currentPreviewUrl));
 }
 
 // Wrap untrusted text in a fenced block whose fence is longer than any backtick
@@ -4632,10 +4763,16 @@ function inlineUntrusted(text, max = 2000) {
 //
 // The app's own error reporting is inline and unaffected by an outage here,
 // which is exactly why it must never move into that file.
+//
+// static.cloudflareinsights.com is the other host. Cloudflare adds its Web
+// Analytics script to every page served on puter.host, where the draft preview
+// is shown when that host answers, and ad blockers often block it. The app never wrote that tag and can't
+// remove it, so its "Failed to load script" is noise too.
 function isRuntimeAssetError(message, source) {
-    const needle = 'builder.puter.com';
-    return (typeof source === 'string' && source.indexOf(needle) !== -1) ||
-           (typeof message === 'string' && message.indexOf(needle) !== -1);
+    const hosts = ['builder.puter.com', 'static.cloudflareinsights.com'];
+    return hosts.some((host) =>
+        (typeof source === 'string' && source.indexOf(host) !== -1) ||
+        (typeof message === 'string' && message.indexOf(host) !== -1));
 }
 
 // --- Automatic error-fix budget ----------------------------------------------
@@ -4910,7 +5047,9 @@ window.resetPreviewErrorDedup = function () {
     // refresh the tool used to fire directly), wait for the fresh document to
     // load, watch it briefly, and report any runtime errors it emits. Returns a
     // status object; only { status: 'errors' } should be surfaced to the model.
-    window.verifyPreview = async function (state) {
+    // opts.onLoaded runs once the new page has loaded, before the watch and the
+    // hidden tests, so update_preview's status can say the wait is now a check.
+    window.verifyPreview = async function (state, opts) {
         const $frame = $('.preview-frame');
         if (!$frame.length || !window.currentPreviewUrl || !$('body').hasClass('preview-active')) {
             return { status: 'no-preview' };
@@ -4962,6 +5101,12 @@ window.resetPreviewErrorDedup = function () {
                 await Promise.race([loadPromise, new Promise(function (r) { setTimeout(r, 500); })]);
             }
             if (!loaded) return { status: 'skipped', reason: 'load-timeout' };
+            // The new page is showing and the preview's overlay is gone. Not
+            // for a stopped or switched-away turn, whose dots may now be
+            // another turn's.
+            if (opts && typeof opts.onLoaded === 'function' && !aborted()) {
+                try { opts.onLoaded(); } catch (e) { /* only the status words */ }
+            }
 
             // Start the hidden tests now, in their own frame, so they run while
             // the watch below does. Runtime errors win: if the app is already
@@ -4971,7 +5116,11 @@ window.resetPreviewErrorDedup = function () {
             // TESTS_READ_MS of the load counts as no tests (a read that never
             // settles must not hold update_preview, and the turn, forever).
             let testsDropped = false;
-            const baseUrl = window.currentPreviewUrl;
+            // The host the preview just loaded from. On puter.host the refresh
+            // waits for no clear, so puter.site may still serve older files.
+            const baseUrl = window.previewShownUrl
+                ? window.previewShownUrl(window.currentPreviewUrl)
+                : window.currentPreviewUrl;
             const testsRun = testsCode
                 ? Promise.race([testsCode, new Promise(function (r) { setTimeout(function () { r(null); }, TESTS_READ_MS); })])
                     .then(function (code) {

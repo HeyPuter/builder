@@ -3,6 +3,12 @@
 // problem for another.
 const UPDATE_PREVIEW_MAX_ATTEMPTS = 3;
 
+// The status beside the dots once the new page has loaded. Until then the call
+// says "Applying changes", the preview overlay's words (see TOOL_PROGRESS in
+// handleMessageStream.js). After the load the overlay is gone, and what's left
+// is the watch for errors and the hidden tests, which the status never names.
+const UPDATE_PREVIEW_CHECK_LABEL = 'Checking your app';
+
 // The result for an app that runs but fails some of its hidden tests (see
 // js/app-tests.js). The tests are the AI's own and the user never sees them,
 // so the note says how to tell a broken app from a wrong test, and never to
@@ -81,7 +87,9 @@ window.tools.push({
             return { success: true };
         }
 
-        const health = await window.verifyPreview(state);
+        const health = await window.verifyPreview(state, {
+            onLoaded: () => window.setSpinnerLabel?.(UPDATE_PREVIEW_CHECK_LABEL),
+        });
 
         // The verification wait can span the CDN propagation delay, during which
         // the user may have switched chats or stopped the turn. Re-check before

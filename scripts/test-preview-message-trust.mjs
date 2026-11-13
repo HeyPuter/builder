@@ -35,6 +35,8 @@ function slice(from, to) {
 const originOfSrc = slice('function _originOf', 'function previewHostSkipsBrowserCache');
 // The three helpers are contiguous, right before the app-error section.
 const helpersSrc = slice('function isTrustedPreviewMessage', '// --- App preview error forwarding ---');
+// The draft's puter.host address, which the frame shows when that host answers.
+const toPuterHostSrc = slice('function toPuterHost(url) {', '\n}\n') + '\n}\n';
 
 // Evaluate them with injected $ / window so the functions close over our mocks.
 // clipChars lives in helpers.js (loaded before ui.js in the real bundle).
@@ -42,7 +44,7 @@ const helpersJs = fs.readFileSync(new URL('../src/js/helpers.js', import.meta.ur
 const clipCharsSrc = helpersJs.slice(helpersJs.indexOf('function clipChars('), helpersJs.indexOf('window.clipChars = clipChars;'));
 function buildHelpers(mockJQ, mockWindow) {
     const factory = new Function('$', 'window',
-        clipCharsSrc + '\n' + originOfSrc + '\n' + helpersSrc + '\n' +
+        clipCharsSrc + '\n' + originOfSrc + '\n' + toPuterHostSrc + helpersSrc + '\n' +
         'return { isTrustedPreviewMessage, fenceUntrusted, inlineUntrusted };');
     return factory(mockJQ, mockWindow);
 }
@@ -124,6 +126,14 @@ const OTHER = { id: 'some-other-window' };       // an attacker window
         ok.isTrustedPreviewMessage({ source: FRAME, origin: 'null' }) === false);
     check('trust: empty origin "" -> rejected',
         ok.isTrustedPreviewMessage({ source: FRAME, origin: '' }) === false);
+    // The frame shows the draft on puter.host when that host answers, on
+    // puter.site when it doesn't. Both are this draft.
+    check('trust: the same draft on puter.host -> accepted',
+        ok.isTrustedPreviewMessage({ source: FRAME, origin: 'https://abc.puter.host' }) === true);
+    check('trust: another draft on puter.host -> REJECTED',
+        ok.isTrustedPreviewMessage({ source: FRAME, origin: 'https://xyz.puter.host' }) === false);
+    check('trust: a look-alike host -> REJECTED',
+        ok.isTrustedPreviewMessage({ source: FRAME, origin: 'https://abc.puter.host.evil.com' }) === false);
     check('trust: the preview URL\'s cache-bust query does not change its origin',
         buildHelpers(jqWith(FRAME), { currentPreviewUrl: 'https://abc.puter.site/?__pv=123_x' })
             .isTrustedPreviewMessage({ source: FRAME, origin: 'https://abc.puter.site' }) === true);

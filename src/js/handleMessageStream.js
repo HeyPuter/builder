@@ -295,7 +295,9 @@ const TOOL_PROGRESS = {
     stat: 'Looking through the project',
     SearchFiles: 'Searching the project',
     publish_site: 'Setting up the preview',
-    // The words the preview's own overlay uses (showPreviewUpdating).
+    // The words the preview's own overlay uses (showPreviewUpdating), until
+    // the new page loads and the call says it's checking the app
+    // (UPDATE_PREVIEW_CHECK_LABEL in update_preview.js).
     update_preview: 'Applying changes',
     // The app's hidden tests: the status names the app, never the tests.
     AppTests: 'Working on your app',

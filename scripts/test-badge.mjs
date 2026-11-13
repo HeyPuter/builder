@@ -364,9 +364,9 @@ check('in-turn verification intake drops runtime errors',
     // the runtime is served at covered, including the legacy one, without a list
     // to maintain here. A path-shaped needle would silently stop filtering the
     // moment the canonical filename changes.
-    const needle = /const needle = '([^']+)'/.exec(uiSrc.slice(bStart))?.[1];
+    const hosts = /const hosts = \[([^\]]+)\]/.exec(uiSrc.slice(bStart))?.[1] || '';
     check('filter matches the host, not a filename',
-        needle === 'builder.puter.com');
+        hosts.includes("'builder.puter.com'"));
 
     // Every path vite ships the runtime at must be filtered — current and legacy.
     for (const name of RUNTIME_PATHS) {
@@ -374,6 +374,13 @@ check('in-turn verification intake drops runtime errors',
             isRuntimeAssetError(`Failed to load script: https://builder.puter.com/${name}`, '') === true &&
             isRuntimeAssetError('Script error.', `https://builder.puter.com/${name}`) === true);
     }
+
+    // Cloudflare adds its analytics script to every page on puter.host, the
+    // draft preview's host, and ad blockers often block it.
+    const beacon = 'https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092';
+    check('filter: Cloudflare\'s injected analytics script → dropped',
+        isRuntimeAssetError('Failed to load script: ' + beacon, beacon) === true &&
+        isRuntimeAssetError('Script error.', beacon) === true);
 
     check('filter: ordinary app errors pass through',
         isRuntimeAssetError('TypeError: x is undefined', 'app.js') === false &&
