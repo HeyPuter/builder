@@ -134,16 +134,11 @@ function updateTodoDisplay(todos, animate = isProcessing) {
 
     chatBox.append(built.html);
 
-    // Re-add the floating spinner after the todo list unless an item is now
-    // shimmering in progress — that serves as the activity indicator, so the
-    // thinking dots are dropped to avoid redundancy (see hasRunningTodo).
+    // Re-add the floating spinner after the todo list. It stays while an item
+    // shimmers in progress: its words say what the builder is doing in that
+    // step (see showSpinner).
     if (floatingSpinner.length) {
-        if (!hasRunningTodo()) {
-            const todoList = chatBox.find('.todo-list').last();
-            todoList.after(floatingSpinner);
-        } else {
-            floatingSpinner.remove();
-        }
+        chatBox.find('.todo-list').last().after(floatingSpinner);
     }
     
     if (window.shouldAutoScroll) {

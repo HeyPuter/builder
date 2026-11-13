@@ -558,9 +558,7 @@ async function handleMessageStream(stream, context) {
                 // request was still in flight (esp. on follow-up turns that don't use
                 // a TodoWrite checklist). showSpinner() is idempotent — it reuses an
                 // existing spinner (no per-delta DOM churn, strictly less than the old
-                // per-delta .remove()) and self-suppresses while a checklist item is
-                // in progress (hasRunningTodo), since its shimmer is the indicator
-                // then. The dots are torn down the instant the whole turn's
+                // per-delta .remove()). The dots are torn down the instant the whole turn's
                 // generation ends (recurser block below) and on abort/error/turn-reset,
                 // so they never linger past completion.
                 showSpinner();

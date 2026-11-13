@@ -7729,9 +7729,6 @@ function startSpinnerStub() {
     // teardown) is created by showSpinner(), which fades it in.
     const existing = $('.floating-spinner');
     if (existing.length) {
-        // Honor the checklist-is-the-indicator rule: no dots while a checklist
-        // item is shimmering in progress.
-        if (hasRunningTodo()) { fadeOutSpinner(); return null; }
         const lastMessage = $('.chat-box .message').last();
         // Only when something has landed below them. Re-inserting a node
         // restarts its animations, so the dots hitched on every tool call.
