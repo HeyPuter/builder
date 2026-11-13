@@ -354,8 +354,11 @@ let _chatListSavePending = null;
 //   * an entry on disk this tab never knew was created elsewhere (it goes
 //     first, where a new project lands), unless this tab deleted it.
 let _chatListSynced = new Map(); // chatId -> JSON of the entry as last read/written
+function chatListSyncedMap(list) {
+    return new Map((list || []).filter(c => c && c.id).map(c => [c.id, JSON.stringify(c)]));
+}
 function noteChatListSynced(list) {
-    _chatListSynced = new Map((list || []).filter(c => c && c.id).map(c => [c.id, JSON.stringify(c)]));
+    _chatListSynced = chatListSyncedMap(list);
 }
 function mergeChatLists(mine, disk, synced, deleted) {
     const onDisk = new Map((disk || []).filter(c => c && c.id).map(c => [c.id, c]));
@@ -452,16 +455,18 @@ async function saveChatList() {
             // made — a save that waited behind a slow one still lands the newest
             // state, and never an older one on top of it.
             //
-            // What is remembered as synced is the text that was written, not
-            // the list as it stands once the write returns. A project created
+            // What is remembered as synced is the list as it was written (taken
+            // here, in the same tick as the text), not the list as it stands
+            // once the write returns. A project created
             // (or renamed, or pinned) while the write was in flight is in
             // memory by then and not on disk; recording it as synced made the
             // next save read it as "untouched here and gone from disk", which
             // is how a project deleted in another tab looks. That save dropped
             // the new project from the list, and the sidebar, for good.
             const written = JSON.stringify(savedChats);
+            const synced = chatListSyncedMap(savedChats);
             await puter.fs.write(CHAT_LIST_PATH, written);
-            noteChatListSynced(JSON.parse(written));
+            _chatListSynced = synced;
         } catch (error) {
             console.error('Error saving chat list:', error);
             // Don't fail silently: the user believes their history is saved. One

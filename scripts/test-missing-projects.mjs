@@ -76,6 +76,7 @@ function world() {
         },
         write: async (p, d) => {
             await null;
+            if (clock.hold && p === LIST) await clock.hold; // a slow list write
             if (take(writeFailures, p) || take(writeFailures, '*')) throw new Error('network error');
             writes.push(p);
             disk.set(p, d);
@@ -372,6 +373,30 @@ const settle = async () => { for (let i = 0; i < 20; i++) await new Promise(setI
     check('flaky boot: once readable, the saved list has all three, B complete', ids(w.list()) === 'A,B,C' && b && !b.unverified, w.disk.get(LIST));
 }
 
+// ============ 3. Changes made while a list write is in flight ==================
+{
+    const w = world();
+    seed(w, ['A', 'B']);
+    const T = w.tab();
+    await T.loadSavedChats();
+    let release;
+    w.clock.hold = new Promise((r) => { release = r; });
+    T.__list().find((c) => c.id === 'A').pinned = true;
+    const first = T.saveChatList();        // in flight until released
+    await settle();
+    // Meanwhile: a rename, and a new project.
+    const b = T.__list().find((c) => c.id === 'B'); b.title = 'Renamed'; b.customTitle = true;
+    T.__list().unshift(entryOf('N'));
+    const second = T.saveChatList();
+    await settle();
+    w.clock.hold = null; release();
+    await Promise.all([first, second]);
+    await settle();
+    check('in flight: a project created during the write is kept by the next save', ids(w.list()) === 'A,B,N' && ids(T.__list()) === 'A,B,N', w.disk.get(LIST));
+    check('in flight: a rename made during the write is not reverted', w.list().find((c) => c.id === 'B').title === 'Renamed', w.disk.get(LIST));
+    check('in flight: the change the first write carried is there too', w.list().find((c) => c.id === 'A').pinned === true);
+}
+
 // ============ 4. Settings → Projects: restore missing projects =================
 {
     const w = world();
@@ -503,8 +528,8 @@ const settle = async () => { for (let i = 0; i < 20; i++) await new Promise(setI
     const load = app.slice(app.indexOf('async function loadChat(chatId'), app.indexOf('const superseded = () => {'));
     check('open: the entry is completed from the file before the project can be saved',
         /JSON\.parse\(await puter\.fs\.read\(`chat-history\/\$\{chatId\}\.json`\)[\s\S]{0,400}if \(adoptChatFileIntoEntry\(chatId, chat\)\)/.test(load));
-    check('save: what is recorded as synced is the text that was written',
-        /const written = JSON\.stringify\(savedChats\);\s*await puter\.fs\.write\(CHAT_LIST_PATH, written\);\s*noteChatListSynced\(JSON\.parse\(written\)\);/.test(app));
+    check('save: what is recorded as synced is the list as it was written, taken before the write is awaited',
+        /const written = JSON\.stringify\(savedChats\);\s*const synced = chatListSyncedMap\(savedChats\);\s*await puter\.fs\.write\(CHAT_LIST_PATH, written\);\s*_chatListSynced = synced;/.test(app));
     const restore = app.slice(app.indexOf('async function findMissingProjects() {'), app.indexOf('window.restoreMissingProjects = restoreMissingProjects;'));
     check('restore: the code never deletes, moves or copies over anything',
         restore.length > 0 && !/puter\.fs\.(delete|move|rename|copy)\b/.test(restore) && !/puter\.(hosting|workers)\b/.test(restore));
