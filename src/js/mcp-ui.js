@@ -243,6 +243,16 @@
             $restore.empty();
             if (hadFocus) $scan.trigger('focus');
         };
+        // Where restored projects land: first in the list, which is the top of
+        // the sidebar unless it is split into Pinned and Recent (it is once
+        // anything is pinned), and a restored project keeps its pin.
+        const whereRestored = (restored) => {
+            if (!document.querySelector('.chat-section-label[data-section="pinned"]')) return 'at the top of your sidebar';
+            const pinned = restored.filter(c => c && c.pinned).length;
+            if (pinned === 0) return 'at the top of Recent in your sidebar';
+            if (pinned === restored.length) return 'at the top of Pinned in your sidebar';
+            return 'back in your sidebar';
+        };
         let restoreBusy = false;
         $scan.on('click', async function () {
             if (restoreBusy) return;
@@ -279,7 +289,7 @@
                         const done = await window.restoreMissingProjects(ids);
                         emptyResults();
                         if (!done.restored.length) say('Those projects are already in your sidebar.');
-                        else if (done.saved) say(`Restored ${plural(done.restored.length, 'project')}. ${done.restored.length === 1 ? 'It’s' : 'They’re'} at the top of your sidebar.`);
+                        else if (done.saved) say(`Restored ${plural(done.restored.length, 'project')}. ${done.restored.length === 1 ? 'It’s' : 'They’re'} ${whereRestored(done.restored)}.`);
                         else say(`${done.restored.length === 1 ? 'The project is' : 'The projects are'} back in your sidebar, but that couldn’t be saved yet. Keep this tab open: Builder saves it with your next change.`, 'settings-restore-error');
                         if (done.restored.length) window.track?.('Missing Projects Restored', { count: done.restored.length, saved: !!done.saved });
                     } catch (error) {
