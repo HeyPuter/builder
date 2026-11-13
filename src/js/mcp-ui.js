@@ -218,12 +218,24 @@
         const sayUnreadable = (names) => {
             if (names.length) say(`${plural(names.length, 'saved file')} couldn’t be read and ${names.length === 1 ? 'was' : 'were'} left as ${names.length === 1 ? 'it is' : 'they are'}.`);
         };
+        // A waiting button is aria-disabled, not disabled (as elsewhere in the
+        // app): disabling the button just pressed drops keyboard focus to
+        // <body>, out of the dialog. restoreBusy refuses a second press.
+        const setWaiting = ($btn, waiting) => waiting ? $btn.attr('aria-disabled', 'true') : $btn.removeAttr('aria-disabled');
+        // The results are rebuilt around whatever was focused in them (the
+        // Restore button, once pressed); focus left on <body> by that goes to
+        // the button that starts over.
+        const emptyResults = () => {
+            const hadFocus = $restore[0].contains(document.activeElement);
+            $restore.empty();
+            if (hadFocus) $scan.trigger('focus');
+        };
         let restoreBusy = false;
         $scan.on('click', async function () {
             if (restoreBusy) return;
             restoreBusy = true;
-            $scan.prop('disabled', true).text('Looking…');
-            $restore.empty();
+            setWaiting($scan, true).text('Looking…');
+            emptyResults();
             try {
                 const found = await window.findMissingProjects();
                 if (!found.missing.length) {
@@ -247,31 +259,31 @@
                 $go.on('click', async function () {
                     if (restoreBusy) return;
                     restoreBusy = true;
-                    $go.prop('disabled', true).text('Restoring…');
-                    $scan.prop('disabled', true);
+                    setWaiting($go, true).text('Restoring…');
+                    setWaiting($scan, true);
                     try {
                         const done = await window.restoreMissingProjects(ids);
-                        $restore.empty();
+                        emptyResults();
                         if (!done.restored.length) say('Those projects are already in your sidebar.');
                         else if (done.saved) say(`Restored ${plural(done.restored.length, 'project')}. ${done.restored.length === 1 ? 'It’s' : 'They’re'} at the top of your sidebar.`);
                         else say(`${done.restored.length === 1 ? 'The project is' : 'The projects are'} back in your sidebar, but that couldn’t be saved yet. Keep this tab open: Builder saves it with your next change.`, 'settings-restore-error');
                         if (done.restored.length) window.track?.('Missing Projects Restored', { count: done.restored.length, saved: !!done.saved });
                     } catch (error) {
                         console.error('Restore missing projects failed:', error);
-                        $restore.empty();
+                        emptyResults();
                         say('Couldn’t restore just now, and nothing was changed. Check your connection and try again.', 'settings-restore-error');
                     } finally {
                         restoreBusy = false;
-                        $scan.prop('disabled', false);
+                        setWaiting($scan, false);
                     }
                 });
             } catch (error) {
                 console.error('Looking for missing projects failed:', error);
-                $restore.empty();
+                emptyResults();
                 say('Couldn’t look just now. Check your connection and try again.', 'settings-restore-error');
             } finally {
                 restoreBusy = false;
-                $scan.prop('disabled', false).text('Look for missing projects');
+                setWaiting($scan, false).text('Look for missing projects');
             }
         });
         window.addEventListener('mcp-connections-changed', render);

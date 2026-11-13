@@ -7005,7 +7005,7 @@ html[data-theme="dark"] .wn-composer-row > .wn-composer-send { background: #eef2
 .settings-restore-list li:first-child { border-top: none; }
 .settings-restore-name { overflow-wrap: anywhere; min-width: 0; }
 .settings-restore-date { color: #62676e; white-space: nowrap; }
-.mcp-modal .settings-restore-scan:disabled, .mcp-modal .settings-restore-go:disabled { opacity: 0.6; cursor: default; }
+.mcp-modal .settings-restore-scan[aria-disabled="true"], .mcp-modal .settings-restore-go[aria-disabled="true"] { opacity: 0.6; cursor: default; }
 .mcp-modal .mcp-note.settings-restore-error { color: #b42318; }
 html[data-theme="dark"] .mcp-modal .mcp-note.settings-restore-error { color: var(--danger); }
 html[data-theme="dark"] .settings-restore-list, html[data-theme="dark"] .settings-restore-list li { border-color: var(--border); }

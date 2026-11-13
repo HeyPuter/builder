@@ -458,6 +458,13 @@ const settle = async () => { for (let i = 0; i < 20; i++) await new Promise(setI
         mcpUi.includes("$scan.on('click'") && mcpUi.includes('await window.findMissingProjects()')
         && mcpUi.includes("$go.on('click'") && mcpUi.includes('await window.restoreMissingProjects(ids)')
         && (mcpUi.match(/restoreMissingProjects\(/g) || []).length === 1 && (mcpUi.match(/findMissingProjects\(/g) || []).length === 1);
+    // Disabling the button just pressed drops keyboard focus out of the dialog.
+    const panel = mcpUi.slice(mcpUi.indexOf("const $restore = $overlay.find('.settings-restore-result');"), mcpUi.indexOf("window.addEventListener('mcp-connections-changed', render);"));
+    check('…whose waiting buttons are aria-disabled, never disabled, so focus stays in the dialog',
+        panel.length > 0 && !/\.prop\('disabled'/.test(panel) && panel.includes(".attr('aria-disabled', 'true')"));
+    check('…and focus goes back to the Look button when the results it was in are rebuilt',
+        /const hadFocus = \$restore\[0\]\.contains\(document\.activeElement\);\s*\$restore\.empty\(\);\s*if \(hadFocus\) \$scan\.trigger\('focus'\);/.test(panel)
+        && !/\$restore\.empty\(\);[\s\S]*\$restore\.empty\(\);/.test(panel));
     check('…and shows titles as text', mcpUi.includes(".text(chat.title || 'Untitled project')"));
     const link = app.slice(app.indexOf('function openSettingsFromLink() {'), app.indexOf('// Reveal the cloaked UI only once'));
     check('/?settings=projects opens it, and does nothing else',
