@@ -3091,10 +3091,12 @@ function openSettingsFromLink() {
     // Settings is built on the MCP manager, a module that can finish loading
     // after this runs. Never opened in this same tick: the rest of boot
     // focuses the composer, which would take focus out of the dialog.
+    // If it never loads, open anyway: Settings then says it isn't ready, as
+    // its button does, rather than the link doing nothing at all.
     let tries = 0;
     const open = () => {
-        if (window.mcpManager && typeof window.openSettings === 'function') { window.openSettings(tab); return; }
-        if (++tries < 60) setTimeout(open, 250);
+        if ((window.mcpManager || ++tries >= 60) && typeof window.openSettings === 'function') { window.openSettings(tab); return; }
+        if (tries < 60) setTimeout(open, 250);
     };
     setTimeout(open, 300);
 }

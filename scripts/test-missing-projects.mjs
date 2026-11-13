@@ -568,5 +568,44 @@ const settle = async () => { for (let i = 0; i < 20; i++) await new Promise(setI
     check('…the param is taken out of the address bar', link.includes("url.searchParams.delete('settings')") && link.includes('history.replaceState('));
 }
 
+// ============ The link: /?settings=projects ====================================
+{
+    const fnSrc = app.slice(app.indexOf('function openSettingsFromLink() {'), app.indexOf('// Reveal the cloaked UI only once'));
+    // Runs the real function against a fake address bar; timers run at once.
+    function visit(href, { managerAfter = 0 } = {}) {
+        const opened = [];
+        const replaced = [];
+        let ticks = 0;
+        const window = {
+            location: { href },
+            mcpManager: managerAfter === 0 ? {} : undefined,
+            openSettings: (tab) => opened.push(tab),
+        };
+        const history = { state: { chatId: 'X' }, replaceState: (state, _t, url) => replaced.push([state, url]) };
+        const queue = [];
+        const setTimeout = (fn) => queue.push(fn);
+        new Function('window', 'history', 'setTimeout', 'URL', fnSrc + '\nopenSettingsFromLink();')(window, history, setTimeout, URL);
+        while (queue.length && ticks < 500) {
+            ticks++;
+            if (managerAfter > 0 && ticks === managerAfter) window.mcpManager = {};
+            queue.shift()();
+        }
+        return { opened, replaced, ticks };
+    }
+    let v = visit('https://builder.example/?settings=projects');
+    check('link: opens Settings on the Projects tab', v.opened.join() === 'projects', v.opened.join());
+    check('link: takes the param out of the address bar, keeping the history state', v.replaced.length === 1 && v.replaced[0][1] === '/' && v.replaced[0][0].chatId === 'X', JSON.stringify(v.replaced));
+    v = visit('https://builder.example/?p=abc&settings=projects&x=1#frag');
+    check('link: leaves the rest of the address alone', v.replaced[0][1] === '/?p=abc&x=1#frag', v.replaced[0] && v.replaced[0][1]);
+    v = visit('https://builder.example/?p=abc');
+    check('link: no param, nothing happens', v.opened.length === 0 && v.replaced.length === 0);
+    v = visit('https://builder.example/?settings=nonsense');
+    check('link: an unknown tab opens nothing, and is still removed', v.opened.length === 0 && v.replaced.length === 1);
+    v = visit('https://builder.example/?settings=projects', { managerAfter: 5 });
+    check('link: waits for Settings to finish loading', v.opened.join() === 'projects', v.opened.join());
+    v = visit('https://builder.example/?settings=projects', { managerAfter: -1 });
+    check('link: if Settings never loads, says so once instead of doing nothing', v.opened.join() === 'projects' && v.ticks < 200, v.opened.join() + ' after ' + v.ticks);
+}
+
 if (failures) { console.error(`\n${failures} check(s) FAILED`); process.exit(1); }
 console.log('\nAll missing-projects checks passed.');
