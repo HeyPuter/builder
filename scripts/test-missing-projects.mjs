@@ -56,6 +56,7 @@ function world() {
     const readFailures = new Map();
     const writeFailures = new Map();
     const writes = [];
+    const clock = { waited: 0, reads: 0 };
     const nf = (p) => Object.assign(new Error('not found ' + p), { code: 'subject_does_not_exist' });
     const take = (map, p) => {
         const left = map.get(p) || 0;
@@ -66,7 +67,8 @@ function world() {
     const puterFs = {
         read: async (p) => {
             await null;
-            if (take(readFailures, p)) throw new Error('network error');
+            clock.reads++;
+            if (take(readFailures, p) || (readFailures.get('*') && p !== LIST)) throw new Error('network error');
             if (!disk.has(p)) throw nf(p);
             const d = disk.get(p);
             return { text: async () => d };
@@ -98,8 +100,8 @@ function world() {
         const sb = {
             window: { showToast: (m) => toasts.push(m), currentPreviewUrl: null }, puter: { fs: puterFs },
             console: { log() {}, warn() {}, error() {} },
-            // Retries wait on a timer; the test doesn't.
-            setTimeout: (fn) => setImmediate(fn),
+            // Retries wait on a timer; the test doesn't, but adds the waits up.
+            setTimeout: (fn, ms) => { clock.waited += ms || 0; setImmediate(fn); },
             generateChatId: () => 'boot', generateChatTitle: (h) => 'title:' + ((h.find((m) => m.role === 'user') || {}).content || ''),
             _deletedChatIds: deleted, _aiProjectTitles: new Map(), _suggestionsByChat: new Map(),
             setUrlChat() {}, updateChatHistorySidebar() {}, updateDocumentTitle() {},
@@ -112,7 +114,7 @@ function world() {
     }
     const list = () => JSON.parse(disk.get(LIST));
     return {
-        disk, tab, list, writes,
+        disk, tab, list, writes, clock,
         failRead: (p, n = 1) => readFailures.set(p, n),
         failWrite: (p, n = 1) => writeFailures.set(p, n),
     };
@@ -197,6 +199,43 @@ const settle = async () => { for (let i = 0; i < 20; i++) await new Promise(setI
     await T.loadSavedChats();
     check('rebuild: a file that does not parse is listed, unverified', T.__list().find((c) => c.id === 'B')?.unverified === true, JSON.stringify(T.__list()));
     check('verify: …and reported corrupt, the entry left as it is', await T.__verify('B') === 'corrupt' && T.__list().find((c) => c.id === 'B').unverified === true);
+}
+
+// ---- reads failing across the board: don't retry every file -------------------
+{
+    // Offline or throttled, each retried file costs a second and two more
+    // requests. Over hundreds of chat files that held boot for minutes.
+    const w = world();
+    const all = Array.from({ length: 60 }, (_, i) => 'P' + String(i).padStart(2, '0'));
+    seed(w, null, all);
+    w.failRead('*', Infinity);             // every chat file read fails
+    const T = w.tab();
+    await T.loadSavedChats();
+    check('rebuild, every read failing: every project is still listed', T.__list().length === 60 && T.__list().every((c) => c.unverified), String(T.__list().length));
+    check('rebuild, every read failing: the retries stop after the first files', w.clock.waited <= 2000, w.clock.waited + ' ms waited');
+    check('rebuild, every read failing: about one request per file, not three', w.clock.reads <= 60 + 8, w.clock.reads + ' reads');
+
+    // The next load completes entries in the background; while reads still
+    // fail it stops at the first, and tries again at the load after.
+    const T2 = w.tab();
+    w.clock.waited = 0; w.clock.reads = 0;
+    await T2.loadSavedChats();
+    await settle(); await settle();
+    check('completion, reads still failing: gives up after the first entry', w.clock.waited <= 1000 && w.clock.reads <= 6, w.clock.waited + ' ms, ' + w.clock.reads + ' reads');
+    w.failRead('*', 0);
+    await T2.__verifyAll();
+    check('completion, reads working again: every entry is completed', w.list().length === 60 && w.list().every((c) => !c.unverified && c.title.startsWith('Title ')));
+}
+{
+    // A file that doesn't parse isn't a failing connection: retries go on.
+    const w = world();
+    seed(w, null, ['A', 'B', 'C', 'D', 'E']);
+    for (const id of ['A', 'B', 'C']) w.disk.set(fileOf(id), '{"id":');
+    w.failRead(fileOf('E'), 2);            // dropped twice, then fine
+    const T = w.tab();
+    await T.loadSavedChats();
+    const e = T.__list().find((c) => c.id === 'E');
+    check('rebuild: corrupt files don\'t use up the retries a dropped request needs', e && !e.unverified, JSON.stringify(e));
 }
 
 // ---- completing an unverified entry -----------------------------------------

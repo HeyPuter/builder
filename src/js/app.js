@@ -157,6 +157,7 @@ async function recoverChatListFromFiles() {
     // completed from the file the next time it can be read.
     const rebuilt = [];
     const listed = new Set();
+    let failedReads = 0;
     for (const entry of entries) {
         const name = entry?.name || entry;
         if (typeof name !== 'string' || !name.endsWith('.json') || name === 'chat-list.json') continue;
@@ -164,10 +165,13 @@ async function recoverChatListFromFiles() {
         const fileId = name.slice(0, -'.json'.length);
         let chat;
         try {
-            chat = JSON.parse(await readTextWithRetry(`chat-history/${name}`));
+            chat = JSON.parse(await readTextWithRetry(`chat-history/${name}`, { retry: failedReads < READ_RETRY_GIVE_UP_AFTER }));
         } catch (e) {
             // Gone since the directory was listed (deleted in another tab).
             if (isNotFoundError(e)) continue;
+            // A file that was read and doesn't parse says nothing about the
+            // connection; only failed reads count toward giving up on retries.
+            if (!(e instanceof SyntaxError)) failedReads++;
             console.warn(`Could not read chat file ${name}; keeping it listed:`, e);
             if (fileId && !listed.has(fileId) && !_deletedChatIds.has(fileId)) {
                 listed.add(fileId);
@@ -286,6 +290,9 @@ async function verifyChatListEntries() {
         const before = savedChats.find(c => c && c.id === id);
         const state = await verifyChatListEntry(id);
         if (state === 'verified' && savedChats.find(c => c && c.id === id) !== before) changed = true;
+        // Still can't be read, retries included: the rest wait for the next
+        // load rather than each spending the same second finding that out.
+        if (state === 'unreadable') break;
     }
     if (!changed) return;
     updateChatHistorySidebar();
@@ -308,13 +315,21 @@ function withChatListLock(fn) {
 // Read a file as text, trying again after a failure that says nothing about
 // the file (a dropped request, throttling, a 5xx). "Not found" is an answer,
 // not a failure, and is thrown at once. Throws the last error otherwise.
+// `retry: false` reads once, for a caller working through many files that has
+// already seen the retries not help (READ_RETRY_GIVE_UP_AFTER).
 const READ_RETRY_DELAYS_MS = [250, 750];
-async function readTextWithRetry(path) {
+// Retrying is for the odd dropped request. When reads are failing across the
+// board (offline, throttled) each retried file costs a second and two more
+// requests, so a pass over hundreds of chat files took minutes, with boot
+// waiting on it, and tripled the load on a service already refusing it. After
+// this many files have failed despite their retries, the rest are read once.
+const READ_RETRY_GIVE_UP_AFTER = 2;
+async function readTextWithRetry(path, { retry = true } = {}) {
     for (let attempt = 0; ; attempt++) {
         try {
             return await puter.fs.read(path).then(d => d.text());
         } catch (error) {
-            if (isNotFoundError(error) || attempt >= READ_RETRY_DELAYS_MS.length) throw error;
+            if (!retry || isNotFoundError(error) || attempt >= READ_RETRY_DELAYS_MS.length) throw error;
             await new Promise(resolve => setTimeout(resolve, READ_RETRY_DELAYS_MS[attempt]));
         }
     }
@@ -489,6 +504,7 @@ async function findMissingProjects() {
     const entries = await puter.fs.readdir('chat-history');
     const missing = [];
     const unreadable = [];
+    let failedReads = 0;
     for (const entry of entries) {
         const name = entry?.name || entry;
         if (typeof name !== 'string' || !name.endsWith('.json') || name === 'chat-list.json') continue;
@@ -497,9 +513,10 @@ async function findMissingProjects() {
         if (!fileId || known.has(fileId) || _deletedChatIds.has(fileId)) continue;
         let chat;
         try {
-            chat = JSON.parse(await readTextWithRetry(`chat-history/${name}`));
+            chat = JSON.parse(await readTextWithRetry(`chat-history/${name}`, { retry: failedReads < READ_RETRY_GIVE_UP_AFTER }));
         } catch (e) {
             if (isNotFoundError(e)) continue; // deleted since the listing
+            if (!(e instanceof SyntaxError)) failedReads++;
             unreadable.push(name);
             continue;
         }
