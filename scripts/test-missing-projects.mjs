@@ -466,6 +466,14 @@ const settle = async () => { for (let i = 0; i < 20; i++) await new Promise(setI
         /const hadFocus = \$restore\[0\]\.contains\(document\.activeElement\);\s*\$restore\.empty\(\);\s*if \(hadFocus\) \$scan\.trigger\('focus'\);/.test(panel)
         && !/\$restore\.empty\(\);[\s\S]*\$restore\.empty\(\);/.test(panel));
     check('…and shows titles as text', mcpUi.includes(".text(chat.title || 'Untitled project')"));
+    // Four tabs are wider than a phone: the strip scrolls, it doesn't push the
+    // last tab (this one) and the dialog off to the right.
+    const css = read('../src/css/styles.css');
+    const strip = (css.match(/\n\.settings-tabs \{[^}]*\}/) || [''])[0];
+    const tabRule = (css.match(/\n\.mcp-modal \.settings-tab \{[^}]*\}/) || [''])[0];
+    check('the tab strip scrolls sideways on a narrow screen', /overflow-x: auto;/.test(strip) && /flex: none;/.test(tabRule) && /white-space: nowrap;/.test(tabRule));
+    check('…and the selected tab is brought into view, also once the dialog is shown',
+        (mcpUi.match(/revealSelectedTab\(\);/g) || []).length === 2 && /addClass\('open'\);[^\n]*revealSelectedTab\(\);/.test(mcpUi));
     const link = app.slice(app.indexOf('function openSettingsFromLink() {'), app.indexOf('// Reveal the cloaked UI only once'));
     check('/?settings=projects opens it, and does nothing else',
         link.includes("url.searchParams.get('settings')") && link.includes("'projects'") && link.includes('window.openSettings(tab)')

@@ -67,6 +67,18 @@
         // Tabs: only the selected one is a Tab stop, and the arrow keys (with
         // Home/End) move between them, selecting as they go.
         const $tabs = $overlay.find('.settings-tab');
+        // On a phone the strip scrolls sideways: bring the selected tab into
+        // it (a link can open Settings on the last one). Called again once
+        // the dialog is shown, since nothing has a size before that.
+        function revealSelectedTab() {
+            const tab = $tabs.filter('[aria-selected="true"]')[0];
+            const strip = tab && tab.parentNode;
+            if (!strip || typeof tab.getBoundingClientRect !== 'function') return;
+            const s = strip.getBoundingClientRect(), t = tab.getBoundingClientRect();
+            if (!s.width) return;
+            if (t.left < s.left) strip.scrollLeft -= s.left - t.left;
+            else if (t.right > s.right) strip.scrollLeft += t.right - s.right;
+        }
         function selectTab(key, focus) {
             lastTab = key;
             $tabs.each(function () {
@@ -74,6 +86,7 @@
                 $(this).attr({ 'aria-selected': selected ? 'true' : 'false', tabindex: selected ? '0' : '-1' });
                 if (selected && focus) this.focus();
             });
+            revealSelectedTab();
             $overlay.find('.settings-panel').each(function () { this.hidden = this.dataset.tab !== key; });
         }
         selectTab(lastTab, false);
@@ -288,7 +301,7 @@
         });
         window.addEventListener('mcp-connections-changed', render);
         render();
-        requestAnimationFrame(() => { $overlay.addClass('open'); $overlay.find('section').trigger('focus'); });
+        requestAnimationFrame(() => { $overlay.addClass('open'); $overlay.find('section').trigger('focus'); revealSelectedTab(); });
     };
     $(document).on('click', '.user-panel-mcp', () => window.openSettings('mcp'));
 })();

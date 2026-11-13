@@ -6976,14 +6976,21 @@ html[data-theme="dark"] .wn-composer-row > .wn-composer-send { background: #eef2
 .mcp-heading h2 { font-size: 19px; margin: 0; }
 .mcp-modal h4 { font-size: 14px; margin: 0 0 8px; overflow-wrap: anywhere; }
 /* Settings tabs: an underlined strip under the title. Selectors go through
-   .mcp-modal so they outrank its generic button look. */
-.settings-tabs { display: flex; gap: 4px; margin: 14px 0 4px; border-bottom: 1px solid #e3e5e8; }
+   .mcp-modal so they outrank its generic button look.
+   Four tabs are wider than a phone, so the strip scrolls sideways (no
+   scrollbar; the tab cut off at the edge says there is more) instead of
+   pushing the last tab, and the whole dialog, off to the right. The strip's
+   line is an inset shadow, not a border: a scroll container clips its
+   children at the border, which would shave the selected tab's underline. */
+.settings-tabs { display: flex; gap: 4px; margin: 14px 0 4px; box-shadow: inset 0 -1px 0 #e3e5e8; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.settings-tabs::-webkit-scrollbar { display: none; }
 .mcp-modal .settings-tab {
+    flex: none;
+    white-space: nowrap;
     border: none;
     border-bottom: 2px solid transparent;
     border-radius: 0;
     background: none;
-    margin-bottom: -1px;
     padding: 8px 10px;
     font-size: 13px;
     font-weight: 500;
@@ -7115,7 +7122,7 @@ html[data-theme="dark"] .mcp-modal { color: var(--text); }
 html[data-theme="dark"] .mcp-modal input { background: var(--surface); border-color: var(--border); }
 html[data-theme="dark"] .mcp-modal button:not(.mcp-primary, .mcp-close, .settings-tab, .user-theme-opt, .settings-switch) { background: var(--surface-hover); border-color: var(--border); }
 html[data-theme="dark"] .mcp-modal button:not(.mcp-primary, .mcp-close, .settings-tab, .user-theme-opt, .settings-switch):hover { background: var(--surface-active); }
-html[data-theme="dark"] .settings-tabs { border-color: var(--border); }
+html[data-theme="dark"] .settings-tabs { box-shadow: inset 0 -1px 0 var(--border); }
 html[data-theme="dark"] .settings-switch-track { background: var(--border-strong); }
 html[data-theme="dark"] .settings-switch[aria-checked="true"] .settings-switch-track { background: var(--accent); }
 html[data-theme="dark"] .mcp-modal .settings-tab { color: var(--text-secondary); }
