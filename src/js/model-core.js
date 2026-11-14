@@ -52,15 +52,62 @@ window.ModelCore = (function () {
         },
     };
 
+    // Models a turn switches to when Anthropic's safety system declines a
+    // request on its own model (stop reason "refusal"), never offered in the
+    // picker or stored as a project's model. So get(), ids() and everything
+    // the picker reads don't know them; the request shaping below does
+    // (spec()), so a turn that switched is sent and shaped like any other
+    // Claude turn, and a summary it compacts into is read back.
+    const FALLBACK_MODELS = {
+        'claude-fable-5-2': {
+            label: 'Claude Fable 5.2', short: 'Fable 5.2', family: 'claude', route: 'claude',
+            reasoningEffort: 'high', toolResultMedia: true, pdf: true, gif: true, compactAt: 250000,
+            // The picker model of the same family its saved stamps name (see
+            // stampModel), so a version of the app from before this registry
+            // still reads a summary it compacted into.
+            stampAs: 'claude-opus-5-5',
+        },
+    };
+    // Which model takes over from which after a refusal.
+    const REFUSAL_FALLBACK = {
+        'claude-opus-5-5': 'claude-fable-5-2',
+        'claude-sonnet-5-5': 'claude-fable-5-2',
+    };
+
+    const own = (obj, id) => typeof id === 'string' && Object.prototype.hasOwnProperty.call(obj, id);
     function get(id) {
-        return typeof id === 'string' && Object.prototype.hasOwnProperty.call(MODELS, id) ? MODELS[id] : null;
+        return own(MODELS, id) ? MODELS[id] : null;
+    }
+    // A picker model or a fallback model: what a request to `id` is built from.
+    function spec(id) {
+        return get(id) || (own(FALLBACK_MODELS, id) ? FALLBACK_MODELS[id] : null);
     }
     function idOrDefault(id) { return get(id) ? id : DEFAULT_MODEL; }
-    function isClaude(id) { return MODELS[idOrDefault(id)].family === 'claude'; }
-    function supportsPdf(id) { return MODELS[idOrDefault(id)].pdf; }
-    function supportsGif(id) { return MODELS[idOrDefault(id)].gif; }
-    function supportsFast(id) { return !!MODELS[idOrDefault(id)].fast; }
+    function specIdOrDefault(id) { return spec(id) ? id : DEFAULT_MODEL; }
+    function specOrDefault(id) { return spec(specIdOrDefault(id)); }
+    function isClaude(id) { return specOrDefault(id).family === 'claude'; }
+    function supportsPdf(id) { return specOrDefault(id).pdf; }
+    function supportsGif(id) { return specOrDefault(id).gif; }
+    function supportsFast(id) { return !!specOrDefault(id).fast; }
     function ids() { return Object.keys(MODELS); }
+    // The model a turn on `id` switches to after a refusal, or null.
+    function refusalFallback(id) {
+        const to = own(REFUSAL_FALLBACK, id) ? REFUSAL_FALLBACK[id] : null;
+        return to && spec(to) ? to : null;
+    }
+    // The model id a saved compaction entry is stamped with. The stamp only
+    // says which vendor can read the summary back, and older versions of the
+    // app skip an entry whose model they don't know (fromLastCompaction), so
+    // a fallback model's entry names a picker model of its family.
+    function stampModel(id) {
+        if (get(id)) return id;
+        return own(FALLBACK_MODELS, id) && get(FALLBACK_MODELS[id].stampAs) ? FALLBACK_MODELS[id].stampAs : id;
+    }
+    // The name shown for any model a turn can run on.
+    function labelOf(id) {
+        const m = spec(id);
+        return m ? m.label : String(id || '');
+    }
 
     // The picker's line under a model's name.
     function noteFor(id) {
@@ -109,8 +156,8 @@ window.ModelCore = (function () {
     // serviceSpeed is only sent when given (fast mode, or a forced speed
     // experiment variant), so every other request keeps the model's usual speed.
     function buildChatOptions(modelId, { tools, signal, serviceSpeed } = {}) {
-        const id = idOrDefault(modelId);
-        const m = MODELS[id];
+        const id = specIdOrDefault(modelId);
+        const m = spec(id);
         return {
             model: id,
             tools,
@@ -167,14 +214,14 @@ window.ModelCore = (function () {
     }
     function fromLastCompaction(messages, modelId) {
         if (!Array.isArray(messages)) return messages;
-        const family = compactionOn() ? MODELS[idOrDefault(modelId)].family : null;
+        const family = compactionOn() ? specOrDefault(modelId).family : null;
         let cut = -1;
         let followed = false;
         for (let i = messages.length - 1; i >= 0; i--) {
             const m = messages[i];
             if (!isCompactionEntry(m)) { followed = true; continue; }
-            if (!followed || !compactionBlock(m) || !get(m.model)) continue;
-            const from = MODELS[m.model].family;
+            if (!followed || !compactionBlock(m) || !spec(m.model)) continue;
+            const from = spec(m.model).family;
             if (from === family || from === 'claude') { cut = i; break; }
         }
         let start = 0;
@@ -184,7 +231,7 @@ window.ModelCore = (function () {
         if (cut < 0) return [...head, ...rest];
         const entry = messages[cut];
         const block = compactionBlock(entry);
-        if (MODELS[entry.model].family !== family) {
+        if (spec(entry.model).family !== family) {
             return [...head, { role: 'user', content: [{ type: 'text', text: SUMMARY_NOTE + block.encrypted_content }] }, ...rest];
         }
         const item = { type: 'compaction', ...(block.id != null ? { id: block.id } : {}), encrypted_content: block.encrypted_content };
@@ -324,8 +371,8 @@ window.ModelCore = (function () {
     // keeps hitting.
     function shapeHistory(messages, modelId, opts) {
         if (!Array.isArray(messages)) return messages;
-        const targetId = idOrDefault(modelId);
-        const target = MODELS[targetId];
+        const targetId = specIdOrDefault(modelId);
+        const target = spec(targetId);
 
         for (const m of messages) {
             if (!m || typeof m !== 'object') continue;
@@ -418,6 +465,7 @@ window.ModelCore = (function () {
 
     return {
         DEFAULT_MODEL, MODELS, get, ids, isClaude, supportsPdf, supportsGif, supportsFast, noteFor,
+        refusalFallback, labelOf, stampModel,
         pickerAccess, projectModel, resolveTurnModel, buildChatOptions, turnTools, shapeHistory, fromLastCompaction,
         portableSchema, unavailableTools, unavailableToolsNote,
     };

@@ -46,17 +46,29 @@ const CODE = [
     extract(uiSource, 'function copiedProjectNoteMessage(originalUrl) {'),
     extract(uiSource, 'function pushAiNote(history, note) {'),
     extract(appSource, 'function unpublishCopiedHistory(history, originalUrl) {'),
-    extract(appSource, 'async function duplicateChat(chatId) {'),
+    appSource.match(/^const FRESH_COPY_NOTE = .*$/m)[0],
+    extract(appSource, 'function freshCopyHistory(history, extraNotes) {'),
+    extract(appSource, 'async function duplicateChat(chatId, { freshConversation = false } = {}) {'),
 ].join('\n\n');
 
 const PARENT = '/alice/AppData/builder';
 const OLD_DIR = PARENT + '/chat1';
 
 // failAt: null | 'list' | 'create-first' | 'create-second' | 'chat-write'
-async function run({ failAt = null, workerCount = 1, senderTitle = null, failRename = false, published = false, openUnsaved = false } = {}) {
+// fresh: the refusal card's "Continue in a new chat" (freshConversation).
+// noSystem: a source whose history has no system prompt.
+async function run({ failAt = null, workerCount = 1, senderTitle = null, failRename = false, published = false, openUnsaved = false, fresh = false, noSystem = false, systemBlocks = false } = {}) {
     // A published source: its AI was told the public address, and the user
     // published from a Publish card in the chat.
-    const history = [{ role: 'system', content: 'cwd ' + OLD_DIR }];
+    const history = noSystem ? [] : [{ role: 'system', content: systemBlocks
+        ? [{ type: 'text', text: 'common', cache_control: { type: 'ephemeral', ttl: '1h' } }, { type: 'text', text: 'cwd ' + OLD_DIR }]
+        : 'cwd ' + OLD_DIR, buildModel: 'claude-opus-5-5' }];
+    // A conversation to leave behind (a fresh copy drops it). Only on the
+    // fresh runs, so the other checks see the history they always have.
+    if (fresh || noSystem) history.push(
+        { role: 'user', content: [{ type: 'text', text: 'make a notes app' }] },
+        { role: 'assistant', content: 'Done.' },
+    );
     if (published) {
         history.push(
             { role: 'assistant', content: [{ type: 'tool_use', id: 't1', name: 'OfferPublish', input: {} }] },
@@ -213,11 +225,17 @@ async function run({ failAt = null, workerCount = 1, senderTitle = null, failRen
     vm.runInContext(senderSource, sandbox, { filename: 'src/js/worker-sender.js' });
     vm.runInContext(CODE, sandbox, { filename: 'src/js/app.js' });
 
-    await sandbox.duplicateChat('chat1');
+    const sourceBefore = files.get('chat-history/chat1.json');
+    const sourceHistoryBefore = JSON.stringify(sandbox.chatHistory);
+    const returned = await sandbox.duplicateChat('chat1', fresh ? { freshConversation: true } : undefined);
 
     const copyDir = PARENT + '/chat-copy';
     const copyFrontend = files.get(copyDir + '/index.html') || '';
     return {
+        returned,
+        sourceUnchanged: files.get('chat-history/chat1.json') === sourceBefore
+            && JSON.stringify(sandbox.chatHistory) === sourceHistoryBefore,
+        listEntry: sandbox.savedChats.find(c => c.id === 'chat-copy') || null,
         alerts,
         listed: sandbox.savedChats.some(c => c.id === 'chat-copy'),
         chatFileWritten: files.has('chat-history/chat-copy.json'),
@@ -333,6 +351,69 @@ check('partial: the worker that did deploy is removed again',
     partial.deployedNames.join() === 'original-api,original-two',
     JSON.stringify(partial.deployedNames));
 check('partial: the user is told why', partial.alerts.length === 1, JSON.stringify(partial.alerts));
+
+// ---- "Continue in a new chat": the files, a fresh conversation --------------
+// The refusal card's button (refusal-fallback in app.js). Everything a copy
+// guarantees still holds; only the conversation is left behind, and nothing
+// about the original changes.
+{
+    const control = await run();
+    check('control: a plain copy resolves to the copy\'s id', control.returned === 'chat-copy', String(control.returned));
+    check('control: a plain copy leaves the original untouched', control.sourceUnchanged === true);
+
+    const r = await run({ fresh: true });
+    const h = r.copyChat && r.copyChat.history;
+    check('fresh: the copy is saved, listed and returned', r.listed && r.chatFileWritten && r.returned === 'chat-copy', JSON.stringify({ listed: r.listed, returned: r.returned }));
+    check('fresh: the original chat file and live history are untouched', r.sourceUnchanged === true);
+    check('fresh: only the system prompt is kept', Array.isArray(h) && h.length === 1 && h[0].role === 'system', JSON.stringify(h));
+    check('fresh: the prompt points at the copy\'s own directory', typeof h[0].content === 'string'
+        && h[0].content.includes(PARENT + '/chat-copy') && !h[0].content.includes(OLD_DIR + ' ') && !h[0].content.endsWith(OLD_DIR), h[0].content);
+    check('fresh: the prompt tells the AI the files are the app as it stands', /continues from an earlier conversation/.test(h[0].content), h[0].content);
+    check('fresh: the project\'s settings on the prompt are kept', h[0].buildModel === 'claude-opus-5-5', JSON.stringify(h[0]));
+    check('fresh: the copy has its own backend and files', r.copyCallsOriginal === false && r.deployedNames.length === 2, JSON.stringify(r.deployedNames));
+    check('fresh: the copy is hosted on its own draft', r.hosted.join() === 'copy-draft', JSON.stringify(r.hosted));
+    check('fresh: no follow-up chips from the old conversation', Array.isArray(r.copyChat.suggestions) && r.copyChat.suggestions.length === 0);
+    check('fresh: not interrupted, not published', r.copyChat.interrupted === false && r.copyChat.publishedUrl === null);
+    check('fresh: no error shown', r.alerts.length === 0, JSON.stringify(r.alerts));
+
+    // The prompt as new chats store it: content blocks, the first cached.
+    const b = await run({ fresh: true, systemBlocks: true });
+    const bs = b.copyChat.history[0];
+    check('fresh, block prompt: the note is added as a block after the existing ones',
+        b.copyChat.history.length === 1 && Array.isArray(bs.content) && bs.content.length === 3
+        && bs.content[0].text === 'common' && bs.content[0].cache_control && bs.content[0].cache_control.ttl === '1h'
+        && bs.content[1].text === 'cwd ' + PARENT + '/chat-copy'
+        && bs.content[2].type === 'text' && /continues from an earlier conversation/.test(bs.content[2].text),
+        JSON.stringify(bs));
+
+    // A published original: the copy's AI is told the address isn't its own,
+    // on the prompt, so the conversation doesn't open on an assistant note.
+    const p = await run({ fresh: true, published: true });
+    const ph = p.copyChat.history;
+    check('fresh, published source: still only the system prompt', ph.length === 1 && ph[0].role === 'system', JSON.stringify(ph));
+    check('fresh, published source: the prompt names the original\'s address as not the copy\'s',
+        /copy isn't published/.test(ph[0].content) && ph[0].content.includes('https://notes.puter.site/'), ph[0].content);
+    check('fresh, published source: the copy starts unpublished', p.copyChat.publishedUrl === null);
+    check('fresh, published source: the original is untouched', p.sourceUnchanged === true);
+
+    // The open project (live history ahead of disk): read, never changed.
+    const o = await run({ fresh: true, published: true, openUnsaved: true });
+    check('fresh, open project: the live history is untouched and the copy has only the prompt',
+        o.sourceUnchanged === true && o.copyChat.history.length === 1, JSON.stringify(o.copyChat && o.copyChat.history));
+
+    // No system prompt: the AI wouldn't know where the files are. No copy.
+    const n = await run({ fresh: true, noSystem: true });
+    check('fresh, no prompt: no copy is made or listed', n.listed === false && n.chatFileWritten === false && n.returned === undefined);
+    check('fresh, no prompt: nothing was copied or hosted', n.copyFilesLeft === 0 && n.hosted.length === 0
+        && n.deployedNames.join() === 'original-api', JSON.stringify({ files: n.copyFilesLeft, hosted: n.hosted, workers: n.deployedNames }));
+    check('fresh, no prompt: the user is told', n.alerts.length === 1 && /Could not duplicate/.test(n.alerts[0]), JSON.stringify(n.alerts));
+    check('fresh, no prompt: the original is untouched', n.sourceUnchanged === true);
+
+    // A failure after the copy was half made still takes it all back.
+    const f = await run({ fresh: true, failAt: 'chat-write' });
+    check('fresh, save failure: nothing is left behind', !f.listed && f.copyFilesLeft === 0 && f.hosted.length === 0
+        && f.deployedNames.join() === 'original-api' && f.returned === undefined, JSON.stringify({ files: f.copyFilesLeft, hosted: f.hosted, workers: f.deployedNames }));
+}
 
 if (failures) { console.error(failures + ' failure(s)'); process.exit(1); }
 console.log('all duplicate-worker-isolation checks passed');

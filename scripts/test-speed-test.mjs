@@ -74,7 +74,14 @@ const APP = fs.readFileSync(new URL('../src/js/app.js', import.meta.url), 'utf8'
 const TOOLS = fs.readFileSync(new URL('../src/js/tools.js', import.meta.url), 'utf8');
 
 const speedLine = APP.match(/turnModel = await window\.ModelPicker\.allowedForTurn\(chosenModel\);\s*turnServiceSpeed = ([^\n]+);/);
-check('the speed is decided once, right after the model is settled', !!speedLine && (APP.match(/turnServiceSpeed = /g) || []).length === 1);
+// The one other assignment is the refusal fallback's: a turn that switches
+// from Opus to the fallback model (refusal branch of the retry loop) clears
+// it, since the fast tier is Opus's. It sets nothing else.
+const speedAssignments = APP.match(/turnServiceSpeed = [^\n]*/g) || [];
+const refusalReset = speedAssignments.filter((s) => s === 'turnServiceSpeed = undefined;');
+check('the speed is decided once, right after the model is settled', !!speedLine
+    && speedAssignments.length === 2 && refusalReset.length === 1
+    && /isModelRefusal\(streamError\)\) \{[\s\S]{0,1200}turnServiceSpeed = undefined;[\s\S]{0,800}continue;/.test(APP));
 const turnSpeed = speedLine && new Function('isFirstBuildTurn', 'turnModel', 'window', `return ${speedLine[1]};`);
 // arm: 'fast' or 'standard' forced, 'none' for nothing forced, null for no
 // experiments.js at all.

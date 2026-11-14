@@ -908,9 +908,16 @@ puter-user-menu::part(sign-in):hover {
    for a consistent, calm look; only the outer message wrapper needs its own
    spacing rule. */
 .resume-banner-message,
-.retry-status-message {
+.retry-status-message,
+.refusal-switch-message {
     width: 100%;
     margin-bottom: 20px;
+}
+
+/* The refusal card's action row, under the error text (app.js refusalCardHTML). */
+.refusal-card-actions {
+    margin-top: 10px;
+    padding-left: 24px;
 }
 
 .resume-banner {
@@ -935,7 +942,8 @@ puter-user-menu::part(sign-in):hover {
     line-height: 1.45;
 }
 
-.resume-build-btn {
+.resume-build-btn,
+.refusal-new-chat-btn {
     flex-shrink: 0;
     background: white;
     border: 1px solid #ddd;
@@ -949,16 +957,23 @@ puter-user-menu::part(sign-in):hover {
     transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
-.resume-build-btn:hover {
+.resume-build-btn:hover,
+.refusal-new-chat-btn:hover:not(:disabled) {
     background: #f7f7f7;
     border-color: #bbb;
     color: #222;
 }
 
-.resume-build-btn:active {
+.resume-build-btn:active,
+.refusal-new-chat-btn:active:not(:disabled) {
     background: #f0f0f0;
     border-color: #9a9a9a;
     color: #222;
+}
+
+.refusal-new-chat-btn:disabled {
+    cursor: default;
+    opacity: 0.7;
 }
 .chat-input-message {
     flex: 1;
@@ -7596,19 +7611,22 @@ html[data-theme="dark"] .resume-banner {
 
 html[data-theme="dark"] .resume-banner-icon { color: var(--text-muted); }
 
-html[data-theme="dark"] .resume-build-btn {
+html[data-theme="dark"] .resume-build-btn,
+html[data-theme="dark"] .refusal-new-chat-btn {
     background: var(--surface-raised);
     border-color: var(--border-strong);
     color: var(--text);
 }
 
-html[data-theme="dark"] .resume-build-btn:hover {
+html[data-theme="dark"] .resume-build-btn:hover,
+html[data-theme="dark"] .refusal-new-chat-btn:hover:not(:disabled) {
     background: var(--surface-hover);
     border-color: var(--border-strong);
     color: var(--text);
 }
 
-html[data-theme="dark"] .resume-build-btn:active {
+html[data-theme="dark"] .resume-build-btn:active,
+html[data-theme="dark"] .refusal-new-chat-btn:active:not(:disabled) {
     background: var(--surface-active);
     border-color: var(--border-strong);
     color: var(--text);

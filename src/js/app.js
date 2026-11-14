@@ -1627,7 +1627,11 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
                 if (typeof message.content === 'string') {
                     // Errors were persisted with an isError marker — re-render them
                     // as the same styled error card rather than a plain AI message.
-                    if (message.isError) {
+                    if (message.isError === 'refusal') {
+                        // A request the model's safety system declined: the
+                        // card again, with its "Continue in a new chat" button.
+                        appendRefusalCard(message.content);
+                    } else if (message.isError) {
                         appendErrorMessage(message.content);
                     } else {
                         appendMessage(message.content, false, false, false, false, messageId);
@@ -2138,7 +2142,38 @@ function unpublishCopiedHistory(history, originalUrl) {
     }
 }
 
-async function duplicateChat(chatId) {
+// ===== fresh-copy-history (start) =====
+// "Continue in a new chat" (the refusal card): a copy of the project whose
+// conversation starts over. It keeps only the leading system message(s), the
+// prompt with the working directory, with the copy's own paths already
+// rewritten in, and tells the AI there that the files are the app as it stands.
+// Notes go on the system message, like noteOnOldPrompt's, not as messages of
+// their own: a conversation that opened on an assistant note could be refused
+// by the model API. `history` is the copy's own clone and is changed in place.
+// Returns [] when there is no system message to keep, and the copy is then not
+// made: without its prompt the AI wouldn't know where the project's files are.
+const FRESH_COPY_NOTE = "[This project continues from an earlier conversation, which was left behind so this one could start fresh. The files in the working directory are the app as it stands now, built over that conversation. Before changing anything, look at the files you need (list the working directory, then read them) rather than assuming what they contain.]";
+function freshCopyHistory(history, extraNotes) {
+    const kept = [];
+    for (const m of (Array.isArray(history) ? history : [])) {
+        if (!m || m.role !== 'system') break;
+        kept.push(m);
+    }
+    const sys = kept[0];
+    if (!sys || !(typeof sys.content === 'string' || Array.isArray(sys.content))) return [];
+    for (const note of [FRESH_COPY_NOTE, ...(extraNotes || [])]) {
+        if (typeof note !== 'string' || !note) continue;
+        if (typeof sys.content === 'string') sys.content += '\n\n' + note;
+        else sys.content.push({ type: 'text', text: note });
+    }
+    return kept;
+}
+// ===== fresh-copy-history (end) =====
+
+// `freshConversation`: the copy keeps the files and starts a new conversation
+// (see freshCopyHistory). Resolves to the copy's id once it's saved, else
+// undefined (the user was told why).
+async function duplicateChat(chatId, { freshConversation = false } = {}) {
     if (!chatId || _duplicatingChats.has(chatId)) return;
     _duplicatingChats.add(chatId);
     // Dim the source row while we work; cleared in finally / by the re-render.
@@ -2200,7 +2235,18 @@ async function duplicateChat(chatId) {
         let clonedJson = JSON.stringify(sourceHistory).split(oldAppDir).join(newAppDir);
         // (Never split on an empty string — that would rewrite every character.)
         if (oldMediaDir && newMediaDir) clonedJson = clonedJson.split(oldMediaDir).join(newMediaDir);
-        const clonedHistory = JSON.parse(clonedJson);
+        let clonedHistory = JSON.parse(clonedJson);
+        // A fresh conversation is settled before anything is copied, so a
+        // project without its prompt stops here with nothing to undo. A
+        // published original's address note goes on the prompt too, since
+        // there's no conversation to add it to (see unpublishCopiedHistory).
+        if (freshConversation) {
+            const addressNote = origPublishedUrl && typeof copiedProjectNoteMessage === 'function'
+                ? copiedProjectNoteMessage(origPublishedUrl)?.content?.[0]?.text
+                : null;
+            clonedHistory = freshCopyHistory(clonedHistory, [addressNote]);
+            if (!clonedHistory.length) throw new Error("this project's setup couldn't be read, so nothing was copied.");
+        }
 
         // --- Copy the app files into the new directory ----------------------
         let filesCopied = false;
@@ -2247,8 +2293,9 @@ async function duplicateChat(chatId) {
             ? window.WorkerOwnership.rewriteHistory(clonedHistory, workerRenames)
             : clonedHistory;
         // The copy starts unpublished (below), so the original's publishes
-        // aren't its own.
-        unpublishCopiedHistory(finalHistory, origPublishedUrl);
+        // aren't its own. A fresh conversation has none, and its address
+        // note is already on its prompt.
+        if (!freshConversation) unpublishCopiedHistory(finalHistory, origPublishedUrl);
 
         // --- Publish the copy to its OWN subdomain (if the source was live) -
         let newPreviewUrl = null, newPreviewPath = null;
@@ -2302,7 +2349,8 @@ async function duplicateChat(chatId) {
             publishedAt: null,
             publishedDomains: [],
             // Carry the source's follow-up chips so the copy isn't bare on open.
-            suggestions: Array.isArray(source.suggestions) ? source.suggestions : [],
+            // A fresh conversation starts without the old one's.
+            suggestions: !freshConversation && Array.isArray(source.suggestions) ? source.suggestions : [],
             interrupted: false
         };
         await puter.fs.write(`chat-history/${newId}.json`, JSON.stringify(chatData));
@@ -2341,6 +2389,7 @@ async function duplicateChat(chatId) {
         });
         await saveChatList();
         updateChatHistorySidebar();
+        return newId;
     } catch (error) {
         console.error('Error duplicating chat:', error);
         // Nothing points at a copy whose chat file never landed: its workers
@@ -4618,6 +4667,143 @@ function clearRetryStatus() {
     $('.retry-status-message').remove();
 }
 
+// ===== refusal-fallback (start) =====
+// When Anthropic's safety system declines a request (model-refusal in
+// handleMessageStream.js), the turn carries on with ModelCore.refusalFallback's
+// model, on a paid plan, while FEATURE_FLAGS.refusalFallback is on. The switch
+// is remembered for the project in this browser, so each later message doesn't
+// pay for another declined request first. It's kept out of the chat file, so
+// no saved chat changes shape. Otherwise the refusal card says what happened
+// and offers a fresh chat with the project's files (duplicateChat's
+// freshConversation).
+const REFUSAL_FALLBACK_KEY = 'builder.refusalFallback';
+const REFUSAL_FALLBACK_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const REFUSAL_FALLBACK_MAX = 100;
+const REFUSAL_CARD_TEXT = "Anthropic, the company that makes the Claude AI model, declined to continue this conversation. Its safety system sometimes flags a long conversation by mistake. This isn't a problem with your project or your Puter account. To keep working, continue in a new chat: your project and its files are copied, and the AI starts a fresh conversation about them.";
+// For a refusal from a model that isn't Claude, which names no company.
+const REFUSAL_CARD_TEXT_OTHER = "The company that makes this AI model declined to continue this conversation. Its safety system sometimes flags a long conversation by mistake. This isn't a problem with your project or your Puter account. To keep working, continue in a new chat: your project and its files are copied, and the AI starts a fresh conversation about them.";
+function refusalCardText(model) {
+    return window.ModelCore && model && !window.ModelCore.isClaude(model) ? REFUSAL_CARD_TEXT_OTHER : REFUSAL_CARD_TEXT;
+}
+
+function refusalFallbackFor(model) {
+    if (!(window.FEATURE_FLAGS && window.FEATURE_FLAGS.refusalFallback)) return null;
+    const u = window.user;
+    if (!u || u.is_temp || !(window.Branding && window.Branding.isSubscribed(u))) return null;
+    return (window.ModelCore && window.ModelCore.refusalFallback(model)) || null;
+}
+function readRefusalFallbacks() {
+    try {
+        const raw = localStorage.getItem(REFUSAL_FALLBACK_KEY);
+        const all = raw ? JSON.parse(raw) : null;
+        return all && typeof all === 'object' && !Array.isArray(all) ? all : {};
+    } catch (e) { return {}; }
+}
+function refusalFallbackRemember(chatId, from, to) {
+    if (!chatId || !from || !to) return;
+    try {
+        const all = readRefusalFallbacks();
+        all[chatId] = { from, to, at: Date.now() };
+        // Newest first, so the oldest are dropped past the cap.
+        const kept = Object.entries(all)
+            .filter(([, e]) => e && typeof e.at === 'number')
+            .sort((a, b) => b[1].at - a[1].at)
+            .slice(0, REFUSAL_FALLBACK_MAX);
+        localStorage.setItem(REFUSAL_FALLBACK_KEY, JSON.stringify(Object.fromEntries(kept)));
+    } catch (e) { /* the turn has switched anyway; the next one may be declined once more */ }
+}
+// The model a turn on `model` in this project starts on instead, or null.
+function refusalFallbackRemembered(chatId, model) {
+    const next = refusalFallbackFor(model);
+    if (!next || !chatId) return null;
+    const e = readRefusalFallbacks()[chatId];
+    if (!e || e.from !== model || e.to !== next) return null;
+    if (typeof e.at !== 'number' || Date.now() - e.at > REFUSAL_FALLBACK_TTL_MS) return null;
+    return next;
+}
+
+const REFUSAL_INFO_ICON = '<svg class="resume-banner-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>';
+
+// The line shown in the chat when a turn switches models. Not saved: on a
+// reload the conversation reads on as one.
+function showRefusalSwitchNote(from, to) {
+    const label = (id) => (window.ModelCore ? window.ModelCore.labelOf(id) : id);
+    const text = `Anthropic's safety system declined this request on ${label(from)}, so it's continuing on ${label(to)}. This isn't a problem with your project. ${label(to)} uses more credits per message, and this project will keep using it for now.`;
+    const $chatBox = $('.chat-box');
+    if (!$chatBox.length) return;
+    const html = `<div class="message refusal-switch-message"><div class="resume-banner">${REFUSAL_INFO_ICON}<span class="resume-banner-text">${htmlEscape(text)}</span></div></div>`;
+    // Above the thinking dots, which stay at the bottom while the turn runs.
+    const $spinner = $chatBox.find('.floating-spinner').last();
+    if ($spinner.length) $spinner.before(html);
+    else $chatBox.append(html);
+    if (window.shouldAutoScroll) $chatBox.scrollTop($chatBox[0].scrollHeight);
+    window.announce?.(text);
+}
+
+// The reminder on a later message in a project that switched, at most once an
+// hour per project.
+function refusalFallbackToast(chatId, from, to) {
+    const label = (id) => (window.ModelCore ? window.ModelCore.labelOf(id) : id);
+    window.showToast?.(`This project is using ${label(to)}, because Anthropic's safety system declined its requests on ${label(from)}. ${label(to)} uses more credits per message.`,
+        { key: 'refusal-fallback-' + chatId, throttleMs: 60 * 60 * 1000 });
+}
+
+function refusalCardHTML(message) {
+    return errorCardHTML(message)
+        + '<div class="refusal-card-actions"><button type="button" class="refusal-new-chat-btn">Continue in a new chat</button></div>';
+}
+function appendRefusalCard(message) {
+    return appendMessage(refusalCardHTML(message), false, false, false, false, null, true);
+}
+
+// The card's button: a copy of the open project with a fresh conversation,
+// opened once it's saved. The original isn't changed.
+async function continueInNewChat(btn) {
+    const $btn = $(btn);
+    if ($btn.prop('disabled')) return;
+    if (isProcessing) {
+        window.showToast?.('Wait for the current reply to finish, then try again.', { key: 'refusal-new-chat-busy' });
+        return;
+    }
+    const chatId = currentChatId;
+    if (!chatId || !savedChats.some((c) => c.id === chatId)) return;
+    // A copy of this project already running (its menu's "Make a copy"):
+    // duplicateChat would return without a word.
+    if (_duplicatingChats.has(chatId)) {
+        window.showToast?.('This project is already being copied. Try again in a moment.', { key: 'refusal-new-chat-busy' });
+        return;
+    }
+    $btn.prop('disabled', true).text('Copying your project…');
+    let newId;
+    try {
+        newId = await duplicateChat(chatId, { freshConversation: true });
+    } catch (err) {
+        console.error('Continue in a new chat failed:', err);
+    }
+    if (!newId || !savedChats.some((c) => c.id === newId)) {
+        // duplicateChat already said why.
+        $btn.prop('disabled', false).text('Continue in a new chat');
+        return;
+    }
+    window.track?.('Refusal New Chat');
+    // Opened only if the user is still here and nothing started meanwhile.
+    if (currentChatId === chatId && !isProcessing) {
+        loadChat(newId).catch(() => {});
+    } else {
+        $btn.text('New chat ready in your projects');
+        window.showToast?.('Your project was copied into a new chat. Open it from your projects list.', { key: 'refusal-new-chat-ready' });
+    }
+}
+if (typeof document !== 'undefined' && document.addEventListener) {
+    document.addEventListener('click', (e) => {
+        const btn = e.target && e.target.closest ? e.target.closest('.refusal-new-chat-btn') : null;
+        if (!btn) return;
+        e.preventDefault();
+        continueInNewChat(btn);
+    });
+}
+// ===== refusal-fallback (end) =====
+
 // Abortable backoff wait. Resolves true after `delayMs`, or false the instant the
 // user stops the turn or switches chats — so a retry never fires into a turn the
 // user has already abandoned. Polls (rather than one setTimeout) so cancellation
@@ -5618,6 +5804,11 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // Without it each request asks the user's fast mode (FastMode.requestSpeed)
     // as it is made, so switching it mid-build applies from the next request.
     let turnServiceSpeed;
+    // Set once this turn has switched models after its model declined a
+    // request (the refusal branch in the retry loop): it switches at most
+    // once, and a second refusal ends it on the refusal card. Out here so the
+    // catch below can read it.
+    let refusalSwitched = false;
 
     // Check if there are only system prompts (no actual conversation yet)
     const hasNonSystemMessages = chatHistory.some(msg => msg.role !== 'system');
@@ -5956,8 +6147,26 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // Not from a turn stopped during the plan check above. A newer turn
         // may have started by then, and this one would take its place.
         if (!turnAbandoned()) window.BuildNotify?.turnStarted?.({ chatId: turnChatId, firstBuild: isFirstBuildTurn });
-        const turnTools = window.getTurnTools(turnModel);
-        const turnUnavailableTools = window.getUnavailableTools?.(turnModel) || [];
+        // A project whose requests Anthropic declined on this model carries
+        // on with the model that took over (see refusal-fallback), so each
+        // message doesn't pay for one more declined request first. Never a
+        // first build (the refusal was in an earlier turn), so no speed was
+        // set above; checked anyway, since that speed is Opus's tier. Fast
+        // mode is told the model the turn really runs on (it offers its hint
+        // only for a model with a fast tier).
+        if (!turnServiceSpeed) {
+            const remembered = refusalFallbackRemembered(turnChatId, turnModel);
+            if (remembered) {
+                refusalFallbackToast(turnChatId, turnModel, remembered);
+                turnModel = remembered;
+                window.FastMode?.turnStarted?.({ model: turnModel, fast: false });
+            }
+        }
+        // `let`: a turn declined by its model continues on the fallback model
+        // (see the refusal branch in the retry loop below), with that model's
+        // tools.
+        let turnTools = window.getTurnTools(turnModel);
+        let turnUnavailableTools = window.getUnavailableTools?.(turnModel) || [];
         turnAccountRead = readTurnAccount().then(a => { turnAccount = a; }, () => {});
         while (true) {
             // A fresh AbortController per attempt. This is also the guard for a chat
@@ -6019,6 +6228,38 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                     // catch/finally exactly as before.
                     const active = !shouldStop && !activeTurnInterrupted
                         && turnChatId === currentChatId && !isAborted(abortController);
+                    // Declined by the model's safety system (model-refusal in
+                    // handleMessageStream.js). Never retried on the same model:
+                    // it declines the same request again, and each one is
+                    // charged. Once per turn it continues on the fallback model
+                    // instead, from the work already done, like a retry; else
+                    // the outer catch shows the refusal card.
+                    if (active && typeof isModelRefusal === 'function' && isModelRefusal(streamError)) {
+                        const from = turnModel;
+                        const next = refusalSwitched ? null : refusalFallbackFor(from);
+                        if (!next) throw streamError;
+                        refusalSwitched = true;
+                        // Drop the declined reply's unsaved text, and keep the
+                        // declined request's usage (it was charged).
+                        removeUncommittedBubble(context);
+                        if (context) flushTurnUsage(context);
+                        // The declined reply's tool status, if it had begun one.
+                        window.setSpinnerLabel?.('');
+                        turnModel = next;
+                        // Fast mode and the speed test are Opus's tier only.
+                        turnServiceSpeed = undefined;
+                        window.FastMode?.turnStarted?.({ model: turnModel, fast: false });
+                        turnTools = window.getTurnTools(turnModel);
+                        turnUnavailableTools = window.getUnavailableTools?.(turnModel) || [];
+                        refusalFallbackRemember(turnChatId, from, next);
+                        showRefusalSwitchNote(from, next);
+                        window.track?.('Model Refusal', {
+                            model: from, category: streamError.refusal?.category || 'unknown',
+                            outcome: 'fallback', fallback: next, first_build: isFirstBuildTurn,
+                        });
+                        prepareResumeHistory(turnSaveContext.chatHistory);
+                        continue;
+                    }
                     if (!active || !isTransientTurnError(streamError)) {
                         throw streamError;
                     }
@@ -6176,6 +6417,24 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                     appendMessage('You have reached the current tier\'s usage limit. Please upgrade your Puter account to continue. <button class="upgrade-button">Upgrade</button>', false, false, false, true);
                     window.announce?.('You have reached the current tier\'s usage limit. Upgrade your Puter account to continue.', { assertive: true });
                 }
+            }else if(typeof isModelRefusal === 'function' && isModelRefusal(error)){
+                // Declined by the model's safety system, with no fallback left
+                // (none for this model or plan, or the fallback declined too).
+                // The card says who declined it and offers a fresh chat with
+                // the project's files. Saved like any error card, with the
+                // marker set to 'refusal' so a reload draws the button again;
+                // every isError check is a truthy one, so older versions of
+                // the app show it as a plain error card and strip it before
+                // sending, as before.
+                removeUncommittedBubble(context);
+                const refusalText = refusalCardText(error.model || turnModel);
+                appendRefusalCard(refusalText);
+                window.announce?.(refusalText, { assertive: true });
+                turnSaveContext.chatHistory.push({ role: "assistant", content: refusalText, isError: 'refusal' });
+                window.track?.('Model Refusal', {
+                    model: error.model || turnModel, category: error.refusal?.category || 'unknown',
+                    outcome: refusalSwitched ? 'fallback_declined' : 'card', first_build: isFirstBuildTurn,
+                });
             }else{
                 // Translate the raw provider/API error into a concise, actionable
                 // sentence and show it as a styled error card (not a plain bubble
