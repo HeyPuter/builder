@@ -162,6 +162,33 @@ function normalizeStreamError(completion) {
     return err;
 }
 
+// ===== model-refusal (start) =====
+// Anthropic's safety system can decline a request: the stream then ends
+// cleanly, with no text and no tool calls, and a usage line whose stopReason
+// is "refusal" (Puter also sets finish_reason "content_filter"). Read that way
+// the turn looked finished, so the chat went quiet: nothing was saved, no
+// error showed, and every message the user sent after it was declined and
+// charged the same way. handleMessageStream throws this error instead, and
+// sendChatMessage either continues the turn on the fallback model
+// (ModelCore.refusalFallback) or shows the refusal card.
+function refusalFromUsage(completion) {
+    if (!completion || completion.type !== 'usage' || completion.stopReason !== 'refusal') return null;
+    const d = completion.stopDetails && typeof completion.stopDetails === 'object' ? completion.stopDetails : {};
+    return { category: typeof d.category === 'string' ? d.category : null };
+}
+function modelRefusalError(refusal, model) {
+    const err = new Error('The AI model declined this request.');
+    err.name = 'ModelRefusalError';
+    err.code = 'model_refusal';
+    err.refusal = refusal || { category: null };
+    err.model = model || null;
+    return err;
+}
+function isModelRefusal(error) {
+    return !!(error && typeof error === 'object' && error.code === 'model_refusal');
+}
+// ===== model-refusal (end) =====
+
 // ---- Abort-aware stream plumbing -------------------------------------------
 // puter.ai.chat does NOT honor the `signal` option (the SDK never reads
 // options.signal — verified against js.puter.com/v2), so aborting the turn's
@@ -506,7 +533,10 @@ async function handleMessageStream(stream, context) {
                         role: 'assistant',
                         content: [{ type: 'compaction', id: completion.id, encrypted_content: completion.encrypted_content }],
                         compaction: true,
-                        ...(context.model ? { model: context.model } : {}),
+                        // A fallback model's summary is stamped with a picker
+                        // model of its family (ModelCore.stampModel), which
+                        // every version of the app reads back.
+                        ...(context.model ? { model: window.ModelCore?.stampModel ? window.ModelCore.stampModel(context.model) : context.model } : {}),
                     });
                     if (context.turnStats) context.turnStats.compactions = (context.turnStats.compactions || 0) + 1;
                 }
@@ -574,6 +604,15 @@ async function handleMessageStream(stream, context) {
                 // and puter.js showed Low Balance. Read by sendChatMessage.
                 if (completion.metadata && completion.metadata.usage_limited === true) {
                     context.usageLimited = true;
+                }
+                // Declined by the model's safety system (see model-refusal
+                // above). Whatever the reply streamed before it was declined
+                // is dropped: its tool calls never run, and its text is left
+                // unsaved for the caller to remove.
+                const refusal = refusalFromUsage(completion);
+                if (refusal) {
+                    pendingTools = [];
+                    throw modelRefusalError(refusal, context.model);
                 }
                 // The reply is complete: run its tool calls (see pendingTools).
                 const result = await runPendingTools(completion.stopReason || completion.finish_reason);

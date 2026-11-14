@@ -116,6 +116,12 @@ window.FEATURE_FLAGS = {
     // and goes one message per turn once the turn finishes cleanly. When
     // false the composer is locked for the whole turn, as before.
     messageQueue: true,
+    // When Anthropic's safety system declines a request on a paid plan, the
+    // turn continues on the fallback model (ModelCore.refusalFallback) and the
+    // project keeps it in this browser for 30 days (refusal-fallback in
+    // app.js). When false, every refusal ends on the refusal card, which
+    // offers a fresh chat with the project's files.
+    refusalFallback: true,
 };
 
 // Analytics. Fires a Plausible custom event for the handful of product actions
