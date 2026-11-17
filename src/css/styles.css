@@ -6074,7 +6074,7 @@ body.preview-active.chat-hidden .chat {
        buttons stay in the DOM (hidden) — the menu triggers their clicks — so all
        their existing logic is reused. */
     .preview-history-group { display: none; }
-    body.preview-active .preview-overflow { display: inline-flex; }
+    body.preview-active .preview-toolbar .preview-overflow { display: inline-flex; }
 }
 
 /* Very small phones (≤380px): trim chrome a touch more. */
