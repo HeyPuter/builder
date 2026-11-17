@@ -2,7 +2,8 @@
 //
 // When the user's request is too vague to build confidently, the model can call
 // AskClarifyingQuestions with up to TWO short questions, each with a few concrete
-// options. We render an interactive card in the chat, BLOCK the agentic loop
+// options. We render an interactive card above the composer (the dock, ChatDock
+// in helpers.js, so it can't scroll out of sight), BLOCK the agentic loop
 // inside exec() until the user answers (picks options, types a custom answer,
 // skips, replies directly in the composer, or dismisses the card), then return
 // the collected answers as the tool result so the model continues building with
@@ -128,10 +129,11 @@
                 $(document).off('keydown.clarify');
                 try { context.abortController?.signal.removeEventListener('abort', onAbort); } catch (e) {}
                 window._activeClarification = null;
-                if (summary) {
-                    renderClarifySummary(result, { append: false }).insertAfter($card);
-                }
                 $card.remove();
+                // The recap goes at the end of the conversation, right after
+                // the AI's lead-in. The turn waited on the card, so nothing
+                // else was added to the chat meanwhile.
+                if (summary) renderClarifySummary(result);
                 if (restoreUI) restoreProcessingComposer();
                 resolve(result);
             }
@@ -370,17 +372,14 @@
             if (isAborted(context.abortController) || isStaleTurn(context)) { onAbort(); return; }
 
             // Mount: drop the thinking-dots spinner (the card is now the call to
-            // action), append the card, switch the composer to reply-directly mode.
+            // action), put the card above the composer, and switch the composer
+            // to reply-directly mode. The dock keeps a conversation scrolled to
+            // its end there as the card takes its room. On a page without the
+            // dock, the card goes at the end of the conversation instead.
             $('.floating-spinner').remove();
-            const $chatBox = $('.chat-box');
-            $chatBox.append($card);
+            if (!window.ChatDock?.add($card)) $('.chat-box').append($card);
             syncStateForQuestion();
             render();
-            // Scroll AFTER render() has injected the question/options into
-            // .clarify-inner: scrolling against the freshly-appended (still empty)
-            // card shell would target a height that excludes the card's content
-            // and leave the populated, much taller card below the fold.
-            if (window.shouldAutoScroll) $chatBox.scrollTop($chatBox[0].scrollHeight);
             enableComposerForClarify();
         });
     }

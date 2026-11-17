@@ -35,11 +35,23 @@ function extract(src, signature) {
     return src.slice(a, src.indexOf('\n}\n', a) + 2);
 }
 
+// A marked block of a source file (// ===== name (start) ===== … (end)).
+function extractBlock(src, name) {
+    const a = src.indexOf(`// ===== ${name} (start) =====`);
+    const b = src.indexOf(`// ===== ${name} (end) =====`);
+    if (a < 0 || b < 0) throw new Error('could not find the ' + name + ' block');
+    return src.slice(a, b);
+}
+
 function setup() {
     const dom = makeDom();
     const chatBox = dom.document.createElement('div');
     chatBox.className = 'chat-box';
     dom.body.appendChild(chatBox);
+    // Above the composer: the newest card while it waits on the user.
+    const dock = dom.document.createElement('div');
+    dock.className = 'chat-dock';
+    dom.body.appendChild(dock);
     const calls = [], events = [], announced = [];
     const env = {
         console,
@@ -95,6 +107,7 @@ function setup() {
         publishedShareUrl: (url) => env.CustomDomain.liveUrl(env.currentPublishedDomains, (url || '').replace(/^https:\/\/|\.puter\.site\/$/g, ''), url),
     });
     vm.createContext(env);
+    vm.runInContext(extractBlock(helpersSource, 'chat-dock'), env);
     vm.runInContext(customDomainSource, env);
     vm.runInContext(stateSource, env);
     vm.runInContext([
@@ -107,9 +120,11 @@ function setup() {
     const tool = env.tools.find(t => t.function.name === 'OfferPublish');
     const addressTool = env.tools.find(t => t.function.name === 'OfferAddressChange');
     const domainTool = env.tools.find(t => t.function.name === 'OfferCustomDomain');
-    const cards = () => chatBox.querySelectorAll('.publish-card');
+    // In order: the conversation's, then the one in the dock (the newest).
+    const cards = () => [...chatBox.querySelectorAll('.publish-card'), ...dock.querySelectorAll('.publish-card')];
+    const docked = () => dock.querySelector('.publish-card');
     const q = (el, sel) => el.querySelector(sel);
-    return { env, dom, chatBox, tool, addressTool, domainTool, cards, q, calls, events, announced };
+    return { env, dom, chatBox, dock, tool, addressTool, domainTool, cards, docked, q, calls, events, announced };
 }
 
 // ---- The tool --------------------------------------------------------------
@@ -958,6 +973,215 @@ function setup() {
     check('the address change\'s field is described by its warning, with its own id',
         note.getAttribute('id') && note.getAttribute('id') !== errEl.getAttribute('id')
         && q(addr, '.publish-card-input').getAttribute('aria-describedby') === note.getAttribute('id'));
+}
+
+// ---- Above the composer, while it waits on the user ------------------------
+// The card the AI just offered goes in the dock (ChatDock in helpers.js),
+// above the composer, where it can't scroll out of sight. Its place in the
+// conversation keeps an anchor, and it goes back there once it's done, once
+// the user closes it or sends their next message, or once a newer card
+// replaces it.
+{
+    const t = setup();
+    const { env, tool, chatBox, docked, q, calls, dom } = t;
+    const repaints = [];
+    env.renderDeferredSuggestions = () => repaints.push(1);
+    const r = await tool.exec({ address: 'bakery' }, {});
+    env.chatHistory.push({ role: 'user', content: { type: 'tool_result', tool_use_id: 't1', content: JSON.stringify(r) } });
+    const card = docked();
+    check('offered: the card is in the dock, not the conversation', card && !chatBox.querySelector('.publish-card'));
+    check('…with an anchor where it stood', !!chatBox.querySelector('.publish-card-anchor'));
+    check('…a line on what it is for, and a close button',
+        q(card, '.publish-card-title')?.textContent === 'Publish your site' && !!q(card, '.publish-card-close'));
+    check('…and the address and Publish, as in the conversation',
+        q(card, '.publish-card-input')?.value === 'bakery' && q(card, '.publish-card-btn')?.textContent === 'Publish');
+
+    // Publishing keeps it in the dock until it lands.
+    dom.dispatch(q(card, '.publish-card-btn'), 'click');
+    env.busy = true;
+    env.refreshPublishCards();
+    check('publishing: still in the dock', docked() === card && q(card, '.publish-card-btn').textContent === 'Publishing…');
+
+    // The button was focused when it landed: focus follows the card back.
+    q(card, '.publish-card-inner').focus();
+    env.busy = false;
+    env.currentPublishedUrl = 'https://bakery.puter.site/';
+    env.currentPublishedVersionId = 'v2';
+    env._projectDirtySinceSnapshot = false;
+    await calls[0].success({ url: 'https://bakery.puter.site/', isFirst: true });
+    check('published: back in its place in the conversation', !docked() && chatBox.querySelector('.publish-card') === card
+        && !chatBox.querySelector('.publish-card-anchor'));
+    check('…reading Live, without the dock\'s line or close button',
+        /Live/.test(card.textContent) && !q(card, '.publish-card-head') && !q(card, '.publish-card-close'));
+    check('…focus on its link, not dropped to the page', dom.document.activeElement === q(card, '.publish-card-link'));
+    check('…and the held chips can show', repaints.length === 1);
+
+    // Changes since: it doesn't come back to the dock on its own.
+    env._projectDirtySinceSnapshot = true;
+    env.refreshPublishCards();
+    check('changes since: Publish changes in the conversation, not the dock',
+        !docked() && /Publish changes/.test(card.textContent));
+}
+{
+    // Up to date already: nothing for the user to do, so no dock.
+    const { env, tool, chatBox, docked } = setup();
+    env.currentPublishedUrl = 'https://ay-site.puter.site/';
+    env.currentPublishedVersionId = 'v2';
+    env._projectDirtySinceSnapshot = false;
+    await tool.exec({}, {});
+    check('up to date: Live in the conversation, not the dock', !docked() && /Live/.test(chatBox.querySelector('.publish-card').textContent));
+    // Changes, and the AI offers again: Publish changes in the dock.
+    env._projectDirtySinceSnapshot = true;
+    await tool.exec({}, {});
+    check('changes: in the dock, titled for the changes', docked()
+        && docked().querySelector('.publish-card-title').textContent === 'Publish your latest changes');
+    // Published from the toolbar meanwhile: the button has nothing left to do.
+    env._projectDirtySinceSnapshot = false;
+    env.refreshPublishCards();
+    check('published from the toolbar: back in the conversation, Live', !docked()
+        && /Live/.test(chatBox.querySelectorAll('.publish-card')[1].textContent));
+}
+{
+    // Closed: back in the conversation, still a control, and it stays there.
+    const t = setup();
+    const { env, tool, chatBox, docked, q, dom } = t;
+    const composer = dom.document.createElement('textarea');
+    composer.className = 'chat-input-message';
+    dom.body.appendChild(composer);
+    await tool.exec({ address: 'shop' }, {});
+    const card = docked();
+    q(card, '.publish-card-close').focus();
+    dom.dispatch(q(card, '.publish-card-close'), 'click');
+    check('closed: back in its place, still with its address and Publish', !docked()
+        && chatBox.querySelector('.publish-card') === card && q(card, '.publish-card-btn')?.textContent === 'Publish'
+        && q(card, '.publish-card-input')?.value === 'shop');
+    check('…focus goes to the composer, not after the card', dom.document.activeElement === composer);
+    env.blocked = 'task';
+    env.refreshPublishCards();
+    env.blocked = null;
+    env.refreshPublishCards();
+    check('…and no redraw puts it back in the dock', !docked());
+    // On a phone, the composer isn't focused (it pops the keyboard up).
+    const p = setup();
+    p.env.isMobileViewport = () => true;
+    const pc = p.dom.document.createElement('textarea');
+    pc.className = 'chat-input-message';
+    p.dom.body.appendChild(pc);
+    await p.tool.exec({ address: 'shop' }, {});
+    p.dom.dispatch(p.q(p.docked(), '.publish-card-close'), 'click');
+    check('closed on a phone: the composer isn\'t focused', !p.docked() && p.dom.document.activeElement !== pc);
+}
+{
+    // The user sends their next message instead.
+    const { env, tool, chatBox, docked } = setup();
+    await tool.exec({ address: 'shop' }, {});
+    env.closeDockedPublishCard();
+    check('next message: the card goes back to the conversation', !docked() && chatBox.querySelector('.publish-card'));
+    env.refreshPublishCards();
+    check('…for good', !docked());
+    env.closeDockedPublishCard();
+    check('…and with nothing in the dock, sending does nothing', !docked());
+    const app = read('../src/js/app.js');
+    const start = app.indexOf('    clearResumeBanner();\n    isProcessing = true;');
+    check('sendChatMessage closes it as the turn starts',
+        start > 0 && app.indexOf('window.closeDockedPublishCard?.();', start) > start
+        && app.indexOf('window.closeDockedPublishCard?.();', start) < app.indexOf('const turnSeq = ++_turnSeq;', start));
+}
+{
+    // A newer card replaces the one in the dock.
+    const { env, tool, addressTool, chatBox, docked, cards, q } = setup();
+    await tool.exec({ address: 'first' }, {});
+    const first = docked();
+    env.currentPublishedUrl = 'https://first.puter.site/';
+    env.currentPublishedVersionId = 'v2';
+    env._projectDirtySinceSnapshot = false;
+    await addressTool.exec({ address: 'second' }, {});
+    const second = docked();
+    check('a newer card: it takes the dock', second && second !== first
+        && q(second, '.publish-card-title').textContent === 'Change your site’s address');
+    check('…and the older one goes back, hidden since it wasn\'t used',
+        chatBox.querySelector('.publish-card') === first && first.classList.contains('is-superseded') && cards().length === 2);
+    check('…one anchor left, the newer card\'s', chatBox.querySelectorAll('.publish-card-anchor').length === 1);
+}
+{
+    // The user's own domain: in the dock while there is something to do.
+    const { env, domainTool, docked, q } = setup();
+    env.user = { username: 'u', subscribed: false };
+    env.refreshUserPlan = async () => env.user;
+    env.currentPublishedUrl = 'https://ay-site.puter.site/';
+    await domainTool.exec({}, {});
+    check('domain, free plan: in the dock, with Use custom domain', docked()
+        && q(docked(), '.publish-card-title').textContent === 'Use your own domain'
+        && q(docked(), '.publish-card-btn').textContent === 'Use custom domain');
+    const w = setup();
+    w.env.currentPublishedUrl = 'https://ay-site.puter.site/';
+    w.env.currentPublishedDomains = [{ hostname: 'joescafe.com', site: 'ay-site', status: 'active' }];
+    await w.domainTool.exec({}, {});
+    const wc = w.chatBox.querySelector('.publish-card');
+    check('domain already working: Live with Change domain in the conversation, not the dock',
+        !w.docked() && wc && /Live/.test(wc.textContent) && w.q(wc, '.publish-card-btn')?.textContent === 'Change domain',
+        wc && wc.textContent);
+    // Waiting for its DNS records: Check DNS records, in the dock.
+    const d = setup();
+    d.env.currentPublishedUrl = 'https://ay-site.puter.site/';
+    d.env.currentPublishedDomains = [{ hostname: 'joescafe.com', site: 'ay-site', status: 'pending', records: [] }];
+    await d.domainTool.exec({}, {});
+    check('domain waiting for its records: Check DNS records, in the dock',
+        d.docked() && d.q(d.docked(), '.publish-card-btn')?.textContent === 'Check DNS records');
+}
+{
+    // A reloaded chat: loadChat draws the cards in the conversation, then
+    // restorePublishDock puts the newest back while it still waits.
+    const { env, chatBox, docked, q, dom } = setup();
+    env.renderPublishCard({ address: 'older', offer: 'offer-1' });
+    env.renderPublishCard({ address: 'latest', offer: 'offer-2' });
+    check('reload: drawn in the conversation', !docked() && chatBox.querySelectorAll('.publish-card').length === 2);
+    env.restorePublishDock();
+    check('reload: the newest goes back in the dock', docked()?.getAttribute('data-offer') === 'offer-2'
+        && q(docked(), '.publish-card-input').value === 'latest');
+
+    // Something the user sent after it: they moved on.
+    const m = setup();
+    m.env.renderPublishCard({ address: 'latest', offer: 'offer-3' });
+    const bubble = m.dom.document.createElement('div');
+    bubble.className = 'message user-message';
+    m.chatBox.appendChild(bubble);
+    m.env.restorePublishDock();
+    check('reload, a message after it: stays in the conversation', !m.docked());
+
+    // Published from it: done.
+    const u = setup();
+    u.env.currentPublishedUrl = 'https://used.puter.site/';
+    u.env.renderPublishCard({ address: 'used', offer: 'offer-4', publishedUrl: 'https://used.puter.site/' });
+    u.env.restorePublishDock();
+    check('reload, published from it: stays in the conversation', !u.docked());
+
+    // Closed earlier in the session (a switch away and back).
+    const c = setup();
+    c.env.renderPublishCard({ address: 'x', offer: 'offer-5', dock: true });
+    c.dom.dispatch(c.q(c.docked(), '.publish-card-close'), 'click');
+    c.chatBox.textContent = '';
+    c.env.renderPublishCard({ address: 'x', offer: 'offer-5' });
+    c.env.restorePublishDock();
+    check('reload, closed earlier: stays in the conversation', !c.docked());
+
+    const app = read('../src/js/app.js');
+    const replayEnd = app.indexOf('// A newer load may have taken over during the media awaits above.');
+    const restore = app.indexOf('window.restorePublishDock?.();', replayEnd);
+    check('loadChat restores it after the history, before the chips',
+        replayEnd > 0 && restore > replayEnd && restore < app.indexOf('renderContinueSuggestions(persistedSuggestions);', replayEnd));
+    const reset = extract(app, 'function resetChatUIForSwitch() {');
+    check('a chat switch empties the dock', /window\.ChatDock\?\.clear\?\.\(\);/.test(reset));
+}
+{
+    // The chips wait while the dock holds something.
+    const app = read('../src/js/app.js');
+    const render = extract(app, 'function renderContinueSuggestions(suggestions) {');
+    check('"what next?" chips wait while the dock holds something', /window\.ChatDock\?\.has\?\.\(\)\) return;/.test(render));
+    const ui = read('../src/js/ui.js');
+    check('the dock sits between the conversation and the composer',
+        ui.indexOf('<div class="chat-dock"></div>') > ui.indexOf('<div class="chat-box"></div>')
+        && ui.indexOf('<div class="chat-dock"></div>') < ui.indexOf('<div class="chat-input">'));
 }
 
 // ---- Wiring --------------------------------------------------------------------

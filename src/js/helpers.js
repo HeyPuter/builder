@@ -2663,3 +2663,55 @@ if (window.visualViewport) {
     document.addEventListener('focusout', function () { setTimeout(syncKeyboardViewport, 0); });
 }
 // ===== keyboard-viewport (end) =====
+
+// ===== chat-dock (start) =====
+// What the user owes an answer sits between the conversation and the
+// composer, in .chat-dock, so it can't scroll out of sight. That is the AI's
+// clarifying questions (tools/chat_ui/clarify.js) and a Publish card the AI
+// just offered (tools/chat_ui/publish.js).
+// The conversation keeps a record of what was decided. Empty, the dock takes
+// no room (.chat-dock:empty).
+//
+// The dock's height comes out of the conversation's, so a conversation
+// scrolled to its end stays there while the dock grows, shrinks or changes
+// what it holds.
+window.ChatDock = (function () {
+    let pinned = true;
+    let watching = false;
+    const nearEnd = (box) => box.scrollTop >= box.scrollHeight - box.clientHeight - 50;
+    function watch(dock) {
+        if (watching || typeof ResizeObserver === 'undefined') return;
+        watching = true;
+        // Scroll events don't bubble, so they're caught on the way down.
+        document.addEventListener('scroll', (e) => {
+            const t = e.target;
+            if (t && t.classList && t.classList.contains('chat-box')) pinned = nearEnd(t);
+        }, true);
+        new ResizeObserver(() => {
+            const box = document.querySelector('.chat-box');
+            if (box && pinned) box.scrollTop = box.scrollHeight;
+        }).observe(dock);
+    }
+    // Puts $node in the dock. False when there is no dock (the tests that
+    // load a card without the page).
+    function add($node) {
+        const dock = document.querySelector('.chat-dock');
+        if (!dock) return false;
+        const box = document.querySelector('.chat-box');
+        if (box) pinned = nearEnd(box);
+        watch(dock);
+        $(dock).append($node);
+        return true;
+    }
+    function has() {
+        const dock = document.querySelector('.chat-dock');
+        return !!(dock && dock.children.length);
+    }
+    // On a chat switch, what the dock holds belongs to the chat being left.
+    function clear() {
+        const dock = document.querySelector('.chat-dock');
+        if (dock) $(dock).empty();
+    }
+    return { add, has, clear };
+})();
+// ===== chat-dock (end) =====
