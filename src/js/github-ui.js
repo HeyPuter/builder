@@ -1,4 +1,4 @@
-// github-ui.js — the Source control toolbar button and popover, which save a
+// github-ui.js — the GitHub toolbar button and popover, which save a
 // project to GitHub (the UI half of js/github-sync.js).
 //
 // One popover per project, with the toolbar's popover rules: one open at a
@@ -238,13 +238,15 @@
         const now = id ? Sync.stateFor(id) : null;
         const s = now && now.kind === 'checking' && now.prev ? now.prev : now;
         const attention = !!(link && !link.disconnected && s && ['collision', 'history', 'secret', 'signed-out', 'repo-missing', 'branch-missing', 'rules', 'archived', 'error'].includes(s.kind));
-        $btn.find('.preview-github-dot').prop('hidden', !attention);
+        // The button itself is never shown: it opens from the "…" menu, whose
+        // button carries the dot too.
+        $btn.add('.preview-overflow').find('.preview-github-dot').prop('hidden', !attention);
         const state = !link || link.disconnected || !s ? ''
             : s.kind === 'up-to-date' ? 'Saved to GitHub'
                 : s.kind === 'saving' ? 'Saving to GitHub…'
                     : s.kind === 'bringing' ? 'Bringing in changes from GitHub…'
                         : attention ? 'Needs your attention' : '';
-        const title = state ? `Source control — ${state}` : 'Source control';
+        const title = state ? `GitHub — ${state}` : 'GitHub';
         $btn.attr('title', title).attr('aria-label', title);
     }
 
@@ -333,6 +335,15 @@
         redraw();
     });
 
+    // Return focus to whatever control opens the panel: the toolbar button
+    // when it shows, otherwise the "…" menu's button (focusing a hidden
+    // element silently no-ops).
+    function focusTrigger() {
+        const $btn = $('.preview-github-btn');
+        if ($btn.is(':visible')) $btn.trigger('focus');
+        else $('.preview-overflow').trigger('focus');
+    }
+
     $(document).on('click', '.preview-github-btn', function (e) {
         e.preventDefault();
         e.stopPropagation();
@@ -342,13 +353,13 @@
         e.preventDefault();
         e.stopPropagation();
         closePanel();
-        $('.preview-github-btn').trigger('focus');
+        focusTrigger();
     });
     $(document).on('keydown', '.preview-github-panel', function (e) {
         if (e.key === 'Escape') {
             e.preventDefault();
             closePanel();
-            $('.preview-github-btn').trigger('focus');
+            focusTrigger();
         }
     });
     $(document).on('click', function (e) {
