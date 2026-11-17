@@ -44,7 +44,7 @@
             // The turn may have been stopped, or the chat switched: no card
             // for a turn that is gone.
             if (!window.isAborted?.(state?.abortController) && !window.isStaleTurn?.(state)) {
-                window.renderPublishCard({ offer, kind: 'domain' });
+                window.renderPublishCard({ offer, kind: 'domain', dock: true });
                 window.track?.('Custom Domain Card Shown', { paid, published: !!url, domain: domain ? domain.kind : 'none' });
                 // On the free plan its button opens the upgrade, so it counts
                 // as a prompt for it, as the popover's heading does.

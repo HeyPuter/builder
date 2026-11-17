@@ -41,7 +41,7 @@
             }
             const offer = 'offer-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
             if (!window.isAborted?.(state?.abortController) && !window.isStaleTurn?.(state)) {
-                window.renderPublishCard({ address, offer, kind: 'address' });
+                window.renderPublishCard({ address, offer, kind: 'address', dock: true });
                 window.track?.('Publish Card Shown', { state: 'address' });
             }
             const instruction = `A Change address button is now in the chat, set to move the site from ${url} to https://${address}.puter.site/. The user can edit the new address. Nothing moves until they click it, and once they do the old address stops working. Tell them so in one short sentence, without saying where the button is.`;

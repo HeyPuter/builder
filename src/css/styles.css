@@ -2519,6 +2519,26 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
     100% { background-position: -100% 0; }
 }
 
+/* ---- The dock (ChatDock in helpers.js) -------------------------------------
+   What the user owes an answer, between the conversation and the composer.
+   That is the clarifying questions and the Publish card the AI just offered.
+   The cards keep their own look, the dock only stacks them. It
+   takes at most about half the screen, so a tall card scrolls inside it and
+   the conversation stays in view. */
+.chat-dock {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 6px 0 8px;
+    max-height: 55vh;
+    max-height: 55dvh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+.chat-dock:empty { display: none; }
+.chat-dock > .message { margin: 0; }
+
 /* ---- Clarifying-questions card (AskClarifyingQuestions tool) --------------
    An interactive, single-question-at-a-time card rendered in the chat flow while
    the agent waits for the user to answer. Matches the app's quiet, minimal
@@ -2877,6 +2897,44 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
     justify-content: center;
 }
 .publish-card.is-superseded { display: none; }
+/* Where the newest card stood in the conversation while it is in the dock. */
+.publish-card-anchor { display: none; }
+/* In the dock, away from the AI's words, the card says what it's for and
+   can be closed. */
+.chat-dock .publish-card-inner {
+    background: #fff;
+    border-color: #e4e4e4;
+    padding: 12px 12px 12px 16px;
+}
+.publish-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+.publish-card-title {
+    font-size: 15px;
+    font-weight: 500;
+    color: #1f1f1f;
+    line-height: 1.35;
+}
+.publish-card-close {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: #8a8a8a;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.publish-card-close:hover { background: #f1f1f1; color: #444; }
 /* Holds focus while its button is disabled for a publish; it's not a
    control, so no focus ring (like the Publish popover). */
 .publish-card-inner:focus,
@@ -5853,7 +5911,8 @@ body.preview-active.chat-hidden .chat {
     .properties-address-save,
     .properties-address-cancel { width: 32px; height: 32px; }
     .publish-domain-btn { height: 36px; padding: 0 14px; }
-    .clarify-nav button { width: 32px; height: 32px; }
+    .clarify-nav button,
+    .publish-card-close { width: 32px; height: 32px; }
 
     /* Touch devices can't hover — reveal the controls that desktop only shows
        on hover, otherwise they're impossible to reach by tap. */
@@ -8015,6 +8074,9 @@ html[data-theme="dark"] .publish-domain-record-key { color: var(--text-muted); }
 html[data-theme="dark"] .publish-domain-record-val { color: var(--text); }
 html[data-theme="dark"] .upgrade-card-inner { background: var(--surface); border-color: var(--border); color: var(--text); }
 html[data-theme="dark"] .publish-card-inner { background: var(--surface); border-color: var(--border); color: var(--text); }
+html[data-theme="dark"] .publish-card-title { color: var(--text); }
+html[data-theme="dark"] .publish-card-close { color: var(--text-muted); }
+html[data-theme="dark"] .publish-card-close:hover { background: var(--surface-hover); color: var(--text); }
 html[data-theme="dark"] .publish-card-address { background: var(--surface-subtle); border-color: var(--border); }
 html[data-theme="dark"] .publish-card-address:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(108, 176, 245, 0.25); }
 html[data-theme="dark"] .publish-card-input { color: var(--text); }

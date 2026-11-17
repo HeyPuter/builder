@@ -148,6 +148,10 @@ function renderSkeleton() {
 
     h += `<main class="chat chat-current" id="new-chat">`;
         h += `<div class="chat-box"></div>`;
+        // What the user owes an answer, above the composer (ChatDock in
+        // helpers.js). Outside .home-hero so it is a flex item of .chat in
+        // both states.
+        h += `<div class="chat-dock"></div>`;
         // Landing hero (tagline → starter prompts). The wrapper is
         // display:contents by default so it has ZERO layout impact — critical
         // for the active-chat state, whose flex column relies on .chat-input

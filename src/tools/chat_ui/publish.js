@@ -36,6 +36,16 @@
 // Live with it, beside Change domain. Once a newer card replaces it, it reads
 // "Domain added".
 //
+// While the newest card waits on the user, it sits above the composer (the
+// dock, ChatDock in helpers.js), where it can't scroll out of sight, with a
+// line on what it's for and a close button. Its place in the conversation
+// keeps an anchor. It goes back there for good once it's done (published,
+// address changed, domain picked), once its button has nothing left to do
+// (the site went live from the toolbar), once the user closes it or sends
+// their next message, or once a newer card replaces it. Back in the
+// conversation it reads as described above. A reloaded chat puts it back
+// in the dock while it still waits and the user sent nothing after it.
+//
 // Its button waits while a turn, a restore or another publish runs, the same
 // rule the popover follows (publishBlockedReason). refreshPublishCards redraws
 // the cards whenever that state can change (refreshPublishButton and
@@ -49,6 +59,7 @@
 (function () {
     const check = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
     const globe = '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
+    const closeX = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
 
     // The open project's publish state, as a card shows it. An unused Change
     // address card on a published site shows its address form instead.
@@ -305,20 +316,98 @@
             '</div>');
     }
 
+    // ---- The dock ----------------------------------------------------------
+    // Offers that left the dock, by id, so they never come back to it after
+    // a chat switch draws the cards again from the history. A reload forgets
+    // the ones the user closed, and still keeps the rest out (see
+    // restorePublishDock).
+    const closedOffers = new Set();
+
+    // Whether the card's button still has something for the user to do. A
+    // site already live with every change, or a domain that already works,
+    // has nothing.
+    function waitsOnUser(view) {
+        if (view.state === 'live') return false;
+        if (view.state === 'domain') return !(view.paid && view.domain && view.domain.kind === 'active');
+        return true;
+    }
+
+    // Whether the card belongs in the dock. It does while it isn't closed or
+    // used yet, and waits on the user.
+    function waiting($card) {
+        const offer = $card.attr('data-offer');
+        if ($card.attr('data-closed') || (offer && closedOffers.has(offer))) return false;
+        if ($card.attr('data-published-url') || $card.attr('data-domain')) return false;
+        return waitsOnUser(cardView($card));
+    }
+
+    function docked($card) {
+        return $card.closest('.chat-dock').length > 0;
+    }
+
+    // Moves the card into the dock, leaving an anchor where it stood.
+    function dockCard($card) {
+        const el = $card[0];
+        if (!el || !el.parentNode || !window.ChatDock) return false;
+        const anchor = document.createElement('div');
+        anchor.className = 'publish-card-anchor';
+        anchor.setAttribute('data-uid', $card.attr('data-uid'));
+        el.before(anchor);
+        if (!window.ChatDock.add($card)) { anchor.remove(); return false; }
+        return true;
+    }
+
+    // The card in the dock goes back to its anchor once it no longer waits
+    // on the user. Focus in it would go down with the move, so the redraw in
+    // its place gives it back (data-refocus). Returns whether it moved.
+    function settleDock() {
+        const el = document.querySelector('.chat-dock .publish-card');
+        if (!el) return false;
+        const $card = $(el);
+        if (waiting($card)) return false;
+        const active = document.activeElement;
+        if (active && active !== el && el.contains(active)) {
+            $card.attr('data-refocus', active.classList.contains('publish-card-input') ? 'field' : 'control');
+        }
+        const anchor = document.querySelector(`.chat-box .publish-card-anchor[data-uid="${$card.attr('data-uid')}"]`);
+        if (anchor) anchor.replaceWith(el);
+        else el.remove();
+        $card.removeAttr('data-key');
+        return true;
+    }
+
+    // In the dock, away from the AI's words, the card says what it's for and
+    // can be closed.
+    function dockHeadHtml(view) {
+        const title = view.state === 'form' ? 'Publish your site'
+            : view.state === 'changes' ? 'Publish your latest changes'
+                : view.state === 'address' ? 'Change your site’s address'
+                    : 'Use your own domain';
+        return '<div class="publish-card-head">' +
+                `<span class="publish-card-title">${title}</span>` +
+                `<button type="button" class="publish-card-close" title="Close" aria-label="Close">${closeX}</button>` +
+            '</div>';
+    }
+
     // Draw the newest card from the current state, and freeze the ones before
     // it. A card whose layout is unchanged only has its button's availability
     // updated (a turn or a restore starting or ending), so a half-typed address
     // keeps its caret. A redraw that replaces what had focus gives it back
     // (see keepCardFocus).
     function refreshPublishCards() {
-        const $cards = $('.chat-box .publish-card');
-        if (!$cards.length) return;
+        const settled = settleDock();
+        // In document order, the conversation's cards come first, then the
+        // one in the dock, which is always the newest.
+        const $cards = $('.chat-box .publish-card, .chat-dock .publish-card');
         const newest = $cards.length - 1;
         $cards.each(function (i) {
             const $card = $(this);
+            const refocus = $card.attr('data-refocus');
+            if (refocus) $card.removeAttr('data-refocus');
             if (i < newest) { freezeCard($card); return; }
             const view = cardView($card);
-            const key = [view.state, view.url || '', view.busy, view.extra || ''].join('|');
+            const inDock = docked($card);
+            const key = [view.state, view.url || '', view.busy, view.extra || '', inDock].join('|');
             const $inner = $card.find('.publish-card-inner');
             if ($card.attr('data-key') === key) {
                 const $btn = $inner.find('.publish-card-btn');
@@ -334,18 +423,46 @@
             const active = document.activeElement;
             const had = active && $inner[0] && $inner[0].contains(active)
                 ? (active.classList.contains('publish-card-input') ? 'field' : 'control')
-                : null;
+                : refocus || null;
             // An error is about the attempt that failed. Another publish
             // starting, or the card moving to another state (a publish from
             // the toolbar that worked), makes it stale: kept, it came back
             // the next time the site had changes, as if that had failed too.
             if (view.busy || $card.attr('data-mode') !== view.state) $card.removeAttr('data-error');
             $card.attr('data-key', key).attr('data-mode', view.state);
-            $inner.html(cardHtml(view, $card));
+            $inner.html((inDock ? dockHeadHtml(view) : '') + cardHtml(view, $card));
             if (had) keepCardFocus($card, had);
         });
+        // The dock is free again, so the "what next?" chips held back while
+        // the card waited there can show (renderContinueSuggestions in app.js).
+        if (settled) window.renderDeferredSuggestions?.();
     }
     window.refreshPublishCards = refreshPublishCards;
+
+    // When the user sends their next message, the card waiting in the dock
+    // goes back to its place in the conversation (sendChatMessage calls this).
+    window.closeDockedPublishCard = function () {
+        const $card = $('.chat-dock .publish-card');
+        if (!$card.length) return;
+        const offer = $card.attr('data-offer');
+        if (offer) closedOffers.add(offer);
+        $card.attr('data-closed', '1');
+        refreshPublishCards();
+    };
+
+    // In a reloaded chat (loadChat), the newest card goes back in the dock
+    // while it still waits on the user and they sent nothing after it.
+    window.restorePublishDock = function () {
+        if (document.querySelector('.chat-dock .publish-card')) return;
+        const cards = document.querySelectorAll('.chat-box .publish-card');
+        const el = cards[cards.length - 1];
+        if (!el) return;
+        for (let n = el.nextElementSibling; n; n = n.nextElementSibling) {
+            if (n.classList.contains('user-message')) return;
+        }
+        const $card = $(el);
+        if (waiting($card) && dockCard($card)) refreshPublishCards();
+    };
 
     function focusAddress($card) {
         const el = $card.find('.publish-card-input')[0];
@@ -376,8 +493,19 @@
 
     // Numbers the cards, for the ids inside them.
     let cardCount = 0;
-    function renderPublishCard({ address = '', offer = '', publishedUrl = '', kind = '' } = {}) {
+    // `dock`: the AI just offered it (the tools), so it goes above the
+    // composer while it waits on the user. A reloaded chat draws its cards
+    // in the conversation, and restorePublishDock picks the newest.
+    function renderPublishCard({ address = '', offer = '', publishedUrl = '', kind = '', dock = false } = {}) {
         bindCardEvents();
+        // A newer card replaces the one waiting in the dock, which goes back
+        // to its place.
+        const $prev = $('.chat-dock .publish-card');
+        if ($prev.length) {
+            if ($prev.attr('data-offer')) closedOffers.add($prev.attr('data-offer'));
+            $prev.attr('data-closed', '1');
+            settleDock();
+        }
         const $node = $(
             '<div class="publish-card message ai-message"><div class="message-content">' +
                 '<div class="publish-card-inner"></div>' +
@@ -394,6 +522,7 @@
         const floatingSpinner = $chatBox.find('.floating-spinner').detach();
         $chatBox.append($node);
         if (floatingSpinner.length) $node.after(floatingSpinner);
+        if (dock && waiting($node)) dockCard($node);
         refreshPublishCards();
         if (window.shouldAutoScroll) $chatBox.scrollTop($chatBox[0].scrollHeight);
         return $node;
@@ -418,7 +547,7 @@
         if (currentChatId !== chatId) return null;
         if (document.body.contains($card[0])) return $card;
         const offer = $card.attr('data-offer');
-        const el = offer && $('.chat-box .publish-card').toArray().find(c => c.getAttribute('data-offer') === offer);
+        const el = offer && $('.chat-box .publish-card, .chat-dock .publish-card').toArray().find(c => c.getAttribute('data-offer') === offer);
         return el ? $(el) : null;
     }
 
@@ -645,6 +774,21 @@
             e.preventDefault();
             publishIfReady($(this).closest('.publish-card'), e);
         });
+        // Closing means not now. The card goes back to its place in the
+        // conversation, where it still works. Focus goes to the composer, the
+        // user's next step, rather than following the card up the chat, except
+        // on a phone, where that pops the keyboard up.
+        $(document).on('click', '.publish-card-close', function (e) {
+            e.preventDefault();
+            const $card = $(this).closest('.publish-card');
+            const offer = $card.attr('data-offer');
+            if (offer) closedOffers.add(offer);
+            $card.attr('data-closed', '1');
+            const composer = document.querySelector('.chat-input-message');
+            if (composer && !composer.disabled && !window.isMobileViewport?.()) composer.focus();
+            else document.activeElement?.blur?.();
+            refreshPublishCards();
+        });
         $(document).on('keydown', '.publish-card-input', function (e) {
             if (window.isComposingKeyEvent?.(e)) return; // IME commit, not a submit
             if (e.key !== 'Enter') return;
@@ -695,7 +839,7 @@
             // The turn may have been stopped, or the chat switched: no card
             // for a turn that is gone.
             if (!window.isAborted?.(state?.abortController) && !window.isStaleTurn?.(state)) {
-                renderPublishCard({ address, offer });
+                renderPublishCard({ address, offer, dock: true });
                 window.track?.('Publish Card Shown', { state: view.state });
             }
             const url = view.url;

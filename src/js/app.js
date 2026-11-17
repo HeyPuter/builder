@@ -1669,6 +1669,11 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
             showResumeBanner();
         }
 
+        // A Publish card the user hasn't acted on, with nothing they sent
+        // after it, goes back above the composer (tools/chat_ui/publish.js).
+        // Before the chips below, which wait while it's there.
+        window.restorePublishDock?.();
+
         // Update UI state
         $('.chat').addClass('active');
         $('body').css('display', 'block');
@@ -3823,6 +3828,11 @@ function resetChatUIForSwitch() {
     // the chat we're switching to.
     window._activeClarification?.teardown?.();
 
+    // A Publish card waiting above the composer belongs to the chat being
+    // left. It sits outside .chat-box, so .empty() doesn't reach it. loadChat
+    // puts back what the chat it opens still has waiting.
+    window.ChatDock?.clear?.();
+
     // Drop the previous turn's follow-up suggestion chips (they live above the
     // input, outside .chat-box, so .empty() doesn't reach them) and supersede
     // any in-flight suggestion generation aimed at the chat we're leaving.
@@ -5478,6 +5488,9 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     acquireWakeLock();
     // The build that stopped at the usage limit here is this turn's now.
     window.forgetLimitResume?.();
+    // The user moved on, so a Publish card still waiting above the composer
+    // goes back to its place in the conversation (tools/chat_ui/publish.js).
+    window.closeDockedPublishCard?.();
     // This turn's id — see _turnSeq and the end-of-turn guard below.
     const turnSeq = ++_turnSeq;
     // When the user sent it, for Build Abandoned's `waited` and Build
@@ -6709,13 +6722,15 @@ function renderContinueSuggestions(suggestions) {
     if (currentChatId) {
         _suggestionsByChat.set(currentChatId, { suggestions });
     }
-    // While the issues review card is asking "did the fixes work?", hold the
-    // paint — an open question to the user outranks "what next?" ideas.
-    // issues.js calls renderDeferredSuggestions when the card leaves, which
-    // repaints this cached set. (This is the choke point every render path
-    // funnels through, so it also covers an async Haiku generation landing
-    // late and the loadChat chip restore.)
-    if (window.isIssueReviewPromptShowing?.()) return;
+    // While the issues review card is asking "did the fixes work?", or
+    // anything else waits on the user above the composer (a Publish card the
+    // AI just offered), hold the paint — an open question to the user
+    // outranks "what next?" ideas. issues.js and publish.js call
+    // renderDeferredSuggestions when their card leaves, which repaints this
+    // cached set. (This is the choke point every render path funnels through,
+    // so it also covers an async Haiku generation landing late and the
+    // loadChat chip restore.)
+    if (window.isIssueReviewPromptShowing?.() || window.ChatDock?.has?.()) return;
     // Focus on a chip of the row being replaced — "New ideas", typically —
     // went down with it, to <body>. It goes to the first chip of the new set.
     const oldRow = $('.chat-suggestions')[0];
