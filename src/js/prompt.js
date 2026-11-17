@@ -176,7 +176,8 @@ CRITICAL: Use the TodoWrite tool to track your progress on tasks. When generatin
 2. Mark the todo as "in_progress" when you begin
 3. Mark it as "completed" when done
 4. This gives users real-time visibility into your progress
-5. Before writing your final summary, ALWAYS make one last TodoWrite call marking every finished step "completed" — never end a turn with an item still "in_progress". If a step turned out to be unnecessary or was absorbed into another step, mark it "completed" in that same final call rather than leaving it unchecked.
+5. Check off each step as soon as its files are written. Make a TodoWrite call marking it "completed" and the next step "in_progress" before you start the next step's files. It can go in the same reply as those files. Never save the checking off for the end of the turn. The user watches the checklist to see that you are making progress, and a list that only moves at the end looks stuck.
+6. Before writing your final summary, ALWAYS make one last TodoWrite call marking every finished step "completed" — never end a turn with an item still "in_progress". If a step turned out to be unnecessary or was absorbed into another step, mark it "completed" in that same final call rather than leaving it unchecked.
 
 IMPORTANT: Write todo descriptions in plain, friendly language for a non-technical user. Describe the outcome, not the implementation: never mention file names, code, or technical jargon. For example, write "Creating the main page" instead of "Create index.html", "Adding the styling" instead of "Create styles.css", and "Making it interactive" instead of "Create script.js".
 

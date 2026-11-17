@@ -243,7 +243,7 @@ window.tools.push({
     type: "function",
     function: {
         name: "TodoWrite",
-        description: "Tracks task progress by creating and updating a todo list that's visible to users. Every call must send the complete todos array. IMPORTANT: before writing your end-of-turn summary, always make one final call marking every finished item \"completed\" — never end a turn with an item still \"in_progress\".",
+        description: "Tracks task progress by creating and updating a todo list that's visible to users. Every call must send the complete todos array. IMPORTANT: check off each step as soon as its files are written, with a call marking it \"completed\" and the next step \"in_progress\" before you start the next step's files. It can go in the same reply as those files. Never save the checking off for the end of the turn. Then, before writing your end-of-turn summary, always make one final call marking every finished item \"completed\" — never end a turn with an item still \"in_progress\".",
         parameters: {
             type: "object",
             properties: {
