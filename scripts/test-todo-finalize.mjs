@@ -162,6 +162,17 @@ const APP = fs.readFileSync(new URL('../src/js/app.js', import.meta.url), 'utf8'
     check('prompt example closes out the final todo before the summary', done >= 0 && summary > done);
     check('tool description carries the same final-call instruction',
         TODO.includes('never end a turn with an item still \\"in_progress\\"'));
+    // Models skipped the in-between updates and ticked every step in the
+    // final call, after the preview, so the list looked stuck. Both places ask
+    // for a tick right after each step's files, with the final call kept as
+    // the fallback after it.
+    const tick = 'check off each step as soon as its files are written';
+    const prompt5 = PROMPT.toLowerCase().indexOf(tick);
+    check('prompt rule: tick each step as its files are written, before the final call',
+        prompt5 >= 0 && prompt5 < PROMPT.indexOf('ALWAYS make one last TodoWrite call'));
+    const desc = TODO.slice(TODO.indexOf('name: "TodoWrite"'), TODO.indexOf('parameters:', TODO.indexOf('name: "TodoWrite"')));
+    check('tool description: tick each step as its files are written, before the final call',
+        desc.includes(tick) && desc.indexOf(tick) < desc.indexOf('always make one final call'));
 }
 
 // --- Screen readers can tell the step being worked on ------------------------
