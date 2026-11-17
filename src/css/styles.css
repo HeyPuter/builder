@@ -5623,8 +5623,6 @@ body.preview-active.chat-hidden .chat {
    button would leak onto desktop. */
 .view-seg { display: none; }
 .preview-toolbar .preview-overflow:not(.has-dev-tools) { display: none; }
-/* With no "…" its right-hand separator would double the one on its left. */
-.preview-toolbar .preview-overflow:not(.has-dev-tools) + .preview-toolbar-divider { display: none; }
 /* The developer tools (code, download, GitHub) open from the "…" menu
    beside Publish at every width; their buttons stay in the DOM for it to drive. */
 .preview-toolbar .preview-dev-tools { display: none; }
@@ -5934,10 +5932,6 @@ body.preview-active.chat-hidden .chat {
        separator would float orphaned, so drop it too. */
     .preview-toolbar-divider {
         display: none;
-    }
-    /* …except the one between the "…" menu and Publish (always shown here). */
-    body.preview-active .preview-toolbar-right .preview-overflow + .preview-toolbar-divider {
-        display: block;
     }
 
     /* Keep the preview toolbar's buttons from overflowing. */
