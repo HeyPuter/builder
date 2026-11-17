@@ -6814,6 +6814,16 @@ a.upgrade-more-link:hover { background: none; color: #111; }
 .whats-new-body .whats-new-note { margin: 0; font-size: 13px; color: #76767f; }
 .whats-new-actions { grid-area: actions; display: flex; gap: 10px; padding: 20px 32px 32px; }
 .whats-new-actions .confirm-modal-btn { flex: 1 1 0; padding: 11px 18px; }
+/* The main button as a link (an announcement with an href). Its words keep
+   to one line, and Later gets what's left. */
+.whats-new-actions a.whats-new-show {
+    flex-basis: auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    text-decoration: none;
+}
 .whats-new-x {
     position: absolute;
     top: 14px;
@@ -6865,7 +6875,8 @@ a.upgrade-more-link:hover { background: none; color: #111; }
     .whats-new-title { margin-top: 12px; font-size: 20px; }
     .whats-new-body p { margin-bottom: 14px; }
     .whats-new-art { height: 200px; margin: 18px 20px 0; border-radius: 12px; }
-    .whats-new-art .wn-fast { transform: scale(0.8); }
+    .whats-new-art .wn-fast,
+    .whats-new-art .wn-topup { transform: scale(0.8); }
     .whats-new-actions { padding: 16px 20px 20px; }
     .whats-new-x { background: #f0f0f3; color: #555; }
     .whats-new-x:hover { background: #e5e5e8; }
@@ -6980,6 +6991,103 @@ a.upgrade-more-link:hover { background: none; color: #111; }
 }
 .wn-cursor > span { display: block; transform-origin: 3px 4px; animation: wn-press 0.25s ease 0.95s both; }
 .wn-cursor svg { display: block; width: 20px; height: 20px; fill: #1a1a1a; stroke: #fff; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.25)); }
+
+/* The auto top-up drawing, on a green panel: a credits card above and a
+   settings card below whose switch a cursor turns on. Then the credits used
+   fill the bar during a build, go red at the limit, and clear as a Topped up
+   chip pops. Each element's resting style is
+   the end state, so reduced motion shows just that. */
+.whats-new-art.is-credits { background: linear-gradient(155deg, #9be3b4 0%, #1f9254 100%); }
+.wn-topup { position: relative; flex: 0 0 auto; width: 304px; height: 160px; }
+.wn-credits {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 272px;
+    padding: 12px 14px;
+    box-sizing: border-box;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 10px 30px rgba(0, 70, 30, 0.25);
+}
+.wn-credits-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 20px;
+    margin-bottom: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #333;
+}
+.wn-credits-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 3px 8px 3px 6px;
+    border-radius: 999px;
+    background: #dcfce7;
+    color: #15803d;
+    font-size: 10px;
+    font-weight: 700;
+    animation: wn-pop 0.3s cubic-bezier(0.3, 1.6, 0.6, 1) 2.8s both;
+}
+.wn-credits-chip svg { width: 10px; height: 10px; flex: 0 0 auto; }
+.wn-credits-bar { display: block; height: 10px; border-radius: 5px; background: #eef0f4; overflow: hidden; }
+/* 1.3s to 2.4s it fills to red, holds, then clears by 3.3s. */
+.wn-credits-bar i { display: block; width: 10%; height: 100%; border-radius: 5px; background: #22a35a; animation: wn-credits 2s ease-in-out 1.3s both; }
+.wn-credits-foot { display: block; margin-top: 8px; font-size: 10.5px; color: #76767f; }
+.wn-setting {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 232px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 14px;
+    box-sizing: border-box;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 14px 34px rgba(0, 70, 30, 0.3);
+}
+.wn-setting-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.wn-setting-text b { font-size: 11.5px; font-weight: 600; color: #1a1a1a; }
+.wn-setting-text span { font-size: 10px; color: #76767f; }
+.wn-switch {
+    position: relative;
+    flex: 0 0 auto;
+    width: 32px;
+    height: 18px;
+    border-radius: 9px;
+    background: #22a35a;
+    --wn-switch-off: #d4d5db;
+    animation: wn-switch-track 0.2s ease 1.05s both;
+}
+.wn-switch > i {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    transform: translateX(14px);
+    animation: wn-switch-knob 0.2s ease 1.05s both;
+}
+@keyframes wn-credits {
+    0% { width: 40%; background: #22a35a; }
+    30% { background: #f5a524; }
+    55% { width: 100%; background: #e5484d; }
+    70% { width: 100%; background: #e5484d; }
+    /* Green as it starts to clear, not a fade from red through brown. */
+    72% { background: #22a35a; }
+    100% { width: 10%; background: #22a35a; }
+}
+@keyframes wn-switch-track { from { background: var(--wn-switch-off); } }
+@keyframes wn-switch-knob { from { transform: none; } }
 @keyframes wn-grow { from { width: 0; } }
 @keyframes wn-light { from { fill: transparent; stroke: var(--wn-off); } }
 @keyframes wn-ring { from { opacity: 0.9; transform: scale(0.9); } to { opacity: 0; transform: scale(1.45); } }
@@ -7013,6 +7121,16 @@ html[data-theme="dark"] .wn-lane.is-fast .wn-lane-bar i { background: #ff8a00; }
 html[data-theme="dark"] .wn-composer-row > span { color: var(--text-muted); --wn-off: var(--text-muted); }
 html[data-theme="dark"] .wn-race-chip { background: rgba(251, 191, 36, 0.14); color: #fbbf24; }
 html[data-theme="dark"] .wn-composer-row > .wn-composer-send { background: #eef2f7; color: #0b1118; }
+html[data-theme="dark"] .whats-new-art.is-credits { background: linear-gradient(155deg, #1c7a44 0%, #0a3a1f 100%); }
+html[data-theme="dark"] .wn-credits,
+html[data-theme="dark"] .wn-setting { background: var(--surface); box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45); }
+html[data-theme="dark"] .wn-credits-head,
+html[data-theme="dark"] .wn-setting-text b { color: var(--text); }
+html[data-theme="dark"] .wn-credits-foot,
+html[data-theme="dark"] .wn-setting-text span { color: var(--text-muted); }
+html[data-theme="dark"] .wn-credits-bar { background: var(--surface-active); }
+html[data-theme="dark"] .wn-credits-chip { background: rgba(74, 222, 128, 0.14); color: #86efac; }
+html[data-theme="dark"] .wn-switch { --wn-switch-off: var(--surface-active); }
 
 /* Project Properties dialog — reuses .confirm-modal-overlay for the backdrop. */
 .properties-modal {

@@ -3301,8 +3301,8 @@ $(document).ready(async function(){
     // seconds and reports its own outcome, and nothing below depends on it.
     window.consumeTemplateDeepLink?.();
 
-    // The newest feature, once per account, for a user who has built
-    // something (js/whats-new.js). Not while an upgrade is pending, since its
+    // A recent feature, one per load and each once per account, for a user
+    // who has built something (js/whats-new.js). Not while an upgrade is pending, since its
     // success dialog comes first. Not awaited: it waits on puter.kv, then
     // checks again that no build has started, the user hasn't typed, and
     // focus is still on the page or the chat box.
