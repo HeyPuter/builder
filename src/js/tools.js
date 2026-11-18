@@ -135,6 +135,21 @@ async function readWorkerCanary(url) {
     } catch (e) { return null; }
 }
 
+// "Applying changes" while the AI's save of a backend waits to go live, beside
+// the dots and over the preview, the words update_preview's refresh shows,
+// since the preview's backend runs the previous code until then. Returns what
+// takes the overlay down, leaving it up for a refresh under way. Nothing for
+// a Code view save or a GitHub pull (no `state`), or for a turn whose project
+// is no longer open, whose dots and preview are another project's.
+function showBackendApplying(state) {
+    if (!state || window.isStaleTurn?.(state) || state.abortController?.signal?.aborted) return () => {};
+    window.setSpinnerLabel?.('Applying changes');
+    window.showPreviewUpdating?.(true);
+    return () => {
+        if (!window.isStaleTurn?.(state) && !window.previewRefreshInFlight?.()) window.showPreviewUpdating?.(false);
+    };
+}
+
 // The `worker` field of a worker save's result, once the worker serves the
 // saved `code` or the wait runs out. Null when the file isn't a worker's.
 window.workerSaveResult = async function(target, code, state) {
@@ -163,13 +178,16 @@ window.workerSaveResult = async function(target, code, state) {
     }
     const { pollMs, limitMs } = window.workerCanaryTiming;
     const deadline = Date.now() + limitMs;
-    for (;;) {
-        if (servesSave(await readWorkerCanary(target.url), target.token)) {
-            return { name: target.name, url: target.url, live: true };
+    const hide = showBackendApplying(state);
+    let live = false;
+    try {
+        for (;;) {
+            if (servesSave(await readWorkerCanary(target.url), target.token)) { live = true; break; }
+            if (Date.now() >= deadline || state?.abortController?.signal?.aborted) break;
+            await new Promise(r => setTimeout(r, pollMs));
         }
-        if (Date.now() >= deadline || state?.abortController?.signal?.aborted) break;
-        await new Promise(r => setTimeout(r, pollMs));
-    }
+    } finally { hide(); }
+    if (live) return { name: target.name, url: target.url, live: true };
     return { name: target.name, live: false,
         note: `The file is saved, but the worker wasn't serving it yet after ${Math.round(limitMs / 1000)} seconds. It may still be updating, or still running its previous code.` };
 };

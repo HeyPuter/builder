@@ -282,6 +282,69 @@ reset();
         && parseInt(t.slice(0, 9), 36) <= Date.now() && parseInt(t.slice(0, 9), 36) > Date.now() - 5000, t);
 }
 
+// === "Applying changes" while the save goes live ============================
+// The AI's save says so beside the dots and over the preview, as a refresh
+// does, since the preview's backend runs the previous code until then.
+{
+    const events = [];
+    let refreshing = false;
+    win.setSpinnerLabel = (t) => events.push('label:' + t);
+    win.showPreviewUpdating = (on) => events.push((on ? 'overlay:on@' : 'overlay:off@') + calls.canaryReads);
+    win.isStaleTurn = (s) => !!(s && s.stale);
+    win.previewRefreshInFlight = () => refreshing;
+
+    reset();
+    FILES.set(API, v1);
+    PROPAGATION_READS = 2;
+    let r = await tool('edit').exec({ path: API, old_content: "'one'", new_content: "'six'" }, { appDir: ROOT });
+    check('an AI save says "Applying changes" and covers the preview before its first canary read',
+        r.worker && r.worker.live === true && events[0] === 'label:Applying changes' && events[1] === 'overlay:on@0', JSON.stringify(events));
+    check('…and uncovers it once the backend serves the save', events.length === 3 && events[2] === 'overlay:off@3', JSON.stringify(events));
+
+    events.length = 0;
+    reset();
+    DEPLOYS = false;
+    r = await tool('write').exec({ path: API, data: v1 }, { appDir: ROOT });
+    check('a save not live by the limit uncovers it too', r.worker && r.worker.live === false && events[events.length - 1].startsWith('overlay:off@'), JSON.stringify(events));
+
+    events.length = 0;
+    reset();
+    r = await tool('write').exec({ path: API, data: 'await Promise.resolve();\n' + v1 }, { appDir: ROOT });
+    check('a save that doesn\'t compile has nothing to wait for, so shows nothing', r.worker && r.worker.live === false && events.length === 0, JSON.stringify(events));
+
+    events.length = 0;
+    reset();
+    const later = { appDir: ROOT, laterToolCalls: [{ name: 'write', input: { path: API } }] };
+    await tool('write').exec({ path: API, data: v1 }, later);
+    check('a save the same reply makes again shows nothing', events.length === 0, JSON.stringify(events));
+
+    events.length = 0;
+    reset();
+    await win.workerSaveResult({ name: 'api', url: 'https://api.puter.work', token: '00000000c' + 'cccccc' }, v1);
+    check('a Code view save or a GitHub pull (no turn) shows nothing', events.length === 0, JSON.stringify(events));
+
+    events.length = 0;
+    reset();
+    await tool('write').exec({ path: API, data: v1 }, { appDir: ROOT, stale: true });
+    check('a turn whose project is no longer open shows nothing', events.length === 0, JSON.stringify(events));
+
+    events.length = 0;
+    reset();
+    DEPLOYS = false;
+    const turn = { appDir: ROOT };
+    setTimeout(() => { turn.stale = true; }, 10);
+    await tool('write').exec({ path: API, data: v1 }, turn);
+    check('…nor takes the overlay off another project opened during the wait', events.length === 2 && events[1] === 'overlay:on@0', JSON.stringify(events));
+
+    events.length = 0;
+    reset();
+    refreshing = true;
+    await tool('write').exec({ path: API, data: v1 }, { appDir: ROOT });
+    check('a refresh under way when the save goes live keeps its overlay', events.length === 2 && events[1] === 'overlay:on@0', JSON.stringify(events));
+
+    delete win.setSpinnerLabel; delete win.showPreviewUpdating; delete win.isStaleTurn; delete win.previewRefreshInFlight;
+}
+
 // === multi_edit and write ====================================================
 reset();
 FILES.set(API, v1);

@@ -839,6 +839,10 @@ window.previewHostSkipsBrowserCache = previewHostSkipsBrowserCache;
 // it answers, the frame shows puter.host. If not, the frame shows puter.site
 // and the refresh clears its cache as described above.
 //
+// puter.host doesn't run dynamic backends. A /__workers/ request there gets
+// its own 404 page (checked 2026-11-17). So a draft whose folder holds any
+// shows on puter.site, with no check.
+//
 // The frame and the Share draft link move. window.currentPreviewUrl, the saved
 // project and what the AI sees keep the puter.site address the hosting API
 // gives, and previewShownUrl turns it into the one to show.
@@ -891,6 +895,24 @@ async function checkPuterHost(url) {
         clearTimeout(timer);
     }
     return ok;
+}
+
+// Whether the served folder holds dynamic backends (see site-backends.js). A
+// lookup that fails counts as yes, which only costs the slower refresh on
+// puter.site.
+function siteHasBackends(dir) {
+    const SB = window.SiteBackends;
+    if (!SB || !dir) return Promise.resolve(false);
+    return SB.list(dir).then((list) => list.length > 0, () => true);
+}
+
+// Whether the draft at `url` shows on puter.host. `backends` is
+// siteHasBackends of the folder it serves, and a folder with dynamic backends
+// shows on puter.site. puter.host is asked at the same time, so the lookup
+// adds no wait.
+async function previewOnPuterHost(url, backends) {
+    const answers = checkPuterHost(url);
+    return !(await backends) && answers;
 }
 
 function showPreviewUpdating(show) {
@@ -1055,7 +1077,7 @@ async function runPreviewRefresh($frame, baseUrl, ownerChatId, seq, early) {
     const dir = publishedRootDir();
     // puter.host or puter.site (see "Which host shows the draft"). The check
     // runs alongside the manifest pass, or alongside the early clear.
-    const hostCheck = checkPuterHost(baseUrl);
+    const hostCheck = previewOnPuterHost(baseUrl, siteHasBackends(dir));
     let onHost;
     if (early) {
         // The early clear is this refresh's now, and bows out with it. Handed
@@ -1408,7 +1430,8 @@ window.showAppPreview = function(url, opts) {
 };
 
 // Load the draft at `url` (its puter.site address) in the frame, on puter.host
-// when it answers (see "Which host shows the draft"). The frame leaves the
+// when it answers and the folder has no dynamic backends (see "Which host
+// shows the draft"). The frame leaves the
 // previous project before the check, and its stored address becomes this
 // project's, so a reload that lands during the check (the toolbar's Reload,
 // the badge sync refreshPublishButton runs) loads this project, not the one
@@ -1422,7 +1445,7 @@ async function loadPreviewOnAnsweringHost(url) {
     const $frame = $('.preview-frame');
     $frame.data('preview-url', url);
     $frame.attr('src', 'about:blank');
-    const onHost = await checkPuterHost(url);
+    const onHost = await previewOnPuterHost(url, siteHasBackends(publishedRootDir()));
     if (open !== _previewOpenSeq || window.currentPreviewUrl !== url || !$('body').hasClass('preview-active')) return;
     reloadPreviewFrame(onHost ? toPuterHost(url) : url, { keepPendingUpdate: true });
 }

@@ -40,6 +40,9 @@ const CANARY = '.puter/canary.txt';
 // 'blocked' (the request fails, as a DNS block or an ad blocker does), or
 // 'hang' (no answer ever). opts.hostMs: how long its answer takes.
 // opts.manifestMs / opts.stampMs: how long each preparation step takes.
+// opts.backends: whether the served folder holds dynamic backends (true,
+// false, or 'fail' for a lookup that fails), read each time. opts.lookupMs:
+// how long the lookup takes.
 function makeEnv(opts = {}) {
     let now = 1_000_000;
     const start = now;
@@ -47,7 +50,7 @@ function makeEnv(opts = {}) {
     const later = (f, ms) => { timers.push({ at: now + (ms || 0), fn: f }); };
     const steps = [];
     const reloads = [];
-    const calls = { hostingUpdate: 0, canaryWrites: 0, hostChecks: [] };
+    const calls = { hostingUpdate: 0, canaryWrites: 0, hostChecks: [], backendLookups: [] };
     // puter.site's edge copy of the canary, dropped 4 s after a hosting.update.
     const disk = { [CANARY]: 'v0' };
     const copy = { [CANARY]: 'v0' };
@@ -65,6 +68,13 @@ function makeEnv(opts = {}) {
         currentPreviewPath: DIR,
         ensureAppManifest: () => new Promise((r) => later(() => { steps.push('manifest'); r(); }, opts.manifestMs ?? 200)),
         applyPreviewCacheBust: () => new Promise((r) => later(() => { steps.push('stamp'); r(); }, opts.stampMs ?? 100)),
+        SiteBackends: 'backends' in opts ? {
+            list: (dir) => new Promise((r, no) => later(() => {
+                calls.backendLookups.push(dir);
+                if (opts.backends === 'fail') no(new Error('readdir failed'));
+                else r(opts.backends ? [{ name: 'api', path: dir + '/__workers/api.worker.js' }] : []);
+            }, opts.lookupMs ?? 100)),
+        } : undefined,
     };
     const rel = (p) => p.slice(DIR.length + 1);
     const puter = {
@@ -337,6 +347,60 @@ async function opened(env) {
     const show = slice('window.showAppPreview = function(url, opts) {', '/** Hide the preview pane');
     check('showAppPreview opens a saved project through the host check',
         /else \{[^}]*loadPreviewOnAnsweringHost\(url\);/.test(show));
+}
+
+// ---- A draft with dynamic backends -------------------------------------------------
+// puter.host doesn't run them, so a folder that holds any shows on puter.site,
+// even with puter.host up.
+
+{
+    const env = makeEnv({ host: 'up', backends: true });
+    await env.run(env.loadPreviewOnAnsweringHost(SITE));
+    await env.run(env.sleep(50));
+    check('a project whose folder has a backend opens on puter.site',
+        env.reloads.length === 1 && env.reloads[0].url.startsWith(SITE + '?__pv='), JSON.stringify(env.reloads));
+    check('…looking in the folder the preview serves', env.calls.backendLookups.every((d) => d === DIR) && env.calls.backendLookups.length === 1,
+        JSON.stringify(env.calls.backendLookups));
+    await env.run(env.refreshPreviewWhenReady());
+    check('…and its refresh reloads on puter.site',
+        env.reloads.length === 2 && env.reloads[1].url.startsWith(SITE + '?__pv='), JSON.stringify(env.reloads));
+    check('…after the puter.site canary and clear', env.calls.hostingUpdate === 1 && env.calls.canaryWrites === 1 && env.reloads[1] && env.reloads[1].at >= 4000,
+        JSON.stringify(env.calls));
+    check('…looking the folder up once', env.calls.backendLookups.length === 2, JSON.stringify(env.calls.backendLookups));
+    check('…and the Share link, tests and error mapping use puter.site', env.previewShownUrl(SITE) === SITE);
+}
+{
+    const env = makeEnv({ host: 'up', backends: 'fail' });
+    await env.run(env.loadPreviewOnAnsweringHost(SITE));
+    await env.run(env.sleep(50));
+    check('a folder that can\'t be read counts as having a backend',
+        env.reloads.length === 1 && env.reloads[0].url.startsWith(SITE + '?__pv='), JSON.stringify(env.reloads));
+}
+{
+    const opts = { host: 'up', backends: false };
+    const env = makeEnv(opts);
+    await env.run(env.loadPreviewOnAnsweringHost(SITE));
+    await env.run(env.sleep(50));
+    await env.run(env.refreshPreviewWhenReady());
+    check('a project with no backend yet stays on puter.host',
+        env.reloads.length === 2 && env.reloads.every((r) => r.url.startsWith(HOST + '?__pv=')), JSON.stringify(env.reloads));
+    opts.backends = true; // the AI writes its first backend
+    await env.run(env.refreshPreviewWhenReady());
+    check('…and moves to puter.site with the refresh after its first backend',
+        env.reloads.length === 3 && env.reloads[2].url.startsWith(SITE + '?__pv='), JSON.stringify(env.reloads));
+    check('…after the puter.site canary and clear', env.calls.hostingUpdate === 1 && env.calls.canaryWrites === 1, JSON.stringify(env.calls));
+}
+{
+    const at = async (opts) => {
+        const env = makeEnv({ host: 'up', hostMs: 400, ...opts });
+        await env.run(env.loadPreviewOnAnsweringHost(SITE));
+        await env.run(env.sleep(50));
+        return env.reloads[0] && env.reloads[0].url.startsWith(HOST) ? env.reloads[0].at : null;
+    };
+    const without = await at({});
+    const withLookup = await at({ backends: false, lookupMs: 100 });
+    check('the folder lookup runs alongside the puter.host check, so it adds no wait',
+        without !== null && withLookup === without, `${withLookup}ms with the lookup, ${without}ms without`);
 }
 
 // ---- The Share draft link ---------------------------------------------------------
