@@ -1341,6 +1341,9 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
         // below.
         terminateActiveTurn();
         resetChatUIForSwitch();
+        // Its files may have changed anywhere since this tab last cleared its
+        // preview, so its first refresh clears (pagesUnchanged in ui.js).
+        window.notePagesChanged?.(chatId);
 
         const chat = preloaded
             || JSON.parse(await puter.fs.read(`chat-history/${chatId}.json`).then(data => data.text()));
@@ -1842,10 +1845,15 @@ async function deleteChat(chatId) {
             let hasSiteBackends = false;
             try { hasSiteBackends = (await SB.list(`/${window.user.username}/AppData/${puter.appID}/${chatId}`)).length > 0; }
             catch (e) { hasSiteBackends = true; }
-            for (const u of new Set([chat?.previewUrl, chat?.publishedUrl].filter(Boolean))) {
+            // The user's own domain runs the live site's backends as an app
+            // of its own, which goes with the project, unless the domain has
+            // since moved to another project, whose app it is now.
+            const domainUrls = (window.CustomDomain?.list(chat?.publishedDomains) || []).map(d => 'https://' + d.hostname + '/');
+            for (const u of new Set([chat?.previewUrl, chat?.publishedUrl, ...domainUrls].filter(Boolean))) {
                 // A lookup that fails counts as unfinished, like a failed
                 // delete, so a retry still finds the app.
                 await cleanup(`the app of ${u.replace(/^https:\/\//, '').replace(/\/+$/, '')}`, async () => {
+                    if (domainUrls.includes(u) && ![null, chatId].includes(await SB.projectOf(u))) return;
                     const registered = await SB.hasApp(u);
                     if (registered || hasSiteBackends) {
                         try { await window.WorkerSecrets?.clear({ site: u }); } catch (e) { /* best effort */ }
@@ -2433,7 +2441,12 @@ window.duplicateChat = duplicateChat;
 // isn't in its list entry until the turn's save.
 function retitleProjectApps(chatId, entry, title) {
     const urls = [entry && entry.previewUrl, entry && entry.publishedUrl];
-    if (chatId === currentChatId) urls.push(window.currentPreviewUrl, window.currentPublishedUrl);
+    // And its own domain's (custom-domain.js).
+    if (entry && entry.publishedDomainHost) urls.push('https://' + entry.publishedDomainHost + '/');
+    if (chatId === currentChatId) {
+        urls.push(window.currentPreviewUrl, window.currentPublishedUrl);
+        for (const d of window.CustomDomain?.list(window.currentPublishedDomains) || []) urls.push('https://' + d.hostname + '/');
+    }
     for (const u of new Set(urls.filter(Boolean))) void window.SiteBackends?.retitle(u, title);
 }
 

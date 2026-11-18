@@ -111,13 +111,26 @@ window.SiteBackends = (function () {
         return u.origin.toLowerCase();
     }
 
+    // The address an app runs at: a site's puter.site origin, or the origin
+    // of the user's own domain serving one (https://www.example.com). null
+    // for anything else, Puter's other hosts included.
+    function appOrigin(url) {
+        const site = siteOrigin(url);
+        if (site) return site;
+        let u;
+        try { u = new URL(String(url == null ? '' : url)); } catch (e) { return null; }
+        if (u.protocol !== 'https:' || u.port || !u.hostname.includes('.')) return null;
+        if (/(^|\.)puter\.(site|host|com|app|work)$/i.test(u.hostname)) return null;
+        return u.origin.toLowerCase();
+    }
+
     // The path a page calls a backend at, on its own site.
     function pathOf(name) { return '/' + FOLDER + '/' + name; }
 
-    // Where a backend answers on a site, with no trailing slash. null when
-    // either half is unusable.
+    // Where a backend answers on a site or its domain, with no trailing
+    // slash. null when either half is unusable.
     function urlOf(siteUrl, name) {
-        const origin = siteOrigin(siteUrl);
+        const origin = appOrigin(siteUrl);
         return origin && validName(name) ? origin + pathOf(name) : null;
     }
 
@@ -151,24 +164,23 @@ window.SiteBackends = (function () {
         return out.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
     }
 
-    // The uid of the app a site runs as. Puter derives it from the address, so
-    // it's asked once per address.
-    const uids = new Map();
-    async function appUidOf(siteUrl) {
-        const origin = siteOrigin(siteUrl);
+    // The app a site or its domain runs as, the one a page at that address
+    // acts as (puter.apps.get with a URL). That's the app Builder registered,
+    // or the one Puter made the first time something ran there. Null while
+    // there is none. Throws when Puter can't be reached.
+    async function siteAppOf(siteUrl) {
+        const origin = appOrigin(siteUrl);
         if (!origin) return null;
-        if (uids.has(origin)) return uids.get(origin);
-        const resp = await fetch((puter.APIOrigin || 'https://api.puter.com') + '/auth/app-uid-from-origin', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + puter.authToken },
-            body: JSON.stringify({ origin }),
-            signal: timeout(10000),
-        });
-        if (!resp.ok) throw new Error(`Puter couldn't say which app ${origin} runs as (${resp.status}).`);
-        const data = await resp.json();
-        const uid = data && typeof data.uid === 'string' && data.uid ? data.uid : null;
-        if (uid) uids.set(origin, uid);
-        return uid;
+        let app;
+        try { app = await puter.apps.get(origin); }
+        catch (e) { if (notFound(e)) return null; throw e; }
+        return app && typeof app.uid === 'string' && app.uid ? app : null;
+    }
+
+    // The uid of the app a site runs as, or null while there is none.
+    async function appUidOf(siteUrl) {
+        const app = await siteAppOf(siteUrl);
+        return app ? app.uid : null;
     }
 
     // Call the site's backends, one at a time, until one answers, so Puter
@@ -200,12 +212,13 @@ window.SiteBackends = (function () {
     const MAX_TITLE = 100;
 
     function appKey(siteUrl) {
-        const origin = siteOrigin(siteUrl);
+        const origin = appOrigin(siteUrl);
         return origin ? APP_KEY + origin : null;
     }
 
-    // What Builder recorded about the app it registered for a site,
-    // { name, kind, defaultTitle, senderName }, or null for a site it didn't.
+    // What Builder recorded about the app it registered for a site or a
+    // domain, { name, kind, defaultTitle, senderName }, with `project` for a
+    // domain's, or null for one it didn't.
     async function record(siteUrl) {
         const key = appKey(siteUrl);
         if (!key) return null;
@@ -221,25 +234,27 @@ window.SiteBackends = (function () {
         return name.slice(0, MAX_TITLE - suffix.length).trim() + suffix;
     }
 
-    // Register the app a new site runs as, named after the project. Call it
-    // right after creating the site, before anything runs there, or Puter
-    // makes one of its own first. Resolves the app, or null when Puter
-    // refused, which leaves the site on an app Puter makes. Never throws,
-    // since a site without Builder's app still works.
-    async function registerApp(siteUrl, projectTitle, kind) {
-        const origin = siteOrigin(siteUrl);
+    // Register the app a new site or domain runs as, named after the
+    // project. Call it right after creating the site, before anything runs
+    // there, or Puter makes one of its own first. `project` is kept with a
+    // domain's, since a domain can move to another project. Resolves the app,
+    // or null when Puter refused, which leaves the site on an app Puter
+    // makes. Never throws, since a site without Builder's app still works.
+    async function registerApp(siteUrl, projectTitle, kind, project) {
+        const origin = appOrigin(siteUrl);
         if (!origin) return null;
         const title = defaultTitle(projectTitle, kind);
+        const host = origin.slice('https://'.length);
         let app;
         try {
-            app = await puter.apps.create({ name: origin.slice('https://'.length).split('.')[0], indexURL: origin, title, dedupeName: true });
+            app = await puter.apps.create({ name: siteOrigin(origin) ? host.split('.')[0] : host.replace(/\./g, '-'), indexURL: origin, title, dedupeName: true });
         } catch (e) {
             console.warn('Could not register an app for', origin, e);
             return null;
         }
         if (!app || !app.name || !app.uid) return null;
         try {
-            await puter.kv.set(APP_KEY + origin, { name: app.name, kind, defaultTitle: title, senderName: null });
+            await puter.kv.set(APP_KEY + origin, { name: app.name, kind, defaultTitle: title, senderName: null, ...(project ? { project } : {}) });
         } catch (e) {
             // Without its record Builder could never find the app again, and
             // the site would run as it anyway. So it goes, and the site runs
@@ -248,7 +263,6 @@ window.SiteBackends = (function () {
             try { await puter.apps.delete(app.name); } catch (e2) { console.warn('Could not remove the unrecorded app', app.name, e2); }
             return null;
         }
-        uids.set(origin, app.uid);
         return app;
     }
 
@@ -272,7 +286,7 @@ window.SiteBackends = (function () {
     // reads the record the first one left and the two never cross.
     const retitles = new Map();
     function retitle(siteUrl, projectTitle) {
-        const key = siteOrigin(siteUrl);
+        const key = appOrigin(siteUrl);
         if (!key) return Promise.resolve();
         const run = (retitles.get(key) || Promise.resolve()).then(() => retitleNow(siteUrl, projectTitle));
         retitles.set(key, run);
@@ -322,8 +336,6 @@ window.SiteBackends = (function () {
             return false;
         }
         try { await puter.kv.del(appKey(oldUrl)); } catch (e) { /* only ever read with its app's address */ }
-        uids.delete(siteOrigin(oldUrl));
-        uids.delete(origin);
         return true;
     }
 
@@ -351,7 +363,37 @@ window.SiteBackends = (function () {
         let app;
         try { app = await puter.apps.get(r.name); }
         catch (e) { if (notFound(e)) return null; throw e; }
-        return app && siteOrigin(app.index_url) === siteOrigin(siteUrl) ? { ...app, builder: r } : null;
+        return app && appOrigin(app.index_url) === appOrigin(siteUrl) ? { ...app, builder: r } : null;
+    }
+
+    // The project the app Builder registered for a domain belongs to, or
+    // null. Throws when that can't be read.
+    async function projectOf(domainUrl) {
+        const r = await record(domainUrl);
+        return (r && r.project) || null;
+    }
+
+    // Register the app the user's own domain runs as for `project`, right
+    // after the domain is attached to its site, before anything runs there
+    // (see registerApp), so Builder can rename it and give it keys. A domain
+    // whose app this project already has keeps it, data and keys included.
+    // At a domain another project had, or Puter's own app, the keys go
+    // first, so this project's backend never reads another's, and Builder's
+    // app goes too, for a new one. Resolves the app, or null when the domain
+    // stays on Puter's. Never throws.
+    async function claimDomain(domainUrl, projectTitle, project) {
+        if (!appOrigin(domainUrl) || siteOrigin(domainUrl)) return null;
+        try {
+            const r = await record(domainUrl);
+            const mine = await builderAppOf(domainUrl);
+            if (mine && r.project === project) return mine;
+            try { await window.WorkerSecrets?.clear({ site: domainUrl }); } catch (e) { /* best effort */ }
+            if (r) await deleteApp(domainUrl);
+        } catch (e) {
+            console.warn('Could not check the app of', domainUrl, e);
+            return null;
+        }
+        return registerApp(domainUrl, projectTitle, 'live', project);
     }
 
     // The app a site runs as, or null when there is none. That's the app
@@ -364,22 +406,17 @@ window.SiteBackends = (function () {
     async function appOf(siteUrl, wakeNames) {
         const registered = await builderAppOf(siteUrl);
         if (registered) return registered;
-        const uid = await appUidOf(siteUrl);
-        if (!uid) return null;
-        const get = async () => {
-            try { return await puter.apps.get(uid); }
-            catch (e) { if (notFound(e)) return null; throw e; }
-        };
-        let app = await get();
+        let app = await siteAppOf(siteUrl);
         if (!app && wakeNames && wakeNames.length && await wake(siteUrl, wakeNames)) {
             // A site created a moment ago can answer before Puter has made
             // its app, so the app gets a few seconds to show up.
             for (let i = 0; i < 5 && !app; i++) {
                 if (i) await new Promise((r) => setTimeout(r, 1000));
-                app = await get();
+                app = await siteAppOf(siteUrl);
             }
         }
-        return app && app.uid === uid && app.name === uid ? app : null;
+        // Puter's own app is named after its uid. Any other is someone's.
+        return app && app.name === app.uid ? app : null;
     }
 
     // The open project's site, for a tool call or a save. That's the folder
@@ -394,14 +431,19 @@ window.SiteBackends = (function () {
         const history = (state && state.chatHistory) || (typeof chatHistory !== 'undefined' ? chatHistory : null);
         if (!isDynamicProject(history)) return null;
         const served = window.currentPreviewPath ? window.normalizePosixPath(window.currentPreviewPath) : root;
+        const live = siteOrigin(window.currentPublishedUrl);
         return {
             root,
             servedDir: served === root || served.startsWith(root + '/') ? served : root,
             previewUrl: siteOrigin(window.currentPreviewUrl) ? window.currentPreviewUrl : null,
-            publishedUrl: siteOrigin(window.currentPublishedUrl) ? window.currentPublishedUrl : null,
+            publishedUrl: live ? window.currentPublishedUrl : null,
+            // The user's own domain serving the live site, which runs its
+            // backends as an app of its own (custom-domain.js).
+            domainUrls: live && window.CustomDomain
+                ? window.CustomDomain.urlsFor(window.currentPublishedDomains, live.slice('https://'.length).split('.')[0]) : [],
         };
     }
 
     return { FOLDER, SUFFIX, NAME_RE, forNewProjects, markNewProject, isDynamicProject, toolsFor,
-        titleOf, defaultTitle, registerApp, setSenderName, retitle, moveApp, hasApp, deleteApp, validName, nameOf, siteOrigin, pathOf, urlOf, list, appUidOf, wake, appOf, siteOf };
+        titleOf, defaultTitle, registerApp, setSenderName, retitle, moveApp, hasApp, deleteApp, projectOf, claimDomain, validName, nameOf, siteOrigin, appOrigin, pathOf, urlOf, list, appUidOf, wake, appOf, siteOf };
 })();

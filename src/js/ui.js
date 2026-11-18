@@ -1068,6 +1068,30 @@ async function refreshPreviewWhenReady() {
 }
 window.refreshPreviewWhenReady = refreshPreviewWhenReady;
 
+// ---- Pages unchanged since the last clear ----
+// A clear (waitForPreviewClear) is there so puter.site serves the project's
+// changed pages, and its hosting.update takes the site's dynamic backends
+// down for a few seconds (watchSiteBackends in tools.js). So during a turn
+// whose only changes were the AI's saves of backend files, which no page
+// shows, the preview just reloads, once a clear has covered every other
+// change. Per project: a count of the changes that may show in its pages,
+// bumped by every change to its files except those saves
+// (markProjectModified in versions.js) and whenever it's opened, and the count
+// its last completed clear covered.
+const _pageChanges = new Map();
+const _pagesClearedAt = new Map();
+window.notePagesChanged = function (chatId) {
+    if (chatId) _pageChanges.set(chatId, (_pageChanges.get(chatId) || 0) + 1);
+};
+function pageChangeCount(chatId) { return _pageChanges.get(chatId) || 0; }
+// Whether a refresh of `chatId`'s preview can skip the clear. Only during a
+// turn: a refresh outside one follows a restore or a GitHub update, whose
+// writes aren't counted here.
+function pagesUnchanged(chatId) {
+    return !!isProcessing && !!chatId && _pagesClearedAt.has(chatId)
+        && _pagesClearedAt.get(chatId) === pageChangeCount(chatId);
+}
+
 // The body of refreshPreviewWhenReady: it bows out the moment `seq` is no
 // longer _previewRefreshSeq.
 async function runPreviewRefresh($frame, baseUrl, ownerChatId, seq, early) {
@@ -1097,11 +1121,16 @@ async function runPreviewRefresh($frame, baseUrl, ownerChatId, seq, early) {
         } else if (await early.cleared === null) {
             return; // superseded
         }
+    } else if (pagesUnchanged(ownerChatId)) {
+        // Only backend files changed since the last clear, so there's nothing
+        // for puter.site to clear (see pagesUnchanged).
+        onHost = await hostCheck;
+        if (!live()) return; // superseded while checking
     } else {
         const shown = hostCheck.then((ok) => (ok ? toPuterHost(baseUrl) : baseUrl));
         if (await preparePreviewFiles(shown, dir, live) === null) return; // superseded
         onHost = await hostCheck;
-        if (!onHost && await waitForPreviewClear(baseUrl, dir, live) === null) return; // superseded
+        if (!onHost && await waitForPreviewClear(baseUrl, dir, live, ownerChatId) === null) return; // superseded
     }
 
     // Bail if a newer reload/refresh/chat-switch happened, or the live preview
@@ -1140,9 +1169,9 @@ async function runPreviewRefresh($frame, baseUrl, ownerChatId, seq, early) {
 // Get puter.site serving the project's current files, up to the reload.
 // Resolves true once the canary shows the site-wide clear, false at the limit,
 // and null as soon as `live()` turns false, checked after every await.
-async function clearPreviewCache(baseUrl, dir, live) {
+async function clearPreviewCache(baseUrl, dir, live, chatId) {
     if (await preparePreviewFiles(baseUrl, dir, live) === null) return null;
-    return waitForPreviewClear(baseUrl, dir, live);
+    return waitForPreviewClear(baseUrl, dir, live, chatId);
 }
 
 // Prepare the project's files for the reload: the install block, then the
@@ -1181,8 +1210,10 @@ async function preparePreviewFiles(shownUrl, dir, live) {
 }
 
 // The canary wait on puter.site (see the top of this section), once the files
-// are prepared. Resolves like clearPreviewCache.
-async function waitForPreviewClear(baseUrl, dir, live) {
+// are prepared. Resolves like clearPreviewCache. A clear that went through
+// records, for `chatId`, the changes it covered (see pagesUnchanged).
+async function waitForPreviewClear(baseUrl, dir, live, chatId) {
+    const changes = chatId ? pageChangeCount(chatId) : null;
     // The canary (see the top of this section). Every step comes after the
     // project's writes and preparePreviewFiles, so the clear it proves covers
     // all of them.
@@ -1204,7 +1235,14 @@ async function waitForPreviewClear(baseUrl, dir, live) {
     const canaryPath = dir + '/' + PREVIEW_CANARY;
     const t0 = Date.now();
     let before = null;
+    // The update below redeploys the site's dynamic backends, which go down a
+    // few seconds later and come back by themselves. The reload waits that
+    // out (watchSiteBackends in tools.js), so the page never calls one while
+    // it's down. Which backends are up is read now, alongside the canary.
+    let backendsBack = null;
     if (sub && dir && typeof fetch === 'function') {
+        const backends = window.watchSiteBackends
+            ? window.watchSiteBackends(baseUrl, dir).catch(() => null) : Promise.resolve(null);
         before = await readPreviewCanary(baseUrl);
         if (!live()) return null; // superseded while reading the canary
         if (before === null) {
@@ -1221,9 +1259,12 @@ async function waitForPreviewClear(baseUrl, dir, live) {
             log('wrote', next);
         } catch (e) { before = null; log('write failed', e); }
         if (!live()) return null; // superseded while writing the canary
+        const wait = await backends;
+        if (!live()) return null; // superseded while reading the backends
         try {
             await puter.hosting.update(sub, dir);
             log('asked for the clear', (Date.now() - t0) + 'ms');
+            if (wait) backendsBack = wait(live);
         } catch (e) { before = null; log('hosting.update failed', e); }
         if (!live()) return null; // superseded while asking for the clear
     }
@@ -1239,6 +1280,12 @@ async function waitForPreviewClear(baseUrl, dir, live) {
         if (!live()) return null; // superseded while waiting
     }
     log(flipped ? 'cleared' : 'no clear seen by the limit', (Date.now() - t0) + 'ms');
+    if (backendsBack) {
+        const back = await backendsBack;
+        if (back === null || !live()) return null; // superseded while the backends came back
+        log(back ? 'backends back' : 'backends not back by the limit', (Date.now() - t0) + 'ms');
+    }
+    if (flipped && chatId) _pagesClearedAt.set(chatId, changes);
     return flipped;
 }
 
@@ -1268,11 +1315,12 @@ window.startEarlyPreviewClear = function () {
     // stopped answering by the time the refresh checks again, the refresh
     // clears puter.site itself.
     if (frameOnPuterHost(baseUrl)) return;
+    if (pagesUnchanged(currentChatId)) return;
     const run = { baseUrl, dir: publishedRootDir(), chatId: currentChatId, seq: _previewRefreshSeq, dropped: false };
     // Superseded like a refresh, or dropped. The refresh that takes it over
     // swaps in its own test.
     run.live = () => !run.dropped && run.seq === _previewRefreshSeq;
-    run.cleared = clearPreviewCache(baseUrl, run.dir, () => run.live());
+    run.cleared = clearPreviewCache(baseUrl, run.dir, () => run.live(), run.chatId);
     _earlyPreviewClear = run;
 };
 window.dropEarlyPreviewClear = function () {
@@ -2572,16 +2620,22 @@ async function copySiteBackendStore(fromUrl, toUrl, backends, what, opts) {
 }
 
 // Give the live site's dynamic backends the preview's keys, except the live
-// site's own, and its sender name. A republish runs it before the live site
-// switches to the release, a first publish right after creating the address.
-// Resolves the reports for WorkerSecrets.publishNote, [] for a release with
-// no dynamic backend.
-async function publishSiteBackends(previewUrl, liveUrl, releaseDir) {
+// site's own, and its sender name, at its address and at each of
+// `domainUrls`, the user's own domains serving it, which run them as apps of
+// their own. A republish runs it before the live site switches to the
+// release, a first publish right after creating the address. Resolves the
+// reports for WorkerSecrets.publishNote, [] for a release with no dynamic
+// backend.
+async function publishSiteBackends(previewUrl, liveUrl, releaseDir, domainUrls) {
     if (!previewUrl || !liveUrl) return [];
     const backends = await siteBackendNames(releaseDir);
     if (!backends.length) return [];
-    const keys = await copySiteBackendStore(previewUrl, liveUrl, backends, 'Your live site’s backend');
-    return [{ live: liveUrl, result: keys }];
+    const reports = [{ live: liveUrl, result: await copySiteBackendStore(previewUrl, liveUrl, backends, 'Your live site’s backend') }];
+    for (const url of domainUrls || []) {
+        const host = url.replace(/^https:\/\//, '').replace(/\/+$/, '');
+        reports.push({ live: url, result: await copySiteBackendStore(previewUrl, url, backends, `Your backend at ${host}`) });
+    }
+    return reports;
 }
 
 // Before the live site moves from `oldUrl` to a new address. The app Builder
@@ -2626,6 +2680,19 @@ async function moveSiteBackends(oldUrl, newUrl, backends) {
     if (keys && keys.ok) {
         try { await window.WorkerSecrets?.clear({ site: oldUrl }); } catch (e) { /* best effort */ }
     }
+}
+
+// Right after the user's own domain at `domainUrl` is attached to the live
+// site at `liveUrl`, which serves `releaseDir`. The domain runs the release's
+// dynamic backends as an app of its own, so, as a publish would, it gets their
+// keys and sender name, the live site's, its live-only keys included.
+// Resolves what the key copy did, or null for a release with no dynamic
+// backend.
+async function attachSiteBackends(liveUrl, domainUrl, releaseDir) {
+    const backends = await siteBackendNames(releaseDir);
+    if (!backends.length) return null;
+    const host = domainUrl.replace(/^https:\/\//, '').replace(/\/+$/, '');
+    return copySiteBackendStore(liveUrl, domainUrl, backends, `Your backend at ${host}`, { liveOnly: true });
 }
 
 // Remove the runtime tag (and with it the "Made with Puter" badge) from every
@@ -3158,6 +3225,9 @@ async function publishProject(ui) {
     // The preview's address too: a social image the AI pointed at the preview
     // is moved to the published address (absolutizeSocialImagesInRelease).
     const startPreviewUrl = window.currentPreviewUrl || null;
+    // And its own domains, whose backends get the keys too.
+    const startDomains = window.currentPublishedDomains;
+    const domainUrlsOf = (sub) => window.CustomDomain?.urlsFor(startDomains, sub) || [];
     // Same for the version baseline: getCurrentVersionId() answers for whichever
     // project is open, so it is only trustworthy for this one while it still is.
     // If the user switches away, no "Published" snapshot is taken below (that is
@@ -3236,7 +3306,7 @@ async function publishProject(ui) {
             if (window.SiteBackends?.isDynamicProject(startHistory) && !(await window.SiteBackends.hasApp(url))) {
                 await window.SiteBackends.registerApp(url, window.SiteBackends.titleOf(chatId), 'live');
             }
-            siteBackendKeys = await publishSiteBackends(startPreviewUrl, url, releaseDir);
+            siteBackendKeys = await publishSiteBackends(startPreviewUrl, url, releaseDir, domainUrlsOf(sub));
             await puter.hosting.update(sub, releaseDir);
             _reservedPublishNames.delete(chatId);
         } else if (!existingSub) {
@@ -3254,7 +3324,7 @@ async function publishProject(ui) {
             await absolutizeSocialImagesInRelease(releaseDir, url, [startPreviewUrl]);
             // The release's dynamic backends get their keys and sender name,
             // while the address is new to everyone.
-            siteBackendKeys = await publishSiteBackends(startPreviewUrl, url, releaseDir);
+            siteBackendKeys = await publishSiteBackends(startPreviewUrl, url, releaseDir, domainUrlsOf(sub));
             if (leftReserved) {
                 _reservedPublishNames.delete(chatId);
                 try { await puter.hosting.delete(leftReserved); }
@@ -3264,7 +3334,7 @@ async function publishProject(ui) {
             // A new key reaches the live site's dynamic backends before the
             // code that needs it does, so its first visitor isn't the one to
             // find it missing.
-            siteBackendKeys = await publishSiteBackends(startPreviewUrl, url, releaseDir);
+            siteBackendKeys = await publishSiteBackends(startPreviewUrl, url, releaseDir, domainUrlsOf(existingSub));
             // Re-publish: re-point the existing public subdomain at the freshly
             // copied release, once its pages carry the full address.
             await absolutizeSocialImagesInRelease(releaseDir, url, [startPreviewUrl]);
@@ -4085,6 +4155,13 @@ function connectCustomDomain(sub = previewSubdomain(window.currentPublishedUrl),
         openUpgradeModal('custom_domain');
         return;
     }
+    // Read before the dialog, which the user may leave for another project.
+    const dynamic = !!window.SiteBackends?.isDynamicProject(chatHistory);
+    // The live site the domain goes on and the release it serves, whose
+    // backends' keys the domain gets. Before a first publish there's none,
+    // and the publish gives the domain its keys.
+    const liveUrl = previewSubdomain(window.currentPublishedUrl) === sub ? window.currentPublishedUrl : null;
+    const liveDir = liveUrl ? window.currentPublishedPath : null;
     let attaching;
     try { attaching = Promise.resolve(puter.hosting.attach(sub)); }
     catch (e) { attaching = Promise.reject(e); }
@@ -4101,9 +4178,14 @@ function connectCustomDomain(sub = previewSubdomain(window.currentPublishedUrl),
         const domain = window.CustomDomain.normalize({ ...raw, site: raw.site || sub });
         if (!domain) return null;
         chosen = domain;
+        // A project with dynamic backends runs them on the domain as an app
+        // Builder registers now, before anything runs there, so it can be
+        // renamed and given keys (see site-backends.js).
+        if (dynamic) await window.SiteBackends.claimDomain('https://' + domain.hostname + '/', window.SiteBackends.titleOf(chatId), chatId);
         _domainNotYet.delete(domain.hostname);
         await updatePublishedDomains(chatId, (list) => window.CustomDomain.set(list, domain));
         releaseCustomDomainElsewhere(chatId, domain.hostname);
+        if (liveDir) await attachSiteBackends(liveUrl, 'https://' + domain.hostname + '/', liveDir);
         try { await onDomain?.(domain); } catch (e) { console.warn('Custom domain: could not record the domain on its card:', e); }
         window.track?.('Custom Domain Connected', { status: domain.status, apex: domain.isApex });
         if (currentChatId === chatId) {
@@ -5110,7 +5192,7 @@ window.resetPreviewErrorDedup = function () {
     const FETCH_ERROR_DEBOUNCE_MS = 2000;
     _autoFixDedupResets.push(function () { lastFetchErrorKey = ''; });
 
-    window.addEventListener('message', function(event) {
+    window.addEventListener('message', async function(event) {
         if (!event.data || event.data.type !== 'fetch-error') return;
 
         // Only accept messages from the live preview iframe (sender window +
@@ -5118,6 +5200,12 @@ window.resetPreviewErrorDedup = function () {
         if (!isTrustedPreviewMessage(event)) return;
 
         const { url, status, body } = event.data;
+        // A backend still switching over to its latest save fails for that
+        // alone, so the failure is expected (backendStillSwitching in
+        // tools.js).
+        const chatId = currentChatId;
+        if (await window.backendStillSwitching?.(url)) return;
+        if (chatId !== currentChatId) return;
         const errorKey = `${url}|${status}|${(body || '').slice(0, 200)}`;
         if (errorKey === lastFetchErrorKey) return;
         lastFetchErrorKey = errorKey;
@@ -5185,6 +5273,12 @@ window.resetPreviewErrorDedup = function () {
     const buffer = [];
     let capturing = false; // true only between reload-commit and observe-end
     let pending = false;   // arm the NEXT reload-commit to begin capturing
+    // A failed request counts once the backend it went to is known not to be
+    // switching over to a new save (backendStillSwitching in tools.js). These
+    // are those checks, for this pass, numbered so a late one never lands in
+    // the next pass's buffer.
+    const checks = [];
+    let pass = 0;
 
     function pushError(text) {
         if (capturing !== true) return;
@@ -5217,7 +5311,11 @@ window.resetPreviewErrorDedup = function () {
         } else {
             const url = d.url ? String(d.url) : '';
             const status = +d.status > 0 ? Math.trunc(+d.status) : 0;
-            pushError('Failed network request' + (status ? ' (HTTP ' + status + ')' : ' (network/CORS error)') + (url ? ': ' + url : ''));
+            const text = 'Failed network request' + (status ? ' (HTTP ' + status + ')' : ' (network/CORS error)') + (url ? ': ' + url : '');
+            const mine = pass;
+            checks.push(Promise.resolve(window.backendStillSwitching?.(url))
+                .catch(function () { return false; })
+                .then(function (switching) { if (!switching && mine === pass) pushError(text); }));
         }
     });
 
@@ -5233,7 +5331,7 @@ window.resetPreviewErrorDedup = function () {
         capturing = true;
     };
 
-    function reset() { pending = false; capturing = false; buffer.length = 0; }
+    function reset() { pending = false; capturing = false; buffer.length = 0; checks.length = 0; pass++; }
 
     // Run one verification pass: trigger the preview reload (the same background
     // refresh the tool used to fire directly), wait for the fresh document to
@@ -5333,6 +5431,9 @@ window.resetPreviewErrorDedup = function () {
                 if (aborted()) { testsDropped = true; return { status: 'skipped', reason: 'aborted' }; }
                 await new Promise(function (r) { setTimeout(r, 300); });
             }
+            // A canary read takes at most 5 seconds (readWorkerCanary).
+            await Promise.all(checks.slice());
+            if (aborted()) { testsDropped = true; return { status: 'skipped', reason: 'aborted' }; }
 
             const errors = buffer.slice();
             if (errors.length) { testsDropped = true; return { status: 'errors', errors: errors }; }

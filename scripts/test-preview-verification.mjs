@@ -90,7 +90,7 @@ const isRuntimeAssetError = new Function('return ' + UI.slice(bStart, bEnd + 2))
 // A fresh, fully-isolated instance per scenario so cases can run in parallel
 // without sharing the module-level buffer/capturing/pending state.
 function makeInstance(opts) {
-    opts = Object.assign({ previewActive: true, hasFrame: true, aborted: false, commit: true, errorsAfterLoad: [] }, opts || {});
+    opts = Object.assign({ previewActive: true, hasFrame: true, aborted: false, commit: true, errorsAfterLoad: [], fetchErrorsAfterLoad: [] }, opts || {});
     const loadHandlers = [];
     const frame = {
         length: opts.hasFrame ? 1 : 0,
@@ -115,9 +115,13 @@ function makeInstance(opts) {
                 for (const e of opts.errorsAfterLoad) {
                     listeners.forEach((fn) => fn({ data: { type: 'app-error', message: e }, source: {} }));
                 }
+                for (const f of opts.fetchErrorsAfterLoad) {
+                    listeners.forEach((fn) => fn({ data: { type: 'fetch-error', url: f.url, status: f.status }, source: {} }));
+                }
             }, 30);
         },
     };
+    if (opts.switching) win.backendStillSwitching = opts.switching;
     const post = (msg) => listeners.forEach((fn) => fn({ data: { type: 'app-error', message: msg }, source: {} }));
     // When verifyPreview said the new page had loaded (opts.onLoaded), and how
     // many errors it had collected by then.
@@ -207,6 +211,23 @@ async function run() {
         check('verify: a turn stopped as the page loaded leaves the status alone',
             rStopped.status === 'skipped' && stopped.loadedAt.length === 0);
         check('verify: a status change that throws never fails the check', rThrow.status === 'ok');
+    }
+    {
+        // A failed request to a backend still switching over to its latest
+        // save is expected (backendStillSwitching in tools.js). The answer can
+        // come after the watch, from a canary read, and still counts.
+        const later = (ms, v) => new Promise((r) => setTimeout(() => r(v), ms));
+        const switching = (u) => later(u.includes('/api/') ? 50 : 3500, u.includes('/api/'));
+        const mixed = makeInstance({ switching, fetchErrorsAfterLoad: [{ url: '/__workers/api/items', status: 500 }, { url: '/__workers/other/x', status: 500 }] });
+        const allSwitching = makeInstance({ switching, fetchErrorsAfterLoad: [{ url: '/__workers/api/items', status: 500 }, { url: '/__workers/api/more', status: 0 }] });
+        const failing = makeInstance({ switching: () => Promise.reject(new Error('no answer')), fetchErrorsAfterLoad: [{ url: '/__workers/api/items', status: 500 }] });
+        const plain = makeInstance({ fetchErrorsAfterLoad: [{ url: '/__workers/api/items', status: 500 }] });
+        const [rMixed, rAll, rFailing, rPlain] = await Promise.all([mixed.verify(), allSwitching.verify(), failing.verify(), plain.verify()]);
+        check('verify: a failed request to a backend still switching over is not an error, another backend\'s still is',
+            rMixed.status === 'errors' && rMixed.errors.length === 1 && rMixed.errors[0] === 'Failed network request (HTTP 500): /__workers/other/x', JSON.stringify(rMixed));
+        check('verify: failures only from backends still switching over → ok', rAll.status === 'ok', JSON.stringify(rAll));
+        check('verify: a check that fails counts the failure', rFailing.status === 'errors' && rFailing.errors.length === 1, JSON.stringify(rFailing));
+        check('verify: without the check (no tools.js) a failure counts as before', rPlain.status === 'errors' && rPlain.errors.length === 1, JSON.stringify(rPlain));
     }
 }
 

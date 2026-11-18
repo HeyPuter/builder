@@ -90,17 +90,32 @@ window.tools.push({
                     ids = (await Promise.all([site.previewUrl, site.publishedUrl].filter(Boolean).map(u => SB.appUidOf(u)))).filter(Boolean);
                 } catch (e) { /* the instructions below still work without the ids */ }
                 const which = ids.length ? ids.map(id => `"${id}"`).join(' and ') : 'named after the site\'s app id (app-<id>)';
-                return { success: false, error: `Builder can't set the sender name for a backend in __workers/, because Puter doesn't let Builder rename the site's app, and email from it goes out under that app's title. Tell the user they can set it themselves: open the Dev Center at https://puter.com/app/dev-center, find the app ${which}, change its title to the name they want, and save. ${ids.length > 1 ? 'The first is the preview\'s and the second the live site\'s, so they set both.' : 'Each address of the site has its own app, so after publishing they set the live site\'s too.'}` };
+                return { success: false, error: `Builder can't set the sender name for a backend in __workers/, because Puter doesn't let Builder rename the site's app, and email from it goes out under that app's title. Tell the user they can set it themselves: open the Dev Center at https://puter.com/app/dev-center, find the app ${which}, change its title to the name they want, and save. ${ids.length > 1 ? 'The first is the preview\'s and the second the live site\'s, so they set both.' : 'Each address of the site has its own app, so once the live site\'s backend has run, they set the live site\'s app too.'}` };
             }
             let live = 'not-published';
+            // The user's own domains serving the live site send as apps of
+            // their own, each renamed the same way.
+            let domains = '';
             if (site.publishedUrl) {
                 const lr = await WSN.set({ site: site.publishedUrl, backends }, reset ? '' : name);
                 live = lr.ok ? 'updated' : 'failed';
+                for (const url of site.domainUrls || []) {
+                    const dr = await WSN.set({ site: url, backends }, reset ? '' : name);
+                    if (dr.ok) continue;
+                    const host = url.replace(/^https:\/\//, '').replace(/\/+$/, '');
+                    if (dr.reason !== 'forbidden') {
+                        domains += ` The site’s own domain ${host} couldn’t be changed this time, so its email still uses the old name. Call set_email_sender_name again to change it too.`;
+                        continue;
+                    }
+                    let id = null;
+                    try { id = await SB.appUidOf(url); } catch (e) { /* the instructions below still work without the id */ }
+                    domains += ` Email from the site’s own domain ${host} still goes out under its old name, since it runs as an app Puter made, which Builder can’t rename. Tell the user they can change its title in the Dev Center at https://puter.com/app/dev-center${id ? `, where it’s the app "${id}"` : ''}.`;
+                }
             }
             const where = live === 'updated' ? 'on the preview and the live site' : 'on the preview';
-            const after = live === 'updated' ? ''
+            const after = (live === 'updated' ? ''
                 : live === 'failed' ? ' The live site couldn’t be changed this time, so its email still uses the old name. Call set_email_sender_name again to change it too.'
-                : ' The site isn’t published yet. Publishing gives the live site the same name by itself.';
+                : ' The site isn’t published yet. Publishing gives the live site the same name by itself.') + domains;
             return {
                 success: true,
                 worker,

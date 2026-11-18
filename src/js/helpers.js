@@ -2339,6 +2339,13 @@ window.stripWorkerCanary = function (text) {
     return text.replace(_WORKER_CANARY_RE, '');
 };
 
+// The token of the canary route in `text`, or null without one.
+window.workerCanaryToken = function (text) {
+    if (typeof text !== 'string') return null;
+    const m = /router\.get\('\/__builder\/canary', \(\) => '([a-z0-9]+)'\);/.exec(text);
+    return m ? m[1] : null;
+};
+
 // `text` with a canary route answering `token` (letters and digits) in place
 // of any old one.
 window.stampWorkerCanary = function (text, token) {

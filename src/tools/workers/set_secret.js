@@ -49,7 +49,7 @@ window.tools.push({
     // What a project with dynamic backends is told instead (see
     // SiteBackends.toolsFor).
     dynamic: {
-        description: "Saves an API key or other secret for one of THIS project's backends (a file in __workers/, or an older worker made with create_worker), in its own private key-value store, which every backend of the site shares. Use it for every key the user gives you, such as a Stripe or Whop key or any other API key, and never write a key into any file. Write the backend's file and open the preview first, then call this. In the backend, read the key inside a route handler with await me.puter.kv.get('secret:NAME'). The user may be asked once to allow Builder to give keys to that site. Publishing copies the preview's keys to the live site by itself. For a key only the live site should use, such as a live payment key while the preview keeps a test key, set live to true. That needs the site published first.",
+        description: "Saves an API key or other secret for one of THIS project's backends (a file in __workers/, or an older worker made with create_worker), in its own private key-value store, which every backend of the site shares. Use it for every key the user gives you, such as a Stripe or Whop key or any other API key, and never write a key into any file. Write the backend's file and open the preview first, then call this. In the backend, read the key inside a route handler with await me.puter.kv.get('secret:NAME'). The user may be asked once to allow Builder to give keys to that site. Publishing copies the preview's keys to the live site by itself. For a key only the live site should use, such as a live payment key while the preview keeps a test key, set live to true. That needs the site published first. The user's own domain on the live site has a store of its own. It gets the live site's keys when it's connected and on each publish, and live set to true saves the key there too, so a key its backend is missing is saved again with live set to true.",
         parameters: {
             worker: "The name of this project's backend that uses the key: the file name in __workers/ without .worker.js, or an older worker's name."
         }
@@ -81,6 +81,15 @@ window.tools.push({
                     : 'The preview isn’t open yet, so the backend isn’t running anywhere to hold this key. Open the preview with publish_site, then save the key again.' };
             }
             const r = await WS.set({ site: siteUrl, backends }, name, value, { liveOnly: live });
+            // The user's own domains serving the live site run its backends
+            // as apps of their own, so a live key goes into each of those too.
+            const missed = [];
+            if (r.ok && live) {
+                for (const url of site.domainUrls || []) {
+                    const dr = await WS.set({ site: url, backends }, name, value, { liveOnly: true });
+                    if (!dr.ok) missed.push(url.replace(/^https:\/\//, '').replace(/\/+$/, ''));
+                }
+            }
             if (r.ok) {
                 return {
                     success: true,
@@ -90,6 +99,7 @@ window.tools.push({
                     read_it_with: `await me.puter.kv.get('secret:${name}')`,
                     note: live
                         ? 'The key is saved only in the live site’s store, which all of its backends share. The live site uses it from the next request, the preview keeps its own, and publishing never replaces it. The code stays the same. Never write the key into a file or repeat it in your replies.'
+                            + (missed.length ? ` It didn’t reach the site’s own domain ${missed.join(' and ')}, so the backend there doesn’t have it yet. Call set_secret again with live set to true to try again.` : '')
                         : 'The key is saved in the preview’s private store, which all of this site’s backends share. Read it inside a route handler, never at the top of the script. The site’s pages run as the same app, so never read a secret: key from browser code, never write the key into a file, and never repeat it in your replies.',
                 };
             }

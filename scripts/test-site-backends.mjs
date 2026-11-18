@@ -43,7 +43,7 @@ const TOOLS = slice(read('../src/js/tools.js'), '// Saving a deployed worker', '
 const UI_SRC = read('../src/js/ui.js');
 const UI_BACKENDS = slice(UI_SRC, '// ----- dynamic backends', '// Remove the runtime tag', 'the dynamic backend helpers') +
     slice(UI_SRC, 'function previewSubdomain(url) {', '\n}\n', 'previewSubdomain') + '\n}\n';
-const MODULES = ['worker-ownership', 'site-backends', 'worker-secrets', 'worker-sender', 'editor-core', 'template-core']
+const MODULES = ['worker-ownership', 'custom-domain', 'site-backends', 'worker-secrets', 'worker-sender', 'editor-core', 'template-core']
     .map((n) => read(`../src/js/${n}.js`)).join('\n');
 const TOOL_FILES = ['create_worker', 'delete_worker', 'list_workers', 'get_worker', 'set_secret', 'set_email_sender_name']
     .map((n) => read(`../src/tools/workers/${n}.js`)).join('\n');
@@ -73,7 +73,7 @@ function makeEnv(o = {}) {
     const prompts = [];
     const toasts = [];
     const confirms = [];
-    const fetched = { uid: 0, wake: [] };
+    const fetched = { siteApp: 0, wake: [] };
     const writes = [];
     const hostingDeleted = [];
     const uidFor = (origin) => 'app-' + origin.replace(/^https:\/\//, '').replace(/\./g, '-');
@@ -88,6 +88,7 @@ function makeEnv(o = {}) {
     const store = (app) => { if (!stores.has(app)) stores.set(app, new Map()); return stores.get(app); };
     const copyOf = (v) => (v === undefined ? null : JSON.parse(JSON.stringify(v)));
     let seq = 0;
+    let made = 0; // Puter gives every new app a uid of its own
     const puter = {
         APIOrigin: API,
         authToken: 'tok',
@@ -115,11 +116,23 @@ function makeEnv(o = {}) {
                 if (byOrigin(origin)) throw { status: 403, code: 'forbidden', message: 'Access denied' };
                 let name = opts.name;
                 if (apps.has(name)) { if (!opts.dedupeName) throw { status: 400, code: 'app_name_already_in_use' }; name += '-x' + (++seq); }
-                const app = { uid: 'app-reg-' + name, name, title: opts.title, index_url: origin + '/', creator: 'builder' };
+                const app = { uid: 'app-reg-' + (++made) + '-' + name, name, title: opts.title, index_url: origin + '/', creator: 'builder' };
                 apps.set(name, app);
                 return copyOf(app);
             },
-            get: async (name) => { const a = apps.get(name); if (!a) throw { status: 404, message: 'Entity not found' }; return copyOf(a); },
+            // A URL finds the app a page at its origin runs as.
+            get: async (name) => {
+                if (name.includes('://')) {
+                    fetched.siteApp++;
+                    if (o.siteAppFails) throw new Error('network down');
+                    const a = byOrigin(new URL(name).origin);
+                    if (!a) throw { status: 404, code: 'not_found', message: 'App not found' };
+                    return copyOf(a);
+                }
+                const a = apps.get(name);
+                if (!a) throw { status: 404, message: 'Entity not found' };
+                return copyOf(a);
+            },
             update: async (name, attrs) => {
                 const a = apps.get(name);
                 if (!a) throw { status: 404, message: 'Entity not found' };
@@ -165,12 +178,6 @@ function makeEnv(o = {}) {
         },
     };
     globalThis.fetch = async (url, init) => {
-        if (url === API + '/auth/app-uid-from-origin') {
-            fetched.uid++;
-            const { origin } = JSON.parse(init.body);
-            const app = byOrigin(origin);
-            return { ok: true, status: 200, json: async () => ({ uid: app ? app.uid : uidFor(origin) }) };
-        }
         const u = new URL(url);
         const m = /^\/__workers\/([a-z0-9_-]+)\//.exec(u.pathname);
         const dir = sites[u.origin];
@@ -192,13 +199,14 @@ function makeEnv(o = {}) {
         currentPreviewUrl: o.previewUrl === undefined ? PREVIEW : o.previewUrl,
         currentPreviewPath: o.previewPath === undefined ? ROOT : o.previewPath,
         currentPublishedUrl: o.publishedUrl === undefined ? LIVE : o.publishedUrl,
+        currentPublishedDomains: o.domains || [],
         showToast: (t) => toasts.push(t),
         withFileLock: (p, fn) => Promise.resolve().then(fn),
         writeFileVerified: async (p, d) => { files.set(p, d); },
     };
     const ui = new Function('window', 'puter',
         PATHS + '\n' + CANARY + '\n' + MODULES + '\n' + TOOLS + '\n' + TOOL_FILES + '\n' + UI_BACKENDS +
-        '\nreturn { publishSiteBackends, stripCanaryFromReleaseBackends, planSiteMove, finishSiteMove, moveSiteBackends };')(win, puter);
+        '\nreturn { publishSiteBackends, stripCanaryFromReleaseBackends, planSiteMove, finishSiteMove, moveSiteBackends, attachSiteBackends };')(win, puter);
     const tool = (name) => win.tools.find((t) => t.function.name === name);
     // The app an address runs as, the way Puter finds it.
     const appAt = (url) => byOrigin(originOf(url));
@@ -251,6 +259,31 @@ const st = { appDir: ROOT, currentChatId: 'c1', chatHistory: [{ role: 'system', 
     check('list: a site without __workers has none', (await win.SiteBackends.list('/u/elsewhere')).length === 0);
     const failing = makeEnv({ readdirFails: true });
     check('list: a read that fails is a failure, not "no backends"', await rejects(failing.win.SiteBackends.list(ROOT), 'network down'));
+}
+
+// --- the app a site runs as ---
+// The app a page at the address runs as (puter.apps.get with a URL), never
+// asked of Puter's API directly.
+{
+    const src = read('../src/js/site-backends.js');
+    check('app: no direct call to Puter\'s API', !/APIOrigin|authToken|app-uid-from-origin|api\.puter\.com/.test(src));
+    const env = makeEnv({ files: BACKEND, apps: ['https://preview-abc.puter.site'] });
+    check('app: the app Puter made for the address', (await env.win.SiteBackends.appUidOf(PREVIEW)) === PREVIEW_APP
+        && (await env.win.SiteBackends.appOf(PREVIEW)).uid === PREVIEW_APP);
+    const none = makeEnv({ files: BACKEND });
+    check('app: none before anything has run there, without calling the backends', (await none.win.SiteBackends.appOf(PREVIEW)) === null
+        && none.fetched.wake.length === 0);
+    check('app: …and with them called first, the app Puter then makes', (await none.win.SiteBackends.appOf(PREVIEW, ['api'])).uid === PREVIEW_APP
+        && none.fetched.wake.length === 1);
+    // Apps outlive sites, so a gone site's keys can still be cleared.
+    check('app: a site that\'s gone still has its app', (await makeEnv({ files: BACKEND, apps: ['https://gone-x.puter.site'] }).win.SiteBackends.appUidOf('https://gone-x.puter.site/')) === 'app-gone-x-puter-site');
+    check('app: an address nothing ran at has none', (await makeEnv().win.SiteBackends.appUidOf('https://never-x.puter.site/')) === null);
+    // An app the user registered for the address in the Dev Center, not Puter's.
+    const theirs = makeEnv({ files: BACKEND });
+    await theirs.puter.apps.create({ name: 'my-app', indexURL: PREVIEW, title: 'Mine' });
+    check('app: someone\'s own app at the address counts as none', (await theirs.win.SiteBackends.appOf(PREVIEW)) === null);
+    const down = makeEnv({ files: BACKEND, siteAppFails: true });
+    check('app: a lookup that fails is a failure, not "no app"', await rejects(down.win.SiteBackends.appOf(PREVIEW), 'network down'));
 }
 
 // --- the save check ---
@@ -383,7 +416,7 @@ const st = { appDir: ROOT, currentChatId: 'c1', chatHistory: [{ role: 'system', 
 {
     const env = makeEnv({ files: BACKEND });
     const reports = await env.ui.publishSiteBackends(PREVIEW, LIVE, '/u/AppData/b/.published/c1/r_2_y');
-    check('publish: a release without a backend copies nothing and asks nothing', reports.length === 0 && env.prompts.length === 0 && env.fetched.uid === 0);
+    check('publish: a release without a backend copies nothing and asks nothing', reports.length === 0 && env.prompts.length === 0 && env.fetched.siteApp === 0);
     const plan = await env.ui.planSiteMove(LIVE, '/u/AppData/b/.published/c1/r_2_y');
     check('new address: no backend, no question', plan && JSON.stringify(plan.backends) === '[]' && env.confirms.length === 0);
     const declined = makeEnv({ files: { [`${RELEASE}/__workers/api.worker.js`]: '' }, confirm: false });
@@ -408,11 +441,17 @@ const st = { appDir: ROOT, currentChatId: 'c1', chatHistory: [{ role: 'system', 
 
 // --- the email sender name ---
 {
-    // A site whose app Puter made, since something ran there first.
-    const env = makeEnv({ files: BACKEND });
+    // A site whose app Puter made, since something ran there first, and a
+    // live site whose backend has run too.
+    const env = makeEnv({ files: BACKEND, apps: [LIVE.replace(/\/$/, '')] });
     const r = await env.tool('set_email_sender_name').exec({ worker: 'api', name: 'Shop' }, st);
     check('sender: on an app Puter made, the user is sent to the Dev Center with the app ids',
-        !r.success && /Dev Center/.test(r.error) && r.error.includes(PREVIEW_APP) && r.error.includes(LIVE_APP), JSON.stringify(r));
+        !r.success && /Dev Center/.test(r.error) && r.error.includes(PREVIEW_APP) && r.error.includes(LIVE_APP) && /set both/.test(r.error), JSON.stringify(r));
+    // The live site's backend hasn't run, so Puter hasn't made its app yet.
+    const fresh = makeEnv({ files: BACKEND });
+    const r2 = await fresh.tool('set_email_sender_name').exec({ worker: 'api', name: 'Shop' }, st);
+    check('…and only to apps that exist, with the live site\'s to follow once its backend has run',
+        !r2.success && r2.error.includes(PREVIEW_APP) && !r2.error.includes(LIVE_APP) && /once the live site's backend has run/.test(r2.error), JSON.stringify(r2));
 }
 {
     const env = makeEnv({ files: Object.assign({ [`${RELEASE}/__workers/api.worker.js`]: '' }, BACKEND) });
@@ -573,6 +612,109 @@ const st = { appDir: ROOT, currentChatId: 'c1', chatHistory: [{ role: 'system', 
         publish.indexOf('registerApp(url') > 0 && publish.indexOf('publishSiteBackends(', publish.indexOf('registerApp(url')) < publish.indexOf('} else {', publish.indexOf('if (!existingSub) {')));
 }
 
+// --- the user's own domain ---
+// It runs the live site's backends as an app of its own, which Builder
+// registers when the domain is attached (claimDomain), so it can rename it and
+// give it keys.
+const DOMAIN = 'https://www.shop-example.com/';
+const DOMAIN_ORIGIN = 'https://www.shop-example.com';
+const DOMAINS = [{ hostname: 'www.shop-example.com', site: 'shop', status: 'active' }];
+const LIVE_FILES = Object.assign({ [`${RELEASE}/__workers/api.worker.js`]: '' }, BACKEND);
+{
+    const SB = makeEnv().win.SiteBackends;
+    check('domain: the user\'s own domain is an address an app runs at', SB.appOrigin(DOMAIN) === DOMAIN_ORIGIN && SB.appOrigin(LIVE) === 'https://shop.puter.site'
+        && ['http://www.shop-example.com/', 'https://www.shop-example.com:8443/', 'https://shop.puter.host/', 'https://puter.com/', 'https://localhost/', null].every((u) => SB.appOrigin(u) === null));
+    check('domain: its backends answer there too', SB.urlOf(DOMAIN, 'api') === DOMAIN_ORIGIN + '/__workers/api');
+}
+{
+    const env = makeEnv({ files: LIVE_FILES, sites: { [DOMAIN_ORIGIN]: RELEASE }, domains: DOMAINS });
+    const SB = env.win.SiteBackends;
+    const app = await SB.claimDomain(DOMAIN, 'Shop', 'c1');
+    check('domain: attaching it registers the app it runs as, named after the project',
+        app && env.appAt(DOMAIN) && env.appAt(DOMAIN).uid === app.uid && env.appAt(DOMAIN).title === 'Shop' && env.appAt(DOMAIN).creator === 'builder');
+    check('…for this project', (await SB.projectOf(DOMAIN)) === 'c1');
+    await env.registerBoth();
+    await env.tool('set_secret').exec({ worker: 'api', name: 'STRIPE_SECRET_KEY', value: KEY, live: false }, st);
+    const reports = await env.ui.publishSiteBackends(PREVIEW, LIVE, RELEASE, [DOMAIN]);
+    check('domain: publishing gives it the preview\'s keys', env.stores.get(app.uid)?.get('secret:STRIPE_SECRET_KEY') === KEY
+        && reports.length === 2 && reports.every((r) => r.result && r.result.ok), JSON.stringify(reports));
+    const live = await env.tool('set_secret').exec({ worker: 'api', name: 'STRIPE_SECRET_KEY', value: LIVE_KEY, live: true }, st);
+    check('domain: a live key goes to it too, as its own', live.success && env.stores.get(app.uid).get('secret:STRIPE_SECRET_KEY') === LIVE_KEY
+        && JSON.stringify(env.stores.get(app.uid).get('secret-live-only')) === '["STRIPE_SECRET_KEY"]', JSON.stringify(live));
+    const named = await env.tool('set_email_sender_name').exec({ worker: 'api', name: 'Shop Support' }, st);
+    check('domain: the sender name renames its app too', named.success && env.appAt(DOMAIN).title === 'Shop Support', JSON.stringify(named));
+    const again = await SB.claimDomain(DOMAIN, 'Shop', 'c1');
+    check('domain: attaching it again keeps its app and keys', again && again.uid === app.uid && env.stores.get(app.uid).get('secret:STRIPE_SECRET_KEY') === LIVE_KEY);
+    const other = await SB.claimDomain(DOMAIN, 'Other', 'c2');
+    check('domain: another project taking it gets a new app of its own',
+        other && other.uid !== app.uid && env.appAt(DOMAIN).uid === other.uid && env.appAt(DOMAIN).title === 'Other' && (await SB.projectOf(DOMAIN)) === 'c2');
+    check('…and the old app goes, its keys first', ![...env.apps.values()].some((a) => a.uid === app.uid) && !env.stores.get(app.uid).has('secret:STRIPE_SECRET_KEY'));
+}
+{
+    // Something ran on the domain before it was attached, so Puter made its app.
+    const env = makeEnv({ files: LIVE_FILES, sites: { [DOMAIN_ORIGIN]: RELEASE }, domains: DOMAINS, apps: [DOMAIN_ORIGIN] });
+    const SB = env.win.SiteBackends;
+    const PUTER_DOMAIN_APP = env.uidFor(DOMAIN_ORIGIN);
+    env.granted.add(PUTER_DOMAIN_APP);
+    env.stores.set(PUTER_DOMAIN_APP, new Map([['secret:OLD', 'x'], ['secret-names', ['OLD']]]));
+    check('domain: one Puter made stays on Puter\'s app', (await SB.claimDomain(DOMAIN, 'Shop', 'c1')) === null && env.appAt(DOMAIN).uid === PUTER_DOMAIN_APP);
+    check('…with the keys it had cleared', !env.stores.get(PUTER_DOMAIN_APP).has('secret:OLD'));
+    check('domain: Puter\'s app is still found, for its keys', (await SB.appUidOf(DOMAIN)) === PUTER_DOMAIN_APP);
+    await env.registerBoth();
+    const named = await env.tool('set_email_sender_name').exec({ worker: 'api', name: 'Shop Support' }, st);
+    check('domain: the sender name sends the user to the Dev Center for it', named.success && /Dev Center/.test(named.note) && named.note.includes(PUTER_DOMAIN_APP), JSON.stringify(named));
+}
+{
+    // The domain goes on a site already published, where the preview has a
+    // test key and the live site its own live one, and something ran on the
+    // domain before, so it runs as Puter's app.
+    const env = makeEnv({ files: LIVE_FILES, sites: { [DOMAIN_ORIGIN]: RELEASE }, apps: [DOMAIN_ORIGIN] });
+    const SB = env.win.SiteBackends;
+    const PUTER_DOMAIN_APP = env.uidFor(DOMAIN_ORIGIN);
+    await env.registerBoth();
+    await env.tool('set_secret').exec({ worker: 'api', name: 'STRIPE_SECRET_KEY', value: KEY, live: false }, st);
+    await env.ui.publishSiteBackends(PREVIEW, LIVE, RELEASE, []);
+    await env.tool('set_secret').exec({ worker: 'api', name: 'STRIPE_SECRET_KEY', value: LIVE_KEY, live: true }, st);
+    env.prompts.length = 0;
+    await SB.claimDomain(DOMAIN, 'Shop', 'c1');
+    const got = await env.ui.attachSiteBackends(LIVE, DOMAIN, RELEASE);
+    check('attach: the domain gets the live site\'s keys, asking once for the app it runs as',
+        got && got.ok && env.stores.get(PUTER_DOMAIN_APP)?.get('secret:STRIPE_SECRET_KEY') === LIVE_KEY && env.prompts.join(',') === PUTER_DOMAIN_APP, JSON.stringify(got));
+    check('…its live key kept as its own, so a publish leaves it', JSON.stringify(env.stores.get(PUTER_DOMAIN_APP).get('secret-live-only')) === '["STRIPE_SECRET_KEY"]');
+    await env.ui.publishSiteBackends(PREVIEW, LIVE, RELEASE, [DOMAIN]);
+    check('…and the next publish does', env.stores.get(PUTER_DOMAIN_APP).get('secret:STRIPE_SECRET_KEY') === LIVE_KEY);
+    check('attach: a release with no backend has nothing to give', (await env.ui.attachSiteBackends(LIVE, DOMAIN, '/u/AppData/b/.published/c1/r_none')) === null);
+}
+{
+    // A fresh domain on a published site runs as the app Builder claimed for it.
+    const env = makeEnv({ files: LIVE_FILES, sites: { [DOMAIN_ORIGIN]: RELEASE } });
+    await env.registerBoth();
+    await env.tool('set_secret').exec({ worker: 'api', name: 'STRIPE_SECRET_KEY', value: KEY, live: false }, st);
+    await env.ui.publishSiteBackends(PREVIEW, LIVE, RELEASE, []);
+    const app = await env.win.SiteBackends.claimDomain(DOMAIN, 'Shop', 'c1');
+    const got = await env.ui.attachSiteBackends(LIVE, DOMAIN, RELEASE);
+    check('attach: a fresh domain\'s app gets them too', app && got && got.ok && env.stores.get(app.uid)?.get('secret:STRIPE_SECRET_KEY') === KEY, JSON.stringify(got));
+}
+{
+    const app = read('../src/js/app.js');
+    const del = app.slice(app.indexOf('async function deleteChat('), app.indexOf('async function deleteChat(') + 9000);
+    check('delete: the domain\'s app goes with the project, unless another project has it now',
+        /const domainUrls = \(window\.CustomDomain\?\.list\(chat\?\.publishedDomains\)/.test(del) && /\[chat\?\.previewUrl, chat\?\.publishedUrl, \.\.\.domainUrls\]/.test(del)
+        && /!\[null, chatId\]\.includes\(await SB\.projectOf\(u\)\)\) return;/.test(del));
+    const connect = UI_SRC.slice(UI_SRC.indexOf('function connectCustomDomain('), UI_SRC.indexOf('async function releaseCustomDomainElsewhere('));
+    check('attach: a dynamic project claims the domain\'s app as soon as it\'s chosen, read before the dialog',
+        connect.indexOf('const dynamic = !!window.SiteBackends?.isDynamicProject(chatHistory);') > 0
+        && connect.indexOf('const dynamic = !!window.SiteBackends?.isDynamicProject(chatHistory);') < connect.indexOf('puter.hosting.attach(sub)')
+        && /chosen = domain;[\s\S]{0,400}if \(dynamic\) await window\.SiteBackends\.claimDomain\('https:\/\/' \+ domain\.hostname \+ '\/', window\.SiteBackends\.titleOf\(chatId\), chatId\);\s*_domainNotYet/.test(connect));
+    check('attach: a domain on the published site gets its backends\' keys once it\'s saved, the site read before the dialog',
+        connect.indexOf("const liveUrl = previewSubdomain(window.currentPublishedUrl) === sub ? window.currentPublishedUrl : null;") > 0
+        && connect.indexOf('const liveUrl') < connect.indexOf('puter.hosting.attach(sub)')
+        && connect.indexOf('const liveDir = liveUrl ? window.currentPublishedPath : null;') > 0
+        && /await updatePublishedDomains\(chatId[\s\S]{0,200}if \(liveDir\) await attachSiteBackends\(liveUrl, 'https:\/\/' \+ domain\.hostname \+ '\/', liveDir\);/.test(connect));
+    check('publish: the live site\'s domains get the keys on every publish',
+        (UI_SRC.match(/publishSiteBackends\(startPreviewUrl, url, releaseDir, domainUrlsOf\((sub|existingSub)\)\)/g) || []).length === 3);
+}
+
 // --- the prompt ---
 {
     const prompt = (flag) => {
@@ -587,6 +729,8 @@ const st = { appDir: ROOT, currentChatId: 'c1', chatHistory: [{ role: 'system', 
     check('prompt: create_worker is no longer the way to make one', !/Deploy each worker once with create_worker/.test(on));
     check('prompt: pages never read a key', /never read a secret: key from browser code/.test(on));
     check('prompt: the default sender name is the project\'s name', /sender name is its project's name/.test(on));
+    check('prompt: the user\'s own domain has its own store, and live keys reach it', /own domain on the published site runs its backends too/.test(on)
+        && /gets the live site's keys when it's connected and on each publish/.test(on) && !/own domain on the published site/.test(off));
     check('prompt: the flag off keeps the create_worker rules', /Deploy each worker once with create_worker/.test(off) && !/__workers/.test(off) && /sandbox-<worker name>/.test(off));
 }
 

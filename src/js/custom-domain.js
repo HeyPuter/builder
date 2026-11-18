@@ -151,6 +151,15 @@
     }
 
     /**
+     * The addresses of the domains connected to the site at `sub`, whatever
+     * their state, since each runs the site's backends as an app of its own.
+     * A domain recorded against another name ('moved') serves another site.
+     */
+    function urlsFor(saved, sub) {
+        return list(saved).map((d) => view(d, sub)).filter((v) => v && v.kind !== 'moved').map((v) => v.url);
+    }
+
+    /**
      * The hostname of a saved list's domain, whatever its state, or null. The
      * project list keeps it, so a domain another project takes is found there
      * without reading every project's file.
@@ -172,5 +181,5 @@
         return !!a.lastModified && a.lastModified === b.lastModified;
     }
 
-    window.CustomDomain = { normalize, list, set, remove, markActive, markLost, view, waiting, liveUrl, domainUrl, hostOf, sameSite };
+    window.CustomDomain = { normalize, list, set, remove, markActive, markLost, view, waiting, liveUrl, domainUrl, urlsFor, hostOf, sameSite };
 })();

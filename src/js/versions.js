@@ -33,9 +33,12 @@
     // Called by the tool dispatcher after a project-modifying tool runs, and by
     // the attachment-save path. Non-mutating tool names are ignored. `chatId`
     // is the turn's chat (a mid-turn switch must not dirty the chat the user
-    // moved to); it defaults to the open chat.
-    window.markProjectModified = function (toolName, chatId) {
+    // moved to); it defaults to the open chat. Every change counts as one the
+    // preview's pages may show (notePagesChanged in ui.js), except the AI's
+    // save of a backend file (opts.backendOnly), which no page shows.
+    window.markProjectModified = function (toolName, chatId, opts) {
         if (toolName && !MUTATING_TOOLS.has(toolName)) return;
+        if (!(opts && opts.backendOnly)) window.notePagesChanged?.(chatId || openChatId());
         window._filesChangedThisTurn = (window._filesChangedThisTurn || 0) + 1;
         // The working dir now has changes that may not yet be captured by a
         // snapshot. restoreVersion reads this to take a pre-restore safety
