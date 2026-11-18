@@ -1,23 +1,28 @@
 // whats-new.js — the "What's new" dialog, telling users about one recent
 // feature, with the words on the left and a drawing of it on the right (one
 // above the other on a phone).
-// It shows once per account, at startup, to a signed-in user who has built
-// something. Show me closes it and points at the feature (the
-// announcement's showMe). Closing it any other way (Later, ✕, Escape, a
+// It shows at startup to a signed-in user who has built something, one
+// announcement per load, each once per account. The main button closes it
+// and either points at the feature (the announcement's showMe) or opens a
+// page in a new tab (its href). Closing it any other way (Later, ✕, Escape, a
 // click outside) just closes it. Either way it saves the announcement's start
-// date in puter.kv, under one key per user that every later announcement
-// overwrites. A reload with the dialog still up shows it again.
+// date in puter.kv, under one key per user. A reload with the dialog still up
+// shows it again.
 //
 // The upgrade dialog comes first. Startup leaves this one out while an
 // upgrade is pending (app.js), and the upgrade dialog opening over it closes
 // it unseen (hide), so a later load shows it again.
 //
-// Only the newest announcement is ever shown. A new one replaces ANNOUNCEMENT
-// with a later start, and everyone sees it once, whether or not they saw the
-// last.
+// ANNOUNCEMENTS runs oldest first. A load shows the oldest one that is newer
+// than the last one the user closed, running today (start to end) and for
+// them (when). So someone who missed one sees it first and the next on a
+// later load, and one only some accounts get doesn't hide the others from
+// the rest. Since kv keeps only a start date, each needs a later start than
+// the one before, and closing one counts every earlier one as seen.
 //
-// In the console, WhatsNew.open() shows it now, and WhatsNew.reset() forgets
-// that it was seen, so the next load shows it again.
+// In the console, WhatsNew.open() shows the newest one this account gets,
+// WhatsNew.open(id) a given one, whatever was seen and whatever the date.
+// WhatsNew.reset() forgets what was seen, so the next load shows them again.
 (function () {
     'use strict';
 
@@ -27,6 +32,7 @@
     const CURSOR_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M4.04 4.69a.5.5 0 0 1 .65-.65l16 6.5a.5.5 0 0 1-.06.95l-6.13 1.58a2 2 0 0 0-1.44 1.44l-1.58 6.12a.5.5 0 0 1-.95.07z"/></svg>';
     const CHECK_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
     const CLOSE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+    const PLUS_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
 
     // One build in the drawing's race. The fast one ends with a check.
     const lane = (name, fast) =>
@@ -36,11 +42,21 @@
             `<span class="wn-lane-state">${fast ? `<span class="wn-ok">${CHECK_SVG}</span>` : ''}</span>` +
         '</div>';
 
-    const ANNOUNCEMENT = {
-        // The day it went out (YYYY-MM-DD). It is what kv keeps, so a later
-        // announcement needs a later start.
+    // Oldest first. Each takes:
+    //   start   the day it went out (YYYY-MM-DD). It is what kv keeps, so
+    //           each needs a later start than the one before.
+    //   end     the last day it shows, so someone who signs up months later
+    //           doesn't get a queue of old news.
+    //   id      names it in analytics.
+    //   when    whether it is for this account (optional).
+    //   tone    a class for the drawing's panel (optional, orange without).
+    //   go      the main button's words (Show me without).
+    //   showMe  run once the dialog has closed, to point at the feature, or
+    //   href    a page the main button opens in a new tab. A plain link, so
+    //           the browser opens it from the click itself.
+    const ANNOUNCEMENTS = [{
         start: '2026-11-12',
-        // Names it in analytics.
+        end: '2026-12-10',
         id: 'fast-mode',
         // The bolt button needs a real account and the flag (FastMode), so
         // without them the dialog waits for a load that has both.
@@ -78,7 +94,42 @@
             '</div>',
         // Show me closes the dialog and points at the bolt button.
         showMe: () => window.FastMode.showMe(),
-    };
+    }, {
+        start: '2026-11-17',
+        end: '2026-12-15',
+        id: 'auto-top-up',
+        // Auto top-up is set on Puter's billing page, for an account that
+        // pays for its own plan. A team seat's credit is its team's to buy
+        // (Branding.canTopUp, as for Add credits).
+        when: () => !!window.Branding?.canTopUp(window.user),
+        title: 'Keep building with auto top-up',
+        body: () =>
+            '<p>Auto top-up adds credits for you when you run low, so your builds don’t stop partway.</p>' +
+            '<p>Turn it on in your Puter billing settings.</p>',
+        // A cursor turns auto top-up on, then the credits used fill the bar
+        // during a build, go red at the limit, and clear with a Topped up
+        // chip (styles.css, .wn-*). Not Puter's Monthly credits, since a
+        // top-up doesn't go there. Under reduced motion it shows the end
+        // straight away.
+        art: () =>
+            '<div class="wn-topup">' +
+                '<div class="wn-credits">' +
+                    '<div class="wn-credits-head"><span>Credits used</span>' +
+                        `<span class="wn-credits-chip">${PLUS_SVG}Topped up</span></div>` +
+                    '<span class="wn-credits-bar"><i></i></span>' +
+                    '<span class="wn-credits-foot">Building your app</span>' +
+                '</div>' +
+                '<div class="wn-setting">' +
+                    '<span class="wn-setting-text"><b>Auto top-up</b><span>Adds credits when you run low</span></span>' +
+                    '<span class="wn-switch"><i></i>' +
+                        `<span class="wn-cursor"><span>${CURSOR_SVG}</span></span>` +
+                    '</span>' +
+                '</div>' +
+            '</div>',
+        tone: 'is-credits',
+        go: 'Turn on auto top-up',
+        href: 'https://puter.com/#billing',
+    }];
 
     // The start of the last announcement the user closed. puter.kv is the
     // user's own (per app), so the key needs no account in it.
@@ -89,29 +140,48 @@
             .catch((e) => console.warn('What’s new: could not save that it was seen:', e));
     }
 
+    // Today on the user's clock, as YYYY-MM-DD.
+    function today() {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    // The announcement this load shows, given the start of the last one the
+    // user closed (seen). Dates as YYYY-MM-DD sort as text, and anything else
+    // stored counts as nothing seen.
+    function due(seen) {
+        const day = today();
+        const after = typeof seen === 'string' ? seen : '';
+        return ANNOUNCEMENTS.find((a) =>
+            a.start > after && a.start <= day && day <= a.end && (!a.when || a.when())) || null;
+    }
+
     // Called once at startup (app.js), when the project list is in.
     // hasProjects and busy are app.js's to know. The dialog is for people who
     // have built something, and never goes up over a build that has started.
     async function maybeShow({ hasProjects = false, busy = () => false } = {}) {
-        const a = ANNOUNCEMENT;
         const user = window.user;
         if (!user || user.is_temp || !user.uuid || !hasProjects) return false;
-        if (a.when && !a.when()) return false;
+        // None running today is for this account, so kv needn't be asked.
+        if (!due(null)) return false;
         let seen;
         // If kv can't be reached there's no telling, so a later load tries again.
         try { seen = await puter.kv.get(KV_KEY); }
         catch (e) { return false; }
-        // Dates as YYYY-MM-DD sort as text. Anything else stored counts as
-        // nothing seen.
-        if (typeof seen === 'string' && seen >= a.start) return false;
         // While kv answered, the account may have changed, a build started,
         // or another dialog gone up.
         if (!window.user || window.user.uuid !== user.uuid) return false;
+        const a = due(seen);
+        if (!a) return false;
         if (busy() || document.querySelector('.confirm-modal-overlay')) return false;
-        return open(a);
+        return show(a);
     }
 
     function modalHtml(a, paid) {
+        const label = a.go || 'Show me';
+        const go = a.href
+            ? `<a class="confirm-modal-btn upgrade-primary whats-new-show" href="${a.href}" target="_blank" rel="noopener noreferrer">${label}</a>`
+            : `<button type="button" class="confirm-modal-btn upgrade-primary whats-new-show">${label}</button>`;
         return `
             <div class="confirm-modal-overlay whats-new-overlay">
                 <div class="whats-new-modal" role="dialog" aria-modal="true" aria-labelledby="whats-new-title" aria-describedby="whats-new-body" tabindex="-1">
@@ -120,10 +190,10 @@
                         <h2 class="whats-new-title" id="whats-new-title">${a.title}</h2>
                         <div class="whats-new-body" id="whats-new-body">${a.body({ paid })}</div>
                     </div>
-                    <div class="whats-new-art" aria-hidden="true">${a.art()}</div>
+                    <div class="whats-new-art${a.tone ? ' ' + a.tone : ''}" aria-hidden="true">${a.art()}</div>
                     <div class="whats-new-actions">
                         <button type="button" class="confirm-modal-btn confirm-modal-cancel whats-new-later">Later</button>
-                        <button type="button" class="confirm-modal-btn upgrade-primary whats-new-show">Show me</button>
+                        ${go}
                     </div>
                     <button type="button" class="whats-new-x" title="Close" aria-label="Close">${CLOSE_SVG}</button>
                 </div>
@@ -134,9 +204,8 @@
     // The open dialog's close, for hide().
     let closeOpen = null;
 
-    function open(a = ANNOUNCEMENT) {
+    function show(a) {
         if (document.querySelector('.whats-new-overlay')) return false;
-        if (a.when && !a.when()) return false;
         const $overlay = $(modalHtml(a, !!window.Branding?.isSubscribed(window.user)));
         let releaseFocus = null;
         let closed = false;
@@ -149,7 +218,8 @@
             setTimeout(() => {
                 $overlay.remove();
                 // Once the dialog is gone, so it doesn't cover what it shows.
-                if (how === 'show') a.showMe();
+                // An href opened in its new tab on the click.
+                if (how === 'show' && a.showMe) a.showMe();
             }, 150);
             if (releaseFocus) releaseFocus();
             // Gave way to another dialog, so not seen.
@@ -176,6 +246,17 @@
         return true;
     }
 
+    // From the console. The newest announcement this account gets, or the one
+    // with this id, whatever was seen and whatever the date. Not one the
+    // account doesn't get, since its button would lead nowhere.
+    function open(id) {
+        const a = id
+            ? ANNOUNCEMENTS.find((x) => x.id === id)
+            : [...ANNOUNCEMENTS].reverse().find((x) => !x.when || x.when());
+        if (!a || (a.when && !a.when())) return false;
+        return show(a);
+    }
+
     // Called by a dialog that comes first (the upgrade dialog). Closes this
     // one without marking it seen.
     function hide() {
@@ -186,5 +267,5 @@
         await puter.kv.del(KV_KEY);
     }
 
-    window.WhatsNew = { maybeShow, open: () => open(ANNOUNCEMENT), hide, reset };
+    window.WhatsNew = { maybeShow, open, hide, reset };
 })();

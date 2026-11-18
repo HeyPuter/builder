@@ -2,14 +2,16 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 // ---- The What's new dialog ------------------------------------------------------
-// js/whats-new.js tells a returning user about the newest feature, once. It
-// shows at startup to a signed-in account with at least one project, never over
-// a build or another dialog. Show me closes it and points at the feature
-// (fast mode's bolt button), Later just closes it, and closing it in any way
-// saves the announcement's start date in puter.kv, under one key per user that
-// a later announcement overwrites. Runs the real whats-new.js with a small
-// fake jQuery, kv and FastMode, then checks the startup wiring in app.js and
-// the bundle list.
+// js/whats-new.js tells a returning user about recent features, one per load,
+// each once. It shows at startup to a signed-in account with at least one
+// project, never over a build or another dialog. Show me closes it and points
+// at the feature (fast mode's bolt button), auto top-up's button opens Puter's
+// billing page in a new tab, Later just closes it, and closing it in any way
+// saves the announcement's start date in puter.kv, under one key per user. A
+// load shows the oldest announcement newer than that, running today and for
+// the account (auto top-up only for an account that buys its own credit).
+// Runs the real whats-new.js with a small fake jQuery, kv, FastMode and clock,
+// then checks the startup wiring in app.js and the bundle list.
 
 let failures = 0;
 function check(name, cond, detail) {
@@ -21,10 +23,22 @@ const source = read('../src/js/whats-new.js');
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
 const KV_KEY = 'whats_new_seen';
-const START = (source.match(/start: '(\d{4}-\d{2}-\d{2})'/) || [])[1];
-check('the announcement has a YYYY-MM-DD start', !!START);
+const STARTS = [...source.matchAll(/^\s*start: '(\d{4}-\d{2}-\d{2})',$/gm)].map((m) => m[1]);
+const ENDS = [...source.matchAll(/^\s*end: '(\d{4}-\d{2}-\d{2})',$/gm)].map((m) => m[1]);
+const IDS = [...source.matchAll(/^\s*id: '([a-z-]+)',$/gm)].map((m) => m[1]);
+check('the announcements are fast mode then auto top-up', IDS.join() === 'fast-mode,auto-top-up', IDS.join());
+check('each has a YYYY-MM-DD start and end, the end on or after the start',
+    STARTS.length === IDS.length && ENDS.length === IDS.length && STARTS.every((d, i) => ENDS[i] >= d));
+check('… and each starts later than the one before (kv keeps only the start)',
+    STARTS.every((d, i) => i === 0 || d > STARTS[i - 1]), STARTS.join());
+const START = STARTS[0];
+const TOPUP = STARTS[1];
+// The next day, as YYYY-MM-DD.
+const dayAfter = (d) => { const t = new Date(d + 'T12:00:00'); t.setDate(t.getDate() + 1); return t.toISOString().slice(0, 10); };
+// Noon on the day auto top-up went out, when both are running.
+const NOW = TOPUP + 'T12:00:00';
 
-function setup({ user = { uuid: 'u1', username: 'ann' }, paid = false, fast = true, kv = {}, kvFails = false, kvSetFails = false, otherDialog = false } = {}) {
+function setup({ user = { uuid: 'u1', username: 'ann' }, paid = false, topUp = paid, fast = true, now = NOW, kv = {}, kvFails = false, kvSetFails = false, otherDialog = false } = {}) {
     const calls = { kvGet: [], kvSet: [], kvDel: [], track: [], released: 0, warn: [], showMe: [] };
     const kvStore = new Map(Object.entries(kv));
     const overlays = [];
@@ -67,7 +81,9 @@ function setup({ user = { uuid: 'u1', username: 'ann' }, paid = false, fast = tr
     };
     const env = {
         console: { ...console, warn: (...a) => calls.warn.push(a.join(' ')) },
-        Date, Promise, $, document,
+        // The clock reads now, so the tests don't depend on the day they run.
+        Date: class extends Date { constructor(...a) { super(...(a.length ? a : [now])); } static now() { return new Date(now).getTime(); } },
+        Promise, $, document,
         setTimeout: (fn) => fn(),
         requestAnimationFrame: (fn) => fn(),
         puter: {
@@ -82,7 +98,8 @@ function setup({ user = { uuid: 'u1', username: 'ann' }, paid = false, fast = tr
     };
     env.window = env;
     env.user = user ? { ...user } : null;
-    env.Branding = { isSubscribed: () => paid };
+    // A team seat is paid but can't buy credit (topUp false).
+    env.Branding = { isSubscribed: () => paid, canTopUp: () => topUp };
     // Show me records whether the dialog was still up when it ran.
     env.FastMode = {
         SPEED: '2.5x', COST: '2x',
@@ -300,15 +317,111 @@ for (const junk of [1730000000000, true, { at: 1 }, '']) {
         !t.kvStore.has(KV_KEY) && (await t.W.maybeShow({ hasProjects: true })) === true);
 }
 
-// --- Copy ----------------------------------------------------------------------------
+// --- Auto top-up -----------------------------------------------------------------------
 {
-    const t = setup();
+    const t = setup({ paid: true });
+    check('a paid account that missed fast mode sees fast mode first',
+        (await t.W.maybeShow({ hasProjects: true })) === true && /Build faster with fast mode/.test(t.shown()[0].html));
+    t.fire('.whats-new-later click');
+    await tick();
+    check('… and the next load, auto top-up', (await t.W.maybeShow({ hasProjects: true })) === true
+        && /Keep building with auto top-up/.test(t.shown()[0].html)
+        && t.calls.track.some((c) => c.name === 'Whats New Shown' && c.id === 'auto-top-up'));
+
+    const html = t.shown()[0].html;
+    check('its main button is a link to Puter’s billing page, opened in a new tab',
+        /<a class="confirm-modal-btn upgrade-primary whats-new-show" href="https:\/\/puter\.com\/#billing" target="_blank" rel="noopener noreferrer">Turn on auto top-up<\/a>/.test(html));
+    check('… after Later, with ✕, and no Show me',
+        (html.match(/<button/g) || []).length === 2 && html.indexOf('>Later<') < html.indexOf('>Turn on auto top-up<')
+        && /aria-label="Close"/.test(html) && !/Show me/.test(html));
+    check('it says what it does and where to turn it on',
+        /adds credits for you when you run low/.test(html) && /Turn it on in your Puter billing settings\./.test(html));
+    check('the drawing is the credits card and switch, on the green panel, hidden from screen readers',
+        /class="whats-new-art is-credits" aria-hidden="true"/.test(html) && /class="wn-topup"/.test(html)
+        && /wn-credits-bar/.test(html) && /wn-switch/.test(html) && /Topped up<\/span>/.test(html)
+        && /<span>Credits used<\/span>/.test(html));
+
+    t.fire('.whats-new-show click');
+    await tick();
+    check('its button closes the dialog and points at nothing (the link opens the page)',
+        t.shown().length === 0 && t.calls.released === 2 && t.calls.showMe.length === 0);
+    check('… saves its start as seen', t.kvStore.get(KV_KEY) === TOPUP, String(t.kvStore.get(KV_KEY)));
+    check('… and is counted as show', t.calls.track.some((c) => c.name === 'Whats New Closed' && c.id === 'auto-top-up' && c.how === 'show'));
+    check('then nothing more', (await t.W.maybeShow({ hasProjects: true })) === false && t.shown().length === 0);
+}
+{
+    const t = setup({ paid: true, kv: { [KV_KEY]: START } });
+    check('a paid account that closed fast mode sees auto top-up', (await t.W.maybeShow({ hasProjects: true })) === true
+        && /auto top-up/.test(t.shown()[0].html));
+}
+{
+    const t = setup({ kv: { [KV_KEY]: START } });
+    check('a free account that closed fast mode sees nothing', (await t.W.maybeShow({ hasProjects: true })) === false && t.shown().length === 0);
+    t.env.Branding.canTopUp = () => true;
+    check('… until it pays for a plan', (await t.W.maybeShow({ hasProjects: true })) === true && /auto top-up/.test(t.shown()[0].html));
+}
+{
+    const t = setup({ paid: true, topUp: false });
+    await t.W.maybeShow({ hasProjects: true });
+    check('a team seat sees fast mode', /Build faster with fast mode/.test(t.shown()[0].html));
+    t.fire('.whats-new-later click');
+    await tick();
+    check('… but never auto top-up, since its team buys the credit', (await t.W.maybeShow({ hasProjects: true })) === false);
+}
+{
+    const t = setup({ paid: true, fast: false });
+    check('fast mode off: a paid account goes straight to auto top-up',
+        (await t.W.maybeShow({ hasProjects: true })) === true && /auto top-up/.test(t.shown()[0].html));
+}
+
+// --- Running from start to end -------------------------------------------------------
+{
+    const t = setup({ paid: true, kv: { [KV_KEY]: START }, now: START + 'T12:00:00' });
+    check('auto top-up waits for its start day', (await t.W.maybeShow({ hasProjects: true })) === false);
+}
+{
+    const fastEnd = ENDS[0];
+    const free = setup({ now: dayAfter(fastEnd) + 'T12:00:00' });
+    check('after fast mode’s end: a free account sees nothing, and kv is not asked',
+        (await free.W.maybeShow({ hasProjects: true })) === false && free.calls.kvGet.length === 0);
+    const paid = setup({ paid: true, now: dayAfter(fastEnd) + 'T12:00:00' });
+    check('… while a paid account that never saw fast mode gets auto top-up instead',
+        (await paid.W.maybeShow({ hasProjects: true })) === true && /auto top-up/.test(paid.shown()[0].html));
+    const last = setup({ paid: true, now: fastEnd + 'T23:00:00' });
+    check('fast mode still shows on its end day', (await last.W.maybeShow({ hasProjects: true })) === true
+        && /fast mode/.test(last.shown()[0].html));
+}
+{
+    const t = setup({ paid: true, now: dayAfter(ENDS[1]) + 'T12:00:00' });
+    check('after the last end: nothing shows, and kv is not asked',
+        (await t.W.maybeShow({ hasProjects: true })) === false && t.calls.kvGet.length === 0);
+    check('… though the console still opens the newest', t.W.open() === true && /auto top-up/.test(t.shown()[0].html));
+}
+
+// --- Console ----------------------------------------------------------------------------
+{
+    const free = setup();
+    check('open() on a free account shows fast mode, the newest it gets', free.W.open() === true && /fast mode/.test(free.shown()[0].html));
+    const free2 = setup();
+    check('open(\'auto-top-up\') on a free account shows nothing', free2.W.open('auto-top-up') === false && free2.shown().length === 0);
+    const paid = setup({ paid: true, kv: { [KV_KEY]: TOPUP } });
+    check('open() on a paid account shows auto top-up even after it was seen', paid.W.open() === true && /auto top-up/.test(paid.shown()[0].html));
+    const byId = setup({ paid: true });
+    check('open(\'fast-mode\') shows fast mode', byId.W.open('fast-mode') === true && /fast mode/.test(byId.shown()[0].html));
+    const none = setup();
+    check('open with an unknown id shows nothing', none.W.open('nope') === false && none.shown().length === 0);
+}
+
+// --- Copy ----------------------------------------------------------------------------
+for (const [label, opts] of [['fast mode', {}], ['auto top-up', { paid: true, kv: { [KV_KEY]: START } }]]) {
+    const t = setup(opts);
     await t.W.maybeShow({ hasProjects: true });
     const html = t.shown()[0].html;
     const text = html.slice(html.indexOf('whats-new-text'), html.indexOf('whats-new-art'))
         .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-    check('the words use no em or en dashes', !/[–—]/.test(text), text);
-    check('… and no colon or semicolon joining sentences', !/[;:]/.test(text), text);
+    check(`${label}: the words use no em or en dashes`, !/[–—]/.test(text), text);
+    check(`… and no colon or semicolon joining sentences`, !/[;:]/.test(text), text);
+    check(`… nor the AI or model names`, !/the AI|Opus|Claude/.test(text), text);
 }
 
 // --- Wiring --------------------------------------------------------------------------
