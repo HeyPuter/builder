@@ -281,7 +281,18 @@ const st = { appDir: ROOT, currentChatId: 'c1', chatHistory: [{ role: 'system', 
     // An app the user registered for the address in the Dev Center, not Puter's.
     const theirs = makeEnv({ files: BACKEND });
     await theirs.puter.apps.create({ name: 'my-app', indexURL: PREVIEW, title: 'Mine' });
-    check('app: someone\'s own app at the address counts as none', (await theirs.win.SiteBackends.appOf(PREVIEW)) === null);
+    const warned = [];
+    const warn = console.warn;
+    console.warn = (...a) => warned.push(a.join(' '));
+    let seen;
+    try { seen = [await theirs.win.SiteBackends.appOf(PREVIEW), await theirs.win.SiteBackends.appOf(PREVIEW)]; }
+    finally { console.warn = warn; }
+    check('app: someone\'s own app at the address counts as none', seen[0] === null && seen[1] === null);
+    check('app: …and the console says so once', warned.filter((w) => w.includes('my-app')).length === 1, JSON.stringify(warned));
+    // Puter keeps the name when the owner changes the title in the Dev Center.
+    const retitled = makeEnv({ files: BACKEND, apps: ['https://preview-abc.puter.site'] });
+    retitled.apps.get(PREVIEW_APP).title = 'My Shop';
+    check('app: Puter\'s app still counts after its owner retitles it', (await retitled.win.SiteBackends.appOf(PREVIEW))?.uid === PREVIEW_APP);
     const down = makeEnv({ files: BACKEND, siteAppFails: true });
     check('app: a lookup that fails is a failure, not "no app"', await rejects(down.win.SiteBackends.appOf(PREVIEW), 'network down'));
 }
@@ -437,6 +448,9 @@ const st = { appDir: ROOT, currentChatId: 'c1', chatHistory: [{ role: 'system', 
     const none = makeEnv();
     const r2 = await none.win.WorkerSecrets.clear({ site: PREVIEW });
     check('clear: a site whose backend never ran has nothing to clear and asks nothing', r2.ok && r2.cleared === 0 && none.prompts.length === 0);
+    const unwoken = makeEnv({ files: BACKEND });
+    const r3 = await unwoken.win.WorkerSecrets.clear({ site: PREVIEW, backends: ['api'] });
+    check('clear: never calls the site\'s backends, even when given them', r3.ok && r3.cleared === 0 && unwoken.fetched.wake.length === 0 && !unwoken.appAt(PREVIEW));
 }
 
 // --- the email sender name ---
@@ -584,6 +598,24 @@ const st = { appDir: ROOT, currentChatId: 'c1', chatHistory: [{ role: 'system', 
     const failing = makeEnv({ files: BACKEND, recordWriteFails: true });
     const app = await failing.win.SiteBackends.registerApp(PREVIEW, 'Shop', 'preview');
     check('register: an app whose record can\'t be written is removed again', app === null && !failing.appAt(PREVIEW));
+}
+{
+    const env = makeEnv({ files: BACKEND });
+    const set = env.puter.kv.set;
+    let failed = false;
+    env.puter.kv.set = async (k, v, opt) => {
+        if (!failed && !(opt && opt.appUuid)) { failed = true; throw new Error('kv down'); }
+        return set(k, v, opt);
+    };
+    const app = await env.win.SiteBackends.registerApp(PREVIEW, 'Shop', 'preview');
+    check('register: a record write that fails once is tried again', app && env.appAt(PREVIEW)?.uid === app.uid
+        && env.builderKv.get('site-app:https://preview-abc.puter.site')?.name === app.name);
+    const failing = makeEnv({ files: BACKEND, recordWriteFails: true });
+    const del = failing.puter.apps.delete;
+    let delFailed = false;
+    failing.puter.apps.delete = async (n) => { if (!delFailed) { delFailed = true; throw new Error('network down'); } return del(n); };
+    check('register: …and so is removing the app when the record still fails', await failing.win.SiteBackends.registerApp(PREVIEW, 'Shop', 'preview') === null
+        && !failing.appAt(PREVIEW));
 }
 {
     // Two renames close together, the first one's record write slow.

@@ -228,9 +228,11 @@
     // Remove every key Builder put into a target, before it goes (a deleted
     // project, a retired live backend, a live address given up). Never asks,
     // since a store Builder was never allowed into holds no keys of Builder's.
+    // Never calls a site's backends either, since a site whose app Puter
+    // hasn't made yet holds no keys.
     async function clear(target) {
         try {
-            const app = await appOf(target);
+            const app = await appOf(target && typeof target === 'object' ? { site: target.site } : target);
             if (!app || !(await allowed(app))) return { ok: true, cleared: 0 };
             const list = await namesIn(app);
             for (const name of list) await puter.kv.del(PREFIX + name, { appUuid: app });

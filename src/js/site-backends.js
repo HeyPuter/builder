@@ -234,12 +234,19 @@ window.SiteBackends = (function () {
         return name.slice(0, MAX_TITLE - suffix.length).trim() + suffix;
     }
 
+    // Run a Puter call, and once more if it fails.
+    async function twice(fn) {
+        try { return await fn(); } catch (e) { return fn(); }
+    }
+
     // Register the app a new site or domain runs as, named after the
     // project. Call it right after creating the site, before anything runs
     // there, or Puter makes one of its own first. `project` is kept with a
     // domain's, since a domain can move to another project. Resolves the app,
     // or null when Puter refused, which leaves the site on an app Puter
     // makes. Never throws, since a site without Builder's app still works.
+    // Puter refuses an app at a site, or at a domain attached to one, that
+    // isn't the user's, so this can't take someone else's address.
     async function registerApp(siteUrl, projectTitle, kind, project) {
         const origin = appOrigin(siteUrl);
         if (!origin) return null;
@@ -247,6 +254,10 @@ window.SiteBackends = (function () {
         const host = origin.slice('https://'.length);
         let app;
         try {
+            // The app is named after the site. With dedupeName, Puter adds a
+            // suffix when another app has that name instead of refusing, so
+            // the name it gets is only known from its answer. That's why the
+            // name is recorded below.
             app = await puter.apps.create({ name: siteOrigin(origin) ? host.split('.')[0] : host.replace(/\./g, '-'), indexURL: origin, title, dedupeName: true });
         } catch (e) {
             console.warn('Could not register an app for', origin, e);
@@ -254,13 +265,14 @@ window.SiteBackends = (function () {
         }
         if (!app || !app.name || !app.uid) return null;
         try {
-            await puter.kv.set(APP_KEY + origin, { name: app.name, kind, defaultTitle: title, senderName: null, ...(project ? { project } : {}) });
+            await twice(() => puter.kv.set(APP_KEY + origin, { name: app.name, kind, defaultTitle: title, senderName: null, ...(project ? { project } : {}) }));
         } catch (e) {
             // Without its record Builder could never find the app again, and
-            // the site would run as it anyway. So it goes, and the site runs
-            // as the app Puter makes.
+            // the site would run as it anyway, with no keys. So it goes, and
+            // the site runs as the app Puter makes.
             console.warn('Could not record the app for', origin, e);
-            try { await puter.apps.delete(app.name); } catch (e2) { console.warn('Could not remove the unrecorded app', app.name, e2); }
+            try { await twice(() => puter.apps.delete(app.name)); }
+            catch (e2) { if (!notFound(e2)) console.warn('Could not remove the unrecorded app', app.name, e2); }
             return null;
         }
         return app;
@@ -282,8 +294,9 @@ window.SiteBackends = (function () {
     // Follow a project's new name on the app Builder registered for its
     // site, while it still has the name Builder gave it. A sender name
     // chosen in chat, or a title set by hand in the Dev Center, stays. Best
-    // effort. Renames of one site run one at a time, so a quick second one
-    // reads the record the first one left and the two never cross.
+    // effort. In one tab, renames of one site run one at a time, so a quick
+    // second one reads the record the first one left. Two tabs renaming the
+    // same project at the same moment can still cross.
     const retitles = new Map();
     function retitle(siteUrl, projectTitle) {
         const key = appOrigin(siteUrl);
@@ -403,6 +416,7 @@ window.SiteBackends = (function () {
     // else registered for the address counts as none, since changing it would
     // change something else. Throws when Puter can't be reached, so a failed
     // lookup is never mistaken for "no app".
+    const foreignApps = new Set(); // addresses already warned about
     async function appOf(siteUrl, wakeNames) {
         const registered = await builderAppOf(siteUrl);
         if (registered) return registered;
@@ -415,8 +429,17 @@ window.SiteBackends = (function () {
                 app = await siteAppOf(siteUrl);
             }
         }
-        // Puter's own app is named after its uid. Any other is someone's.
-        return app && app.name === app.uid ? app : null;
+        // Puter names the app it makes for an address after its uid
+        // (isOriginBootstrapApp in Puter's util/appView.ts), and the name
+        // stays when the owner changes its title in the Dev Center. Any
+        // other app is someone's.
+        if (!app || app.name === app.uid) return app;
+        const origin = appOrigin(siteUrl);
+        if (!foreignApps.has(origin)) {
+            foreignApps.add(origin);
+            console.warn('The app', app.name, 'at', origin, 'wasn\'t made by Builder or by Puter for the address, so Builder leaves it alone and its backends get no keys or sender name from Builder.');
+        }
+        return null;
     }
 
     // The open project's site, for a tool call or a save. That's the folder
