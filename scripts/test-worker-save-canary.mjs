@@ -47,6 +47,8 @@ let LIST_THROWS = false;
 const SERVED = new Map();
 let PROPAGATION_READS = 0;
 let DEPLOYS = true; // false: Puter keeps the previous code (a save it rejected)
+const DOWN = new Set(); // workers answering Puter's 404, as after a site update
+const SCRIPT = new Map(); // a worker's canary answers read by read (watchSiteBackends)
 let pending = null;
 const calls = { listed: 0, created: 0, canaryReads: 0 };
 const reset = () => {
@@ -79,6 +81,15 @@ async function fakeFetch(url) {
     const base = url.slice(0, url.indexOf('/__builder/canary'));
     if (url.indexOf('/__builder/canary?') === -1) throw new Error('unexpected fetch ' + url);
     calls.canaryReads++;
+    if (SCRIPT.has(base)) {
+        // A scripted run of answers, one per read, the last one repeating.
+        const run = SCRIPT.get(base);
+        const answer = run.length > 1 ? run.shift() : run[0];
+        if (answer === 404) return { ok: false, text: async () => 'Worker not found' };
+        if (answer === 500) return { ok: false, text: async () => 'Internal error' };
+        return { ok: true, text: async () => answer };
+    }
+    if (DOWN.has(base)) return { ok: false, text: async () => 'Worker not found' };
     if (pending && pending.url === base) {
         if (pending.reads-- <= 0) { SERVED.set(base, pending.token); pending = null; }
     }
@@ -282,6 +293,69 @@ reset();
         && parseInt(t.slice(0, 9), 36) <= Date.now() && parseInt(t.slice(0, 9), 36) > Date.now() - 5000, t);
 }
 
+// === "Applying changes" while the save goes live ============================
+// The AI's save says so beside the dots and over the preview, as a refresh
+// does, since the preview's backend runs the previous code until then.
+{
+    const events = [];
+    let refreshing = false;
+    win.setSpinnerLabel = (t) => events.push('label:' + t);
+    win.showPreviewUpdating = (on) => events.push((on ? 'overlay:on@' : 'overlay:off@') + calls.canaryReads);
+    win.isStaleTurn = (s) => !!(s && s.stale);
+    win.previewRefreshInFlight = () => refreshing;
+
+    reset();
+    FILES.set(API, v1);
+    PROPAGATION_READS = 2;
+    let r = await tool('edit').exec({ path: API, old_content: "'one'", new_content: "'six'" }, { appDir: ROOT });
+    check('an AI save says "Applying changes" and covers the preview before its first canary read',
+        r.worker && r.worker.live === true && events[0] === 'label:Applying changes' && events[1] === 'overlay:on@0', JSON.stringify(events));
+    check('…and uncovers it once the backend serves the save', events.length === 3 && events[2] === 'overlay:off@3', JSON.stringify(events));
+
+    events.length = 0;
+    reset();
+    DEPLOYS = false;
+    r = await tool('write').exec({ path: API, data: v1 }, { appDir: ROOT });
+    check('a save not live by the limit uncovers it too', r.worker && r.worker.live === false && events[events.length - 1].startsWith('overlay:off@'), JSON.stringify(events));
+
+    events.length = 0;
+    reset();
+    r = await tool('write').exec({ path: API, data: 'await Promise.resolve();\n' + v1 }, { appDir: ROOT });
+    check('a save that doesn\'t compile has nothing to wait for, so shows nothing', r.worker && r.worker.live === false && events.length === 0, JSON.stringify(events));
+
+    events.length = 0;
+    reset();
+    const later = { appDir: ROOT, laterToolCalls: [{ name: 'write', input: { path: API } }] };
+    await tool('write').exec({ path: API, data: v1 }, later);
+    check('a save the same reply makes again shows nothing', events.length === 0, JSON.stringify(events));
+
+    events.length = 0;
+    reset();
+    await win.workerSaveResult({ name: 'api', url: 'https://api.puter.work', token: '00000000c' + 'cccccc' }, v1);
+    check('a Code view save or a GitHub pull (no turn) shows nothing', events.length === 0, JSON.stringify(events));
+
+    events.length = 0;
+    reset();
+    await tool('write').exec({ path: API, data: v1 }, { appDir: ROOT, stale: true });
+    check('a turn whose project is no longer open shows nothing', events.length === 0, JSON.stringify(events));
+
+    events.length = 0;
+    reset();
+    DEPLOYS = false;
+    const turn = { appDir: ROOT };
+    setTimeout(() => { turn.stale = true; }, 10);
+    await tool('write').exec({ path: API, data: v1 }, turn);
+    check('…nor takes the overlay off another project opened during the wait', events.length === 2 && events[1] === 'overlay:on@0', JSON.stringify(events));
+
+    events.length = 0;
+    reset();
+    refreshing = true;
+    await tool('write').exec({ path: API, data: v1 }, { appDir: ROOT });
+    check('a refresh under way when the save goes live keeps its overlay', events.length === 2 && events[1] === 'overlay:on@0', JSON.stringify(events));
+
+    delete win.setSpinnerLabel; delete win.showPreviewUpdating; delete win.isStaleTurn; delete win.previewRefreshInFlight;
+}
+
 // === multi_edit and write ====================================================
 reset();
 FILES.set(API, v1);
@@ -374,6 +448,200 @@ WORKERS = [];
         /const worker = w\.text != null \? await window\.workerSaveTarget\?\.\(w\.path, \{ appDir \}\) : null;[\s\S]{0,300}window\.stampWorkerSave\(worker,[\s\S]{0,120}w\.bytes = new TextEncoder\(\)\.encode\(code\);[\s\S]*?window\.applyExternalUpdate\(/.test(sync));
     check('…then waits on it, and never redeploys with create()',
         sync.includes('window.workerSaveResult?.(s.worker, s.code)') && !/redeployWorkerSource|workers\.create/.test(sync));
+}
+
+// === a failed request while a worker switches over ============================
+// A page's request to a worker that isn't serving its latest save yet can fail
+// for that alone, so the preview's error checks drop it (backendStillSwitching).
+reset();
+WORKERS = [own('api')];
+FILES.set(API, v1);
+{
+    const r = await tool('write').exec({ path: API, data: v1.replace('one', 'five') }, st);
+    check('switching: a save goes live', r.worker && r.worker.live === true);
+    reset();
+    check('switching: a failure once the worker serves its latest save counts, read from its canary',
+        (await win.backendStillSwitching('https://api.puter.work/items')) === false && calls.canaryReads === 1);
+    // Any update of a site redeploys its dynamic backends, so a worker that
+    // was up can be down again.
+    DOWN.add('https://api.puter.work');
+    check('switching: a failure while the worker is down again is expected', (await win.backendStillSwitching('https://api.puter.work/items')) === true);
+    DOWN.delete('https://api.puter.work');
+    check('…and counts once it\'s back', (await win.backendStillSwitching('https://api.puter.work/items')) === false);
+}
+reset();
+DEPLOYS = false;
+{
+    const r = await tool('write').exec({ path: API, data: v1.replace('one', 'six') }, st);
+    check('switching: a save the worker isn\'t serving yet', r.worker && r.worker.live === false);
+    reset();
+    DEPLOYS = false;
+    const [a, b] = await Promise.all([win.backendStillSwitching('https://api.puter.work/items'), win.backendStillSwitching('https://api.puter.work/items?t=2')]);
+    check('switching: a failure meanwhile is expected', a === true && b === true);
+    check('…read from its canary once for failures at the same moment', calls.canaryReads === 1, String(calls.canaryReads));
+    check('switching: the worker\'s address itself, and a relative path on the preview, count too',
+        (await win.backendStillSwitching('https://api.puter.work')) === true
+        && await (async () => { win.currentPreviewUrl = 'https://api.puter.work/'; try { return await win.backendStillSwitching('/items'); } finally { delete win.currentPreviewUrl; } })());
+    check('switching: a failure anywhere else counts',
+        (await win.backendStillSwitching('https://api2.puter.work/items')) === false && (await win.backendStillSwitching('https://example.com/api.puter.work/x')) === false
+        && (await win.backendStillSwitching('/items')) === false && (await win.backendStillSwitching('')) === false);
+    SERVED.set('https://api.puter.work', tokenOf(FILES.get(API)));
+    check('switching: once its canary shows the save, failures count', (await win.backendStillSwitching('https://api.puter.work/items')) === false);
+}
+reset();
+DEPLOYS = false;
+{
+    // Puter never deploys a save that doesn't parse, so the worker isn't
+    // switching to it, and keeps the previous code it already serves.
+    await tool('write').exec({ path: API, data: v1 + '\n}' }, st);
+    reset();
+    check('switching: a save that doesn\'t parse leaves failures counting',
+        (await win.backendStillSwitching('https://api.puter.work/items')) === false);
+}
+{
+    // A dynamic backend of the open preview this tab never saved: its latest
+    // save is the one stamped in its file.
+    const SITE = 'https://preview-q.puter.site';
+    const FILE = `${ROOT}/__workers/feed.worker.js`;
+    const saved = { SiteBackends: win.SiteBackends, url: win.currentPreviewUrl, path: win.currentPreviewPath };
+    win.SiteBackends = { FOLDER: '__workers', SUFFIX: '.worker.js', validName: (n) => /^[a-z0-9_-]+$/.test(n) };
+    win.currentPreviewUrl = SITE + '/';
+    win.currentPreviewPath = ROOT;
+    try {
+        FILES.set(FILE, win.stampWorkerCanary(v1, '00000000zfeed01'));
+        SERVED.set(SITE + '/__workers/feed', '00000000zfeed00');
+        check('unsaved here: a preview backend not yet serving the save in its file is switching',
+            (await win.backendStillSwitching('/__workers/feed/items')) === true);
+        SERVED.set(SITE + '/__workers/feed', '00000000zfeed01');
+        check('unsaved here: …and counts once it serves it', (await win.backendStillSwitching('/__workers/feed/items')) === false);
+        DOWN.add(SITE + '/__workers/feed');
+        check('unsaved here: …and is expected to fail while it\'s down after a site update',
+            (await win.backendStillSwitching(SITE + '/__workers/feed/items')) === true);
+        DOWN.delete(SITE + '/__workers/feed');
+        FILES.set(FILE, v1);
+        check('unsaved here: a file with no canary leaves failures counting', (await win.backendStillSwitching('/__workers/feed/items')) === false);
+        FILES.set(FILE, win.stampWorkerCanary(v1 + '\n}', '00000000zfeed02'));
+        check('unsaved here: …and so does one that doesn\'t parse, which Puter never runs', (await win.backendStillSwitching('/__workers/feed/items')) === false);
+        FILES.delete(FILE);
+        check('unsaved here: …and a backend with no file, or a path that isn\'t a backend',
+            (await win.backendStillSwitching('/__workers/feed/items')) === false && (await win.backendStillSwitching('/__workers/Bad!/x')) === false
+            && (await win.backendStillSwitching('/api/items')) === false);
+    } finally {
+        Object.assign(win, saved);
+        if (saved.SiteBackends === undefined) delete win.SiteBackends;
+        if (saved.url === undefined) delete win.currentPreviewUrl;
+        if (saved.path === undefined) delete win.currentPreviewPath;
+    }
+}
+
+// === which calls only save a backend =========================================
+// A turn whose only changes were these skips the preview's clear (see
+// pagesUnchanged in ui.js).
+{
+    const saved = win.SiteBackends;
+    let dynamic = true;
+    win.SiteBackends = { siteOf: () => (dynamic ? { servedDir: ROOT } : null),
+        nameOf: (rel) => (/^__workers\/([a-z0-9_-]+)\.worker\.js$/.exec(rel) || [])[1] || null };
+    const call = (name, path) => ({ name, input: { path } });
+    const B = `${ROOT}/__workers/api.worker.js`;
+    try {
+        check('backend save: an edit, multi_edit or write of a backend file',
+            ['edit', 'multi_edit', 'write'].every((n) => win.isBackendSaveCall(call(n, B), st)));
+        check('backend save: …not a page, a file in a subfolder of __workers, or another file there',
+            !win.isBackendSaveCall(call('edit', `${ROOT}/index.html`), st) && !win.isBackendSaveCall(call('write', `${ROOT}/__workers/lib/x.worker.js`), st)
+            && !win.isBackendSaveCall(call('write', `${ROOT}/__workers/notes.md`), st));
+        check('backend save: …nor a delete, move or copy of one',
+            ['delete', 'move', 'copy', 'rename'].every((n) => !win.isBackendSaveCall(call(n, B), st)));
+        check('backend save: …nor a path outside the project, or a call with no path',
+            !win.isBackendSaveCall(call('write', `${OTHER}/__workers/api.worker.js`), st) && !win.isBackendSaveCall({ name: 'write', input: {} }, st)
+            && !win.isBackendSaveCall(null, st));
+        dynamic = false;
+        check('backend save: …nor anything in a project without dynamic backends', !win.isBackendSaveCall(call('edit', B), st));
+    } finally {
+        if (saved === undefined) delete win.SiteBackends; else win.SiteBackends = saved;
+    }
+}
+
+// === waiting out the redeploy after a hosting.update ==========================
+// The update redeploys a site's backends with no file changed, so each keeps
+// its canary token. Each goes down a few seconds later (404, then 500) and
+// comes back, and the preview's reload waits until it has.
+{
+    const SITE = 'https://preview-w.puter.site';
+    const DIR = `${ROOT}`;
+    const saved = { SiteBackends: win.SiteBackends };
+    const T = win.workerCanaryTiming;
+    const timing = { ...T };
+    Object.assign(T, { redeployPollMs: 1, redeployDownMs: 60, redeploySettleMs: 15, limitMs: 400 });
+    const tokens = { a: '00000000zwaita1', b: '00000000zwaitb1' };
+    let names = ['a'];
+    win.SiteBackends = { FOLDER: '__workers', SUFFIX: '.worker.js', validName: (n) => /^[a-z0-9_-]+$/.test(n),
+        list: async () => names.map((name) => ({ name })), urlOf: (u, n) => u.replace(/\/+$/, '') + '/__workers/' + n };
+    for (const n of ['a', 'b']) FILES.set(`${DIR}/__workers/${n}.worker.js`, win.stampWorkerCanary(v1, tokens[n]));
+    const base = (n) => SITE + '/__workers/' + n;
+    const run = async (live = () => true) => {
+        const wait = await win.watchSiteBackends(SITE + '/', DIR);
+        const t = Date.now();
+        const r = await wait(live);
+        return { r, ms: Date.now() - t };
+    };
+    try {
+        // Up before, up a while after the update, then down and back.
+        SCRIPT.set(base('a'), [tokens.a, tokens.a, tokens.a, 404, 404, 500, 500, tokens.a]);
+        const cycle = await run();
+        check('redeploy: the reload waits until the backend has gone down and come back', cycle.r === true && SCRIPT.get(base('a')).length === 1, JSON.stringify(cycle));
+        // Never goes down: waited on only for redeployDownMs.
+        SCRIPT.set(base('a'), [tokens.a]);
+        const untouched = await run();
+        check('redeploy: a backend that never goes down is waited on only for a while', untouched.r === true && untouched.ms >= 55 && untouched.ms < 200, JSON.stringify(untouched));
+        // Back for a moment between the 404 and the 500: not over yet.
+        SCRIPT.set(base('a'), [tokens.a, 404, tokens.a, 500, 500, tokens.a]);
+        const flap = await run();
+        check('redeploy: …and back for a moment between the 404 and the 500 isn\'t back yet', flap.r === true && SCRIPT.get(base('a')).length === 1, JSON.stringify(flap));
+        // Already down before the update: not waited on, it may never come up.
+        SCRIPT.set(base('a'), [500]);
+        const broken = await run();
+        check('redeploy: a backend already down before the update isn\'t waited on', broken.r === true && broken.ms < 20, JSON.stringify(broken));
+        // Serving an older save before the update counts as not up either.
+        SCRIPT.set(base('a'), ['00000000zwaita0']);
+        check('redeploy: …nor one still serving an older save', (await run()).ms < 20);
+        // Still down at the limit.
+        SCRIPT.set(base('a'), [tokens.a, 404]);
+        const stuck = await run();
+        check('redeploy: a backend still down at the limit gives up', stuck.r === false && stuck.ms >= 390, JSON.stringify(stuck));
+        // A refresh that's superseded stops at once.
+        SCRIPT.set(base('a'), [tokens.a, 404]);
+        let alive = true;
+        setTimeout(() => { alive = false; }, 20);
+        const stopped = await run(() => alive);
+        check('redeploy: a superseded refresh stops waiting', stopped.r === null && stopped.ms < 100, JSON.stringify(stopped));
+        // Two backends: the wait is for both.
+        names = ['a', 'b'];
+        SCRIPT.set(base('a'), [tokens.a, 404, tokens.a]);
+        SCRIPT.set(base('b'), [tokens.b, tokens.b, tokens.b, tokens.b, tokens.b, 404, 404, 500, tokens.b]);
+        const both = await run();
+        check('redeploy: with two backends it waits for both', both.r === true && SCRIPT.get(base('b')).length === 1, JSON.stringify(both));
+        // Nothing to wait for.
+        names = [];
+        check('redeploy: a site with no backends has nothing to wait for', (await run()).r === true);
+        win.SiteBackends = undefined;
+        check('redeploy: …nor does one without the backend helpers', (await run()).r === true);
+    } finally {
+        Object.assign(T, timing);
+        SCRIPT.clear();
+        if (saved.SiteBackends === undefined) delete win.SiteBackends; else win.SiteBackends = saved.SiteBackends;
+        for (const n of ['a', 'b']) FILES.delete(`${DIR}/__workers/${n}.worker.js`);
+    }
+}
+{
+    const ui = read('../src/js/ui.js');
+    const clear = ui.slice(ui.indexOf('async function waitForPreviewClear('), ui.indexOf('// ---- Clearing early'));
+    check('redeploy: the preview refresh reads the backends before its update and waits for them after it',
+        clear.indexOf('window.watchSiteBackends(baseUrl, dir)') > 0
+        && clear.indexOf('window.watchSiteBackends(baseUrl, dir)') < clear.indexOf('await puter.hosting.update(sub, dir);')
+        && /await puter\.hosting\.update\(sub, dir\);[\s\S]{0,120}if \(wait\) backendsBack = wait\(live\);/.test(clear)
+        && clear.indexOf('const back = await backendsBack;') > clear.indexOf("log(flipped ? 'cleared'")
+        && /if \(back === null \|\| !live\(\)\) return null;/.test(clear));
 }
 
 // === what the model is told =================================================

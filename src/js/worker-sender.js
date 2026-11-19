@@ -17,6 +17,15 @@
 // by worker name, so a later worker with the same name would otherwise send
 // under it.
 //
+// A dynamic backend (site-backends.js) runs as its site's app, so its target
+// here is { site, backends } and the name belongs to the whole site. Builder
+// registers that app itself, titled after the project, so the default is the
+// project's name and the chosen name is kept in Builder's record of the app
+// (`builder.senderName`). A site whose app Puter made instead (something ran
+// there before Builder registered one) starts out titled with the app's id,
+// and Puter lets an app rename only apps it made, so a rename comes back
+// 'forbidden' and the tool tells the user how to set it in the Dev Center.
+//
 // A backend still on its default name never changes anything, so a project
 // that never set a name sees no change. Copy only ever carries a name someone
 // chose. It never resets a name on the target, so a live backend renamed by
@@ -49,11 +58,14 @@
 
     // The worker's sandbox app ({ uid, name, title }), or null when the worker
     // runs as no app or as an app that isn't its own sandbox app (renaming
-    // that would rename something else). Throws when Puter can't be reached,
-    // so a lookup failure is never mistaken for "no app". Both lookups go out
-    // at once: this runs for every backend on every publish, duplicate and
+    // that would rename something else). For { site, backends }, the site's
+    // own app (SiteBackends.appOf). Throws when Puter can't be reached, so a
+    // lookup failure is never mistaken for "no app". Both lookups go out at
+    // once: this runs for every backend on every publish, duplicate and
     // delete.
-    async function appOf(workerName) {
+    async function appOf(target) {
+        if (target && typeof target === 'object') return await window.SiteBackends.appOf(target.site, target.backends);
+        const workerName = target;
         const [info, found] = await Promise.allSettled([
             puter.workers.get(workerName),
             puter.apps.get(SANDBOX_PREFIX + workerName),
@@ -74,6 +86,7 @@
     // Whether someone gave the app a name of its own. A new sandbox app's
     // title is its name.
     function isCustom(app) {
+        if (app && app.builder) return !!app.builder.senderName;
         return !!app && typeof app.title === 'string' && app.title.trim() !== '' && app.title !== app.name;
     }
 
@@ -96,17 +109,27 @@
         return false;
     }
 
-    // Give one worker's app this title, unless it already has it. Resolves
+    // Give one target's app this title, unless it already has it. Resolves
     // { ok: true, changed } or { ok: false, reason } with reason 'no-app',
     // 'forbidden' or 'failed'.
-    async function setTitle(workerName, title) {
+    async function setTitle(target, title) {
         let app;
-        try { app = await appOf(workerName); } catch (e) { return { ok: false, reason: 'failed' }; }
+        try { app = await appOf(target); } catch (e) { return { ok: false, reason: 'failed' }; }
         if (!app) return { ok: false, reason: 'no-app' };
-        const wanted = title === null ? app.name : title;
-        if (app.title === wanted) return { ok: true, changed: false };
+        // A site's app Builder registered goes back to the project's name.
+        const wanted = title === null ? (app.builder ? app.builder.defaultTitle : app.name) : title;
+        // Builder's record says whether the title is a chosen name, so it's
+        // kept even when the title already reads that way.
+        const note = async () => {
+            if (app.builder && (app.builder.senderName || null) !== title) await window.SiteBackends.setSenderName(target.site, title);
+        };
         try {
+            if (app.title === wanted) {
+                await note();
+                return { ok: true, changed: false };
+            }
             await puter.apps.update(app.name, { title: wanted });
+            await note();
             return { ok: true, changed: true };
         } catch (e) {
             return { ok: false, reason: forbidden(e) ? 'forbidden' : 'failed' };
@@ -117,39 +140,41 @@
     // the default back. Resolves { ok: true, changed, name } (name is null
     // for the default) or { ok: false, reason } with reason 'too-long',
     // 'bad-chars', 'no-app', 'forbidden' or 'failed'.
-    async function set(workerName, raw) {
+    async function set(target, raw) {
         let title = null;
         if (String(raw == null ? '' : raw).trim()) {
             const c = check(raw);
             if (!c.ok) return c;
             title = c.name;
         }
-        const r = await setTitle(workerName, title);
+        const r = await setTitle(target, title);
         return r.ok ? { ok: true, changed: r.changed, name: title } : r;
     }
 
-    // Carry the sender name from one worker to another (Publish: preview to
-    // live. Duplicate: original to copy). A source on the default name copies
-    // nothing and leaves the target alone. So does a source that can't be
-    // read: every project publishes through here, most never set a name, and
-    // warning them all about one Puter hiccup would be wrong far more often
-    // than right (the next publish tries again). The name is copied as it is,
+    // Carry the sender name from one target to another (Publish: preview to
+    // live. Duplicate: original to copy). A
+    // source on the default name copies nothing and leaves the target alone.
+    // So does a source that can't be read: every project publishes through
+    // here, most never set a name, and warning them all about one Puter
+    // hiccup would be wrong far more often than right (the next publish tries
+    // again). The name is copied as it is,
     // even one set by hand that check() would refuse, since Puter already
     // took it. Resolves { ok, reason?, copied }.
-    async function copy(fromWorker, toWorker) {
+    async function copy(fromTarget, toTarget) {
         let from;
-        try { from = await appOf(fromWorker); } catch (e) { return { ok: true, copied: false }; }
+        try { from = await appOf(fromTarget); } catch (e) { return { ok: true, copied: false }; }
         if (!isCustom(from)) return { ok: true, copied: false };
-        const r = await setTitle(toWorker, from.title);
+        const r = await setTitle(toTarget, from.builder ? from.builder.senderName : from.title);
         return r.ok ? { ok: true, copied: r.changed } : { ok: false, reason: r.reason, copied: false };
     }
 
-    // Put the default name back before a worker is deleted (a deleted project,
-    // a retired live backend). A worker on its default name is left alone.
-    async function clear(workerName) {
+    // Put the default name back before a target goes (a deleted project, a
+    // retired live backend). A target on its default name is left alone, and
+    // so is a site's app Builder registered, which goes with the project.
+    async function clear(target) {
         let app;
-        try { app = await appOf(workerName); } catch (e) { return { ok: false, reason: 'failed' }; }
-        if (!isCustom(app)) return { ok: true, cleared: false };
+        try { app = await appOf(target); } catch (e) { return { ok: false, reason: 'failed' }; }
+        if (!isCustom(app) || app.builder) return { ok: true, cleared: false };
         try {
             await puter.apps.update(app.name, { title: app.name });
             return { ok: true, cleared: true };

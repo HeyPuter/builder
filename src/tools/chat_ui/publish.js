@@ -666,8 +666,8 @@
                 (text === ADDRESS_FAILED ? 'It may be taken. Try another.' : text));
             return;
         }
-        // The user kept the address at the custom-domain question (or moved
-        // on while it was open): the card stays as it was.
+        // The user kept the address at the custom-domain or backend question
+        // (or moved on while it was open): the card stays as it was.
         if (r.cancelled) {
             const $now = cardNow(chatId, $card);
             if ($now) focusAddress($now);

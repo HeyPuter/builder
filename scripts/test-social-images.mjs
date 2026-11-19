@@ -68,15 +68,15 @@ check('the module is in the bundle, before ui.js',
     vite.includes("'js/social-images.js'") && vite.indexOf("'js/social-images.js'") < vite.indexOf("'js/ui.js'"));
 const publish = ui.slice(ui.indexOf('async function doPublish('), ui.indexOf('async function loadPublishedSiteMeta('));
 check('a first publish fills in the new address once it exists',
-    /url = `https:\/\/\$\{sub\}\.puter\.site\/`;\s*await absolutizeSocialImagesInRelease\(releaseDir, url, \[startPreviewUrl\]\);/.test(publish));
+    /url = `https:\/\/\$\{sub\}\.puter\.site\/`;[\s\S]{0,600}?await absolutizeSocialImagesInRelease\(releaseDir, url, \[startPreviewUrl\]\);/.test(publish));
 check('a re-publish fills it in before the address serves the release',
     /await absolutizeSocialImagesInRelease\(releaseDir, url, \[startPreviewUrl\]\);\s*await puter\.hosting\.update\(existingSub, releaseDir\);/.test(publish));
 const captures = publish.slice(publish.indexOf('const startUrl = window.currentPublishedUrl;'), publish.indexOf('const startPreviewUrl = window.currentPreviewUrl'));
 check('the preview address is read with the publish address, before a project switch can change it',
     captures.length > 0 && !/\bawait\b/.test(captures.replace(/\/\/[^\n]*/g, '')));
 check('both address editors move the URLs after the new address exists',
-    /await puter\.hosting\.create\(newSub, path\);\s*const newUrl = `https:\/\/\$\{newSub\}\.puter\.site\/`;\s*[^\n]*\n\s*await absolutizeSocialImagesInRelease\(path, newUrl, \[oldUrl\]\);/.test(ui)
-    && /await puter\.hosting\.create\(newSub, path\);\s*(?:\/\/[^\n]*\n\s*)+await absolutizeSocialImagesInRelease\(path, `https:\/\/\$\{newSub\}\.puter\.site\/`, \[pub\.url\]\);/.test(ui));
+    /await puter\.hosting\.create\(newSub, path\);\s*const newUrl = `https:\/\/\$\{newSub\}\.puter\.site\/`;[\s\S]{0,400}?await absolutizeSocialImagesInRelease\(path, newUrl, \[oldUrl\]\);/.test(ui)
+    && /await puter\.hosting\.create\(newSub, path\);[\s\S]{0,400}?await absolutizeSocialImagesInRelease\(path, `https:\/\/\$\{newSub\}\.puter\.site\/`, \[pub\.url\]\);/.test(ui));
 const prompt = read('../src/js/prompt.js');
 check('the prompt has the AI write a relative path', /og:image and twitter:image at the PNG with a relative path/.test(prompt));
 

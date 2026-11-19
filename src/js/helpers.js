@@ -116,6 +116,14 @@ window.FEATURE_FLAGS = {
     // and goes one message per turn once the turn finishes cleanly. When
     // false the composer is locked for the whole turn, as before.
     messageQueue: true,
+    // Projects made while this is on build their backends as Puter dynamic
+    // workers: a file __workers/<name>.worker.js in the folder the site
+    // serves, which Puter runs at /__workers/<name>/ on that same site
+    // (js/site-backends.js). There is nothing to deploy, and the live site
+    // runs the copy in its release. A project keeps the kind it was made
+    // with, so projects made before keep create_worker, their named workers
+    // and the "<name>-live" copies Publish deploys, whatever this says later.
+    dynamicWorkers: true,
 };
 
 // Analytics. Fires a Plausible custom event for the handful of product actions
@@ -1189,6 +1197,11 @@ function prepareHistoryForAI(historyArray, modelId, opts) {
         // message; never sent.
         if ('buildModel' in msg) {
             delete msg.buildModel;
+        }
+        // Whether the project has dynamic backends (site-backends.js), kept
+        // on its system message too; never sent.
+        if ('dynamicWorkers' in msg) {
+            delete msg.dynamicWorkers;
         }
         // Bookkeeping fields that record the AI response cost + token usage on
         // assistant messages (see handleMessageStream / sumChatCostCents /
@@ -2324,6 +2337,13 @@ const _WORKER_DIRECTIVE_RE = /^﻿?(?:\s+|\/\/[^\n]*|\/\*[\s\S]*?\*\/)*(["'])use
 window.stripWorkerCanary = function (text) {
     if (typeof text !== 'string' || text.indexOf('/__builder/canary') === -1) return text;
     return text.replace(_WORKER_CANARY_RE, '');
+};
+
+// The token of the canary route in `text`, or null without one.
+window.workerCanaryToken = function (text) {
+    if (typeof text !== 'string') return null;
+    const m = /router\.get\('\/__builder\/canary', \(\) => '([a-z0-9]+)'\);/.exec(text);
+    return m ? m[1] : null;
 };
 
 // `text` with a canary route answering `token` (letters and digits) in place

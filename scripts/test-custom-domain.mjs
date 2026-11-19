@@ -98,6 +98,13 @@ check('the same page is the same site', CD.sameSite({ body: '<h1>x</h1>' }, { bo
 check('…and so is the same file modified at the same time', CD.sameSite({ body: 'a', lastModified: 'Wed' }, { body: 'b', lastModified: 'Wed' }));
 check('a failed read, another page or two empty pages are not', !CD.sameSite(null, { body: 'a' }) && !CD.sameSite({ body: 'a' }, { body: 'b' }) && !CD.sameSite({ body: '' }, { body: '' }));
 
+// Each runs the site's backends as an app of its own (site-backends.js).
+check('urlsFor gives the address of the domain serving a site, in any state',
+    JSON.stringify(CD.urlsFor([pending], 'cafe')) === '["https://www.example.com/"]'
+    && JSON.stringify(CD.urlsFor([{ hostname: 'a.com', site: 'cafe', status: 'active' }], 'cafe')) === '["https://a.com/"]');
+check('…but not one recorded against another name, which serves another site',
+    CD.urlsFor([{ hostname: 'a.com', site: 'old', status: 'active' }], 'cafe').length === 0 && CD.urlsFor(undefined, 'cafe').length === 0);
+
 check('hostOf names a saved list\'s domain in any state', CD.hostOf([pending]) === 'www.example.com'
     && CD.hostOf([{ hostname: 'a.com', status: 'failed' }]) === 'a.com' && CD.hostOf([]) === null && CD.hostOf(undefined) === null);
 
@@ -1053,7 +1060,11 @@ check('the AI offers the chat\'s domain button, and says it needs a paid plan', 
 }
 const publish = ui.slice(ui.indexOf('async function doPublish('), ui.indexOf('async function loadPublishedSiteMeta('));
 check('a first publish with a reserved name points that name at the release, after filling in the address',
-    /if \(!existingSub && reserved\) \{[\s\S]*?const sub = await reserved;\s*url = `https:\/\/\$\{sub\}\.puter\.site\/`;\s*await absolutizeSocialImagesInRelease\(releaseDir, url, \[startPreviewUrl\]\);\s*await puter\.hosting\.update\(sub, releaseDir\);\s*_reservedPublishNames\.delete\(chatId\);\s*\} else if \(!existingSub\)/.test(publish));
+    /if \(!existingSub && reserved\) \{[\s\S]*?const sub = await reserved;\s*url = `https:\/\/\$\{sub\}\.puter\.site\/`;\s*await absolutizeSocialImagesInRelease\(releaseDir, url, \[startPreviewUrl\]\);[\s\S]*?await puter\.hosting\.update\(sub, releaseDir\);\s*_reservedPublishNames\.delete\(chatId\);\s*\} else if \(!existingSub\)/.test(publish));
+// Nothing has run at the reserved name, so a dynamic backend's app and keys
+// get there before the release does (see site-backends.js).
+check('…with its dynamic backends\' app and keys in place first',
+    /const sub = await reserved;[\s\S]*?registerApp\(url, [^;]*'live'\);\s*\}\s*siteBackendKeys = await publishSiteBackends\(startPreviewUrl, url, releaseDir, domainUrlsOf\(sub\)\);\s*await puter\.hosting\.update\(sub, releaseDir\);/.test(publish));
 check('…and only a first publish uses one', /let reserved = isFirst \? \(ui\.reserved \|\| null\) : null;/.test(publish));
 check('the popover passes the reserved name to the shared publish', /async function doPublish\(\{ reserved = null \} = \{\}\) \{[\s\S]{0,400}return publishProject\(\{[\s\S]{0,200}\breserved,/.test(publish));
 check('a plain Publish (the popover\'s Enter, or the chat\'s card) waits while the own-domain route reserves the name',

@@ -16,6 +16,11 @@ window.tools.push({
         },
         strict: true
     },
+    // What a project with dynamic backends is told instead (see
+    // SiteBackends.toolsFor).
+    dynamic: {
+        description: "Deletes one of THIS project's older workers, made with create_worker, and stops its execution. A backend in __workers/ is removed by deleting its file instead. A worker that belongs to another project on the account is refused.",
+    },
     exec: async function(args, state) {
         const name = String((args && args.name) || '').trim();
         if (!name) throw new Error('name must be a non-empty worker name.');
@@ -33,6 +38,14 @@ window.tools.push({
         // a lookup failure fails CLOSED (nothing is deleted on a blip).
         const root = window.projectRootDir(state);
         if (!root) throw new Error('Cannot determine the project directory, so the worker operation was refused for safety.');
+        // A dynamic backend is just its file (see js/site-backends.js), and
+        // the file tools already handle deleting one.
+        const SB = window.SiteBackends;
+        const site = SB?.siteOf(state) || null;
+        const backend = site ? (await SB.list(site.servedDir)).find(b => b.name === name) : null;
+        if (backend) {
+            throw new Error(`The backend '${name}' is the file ${backend.path}. To remove it, delete that file with the delete tool. The preview stops running it right away, and the live site at the next publish.`);
+        }
         const worker = window.WorkerOwnership.findByName(await puter.workers.list(), name);
         if (!worker) throw new Error(`Worker '${name}' not found.`);
         if (!window.WorkerOwnership.ownedWorkers([worker], root).length) {

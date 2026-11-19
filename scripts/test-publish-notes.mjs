@@ -56,6 +56,9 @@ function setup({ open = true, processing = false, history = null, typed = 'new-n
         setPublishBusy() {},
         resolvePublishedDir: async (p) => p,
         absolutizeSocialImagesInRelease: async () => {},
+        // A release with no dynamic backend: nothing to ask or move.
+        planSiteMove: async () => ({ moveApp: false, backends: [] }),
+        finishSiteMove: async () => {},
         generateMessageId: () => 'm1',
         saveCurrentChat: async (ctx) => { env.saves.push(ctx.chatHistory.map(m => m.content)); },
         puter: {

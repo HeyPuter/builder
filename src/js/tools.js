@@ -22,10 +22,13 @@ window.builtinTools = function() {
 
 // The tools for a turn on `modelId`: the builder's own, then the MCP tools
 // that model can take (see ModelCore.turnTools).
-window.getTurnTools = function(modelId) {
+// `history` is the project's, whose kind of backend decides how the worker
+// tools read (SiteBackends.toolsFor).
+window.getTurnTools = function(modelId, history) {
     const mcp = window.mcpManager?.getTools() || [];
     const own = window.builtinTools();
-    return window.ModelCore ? window.ModelCore.turnTools(modelId, own, mcp) : [...own, ...mcp];
+    const builtin = window.SiteBackends ? window.SiteBackends.toolsFor(own, history) : own;
+    return window.ModelCore ? window.ModelCore.turnTools(modelId, builtin, mcp) : [...builtin, ...mcp];
 };
 // The MCP tools left out of a turn on `modelId` ({label, server}), which the
 // model is told about (ModelCore.unavailableToolsNote).
@@ -68,9 +71,14 @@ const SKIPPED_PREVIEW_ERROR = 'Not run, because an earlier call in this reply fa
 // stampWorkerCanary in helpers.js), and after the save waits until the worker
 // serves that token (workerSaveResult). So the AI's result tells it whether
 // its change is live, and it never resends the whole worker to create_worker
-// just to deploy an edit.
+// just to deploy an edit. A dynamic backend's save (__workers/<name>.worker.js)
+// gets the same check, against the copy the preview runs.
 // Puter documents up to 30 seconds for a deploy to reach every edge.
-window.workerCanaryTiming = { pollMs: 500, limitMs: 30000 };
+window.workerCanaryTiming = { pollMs: 500, limitMs: 30000,
+    // The wait after a hosting.update (watchSiteBackends): how often a
+    // backend's canary is read, how long a backend has to go down before it
+    // counts as untouched by the update, and how long it has to stay back.
+    redeployPollMs: 250, redeployDownMs: 8000, redeploySettleMs: 2000 };
 
 // The deployed worker this project runs from `path`: { name, url, path }.
 // { lookupFailed: true } when the worker list can't be read, null for any
@@ -78,6 +86,15 @@ window.workerCanaryTiming = { pollMs: 500, limitMs: 30000 };
 window.workerSaveTarget = async function(path, state) {
     const root = window.projectRootDir(state);
     if (!root || typeof path !== 'string' || path.indexOf(root + '/') !== 0) return null;
+    // A dynamic backend runs from the file itself, on the open project's
+    // preview (see site-backends.js). With no preview yet there is nothing
+    // running it to wait for.
+    const site = window.SiteBackends?.siteOf(state);
+    const name = site && path.indexOf(site.servedDir + '/') === 0 ? window.SiteBackends.nameOf(path.slice(site.servedDir.length + 1)) : null;
+    if (name) {
+        const url = window.SiteBackends.urlOf(site.previewUrl, name);
+        return url ? { name, url, path } : null;
+    }
     if (!window.EditorCore?.classify(path.slice(root.length + 1)).backend) return null;
     let owned;
     try { owned = window.WorkerOwnership.ownedWorkers(await puter.workers.list(), root); }
@@ -85,6 +102,18 @@ window.workerSaveTarget = async function(path, state) {
     const worker = owned.find(w => window.normalizePosixPath(w.file_path) === path);
     if (!worker || !worker.url) return null;
     return { name: worker.name, url: worker.url, path };
+};
+
+// Whether `call` is an edit, multi_edit or write of one of the open preview's
+// dynamic backends (__workers/<name>.worker.js in the folder it serves), a
+// change no page of the site shows (see pagesUnchanged in ui.js).
+window.isBackendSaveCall = function(call, state) {
+    if (!call || !['edit', 'multi_edit', 'write'].includes(call.name) || !call.input) return false;
+    let path;
+    try { path = window.assertPathInProject(call.input.path, state); } catch (e) { return false; }
+    const site = window.SiteBackends?.siteOf(state);
+    return !!(site && typeof path === 'string' && path.indexOf(site.servedDir + '/') === 0
+        && window.SiteBackends.nameOf(path.slice(site.servedDir.length + 1)));
 };
 
 // `text` stamped with a fresh canary token for `target`'s save, kept on the
@@ -122,6 +151,143 @@ async function readWorkerCanary(url) {
     } catch (e) { return null; }
 }
 
+// The latest save this tab made of each worker, its canary token, by the
+// address the canary is read at. Any update of a site redeploys its dynamic
+// backends, not only a save of one, so whether a worker serves its latest save
+// is read from its canary each time it's asked (backendStillSwitching).
+const backendSaves = new Map();
+
+// `url` as the address a worker's saves are kept under, its origin and path
+// with no trailing slash. A relative one is the preview's, where a page's own
+// requests go. null when it isn't an address.
+function backendAddress(url) {
+    try {
+        const u = new URL(String(url || ''), window.currentPreviewUrl || undefined);
+        return (u.origin + u.pathname).replace(/\/+$/, '');
+    } catch (e) { return null; }
+}
+
+function noteBackendSave(target) {
+    const key = backendAddress(target.url);
+    if (key) backendSaves.set(key, target.token);
+}
+
+// The latest save of the worker a request to `at` went to, as { key, token },
+// where key is the address its canary is read at. A save this tab made is
+// known. A dynamic backend of the site at `siteUrl` serving `dir` (the open
+// preview unless given) this tab never saved is read from its file, which
+// every save stamps. null when neither says, or when the file doesn't parse,
+// since Puter never runs that save.
+async function latestBackendSave(at, siteUrl, dir) {
+    for (const [key, token] of backendSaves) {
+        if (at === key || at.startsWith(key + '/')) return { key, token };
+    }
+    const SB = window.SiteBackends;
+    const site = backendAddress(siteUrl || window.currentPreviewUrl);
+    const prefix = site && SB ? site + '/' + SB.FOLDER + '/' : null;
+    if (!prefix || !at.startsWith(prefix)) return null;
+    const name = at.slice(prefix.length).split('/')[0];
+    if (!dir) dir = window.currentPreviewPath || (typeof currentAppDir !== 'undefined' ? currentAppDir : null);
+    if (!SB.validName(name) || !dir) return null;
+    let text;
+    try { text = await (await puter.fs.read(dir + '/' + SB.FOLDER + '/' + name + SB.SUFFIX)).text(); }
+    catch (e) { return null; }
+    const token = window.workerCanaryToken(text);
+    if (!token) return null;
+    try { new Function(text); } catch (e) { return null; }
+    return { key: prefix + name, token };
+}
+
+// Checks under way, by the address a failed request went to, so a page
+// failing many times at once reads the canary once.
+const backendChecks = new Map();
+
+// Whether a failed request to `url` went to a worker that isn't serving its
+// latest save at this moment, read from its canary. The worker is down or
+// switching over, so the failure is expected and says nothing about the
+// code. false for a request to anything else, or to a worker whose latest
+// save isn't known.
+window.backendStillSwitching = function(url) {
+    const at = backendAddress(url);
+    if (!at) return Promise.resolve(false);
+    if (backendChecks.has(at)) return backendChecks.get(at);
+    const check = (async () => {
+        const save = await latestBackendSave(at);
+        return !!save && !servesSave(await readWorkerCanary(save.key), save.token);
+    })().catch(() => false).finally(() => backendChecks.delete(at));
+    backendChecks.set(at, check);
+    return check;
+};
+
+// Any hosting.update of a site redeploys its dynamic backends, even ones
+// whose files didn't change. A few seconds after the update each one goes
+// down (Puter's 404, then a 500) and comes back by itself, so a page loaded
+// in between finds it failing. Its canary keeps the same token, since nothing
+// was saved, so going down and coming back is the only sign the redeploy is
+// over.
+//
+// Called before the update of the site at `siteUrl`, which serves `dir`: reads
+// which of its backends serve their latest save. Resolves the wait to run once
+// the update is done, which resolves true when each of those has gone down
+// and been back for redeploySettleMs, false at limitMs, or null as soon as
+// `live()` turns false. A backend that hasn't gone down within redeployDownMs
+// of the update counts as untouched. One that wasn't up before isn't waited
+// on, since it may not come up at all.
+window.watchSiteBackends = async function(siteUrl, dir) {
+    const none = async () => true;
+    const SB = window.SiteBackends;
+    if (!SB || !siteUrl || !dir) return none;
+    let saves;
+    try {
+        saves = await Promise.all((await SB.list(dir)).map((b) => {
+            const at = backendAddress(SB.urlOf(siteUrl, b.name));
+            return at ? latestBackendSave(at, siteUrl, dir).catch(() => null) : null;
+        }));
+    } catch (e) { return none; }
+    const up = async (save) => servesSave(await readWorkerCanary(save.key), save.token);
+    const watched = (await Promise.all(saves.filter(Boolean).map(async (save) => ((await up(save)) ? save : null)))).filter(Boolean);
+    if (!watched.length) return none;
+    return async function(live) {
+        const { limitMs, redeployPollMs, redeployDownMs, redeploySettleMs } = window.workerCanaryTiming;
+        const start = Date.now();
+        // When each backend went down, and when it was last seen back since.
+        const wentDown = new Map();
+        const backSince = new Map();
+        let waiting = watched;
+        while (waiting.length) {
+            if (Date.now() - start >= limitMs) return false;
+            const seen = await Promise.all(waiting.map(up));
+            if (!live()) return null;
+            const now = Date.now();
+            waiting = waiting.filter((save, i) => {
+                if (!seen[i]) { wentDown.set(save, true); backSince.delete(save); return true; }
+                if (!wentDown.has(save)) return now - start < redeployDownMs;
+                if (!backSince.has(save)) backSince.set(save, now);
+                return now - backSince.get(save) < redeploySettleMs;
+            });
+            if (!waiting.length) break;
+            await new Promise((r) => setTimeout(r, redeployPollMs));
+            if (!live()) return null;
+        }
+        return true;
+    };
+};
+
+// "Applying changes" while the AI's save of a backend waits to go live, beside
+// the dots and over the preview, the words update_preview's refresh shows,
+// since the preview's backend runs the previous code until then. Returns what
+// takes the overlay down, leaving it up for a refresh under way. Nothing for
+// a Code view save or a GitHub pull (no `state`), or for a turn whose project
+// is no longer open, whose dots and preview are another project's.
+function showBackendApplying(state) {
+    if (!state || window.isStaleTurn?.(state) || state.abortController?.signal?.aborted) return () => {};
+    window.setSpinnerLabel?.('Applying changes');
+    window.showPreviewUpdating?.(true);
+    return () => {
+        if (!window.isStaleTurn?.(state) && !window.previewRefreshInFlight?.()) window.showPreviewUpdating?.(false);
+    };
+}
+
 // The `worker` field of a worker save's result, once the worker serves the
 // saved `code` or the wait runs out. Null when the file isn't a worker's.
 window.workerSaveResult = async function(target, code, state) {
@@ -148,15 +314,20 @@ window.workerSaveResult = async function(target, code, state) {
         return { name: target.name, live: false, error: e && e.message ? (e.name || 'Error') + ': ' + e.message : String(e),
             note: "The file is saved, but it doesn't parse, so the worker is still running its previous code. Fix the error and save the file again." };
     }
+    // Puter deploys it, so from now the worker switches over to it.
+    noteBackendSave(target);
     const { pollMs, limitMs } = window.workerCanaryTiming;
     const deadline = Date.now() + limitMs;
-    for (;;) {
-        if (servesSave(await readWorkerCanary(target.url), target.token)) {
-            return { name: target.name, url: target.url, live: true };
+    const hide = showBackendApplying(state);
+    let live = false;
+    try {
+        for (;;) {
+            if (servesSave(await readWorkerCanary(target.url), target.token)) { live = true; break; }
+            if (Date.now() >= deadline || state?.abortController?.signal?.aborted) break;
+            await new Promise(r => setTimeout(r, pollMs));
         }
-        if (Date.now() >= deadline || state?.abortController?.signal?.aborted) break;
-        await new Promise(r => setTimeout(r, pollMs));
-    }
+    } finally { hide(); }
+    if (live) return { name: target.name, url: target.url, live: true };
     return { name: target.name, live: false,
         note: `The file is saved, but the worker wasn't serving it yet after ${Math.round(limitMs / 1000)} seconds. It may still be updating, or still running its previous code.` };
 };
@@ -384,7 +555,7 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
             // version history. Done in finally because multi-path tools (move,
             // mkdir) can mutate the filesystem and then throw — the change still
             // happened. No-op for non-mutating tool names.
-            window.markProjectModified?.(toolCall.name, c.currentChatId);
+            window.markProjectModified?.(toolCall.name, c.currentChatId, { backendOnly: window.isBackendSaveCall(toolCall, c) });
             // Counted for the Usage Limit Hit event (limitHitTurnProps).
             if (c.turnStats && toolCall.name === 'update_preview') c.turnStats.previewChecks++;
             if (!window.isMutatingTool || window.isMutatingTool(toolCall.name)) {

@@ -107,6 +107,7 @@ function makeEnv(opts = {}) {
     return {
         ...api, calls, reloads, reloadUrls, disk, copy,
         startEarly: () => win.startEarlyPreviewClear(),
+        pagesChanged: () => win.notePagesChanged('c1'),
         dropEarly: () => win.dropEarlyPreviewClear(),
         sleep: (ms) => new Promise((r) => later(r, ms)),
         now: () => now,
@@ -144,6 +145,8 @@ check('there is an upper limit, under the old 22 s', typeof L === 'number' && L 
     check('the builder\'s copy now holds the new value, ready to be the old value next time', env.copy[CANARY] === env.disk[CANARY]);
 
     const second = env.now();
+    // A page changed since (markProjectModified), as before any refresh.
+    env.pagesChanged();
     await env.run(env.refreshPreviewWhenReady());
     check('the next refresh is just as quick', env.reloads[1] - second >= 4000 && env.reloads[1] - second <= 4600, `${env.reloads[1] - second}ms`);
 }
@@ -286,6 +289,65 @@ check('there is an upper limit, under the old 22 s', typeof L === 'number' && L 
     await env.run(env.refreshPreviewWhenReady());
     check('a reload or chat switch ends the early clear too',
         env.calls.canaryWrites === 2 && env.calls.hostingUpdate === 2 && env.reloads.length === before + 1, JSON.stringify(env.calls));
+}
+
+// --- A turn that changed only backend files skips the clear ---
+// Once a clear has covered every change that may show in the pages, a turn
+// whose only changes were the AI's saves of backend files just reloads: no
+// canary, no hosting.update, so no backend outage to wait out.
+{
+    const env = makeEnv({ clearDelay: 4000 });
+    await env.run(env.refreshPreviewWhenReady());
+    check('pages: the first refresh clears', env.calls.hostingUpdate === 1 && env.reloads.length === 1);
+    const at = env.now();
+    await env.run(env.refreshPreviewWhenReady());
+    check('pages: a refresh with only backend saves since then just reloads, at once',
+        env.calls.hostingUpdate === 1 && env.calls.canaryWrites === 1 && env.reloads.length === 2 && env.reloads[1] - at < 100,
+        JSON.stringify({ calls: env.calls, ms: env.reloads[1] - at }));
+    check('…on the same host as before', env.reloadUrls[1].startsWith('https://preview-x.puter.site/?__pv='), env.reloadUrls[1]);
+    env.startEarly();
+    await env.run(env.sleep(10));
+    check('pages: no early clear starts for it either', env.calls.hostingUpdate === 1 && env.calls.canaryWrites === 1, JSON.stringify(env.calls));
+    env.pagesChanged();
+    await env.run(env.refreshPreviewWhenReady());
+    check('pages: a page change since then clears again', env.calls.hostingUpdate === 2 && env.reloads.length === 3, JSON.stringify(env.calls));
+}
+{
+    // Outside a turn a refresh follows a restore or a GitHub update, whose
+    // writes aren't counted.
+    const env = makeEnv({ clearDelay: 4000, processing: false });
+    await env.run(env.refreshPreviewWhenReady());
+    await env.run(env.refreshPreviewWhenReady());
+    check('pages: outside a turn every refresh clears', env.calls.hostingUpdate === 2, JSON.stringify(env.calls));
+}
+{
+    // A clear that never landed covered nothing.
+    const env = makeEnv({ clearDelay: null });
+    await env.run(env.refreshPreviewWhenReady());
+    await env.run(env.refreshPreviewWhenReady());
+    check('pages: after a clear that never landed, the next refresh clears', env.calls.hostingUpdate === 2, JSON.stringify(env.calls));
+}
+{
+    // A page change during the clear isn't covered by it.
+    const env = makeEnv({ clearDelay: 4000 });
+    const first = env.refreshPreviewWhenReady();
+    await env.run(env.sleep(1000));
+    env.pagesChanged();
+    await env.run(first);
+    await env.run(env.refreshPreviewWhenReady());
+    check('pages: a page change during a clear makes the next refresh clear', env.calls.hostingUpdate === 2, JSON.stringify(env.calls));
+}
+{
+    const read = (f) => fs.readFileSync(new URL(f, import.meta.url), 'utf8');
+    const app = read('../src/js/app.js');
+    const ver = read('../src/js/versions.js');
+    const tools = read('../src/js/tools.js');
+    check('pages: opening a project makes its first refresh clear',
+        /resetChatUIForSwitch\(\);\s*(\/\/[^\n]*\n\s*)*window\.notePagesChanged\?\.\(chatId\);/.test(app.slice(app.indexOf('async function loadChat('), app.indexOf('async function loadChat(') + 3000)));
+    check('pages: every project change counts, except a backend save',
+        /window\.markProjectModified = function \(toolName, chatId, opts\) \{\s*if \(toolName && !MUTATING_TOOLS\.has\(toolName\)\) return;\s*if \(!\(opts && opts\.backendOnly\)\) window\.notePagesChanged\?\.\(chatId \|\| openChatId\(\)\);/.test(ver));
+    check('pages: the tool loop says which calls were backend saves',
+        tools.includes('window.markProjectModified?.(toolCall.name, c.currentChatId, { backendOnly: window.isBackendSaveCall(toolCall, c) });'));
 }
 
 if (failures) { console.error(`\n${failures} check(s) FAILED`); process.exit(1); }

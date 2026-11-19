@@ -179,6 +179,10 @@ check('app-error: still gated on isProcessing/_restoringVersion',
     appH.includes('if (isProcessing || window._restoringVersion) return;'));
 check('fetch-error: still gated on isProcessing/_restoringVersion',
     fetchH.includes('if (isProcessing || window._restoringVersion) return;'));
+check('fetch-error: a backend still switching over to its latest save is never sent, checked after the trust gate and before the dedup',
+    fetchH.indexOf('isTrustedPreviewMessage(event)') < fetchH.indexOf('if (await window.backendStillSwitching?.(url)) return;')
+    && fetchH.indexOf('if (await window.backendStillSwitching?.(url)) return;') < fetchH.indexOf('lastFetchErrorKey = errorKey;')
+    && /const chatId = currentChatId;\s*if \(await window\.backendStillSwitching\?\.\(url\)\) return;\s*if \(chatId !== currentChatId\) return;/.test(fetchH));
 check('app-error: dedup key unchanged', appH.includes('`${message}|${source}|${lineno}`'));
 // The debounced send is bound to the chat that raised the error: switching
 // projects inside the window used to send project A's report into project B.

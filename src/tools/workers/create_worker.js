@@ -1,4 +1,7 @@
 window.tools.push({
+    // A project with dynamic backends writes a backend to __workers/ like any
+    // other file (see js/site-backends.js), so it never gets this tool.
+    legacyOnly: true,
     type: "function",
     function: {
         name: "create_worker",
