@@ -122,7 +122,7 @@ function renderSkeleton() {
         // updateUserMenu() re-renders, so a re-render never resets it.
         h += `<div class="user-menu-container"><div class="user-menu-controls"></div>`;
             if (window.customElements?.get('puter-user-menu')) {
-                h += `<puter-user-menu sign-in-label="Sign In" sign-out-label="Log out"></puter-user-menu>`;
+                h += `<puter-user-menu hide-upgrade sign-in-label="Sign In" sign-out-label="Log out"></puter-user-menu>`;
             }
         h += `</div>`;
     h += `</header>`;

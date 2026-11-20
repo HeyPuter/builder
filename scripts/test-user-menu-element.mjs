@@ -47,6 +47,7 @@ function loadHandler(event, selector, globals) {
     check('…after the controls wrapper, so re-renders never replace it',
         markup.indexOf('<puter-user-menu') > markup.indexOf('<div class="user-menu-controls"></div>'));
     check('…with the builder\'s own wording', markup.includes('sign-in-label="Sign In" sign-out-label="Log out"'));
+    check('…without the element\'s Upgrade button', /<puter-user-menu [^>]*\bhide-upgrade\b/.test(markup));
 }
 
 // ---- updateUserMenu ------------------------------------------------------------
