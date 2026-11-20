@@ -4362,12 +4362,14 @@ async function consumePaidAfterLimit(key) {
         if (!user || user.uuid !== (window.user && window.user.uuid)) return;
         const found = planChange(hit.plan, await readPlanSnapshot(user));
         if (!found) return;
-        window.clearCreditErrors?.();
         // A new limit hit saved while this check was waiting on Puter is a new
         // baseline. Leave it for the next check.
         const now = JSON.parse(localStorage.getItem(key) || 'null');
         if (!now || now.at !== hit.at) return;
         localStorage.removeItem(key);
+        // The account can pay again. Not before the check above: a new limit
+        // hit means it ran out again, and that card is current.
+        window.clearCreditErrors?.();
         const mins = (Date.now() - hit.at) / 6e4;
         window.track?.('Upgrade After Limit', {
             change: found.change,
