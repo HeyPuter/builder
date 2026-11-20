@@ -4627,7 +4627,17 @@ function isCreditErrorEntry(msg) {
 // entries stay in the history the AI reads, so it still knows why the build
 // stopped. A running turn saves the mark at its next checkpoint.
 function clearCreditErrors() {
-    $('.chat-box .message.credit-error, .chat-box .message.upgrade-message').remove();
+    const $cards = $('.chat-box .message.credit-error, .chat-box .message.upgrade-message');
+    // The user may have paid from a card's own Add credits or Upgrade button,
+    // which keeps focus while they pay. Removing the card dropped focus to
+    // <body>, so the next Tab started over from the top of the page, and the
+    // success dialog that opens next had nothing to hand focus back to. The
+    // composer is the next thing to use. Only after keyboard use: focusing it
+    // after a tap would pop a phone's keyboard up.
+    const active = document.activeElement;
+    const hadFocus = !!active && active !== document.body && $cards.toArray().some(el => el.contains(active));
+    $cards.remove();
+    if (hadFocus && window.lastInputWasKeyboard?.()) $('.chat-input-message').filter(':visible').trigger('focus');
     if (!Array.isArray(chatHistory)) return;
     let changed = false;
     for (const msg of chatHistory) {

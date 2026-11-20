@@ -48,6 +48,7 @@ function harness({ history = [], processing = false, cards = [], focusIn = null,
                 }
                 return set;
             },
+            filter: () => set,
             trigger(ev) { if (ev === 'focus') { focused.push(sel); document.activeElement = { composer: true }; } return set; },
         };
         return set;
@@ -105,6 +106,38 @@ const CREDITS_TEXT = "Your account doesn't have enough credits to complete this 
     const h = harness({ history, processing: true });
     h.clearCreditErrors();
     check('during a build the entry is marked, and the build\'s own save writes it', history[0].creditErrorCleared === true && h.saves.length === 0);
+}
+
+// ---- clearCreditErrors: focus ---------------------------------------------------
+// The card's own button had focus (the user paid from it). Removing the card
+// must not leave focus on <body>.
+{
+    const credit = card(['upgrade-message']);
+    credit.inner = { tag: 'button' };
+    const h = harness({ cards: [credit], focusIn: credit, keyboard: true });
+    h.clearCreditErrors();
+    check('keyboard user: focus moves to the composer when its card leaves',
+        credit.removed && h.focused.length === 1 && h.focused[0] === '.chat-input-message' && h.document.activeElement.composer === true);
+}
+{
+    const credit = card(['error-message', 'credit-error']);
+    credit.inner = { tag: 'button' };
+    const h = harness({ cards: [credit], focusIn: credit, keyboard: false });
+    h.clearCreditErrors();
+    check('after a tap or click the composer is not focused (no phone keyboard)', credit.removed && h.focused.length === 0);
+}
+{
+    const credit = card(['error-message', 'credit-error']);
+    const h = harness({ cards: [credit], keyboard: true });
+    h.clearCreditErrors();
+    check('focus elsewhere is left alone', credit.removed && h.focused.length === 0 && h.document.activeElement === h.document.body);
+}
+{
+    // completeUpgrade clears before it opens the success dialog, whose focus
+    // trap remembers the focused element to return to.
+    const UI = fs.readFileSync(new URL('../src/js/ui.js', import.meta.url), 'utf8');
+    check('the upgrade clears the cards before the success dialog opens',
+        /window\.clearCreditErrors\?\.\(\);\s*openUpgradeModal\(source, \{ justUpgraded: true \}\);/.test(UI));
 }
 
 // ---- Wiring --------------------------------------------------------------------
