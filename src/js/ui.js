@@ -7086,7 +7086,10 @@ function openTopUp(source, props) {
     _creditBeforeTopUp = readCreditLeft();
     return Promise.resolve(shown).then((result) => {
         const bought = !!(result && result.toppedUp === true);
-        if (bought) window.track?.('Top-up Completed', { source });
+        if (bought) {
+            window.track?.('Top-up Completed', { source });
+            window.clearCreditErrors?.();
+        }
         return bought;
     }, () => false);
 }
@@ -7476,6 +7479,7 @@ async function completeUpgrade(key) {
     if (_publishPanelOpen) renderPublishPanel();
     // This path skips refreshUserPlan, so tell the Code view here too.
     window.CodeEditor?.onPlanChanged?.();
+    window.clearCreditErrors?.();
     openUpgradeModal(source, { justUpgraded: true });
 }
 

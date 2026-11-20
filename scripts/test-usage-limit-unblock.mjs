@@ -360,7 +360,11 @@ function lockManager() {
 function fakePuter(box) {
     return {
         auth: {
-            getMonthlyUsage: async () => ({ allowanceInfo: { monthUsageAllowance: box.state.allowance, addons: { purchasedCredits: box.state.purchased }, ...(box.state.unit && { unit: box.state.unit }) } }),
+            getMonthlyUsage: async () => {
+                // Something that happens while Puter is answering, once.
+                if (box.hit) { const hit = box.hit; box.hit = null; hit(); }
+                return { allowanceInfo: { monthUsageAllowance: box.state.allowance, addons: { purchasedCredits: box.state.purchased }, ...(box.state.unit && { unit: box.state.unit }) } };
+            },
             getUser: async () => {
                 if (box.failUser) throw new Error('offline');
                 return { uuid: box.uuid || 'user-a', subscribed: box.state.subscribed, paid_storage: box.state.paid_storage };
@@ -456,6 +460,35 @@ async function paidHarness({ before, after, ageMs = 5 * 60 * 1000, cached, other
     check('two tabs sharing the Web Lock report once', await twoTabs({ locks }) === 1);
     check('the lock is per account', locks.names.length === 2 && locks.names.every(n => n === 'usage_limit_pay:user-a'));
     check('no Web Locks → the re-read still reports once', await twoTabs({}) === 1);
+
+    // The out-of-credits cards leave the chat (clearCreditErrors) once a
+    // payment is found, and only then.
+    const clears = h => h._clears || 0;
+    async function clearHarness({ before, after, newHitDuringCheck = false }) {
+        const box = { state: before };
+        const h = tab(box, memStorage(), { locks: lockManager() });
+        h.win.clearCreditErrors = () => { h._clears = clears(h) + 1; };
+        await h.recordPlanAtLimit('credits');
+        box.state = after;
+        if (newHitDuringCheck) {
+            // A build runs out again while the check waits on Puter: a new
+            // limit hit is saved under the same key, with the paid plan as its
+            // baseline. Its card is current and must stay.
+            box.hit = () => {
+                h.storage.setItem(h.LIMIT_PAY_PREFIX + 'user-a', JSON.stringify({ at: T0 + 6 * 60 * 1000, kind: 'credits', plan: { ...after }, template: '' }));
+            };
+        }
+        h.setNow(T0 + 5 * 60 * 1000);
+        await h.checkPaidAfterLimit();
+        return h;
+    }
+    h = await clearHarness({ before: free, after: paid });
+    check('a payment found → the out-of-credits cards are cleared once', clears(h) === 1);
+    h = await clearHarness({ before: free, after: free });
+    check('no payment → the cards stay', clears(h) === 0);
+    h = await clearHarness({ before: free, after: paid, newHitDuringCheck: true });
+    check('a new limit hit saved during the check → its card stays (left for the next check)',
+        clears(h) === 0 && paidCalls(h).length === 0);
 }
 
 // Credits and plan at turn start, and how far the turn got

@@ -1170,6 +1170,9 @@ function prepareHistoryForAI(historyArray, modelId, opts) {
         if (msg.isError) {
             delete msg.isError;
         }
+        // Out-of-credits markers (clearCreditErrors in app.js); UI-only.
+        delete msg.creditError;
+        delete msg.creditErrorCleared;
         // Marker for the hidden "continue where you left off" nudge added when
         // resuming an interrupted build (prepareResumeHistory). UI-only — strip it
         // so this extra top-level field never reaches the chat endpoint. The
