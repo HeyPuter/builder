@@ -6986,12 +6986,15 @@ function openUpgradeModal(source, { justUpgraded = false } = {}) {
         if (releaseFocus) releaseFocus();
     };
     $overlay.find('.properties-modal-x, .upgrade-cancel').on('click', close);
-    $overlay.find('.upgrade-go').on('click', () => {
+    $overlay.find('.upgrade-go').on('click', (e) => {
         window.track?.('Upgrade Clicked', { source, plan });
         // A free user's return is re-checked for the upgrade (see below). A
         // paid user is already subscribed, so there is nothing to detect.
         if (!paid) setUpgradePending(source);
         close();
+        // puter.js shows the upgrade without leaving Builder where it can.
+        // Where it can't, the link opens Puter's upgrade page in a new tab.
+        if (!paid && upgradeWithPuter()) e.preventDefault();
     });
     $overlay.find('.upgrade-republish').on('click', () => {
         close();
@@ -7474,6 +7477,41 @@ async function completeUpgrade(key) {
     // This path skips refreshUserPlan, so tell the Code view here too.
     window.CodeEditor?.onPlanChanged?.();
     openUpgradeModal(source, { justUpgraded: true });
+}
+
+// puter.js has an upgrade flow of its own in two places: in a frame over this
+// page (on the web, signed in, on a Puter address), and as the desktop's
+// upgrade window when Builder runs inside Puter. Anywhere else, such as
+// localhost, requestUpgrade shows nothing and never answers.
+function puterShowsUpgrade() {
+    try {
+        if (typeof puter.ui.requestUpgrade !== 'function') return false;
+        return puter.env === 'app' ||
+            (puter.env === 'web' && typeof puter.ui.canShowUpgradeFrame_ === 'function' && puter.ui.canShowUpgradeFrame_() === true);
+    } catch (e) { return false; }
+}
+
+// Starts puter.js's upgrade flow from inside an Upgrade click. Returns false
+// when it has none to show here, which leaves the click to open the upgrade
+// page. The reason is for the frame that can't open: puter.js then opens the
+// upgrade page itself, and that page only shows its upgrade flow with one.
+//
+// The frame answers when it closes (the desktop never does). After a payment
+// in it, the plan is checked right away instead of on the next focus, and a
+// few times over, in case it isn't on the account yet. Every other way back
+// is caught by the focus check, as with the page.
+function upgradeWithPuter() {
+    if (!puterShowsUpgrade()) return false;
+    let shown;
+    try { shown = puter.ui.requestUpgrade({ reason: 'funds' }); } catch (e) { return false; }
+    Promise.resolve(shown).then(async (result) => {
+        if (!result || result.upgraded !== true) return;
+        for (let i = 0; i < 5 && _upgradePending; i++) {
+            if (i > 0) await new Promise(resolve => setTimeout(resolve, 2000));
+            await refreshSubscriptionAfterUpgrade();
+        }
+    }).catch(() => {});
+    return true;
 }
 // ===== upgrade-pending (end) =====
 window.addEventListener('focus', refreshSubscriptionAfterUpgrade);
