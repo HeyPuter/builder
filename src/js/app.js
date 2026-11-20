@@ -1492,6 +1492,8 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
             // (prepareResumeHistory). It carries no user-visible text — sent to the
             // model only — so never render it as an (empty) chat bubble.
             if (message.resumeNudge) continue;
+            // An out-of-credits error the account has since paid past.
+            if (message.creditErrorCleared) continue;
             // Render each persisted message defensively: a single corrupted entry
             // (e.g. a partial tool_use from a build interrupted mid-stream) must
             // not throw out of the whole loop, which would abort loadChat before
@@ -1631,7 +1633,8 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
                     // Errors were persisted with an isError marker — re-render them
                     // as the same styled error card rather than a plain AI message.
                     if (message.isError) {
-                        appendErrorMessage(message.content);
+                        const $card = appendErrorMessage(message.content);
+                        if (isCreditErrorEntry(message)) $card.addClass('credit-error');
                     } else {
                         appendMessage(message.content, false, false, false, false, messageId);
                     }
@@ -4359,6 +4362,7 @@ async function consumePaidAfterLimit(key) {
         if (!user || user.uuid !== (window.user && window.user.uuid)) return;
         const found = planChange(hit.plan, await readPlanSnapshot(user));
         if (!found) return;
+        window.clearCreditErrors?.();
         // A new limit hit saved while this check was waiting on Puter is a new
         // baseline. Leave it for the next check.
         const now = JSON.parse(localStorage.getItem(key) || 'null');
@@ -4608,6 +4612,34 @@ function lastRequestSize(history) {
     return 0;
 }
 // ===== usage-limit-unblock (end) =====
+
+// An out-of-credits error card in the history. Entries saved before the
+// creditError marker are told by their text.
+function isCreditErrorEntry(msg) {
+    if (!msg || msg.role !== 'assistant' || !msg.isError || typeof msg.content !== 'string') return false;
+    return msg.creditError === true || /\b(enough|insufficient)\b[^.]*\bcredits?\b/i.test(msg.content);
+}
+
+// The account can pay again (an upgrade or bought credit), so the out-of-credits
+// and usage-limit cards in this project no longer apply. They leave the chat,
+// and the saved entries are marked so a reload doesn't draw them again. The
+// entries stay in the history the AI reads, so it still knows why the build
+// stopped. A running turn saves the mark at its next checkpoint.
+function clearCreditErrors() {
+    $('.chat-box .message.credit-error, .chat-box .message.upgrade-message').remove();
+    if (!Array.isArray(chatHistory)) return;
+    let changed = false;
+    for (const msg of chatHistory) {
+        if (!msg.creditErrorCleared && isCreditErrorEntry(msg)) {
+            msg.creditErrorCleared = true;
+            changed = true;
+        }
+    }
+    if (changed && !isProcessing) {
+        saveCurrentChat({ currentChatId, chatHistory }).catch(() => {});
+    }
+}
+window.clearCreditErrors = clearCreditErrors;
 
 window.addEventListener('focus', () => { checkPaidAfterLimit(); });
 document.addEventListener('visibilitychange', () => {
@@ -6284,9 +6316,12 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                     recordUsageLimitHit('credits', turnTemplate.template, turnStats.fastMode);
                 }
                 const friendlyError = friendlyErrorMessage(errorText);
-                appendErrorMessage(friendlyError);
+                const lowBalance = isLowBalanceRefusal(error);
+                const $card = appendErrorMessage(friendlyError);
                 window.announce?.('Error: ' + friendlyError, { assertive: true });
-                turnSaveContext.chatHistory.push({ role: "assistant", content: friendlyError, isError: true });
+                // Tagged so an upgrade or a top-up can clear it (clearCreditErrors).
+                if (lowBalance) $card.addClass('credit-error');
+                turnSaveContext.chatHistory.push({ role: "assistant", content: friendlyError, isError: true, ...(lowBalance && { creditError: true }) });
             }
 
             // hide the message that contains a progress message (handle both floating spinner and message-based spinner)
