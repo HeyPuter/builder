@@ -4613,6 +4613,7 @@ function lastRequestSize(history) {
 }
 // ===== usage-limit-unblock (end) =====
 
+// ===== clear-credit-errors (start) =====
 // An out-of-credits error card in the history. Entries saved before the
 // creditError marker are told by their text.
 function isCreditErrorEntry(msg) {
@@ -4640,6 +4641,7 @@ function clearCreditErrors() {
     }
 }
 window.clearCreditErrors = clearCreditErrors;
+// ===== clear-credit-errors (end) =====
 
 window.addEventListener('focus', () => { checkPaidAfterLimit(); });
 document.addEventListener('visibilitychange', () => {
@@ -6317,11 +6319,15 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                 }
                 const friendlyError = friendlyErrorMessage(errorText);
                 const lowBalance = isLowBalanceRefusal(error);
+                const errorEntry = { role: "assistant", content: friendlyError, isError: true, ...(lowBalance && { creditError: true }) };
                 const $card = appendErrorMessage(friendlyError);
                 window.announce?.('Error: ' + friendlyError, { assertive: true });
                 // Tagged so an upgrade or a top-up can clear it (clearCreditErrors).
-                if (lowBalance) $card.addClass('credit-error');
-                turnSaveContext.chatHistory.push({ role: "assistant", content: friendlyError, isError: true, ...(lowBalance && { creditError: true }) });
+                // Told the same way a reload tells it, so an out-of-credits text
+                // without Puter's code leaves the chat now too, not only after a
+                // reload.
+                if (isCreditErrorEntry(errorEntry)) $card.addClass('credit-error');
+                turnSaveContext.chatHistory.push(errorEntry);
             }
 
             // hide the message that contains a progress message (handle both floating spinner and message-based spinner)
