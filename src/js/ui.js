@@ -8040,8 +8040,24 @@ $(window).on('focus', function() {
     // delete confirmation word typed straight into the chat, and saved as a
     // draft). The same goes for the preview iframe: someone who was using
     // their app when they switched tabs should still be in it when they return.
-    if (!composerMayTakeFocus()) return;
-    $('.chat-input-message').focus();
+    //
+    // Never from inside this event: decide once the browser has finished
+    // moving focus. 'focus' also fires when the user clicks from the preview
+    // iframe back into this page, and it fires before the clicked element
+    // gets focus, while activeElement is still <body>. Focusing the composer
+    // then, in the middle of Chrome moving focus out of the frame, left the
+    // composer focused but with the IME still wired to the frame: Korean
+    // (and other composing) input arrived as loose letters, ㅎㅏㄴ for 한, until
+    // the user clicked away and back. (app-tests.js guardFocus hit the same
+    // thing going the other way, into a frame.) A tick later the click has
+    // done its own focusing, and a composer that already has focus is left
+    // untouched, so that path no longer calls focus() at all.
+    setTimeout(function () {
+        if (!document.hasFocus() || !composerMayTakeFocus()) return;
+        const $composer = $('.chat-input-message');
+        if ($composer.is(document.activeElement)) return;
+        $composer.focus();
+    }, 0);
 });
 
 // Whether a programmatic "put the cursor back in the composer" is welcome

@@ -58,5 +58,67 @@ check('publish address field focused → refused', mayTakeFocus({ active: 'publi
 check('preview iframe focused → refused', mayTakeFocus({ active: 'preview-frame' }) === false);
 check('confirm modal open, nothing focused → refused', mayTakeFocus({ active: 'body', modal: true }) === false);
 
+// ---- The window-focus handler must not focus from inside the event ---------
+// Clicking from the preview iframe back into the composer fires window 'focus'
+// first, with activeElement still <body>. Focusing the composer right there,
+// mid-way through Chrome moving focus out of the frame, left the IME wired to
+// the frame: Korean input arrived as separate letters until the user clicked
+// away and back. The handler now decides a tick later, and leaves a composer
+// that already has focus alone. This runs the REAL handler against stubs.
+const h0 = src.indexOf("$(window).on('focus', function() {");
+const h1 = src.indexOf('\n});\n', h0);
+if (h0 < 0 || h1 <= h0) throw new Error("could not extract the window 'focus' handler from ui.js");
+const handlerSrc = src.slice(h0, h1 + 4);
+
+function runWindowFocus({ active, mobile = false, hasFocus = true, activeAfterTick, modal = false }) {
+    const body = { tag: 'body' }, html = { tag: 'html' };
+    const composer = { tag: 'textarea', className: 'chat-input-message' };
+    const resolve = (a) => a === 'body' ? body : a === 'composer' ? composer
+        : a == null ? null : { tag: 'el', className: a };
+    const document = {
+        body, documentElement: html, activeElement: resolve(active),
+        hasFocus: () => hasFocus,
+        querySelector: (sel) => (sel === '.confirm-modal-overlay' && modal) ? {} : null,
+    };
+    let handler = null;
+    const focusCalls = [];
+    const $ = (arg) => {
+        if (arg === '.chat-input-message') {
+            return {
+                is: (el) => el === composer,
+                focus: () => { focusCalls.push('composer'); document.activeElement = composer; },
+            };
+        }
+        if (arg && arg.__isWindow) return { on: (ev, fn) => { if (ev === 'focus') handler = fn; } };
+        return { hasClass: (c) => !!(arg && typeof arg.className === 'string' && arg.className.split(/\s+/).includes(c)) };
+    };
+    const timers = [];
+    const window = { __isWindow: true, isMobileViewport: () => mobile };
+    new Function('$', 'window', 'document', 'setTimeout',
+        block + '\n' + handlerSrc)($, window, document, (fn) => { timers.push(fn); });
+    handler();
+    const duringEvent = focusCalls.length;
+    if (activeAfterTick !== undefined) document.activeElement = resolve(activeAfterTick);
+    timers.splice(0).forEach(fn => fn());
+    return { duringEvent, total: focusCalls.length };
+}
+
+check('window focus never focuses the composer synchronously inside the event',
+    runWindowFocus({ active: 'body' }).duringEvent === 0);
+check('click from preview back into the composer: no focus() call at all',
+    runWindowFocus({ active: 'body', activeAfterTick: 'composer' }).total === 0);
+check('return to the tab with nothing focused: composer gets focus (after the tick)',
+    runWindowFocus({ active: 'body' }).total === 1);
+check('click from preview onto another control: that control keeps focus',
+    runWindowFocus({ active: 'body', activeAfterTick: 'chat-search-input' }).total === 0);
+check('focus still in the preview iframe: left alone',
+    runWindowFocus({ active: 'preview-frame' }).total === 0);
+check('window lost focus again before the tick: left alone',
+    runWindowFocus({ active: 'body', hasFocus: false }).total === 0);
+check('mobile: never refocuses',
+    runWindowFocus({ active: 'body', mobile: true }).total === 0);
+check('confirm modal open: left alone',
+    runWindowFocus({ active: 'body', modal: true }).total === 0);
+
 if (failures) { console.error('\n' + failures + ' check(s) failed'); process.exit(1); }
 console.log('\nAll composer focus-guard checks passed.');
