@@ -503,7 +503,7 @@ function fnSlice(src, header) {
         /if \(window\.MessageQueue\?\.withQueuedText\?\.\(''\)\) saveComposerDraft\(\);\s*else clearComposerDraft\(\);/.test(send));
     const snap = send.indexOf('const preAuthEditTarget = window._pendingEditTarget || null;');
     check('a send takes its picked element when it starts, like its text and files',
-        snap > 0 && snap < send.indexOf('await ensureAuthenticated();')
+        snap > 0 && snap < send.indexOf("await ensureAuthenticated('send');")
         && send.includes('if (consumedComposer && window._pendingEditTarget === preAuthEditTarget) window.clearEditTarget?.();'));
 }
 {

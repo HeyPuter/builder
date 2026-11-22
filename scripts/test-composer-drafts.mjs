@@ -578,7 +578,7 @@ check('programmatic sends do not take or clear the attachment tray (a queued one
 // afterwards dropped the files the user attached to the message being sent.
 check('send snapshots the attachment tray BEFORE ensureAuthenticated',
     sendSrc.indexOf('const preAuthAttachments = attachedImages.slice();') > 0 &&
-    sendSrc.indexOf('const preAuthAttachments = attachedImages.slice();') < sendSrc.indexOf('await ensureAuthenticated();'));
+    sendSrc.indexOf('const preAuthAttachments = attachedImages.slice();') < sendSrc.indexOf("await ensureAuthenticated('send');"));
 check('programmatic sends do not spend the click-to-edit target (a queued one carries its own)',
     sendSrc.includes(': consumedComposer ? preAuthEditTarget : (queued && queued.editTarget);') &&
     sendSrc.includes('if (consumedComposer && window._pendingEditTarget === preAuthEditTarget) window.clearEditTarget?.();'));
@@ -606,7 +606,7 @@ check('the send path never restores/settles a draft (would corrupt the outgoing 
 // signed-out deep-link visitor's typed message is replaced by that project's
 // stored draft (sent unseen) or silently dropped.
 {
-    const authIdx = sendSrc.indexOf('await ensureAuthenticated()');
+    const authIdx = sendSrc.indexOf("await ensureAuthenticated('send')");
     const textIdx = sendSrc.indexOf('const preAuthComposerText');
     const ctxIdx = sendSrc.indexOf('const preAuthDraftContext');
     check('send captures the composer text + draft context BEFORE ensureAuthenticated (whose deep-link loadChat rewrites the composer)',
@@ -617,7 +617,7 @@ check('the send path never restores/settles a draft (would corrupt the outgoing 
 
 const signInBtnSrc = UI.slice(UI.indexOf("'.sign-in-btn'"), UI.indexOf("'.sign-in-btn'") + 700);
 check('the Sign In button settles the composer after an in-session sign-in',
-    /await ensureAuthenticated\(\);[\s\S]{0,400}window\.settleComposerDraftIdentity\?\.\(\);/.test(signInBtnSrc));
+    /await ensureAuthenticated\('button'\);[\s\S]{0,400}window\.settleComposerDraftIdentity\?\.\(\);/.test(signInBtnSrc));
 
 const chipSrc = fnSlice(UI, 'function applyChipPromptToComposer(');
 check('ui.js chip injection mirrors its programmatic write into the draft store',

@@ -23,6 +23,8 @@ let activeTurnInterrupted = false;
 // after it) — a second Send in that window used to pass the isProcessing
 // check, read the same composer text, and start an identical second turn.
 let _sendSetupInFlight = false;
+// Prompt Sent fires once per page load (see sendChatMessage).
+let _promptSentTracked = false;
 // Monotonic id of the most recently STARTED turn (sendChatMessage claims one
 // per turn). A turn's end-of-turn teardown compares its own id against this to
 // tell "I finished" from "a newer turn in this same chat has since begun" —
@@ -3076,18 +3078,39 @@ function applyHomeGreeting() {
     }
 }
 
+// Sign-in analytics, for the funnel from landing to a project. Prompt Sent
+// says whether the visitor was signed in when they sent. Sign In Result says
+// how each sign-in the builder asked for ended, as status (signed_in, closed
+// when the popup was closed without signing in, failed for anything else),
+// and where it was asked for, as source (send, button, template, voice,
+// menu). A visitor who leaves while the popup is still up sends no result.
+function isSignedInNow() {
+    try { return !!puter.auth.isSignedIn(); } catch (e) { return false; }
+}
+function trackSignInResult(source, status) {
+    window.track?.('Sign In Result', { status, source: source || 'other' });
+}
+window.trackSignInResult = trackSignInResult;
+
 // Ensure the user is fully authenticated (not a temp user). Call this before
 // any action that requires a real account (e.g. sending a message).  Returns
-// the user object, or throws if sign-in was dismissed.
+// the user object, or throws if sign-in was dismissed. `source` says where
+// the sign-in was asked for, for Sign In Result.
 // The one-time, per-identity setup below (working dir, system prompt, saved
 // project list, deep-link restore) in flight, so two callers that overlap —
 // a second Send while the sign-in popup is still up — share one run instead
 // of racing through two. Cleared when it settles.
 let _authInitInFlight = null;
 
-async function ensureAuthenticated() {
+async function ensureAuthenticated(source) {
     if (!window.user || window.user.is_temp) {
-        await puter.auth.signIn();
+        try {
+            await puter.auth.signIn();
+        } catch (e) {
+            trackSignInResult(source, e && e.error === 'auth_window_closed' ? 'closed' : 'failed');
+            throw e;
+        }
+        trackSignInResult(source, 'signed_in');
         window.user = await puter.auth.getUser();
     }
     // Lazily initialise user-dependent state the first time we authenticate.
@@ -5450,9 +5473,19 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // next message.
     const preAuthEditTarget = window._pendingEditTarget || null;
 
+    // Prompt Sent, once per page load, for a message the user sent from the
+    // composer, with whether they were signed in at that moment. It fires
+    // before the sign-in gate, so a visitor who never gets past it is
+    // counted. The automatic sends (error fixes, the Issues batch, a resume,
+    // a queued message) are not prompts the user just sent.
+    if (!_promptSentTracked && userInput == null && chat_input_message == null && !opts.resume && !opts.queued) {
+        _promptSentTracked = true;
+        window.track?.('Prompt Sent', { signed_in: isSignedInNow() });
+    }
+
     // Ensure the user is signed in before sending
     try {
-        await ensureAuthenticated();
+        await ensureAuthenticated('send');
         // Signing in here flips the top-right from Sign In to the profile circle.
         updateUserMenu();
     } catch (e) {
