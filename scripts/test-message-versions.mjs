@@ -3,9 +3,8 @@ import vm from 'node:vm';
 
 // ---- Versions for edited messages (versions.js) ------------------------------
 // Editing a message puts the project's files back to the version it was sent
-// with, and switching between an edited message's versions puts each one's
-// files back (js/message-edit.js). That rests on four things here, run on the
-// real module with only the file system and the UI mocked:
+// with (js/message-edit.js). That rests on four things here, run on the real
+// module with only the file system and the UI mocked.
 //   - projectVersionNow: the version the files are at, once the snapshots
 //     queued before the ask have landed, null when no version holds them, and
 //     'empty' for a project with no files yet.

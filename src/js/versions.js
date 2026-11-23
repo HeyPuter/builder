@@ -365,7 +365,7 @@
 
     // The version the project's files are at right now, for the record each
     // message keeps of the files it was sent with (sendChatMessage) and for
-    // editing a message or switching between its versions (message-edit.js).
+    // editing a message (message-edit.js).
     // Asked now, answered once every snapshot queued so far has landed. The
     // answer is the snapshot that took the files as they are now, else the
     // current version when nothing has changed since it, else EMPTY_VERSION
@@ -836,8 +836,8 @@
 
     // Puts the open project's files back to versionId (or EMPTY_VERSION).
     // opts are skipConfirm (no "Restore the project?" dialog), quiet (no note
-    // in the conversation, since editing a message or switching between its
-    // versions changes the conversation itself, see message-edit.js), and
+    // in the conversation, since editing a message changes the conversation
+    // itself, see message-edit.js), and
     // exact (go ahead even when versionId is already current, if the files
     // have changed since it). Resolves { ok: true, from } once the files are versionId, where
     // `from` is the version they were at before (the restore point taken
@@ -1267,9 +1267,8 @@
 
     // ----- editing a message (message-edit.js) -------------------------------
 
-    // Editing a message puts the files back to the version it was sent with,
-    // and switching between an edited message's versions puts back each one's
-    // files. Quiet, because the edit changes the conversation itself.
+    // Editing a message puts the files back to the version it was sent with.
+    // Quiet, because the edit changes the conversation itself.
     window.restoreProjectVersion = function (versionId, opts) {
         return restoreVersion(versionId, Object.assign({ skipConfirm: true, quiet: true, exact: true }, opts || {}));
     };
