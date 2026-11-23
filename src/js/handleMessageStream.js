@@ -21,19 +21,21 @@ function saveCurrentMessage(context) {
     }
 }
 
-// A Stop (or a switch to another chat) cut the reply off while it was being
-// written. Text is otherwise only committed to the history around a tool call
-// or at the end of the turn, so the sentence in progress stayed on screen but
-// was never saved: gone after a reload, and unseen by the model on Resume,
-// which then wrote it again. Commit what streamed so far; the end-of-turn save
-// persists it with interrupted:true, and Resume continues after it.
-// Not for the stall watchdog's abort: its retry regenerates the reply and
+// A Stop, a switch to another chat, or an error the turn ends on (out of
+// credits) cut the reply off while it was being written. Text is otherwise
+// only committed to the history around a tool call or at the end of the turn,
+// so the sentence in progress stayed on screen but was never saved. It was
+// gone after a reload, and unseen by the model on Resume or "continue", which
+// then wrote it again. Commit what streamed so far. Called from the stream's finally on
+// an abort, and from sendChatMessage ahead of its error card and its stall
+// backstop. The end-of-turn save persists it.
+// Not for the stall watchdog's abort, whose retry regenerates the reply and
 // drops the unsaved bubble (removeUncommittedBubble). Not once a newer turn
 // has started in this chat (Stop with messages queued), whose history this
-// late text would land after. Both globals live in app.js; the typeof guards
+// late text would land after. Both globals live in app.js. The typeof guards
 // keep this file loadable on its own.
-function keepStoppedReply(context) {
-    if (!context || !isAborted(context.abortController)) return;
+function keepCutOffReply(context) {
+    if (!context) return;
     if (typeof _stallRecovery !== 'undefined' && _stallRecovery) return;
     if (context.turnSeq != null && typeof _latestTurnSeqByChat !== 'undefined'
         && _latestTurnSeqByChat.get(context.currentChatId) !== context.turnSeq) return;
@@ -556,6 +558,8 @@ async function handleMessageStream(stream, context) {
                     context.currentMessage = hasActiveTodos() ? $() : appendMessage('', false);
                 }
                 context.currentMessageContent += completion.text;
+                // Saved within seconds, so a tab closed mid-reply keeps it.
+                window.scheduleReplyCheckpoint?.(context);
 
                 // Only render when there is a bubble to render into. While the
                 // checklist suppresses narration, currentMessage is an EMPTY jQuery
@@ -613,7 +617,7 @@ async function handleMessageStream(stream, context) {
         // Includes stream errors, Stop, navigation, retries and reasoning-only
         // responses, even when the stream never emits another chunk.
         clearThinking();
-        keepStoppedReply(context);
+        if (isAborted(context.abortController)) keepCutOffReply(context);
     }
     if (isAborted(context.abortController) || isStaleTurn(context)) return;
     // A stream that ended without its usage line still ran to its end (an

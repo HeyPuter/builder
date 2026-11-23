@@ -608,6 +608,29 @@ function withChatFileLock(chatId, fn) {
     return typeof window.withFileLock === 'function' ? window.withFileLock(chatFilePath(chatId), fn) : fn();
 }
 
+// ===== pending-reply (start) =====
+// A reply still being written isn't in the history until its round ends. A
+// save during it (a reply checkpoint, see reply-checkpoints) writes it after
+// the history, so the chat reopens interrupted with it.
+
+// The reply the turn is writing, when it is one to save. Not once a newer
+// turn has started in this chat (Stop with messages queued), since the
+// history belongs to that turn then (see keepCutOffReply).
+function pendingReplyText(context) {
+    const text = context && typeof context.currentMessageContent === 'string' ? context.currentMessageContent : '';
+    if (!text.trim()) return '';
+    if (context.turnSeq != null && _latestTurnSeqByChat.get(context.currentChatId) !== context.turnSeq) return '';
+    return text;
+}
+
+// What a save of `context` writes as the chat's history.
+function historyWithPendingReply(context) {
+    const text = pendingReplyText(context);
+    if (!text) return context.chatHistory;
+    return [...context.chatHistory, { role: 'assistant', content: text, messageId: generateMessageId() }];
+}
+// ===== pending-reply (end) =====
+
 async function saveCurrentChat(context) {
     return withChatFileLock(context && context.currentChatId, () => saveCurrentChatUnlocked(context));
 }
@@ -721,7 +744,7 @@ async function saveCurrentChatUnlocked(context) {
         customTitle: isCustomTitle,
         aiTitled: isAiTitle,
         timestamp: timestamp,
-        history: context.chatHistory,
+        history: historyWithPendingReply(context),
         lastModified: timestamp,
         previewUrl: previewUrl,
         previewPath: previewPath,
@@ -987,11 +1010,51 @@ function scheduleSaveCurrentChat(context) {
 // queue is cleared so the drain cannot write them a second time either. Uses
 // pagehide (fires on bfcache + unload) rather than the unreliable unload event.
 window.addEventListener('pagehide', () => {
+    // A reply still being written goes out now too (reply checkpoints below).
+    flushReplyCheckpoint();
     if (_chatSavePending.size === 0) return;
     const batch = Array.from(_chatSavePending.values());
     _chatSavePending.clear();
     for (const ctx of batch) saveCurrentChat(ctx).catch(() => {}); // fire-and-forget; we can't await during teardown
 });
+
+// ===== reply-checkpoints (start) =====
+// ---- Reply checkpoints ------------------------------------------------------
+// A reply's text joins the history around a tool call or at the end of the
+// turn, and is saved with it. A tab closed, reloaded or killed partway through
+// a long reply lost all of it. While text streams, the turn is saved a few
+// seconds after its first unsaved chunk, and at once when the page is hidden
+// (a phone may kill a backgrounded tab) or goes away. The save writes the text
+// after the history (historyWithPendingReply, above saveCurrentChat), so the
+// chat reopens interrupted with it, and Resume continues after it.
+const REPLY_CHECKPOINT_MS = 3000;
+let _replyCheckpoint = null; // { context, timer }, the save due for that turn's text
+
+// Called by handleMessageStream for each text chunk.
+function scheduleReplyCheckpoint(context) {
+    if (_replyCheckpoint && _replyCheckpoint.context === context) return; // already due
+    flushReplyCheckpoint(); // another turn's, after a chat switch, is saved now
+    const due = { context, timer: setTimeout(() => {
+        if (_replyCheckpoint === due) _replyCheckpoint = null;
+        if (pendingReplyText(context)) scheduleSaveCurrentChat(context);
+    }, REPLY_CHECKPOINT_MS) };
+    _replyCheckpoint = due;
+}
+window.scheduleReplyCheckpoint = scheduleReplyCheckpoint;
+
+// Save the due checkpoint now. Nothing to save once the text has been
+// committed (its round ended, the turn stopped) or dropped for a retry.
+function flushReplyCheckpoint() {
+    const due = _replyCheckpoint;
+    if (!due) return;
+    _replyCheckpoint = null;
+    clearTimeout(due.timer);
+    if (pendingReplyText(due.context)) scheduleSaveCurrentChat(due.context);
+}
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushReplyCheckpoint();
+});
+// ===== reply-checkpoints (end) =====
 
 // --- Project deep-linking ----------------------------------------------------
 // The open project is reflected in the URL as the query param ?p=<chatId> so a
@@ -6196,8 +6259,12 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                         throw streamError;
                     }
                 }
-                // Drop any partial, unsaved narration bubble before resuming.
-                removeUncommittedBubble(context);
+                // Drop any partial, unsaved narration bubble before resuming,
+                // since the retry writes the reply again. Out of retries,
+                // nothing will, so keep it as a Stop does. Resume continues
+                // after it.
+                if (!stallRecovery && attempt >= MAX_TURN_RETRIES) keepCutOffReply(context);
+                else removeUncommittedBubble(context);
                 // This attempt's rounds were generated (and billed) even though
                 // it failed; keep their usage — the retry builds a new context.
                 if (context) flushTurnUsage(context);
@@ -6247,8 +6314,11 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // unwound WITHOUT throwing (some iterators resolve `done` on abort
         // instead of rejecting), so the catch above never ran. Don't let the
         // turn end silently — route it to the same resumable give-up path.
+        // No retry will rewrite the reply, so keep the text that had streamed,
+        // as a Stop does (keepCutOffReply skipped it while the flag was up).
         if (_stallRecovery) {
             _stallRecovery = false;
+            keepCutOffReply(context);
             if (turnChatId === currentChatId && !shouldStop && !activeTurnInterrupted) {
                 retryGaveUp = true;
                 gaveUpBannerText = 'The build was interrupted while the app was in the background. Resume to continue where it left off.';
@@ -6338,6 +6408,10 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // Its error card and history entry would land in the newer turn's chat.
         if (!shouldStop && !activeTurnInterrupted && turnChatId === currentChatId && turnSeq === _turnSeq) {
             turnErrored = true;
+            // The reply may have been partway written when the error came (a
+            // credit error line mid-stream). Errors that end the turn are never
+            // retried, so keep that text, ahead of the error card.
+            keepCutOffReply(context);
             if(error.error?.delegate === "usage-limited-chat"){
                 trackLimitHit({ first_build: isFirstBuildTurn, model: turnModel, kind: 'tier', ...usageLimitHitProps(turnSaveContext.chatHistory, savedChats, turnChatId, window.currentPublishedUrl) });
                 recordUsageLimitHit('tier', turnTemplate.template, turnStats.fastMode);

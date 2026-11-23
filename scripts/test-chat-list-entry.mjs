@@ -39,14 +39,14 @@ function sandbox({ savedChats, currentChatId, onWrite }) {
     const factory = new Function(
         '_deletedChatIds', 'savedChats', '_aiProjectTitles', 'generateChatTitle', 'chatFilePath', 'puter',
         'currentChatId', 'window', '_suggestionsByChat', 'setUrlChat', 'saveChatList',
-        'updateChatHistorySidebar', 'updateDocumentTitle', 'console', '_chatListWrittenAt',
+        'updateChatHistorySidebar', 'updateDocumentTitle', 'console', '_chatListWrittenAt', 'historyWithPendingReply',
         body + '\n; return saveCurrentChatUnlocked;',
     );
     const fn = factory(
         deleted, savedChats, new Map(), () => 'Generated title', (id) => `chat-history/${id}.json`, puter,
         currentChatId, { currentPreviewUrl: 'https://y.puter.site/' }, new Map(),
         (id) => calls.url.push(id), async () => { calls.saveChatList++; },
-        () => { calls.sidebar++; }, () => {}, { error: () => {}, warn: () => {} }, new Map(),
+        () => { calls.sidebar++; }, () => {}, { error: () => {}, warn: () => {} }, new Map(), (ctx) => ctx.chatHistory,
     );
     return { fn, written, calls, deleted };
 }
