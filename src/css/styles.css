@@ -1114,15 +1114,30 @@ puter-user-menu::part(sign-in):hover {
     color: #111;
 }
 
-/* Editing the latest message (js/message-edit.js): the pencil under it, like
-   a queued message's, and the message turned into a box to edit in place.
-   The bar's negative margin keeps the gap to the reply as it was. */
-.message-edit-bar {
+/* Under each message the user sent (js/message-edit.js), Copy and Edit, like
+   a queued message's buttons, shown while the pointer is over the message or
+   a button has keyboard focus. The arrows between an edited message's
+   versions always show. The bar's negative margin takes back most of the
+   room it needs from the gap to the reply. */
+.message-actions {
     display: flex;
     justify-content: flex-end;
-    margin: 2px 0 -12px;
+    align-items: center;
+    gap: 2px;
+    margin: 2px 0 -18px;
 }
-.message-edit-btn {
+.message-actions > .message-copy-btn,
+.message-actions > .message-edit-btn {
+    opacity: 0;
+    transition: opacity 0.12s ease;
+}
+.user-message:hover .message-actions > button,
+.message-actions:focus-within > button {
+    opacity: 1;
+}
+.message-edit-btn,
+.message-copy-btn,
+.message-branch-nav button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1135,9 +1150,26 @@ puter-user-menu::part(sign-in):hover {
     color: #757575;
     cursor: pointer;
 }
-.message-edit-btn:hover {
+.message-edit-btn:hover,
+.message-copy-btn:hover,
+.message-branch-nav button:hover:not(:disabled) {
     background: #f0f0f0;
     color: #111;
+}
+.message-copy-btn.copied { color: #1a7f37; }
+.message-branch-nav {
+    display: inline-flex;
+    align-items: center;
+    margin-right: 2px;
+}
+.message-branch-nav button { width: 24px; }
+.message-branch-nav button:disabled { opacity: 0.35; cursor: default; }
+.message-branch-count {
+    min-width: 34px;
+    text-align: center;
+    font-size: 12px;
+    color: #666;
+    font-variant-numeric: tabular-nums;
 }
 /* While it's being edited, the box takes the text's place. The files it was
    sent with stay in view under it, as they stay with the message. */
@@ -1170,8 +1202,19 @@ puter-user-menu::part(sign-in):hover {
 .message-edit-actions {
     display: flex;
     justify-content: flex-end;
+    align-items: center;
+    flex-wrap: wrap;
     gap: 6px;
     margin-top: 8px;
+}
+/* What Send will do to the app (back to the version the message was sent
+   with, or left as it is). */
+.message-edit-hint {
+    flex: 1 1 200px;
+    margin: 0 6px 0 2px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: #666;
 }
 .message-edit-cancel,
 .message-edit-send {
@@ -3654,6 +3697,8 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
     }
     .chat-menu-btn { opacity: 1; }
     .issue-actions { opacity: 1; }
+    .message-actions > .message-copy-btn,
+    .message-actions > .message-edit-btn { opacity: 1; }
 }
 
 
@@ -5883,7 +5928,9 @@ body.preview-active.chat-hidden .chat {
         height: 34px;
     }
     .queued-message-icon { width: 36px; height: 36px; }
-    .message-edit-btn { width: 36px; height: 36px; }
+    .message-edit-btn,
+    .message-copy-btn,
+    .message-branch-nav button { width: 36px; height: 36px; }
     .message-edit-cancel,
     .message-edit-send { height: 36px; padding: 0 14px; }
     .queued-message-send-now { height: 36px; }
@@ -7760,8 +7807,15 @@ html[data-theme="dark"] .queued-message-send-now:hover {
     background: var(--surface-hover);
     color: var(--text);
 }
-html[data-theme="dark"] .message-edit-btn { color: var(--text-muted); }
-html[data-theme="dark"] .message-edit-btn:hover { background: var(--surface-hover); color: var(--text); }
+html[data-theme="dark"] .message-edit-btn,
+html[data-theme="dark"] .message-copy-btn,
+html[data-theme="dark"] .message-branch-nav button { color: var(--text-muted); }
+html[data-theme="dark"] .message-edit-btn:hover,
+html[data-theme="dark"] .message-copy-btn:hover,
+html[data-theme="dark"] .message-branch-nav button:hover:not(:disabled) { background: var(--surface-hover); color: var(--text); }
+html[data-theme="dark"] .message-copy-btn.copied { color: #4ac26b; }
+html[data-theme="dark"] .message-branch-count,
+html[data-theme="dark"] .message-edit-hint { color: var(--text-muted); }
 html[data-theme="dark"] .message-edit-input { background: var(--surface); border-color: var(--border); color: var(--text); }
 html[data-theme="dark"] .message-edit-input:focus { border-color: var(--border-strong); }
 html[data-theme="dark"] .message-edit-cancel { background: var(--surface); border-color: var(--border); color: var(--text); }

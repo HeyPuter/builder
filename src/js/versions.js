@@ -350,6 +350,52 @@
     // a restore goes ahead, but not a version id.
     const NOTHING_TO_SNAPSHOT = Object.freeze({ nothingToSnapshot: true });
 
+    // Stands for "no files yet" wherever a version id goes. A new project's
+    // first message was sent with nothing in it, and editing that message puts
+    // the project back to empty (restoreVersion). Never a real id (those are
+    // v_<time>_<random>).
+    const EMPTY_VERSION = 'empty';
+    window.EMPTY_PROJECT_VERSION = EMPTY_VERSION;
+
+    // Per chat, the last version known to hold the project's files exactly
+    // (from a snapshot's copy, a restore, or an empty project), and the chat's
+    // mutation count (_mutationGen) when it did. While the count is the same,
+    // the files are still that version (projectVersionNow).
+    const _captured = new Map();
+
+    // The version the project's files are at right now, for the record each
+    // message keeps of the files it was sent with (sendChatMessage) and for
+    // editing a message or switching between its versions (message-edit.js).
+    // Asked now, answered once every snapshot queued so far has landed. The
+    // answer is the snapshot that took the files as they are now, else the
+    // current version when nothing has changed since it, else EMPTY_VERSION
+    // for a project with no files. Null when no version holds them (a change
+    // no snapshot took, or one that failed). A link of snapshotChain, so a
+    // snapshot queued after the ask can't answer for files it never saw.
+    window.projectVersionNow = function (chatId, appDir) {
+        if (!chatId || !window.user) return Promise.resolve(null);
+        const gen = _mutationGen.get(chatId) || 0;
+        const dirty = isChatDirty(chatId);
+        let result = null;
+        snapshotChain = snapshotChain.catch(function () {}).then(async function () {
+            const last = _captured.get(chatId);
+            if (last && last.gen === gen) { result = last.versionId; return; }
+            if (dirty) return;
+            const index = await readIndexForDisplay(chatId);
+            if (!index) return;
+            if (index.current) { result = index.current; return; }
+            if (!appDir) return;
+            let items;
+            try { items = await puter.fs.readdir(appDir); }
+            catch (e) {
+                if (typeof isNotFoundError === 'function' && isNotFoundError(e)) result = EMPTY_VERSION;
+                return;
+            }
+            if (Array.isArray(items) && !items.some(it => !(it && it.is_dir && it.name === '.puter'))) result = EMPTY_VERSION;
+        });
+        return snapshotChain.then(() => result, () => result);
+    };
+
     // The README.md every new project starts with (js/project-readme.js). A
     // project is new while it has no versions, so this covers a first build, a
     // template copy, an attached zip and a first hand edit alike. A project
@@ -408,6 +454,7 @@
             // its cap prune could delete the very version being restored from.
             // The restore saved any un-snapshotted work before it began.
             if (_restoringFilesOf.has(chatId) && !opts.fromRestore) return null;
+            const genAtList = _mutationGen.get(chatId) || 0;
 
             // Only snapshot when the app directory actually has content. A
             // directory that doesn't exist yet is "nothing to snapshot"; any
@@ -430,7 +477,10 @@
             // every restore was refused for good — the one way back blocked.
             // Puter's own .puter folder (its screenshots, the preview canary)
             // doesn't count as content.
-            if (!items.some(it => !(it && it.is_dir && it.name === '.puter'))) return NOTHING_TO_SNAPSHOT;
+            if (!items.some(it => !(it && it.is_dir && it.name === '.puter'))) {
+                _captured.set(chatId, { gen: genAtList, versionId: EMPTY_VERSION });
+                return NOTHING_TO_SNAPSHOT;
+            }
 
             // A new project's first version brings the builder's README.md,
             // written before the copy so the version holds it too.
@@ -487,6 +537,7 @@
             }
 
             await writeIndex(chatId, index);
+            _captured.set(chatId, { gen: genAtCopy, versionId });
             // The working dir is now captured by this snapshot (this chat's —
             // the snapshot may belong to a chat the user has since left) — but
             // only if nothing edited it since the copy began. A newer turn's
@@ -582,6 +633,7 @@
         _dirtyChats.delete(chatId);
         _knownClean.delete(chatId);
         _mutationGen.delete(chatId);
+        _captured.delete(chatId);
         updateStoredDirty(chatId, false);
         try { await snapshotChain; } catch (e) { /* ignore */ }
         try {
@@ -759,8 +811,42 @@
     const _restoresStarting = new Set();
     window.isRestoreStarting = function (chatId) { return _restoresStarting.has(chatId); };
 
+    // Restoring EMPTY_VERSION removes every file of the project except Puter's
+    // own .puter folder (no version holds a project with no files, so there
+    // is no snapshot to copy from). Like restoreDirFromSnapshot it returns the
+    // names it couldn't remove.
+    async function clearProjectDir(appDir) {
+        let items = [];
+        try { items = await puter.fs.readdir(appDir); }
+        catch (e) {
+            if (typeof isNotFoundError === 'function' && isNotFoundError(e)) return [];
+            throw e;
+        }
+        const leftovers = [];
+        await forEachLimited((items || []).filter(it => it && !(it.is_dir && it.name === '.puter')), RESTORE_CONCURRENCY, async (it) => {
+            const p = appDir + '/' + it.name;
+            try { await lockedFs(p, () => puter.fs.delete(p, { recursive: true })); }
+            catch (e) {
+                console.warn('Restore: failed to remove', it.name, e);
+                leftovers.push(it.name);
+            }
+        });
+        return leftovers;
+    }
+
+    // Puts the open project's files back to versionId (or EMPTY_VERSION).
+    // opts are skipConfirm (no "Restore the project?" dialog), quiet (no note
+    // in the conversation, since editing a message or switching between its
+    // versions changes the conversation itself, see message-edit.js), and
+    // exact (go ahead even when versionId is already current, if the files
+    // have changed since it). Resolves { ok: true, from } once the files are versionId, where
+    // `from` is the version they were at before (the restore point taken
+    // first, if one was needed, or null when none holds them). Resolves
+    // nothing when the restore was refused, called off or failed, and the
+    // user is told why, as always.
     async function restoreVersion(versionId, opts) {
         opts = opts || {};
+        const empty = versionId === EMPTY_VERSION;
         // A send being set up (it may be saving code and taking a version) is
         // about to start a turn, so it counts as the current task too.
         if ((typeof isProcessing !== 'undefined' && isProcessing)
@@ -842,6 +928,8 @@
         // Set once the restore's note is in the conversation (the Code view's
         // pending hand-edit note can then go, see onRestoreEnd).
         let restoreNoted = false;
+        // What this resolves to once the files are the version.
+        let outcome;
         try {
             // Let any in-flight background snapshot finish first, so we read the
             // index and mutate files against a consistent, fully-written state.
@@ -850,12 +938,18 @@
             // Throws if the index can't be read — the catch below reports it and
             // no project file has been touched yet, which is the safe outcome.
             let index = await readIndex(chatId);
-            const version = index.versions.find(v => v.id === versionId);
+            const version = empty ? { id: EMPTY_VERSION, label: '' } : index.versions.find(v => v.id === versionId);
             if (!version) {
                 await puter.ui.alert('That version could not be found.');
                 return;
             }
-            if (version.id === index.current) return; // already the live version
+            // Already the live version (unless the caller needs the files to
+            // be it exactly, and they have changed since).
+            if (!empty && version.id === index.current && !(opts.exact && isChatDirty(chatId))) {
+                return (outcome = { ok: true, from: version.id });
+            }
+            // The version the files are at before this restore (see below).
+            let from = null;
 
             // Undo/redo intentionally skip the confirm dialog: they must stay
             // one-click to be useful, and the pre-restore safety snapshot below
@@ -871,12 +965,14 @@
 
             const snapDir = versionsRootForChat(chatId) + '/' + versionId;
             // Verify the snapshot's files still exist (nicer message than a raw
-            // copy failure).
-            try {
-                await puter.fs.stat(snapDir);
-            } catch (e) {
-                await puter.ui.alert("This version's files are missing and cannot be restored.");
-                return;
+            // copy failure). An empty project has none to check.
+            if (!empty) {
+                try {
+                    await puter.fs.stat(snapDir);
+                } catch (e) {
+                    await puter.ui.alert("This version's files are missing and cannot be restored.");
+                    return;
+                }
             }
 
             // Give BOTH surfaces instant feedback up front (the file copy below
@@ -935,6 +1031,10 @@
                 if (!saved) {
                     throw new Error("Couldn't save a restore point for your current files, so nothing was changed. Try again in a moment.");
                 }
+                from = typeof saved === 'string' ? saved : EMPTY_VERSION;
+            } else {
+                const last = _captured.get(chatId);
+                from = last && last.gen === (_mutationGen.get(chatId) || 0) ? last.versionId : (index.current || null);
             }
 
             // Reconcile the working dir to exactly match the snapshot. The app dir
@@ -964,7 +1064,7 @@
             let leftovers = [];
             filesTouched = true;
             try {
-                leftovers = await restoreDirFromSnapshot(appDir, snapDir);
+                leftovers = empty ? await clearProjectDir(appDir) : await restoreDirFromSnapshot(appDir, snapDir);
             } catch (e) {
                 // A copy failure aborts the walk, but the files copied before it
                 // already landed: the working dir is now a mix of two snapshots
@@ -1015,7 +1115,8 @@
             try {
                 await (snapshotChain = snapshotChain.catch(function () {}).then(async function () {
                     index = (await readIndexForDisplay(chatId)) || fallbackIndex;
-                    index.current = versionId;
+                    // No version holds an empty project, so none is current.
+                    index.current = empty ? null : versionId;
                     await writeIndex(chatId, index);
                 }));
             } catch (e) {
@@ -1031,11 +1132,15 @@
             }
             // The working dir now exactly matches versionId's snapshot.
             clearDirty(chatId);
-            // …and its backend should run that version's code too.
-            redeployProjectWorkers(appDir).catch(() => {});
-            // A linked project sends the restored files to GitHub as a new
-            // commit on top of its history (nothing there is rewritten).
-            try { window.GitHubSync?.onVersionsChanged?.(chatId, versionId); } catch (e) { /* never */ }
+            _captured.set(chatId, { gen: _mutationGen.get(chatId) || 0, versionId });
+            outcome = { ok: true, from };
+            if (!empty) {
+                // …and its backend should run that version's code too.
+                redeployProjectWorkers(appDir).catch(() => {});
+                // A linked project sends the restored files to GitHub as a new
+                // commit on top of its history (nothing there is rewritten).
+                try { window.GitHubSync?.onVersionsChanged?.(chatId, versionId); } catch (e) { /* never */ }
+            }
 
             // Only touch UI/conversation state if we're still on the chat we
             // restored — a mid-restore chat switch must not redirect the preview
@@ -1055,7 +1160,7 @@
                 // string is rendered through the markdown pipeline.
                 const safeLabel = (version.label || '').replace(/[<>`*_\[\]()!]/g, '').trim();
                 const note = `*Restored the project to an earlier version${safeLabel ? ` ("${safeLabel}")` : ''}.*`;
-                if (typeof chatHistory !== 'undefined' && Array.isArray(chatHistory)) {
+                if (!opts.quiet && typeof chatHistory !== 'undefined' && Array.isArray(chatHistory)) {
                     const messageId = (typeof generateMessageId === 'function') ? generateMessageId() : null;
                     // versionNote: not a build reply (see countCompletedBuilds).
                     chatHistory.push({ role: 'assistant', content: note, messageId, versionNote: true });
@@ -1093,9 +1198,14 @@
             // Revert the optimistic highlight to the true persisted state.
             renderVersionsPanelIfOpen();
             await puter.ui.alert((e && e.partialRestore ? '' : 'Restore failed: ') + (e.message || e));
+            outcome = undefined;
         } finally {
             window._restoringVersion = false;
             _restoringFilesOf.delete(chatId);
+            // A quiet restore goes with a conversation rewound to match the
+            // files (an edited message), so the note about hand edits goes, as
+            // it does once a restore's note is in.
+            if (opts.quiet && outcome) restoreNoted = true;
             // Open files in the Code view reload from the restored ones.
             window.CodeEditor?.onRestoreEnd?.(chatId, filesTouched, restoreNoted);
             $('.preview-versions-panel .version-restore').prop('disabled', false);
@@ -1108,6 +1218,7 @@
             // success; on failure/cancel this restores the pre-restore state).
             updateVersionNavButtons();
         }
+        return outcome;
     }
 
     // ----- undo/redo toolbar navigation --------------------------------------
@@ -1152,6 +1263,43 @@
         // non-throwing wrapper — this is unawaited, so a read failure would
         // otherwise surface as an unhandled rejection.
         if (currentChatId && !indexCache.has(currentChatId)) readIndexForDisplay(currentChatId);
+    };
+
+    // ----- editing a message (message-edit.js) -------------------------------
+
+    // Editing a message puts the files back to the version it was sent with,
+    // and switching between an edited message's versions puts back each one's
+    // files. Quiet, because the edit changes the conversation itself.
+    window.restoreProjectVersion = function (versionId, opts) {
+        return restoreVersion(versionId, Object.assign({ skipConfirm: true, quiet: true, exact: true }, opts || {}));
+    };
+
+    // The files a message was sent with (its attachments, saved to assets/ as
+    // it went in) are newer than the version it was sent with, so a restore
+    // to that version takes them out. They come back from the version just
+    // left (relPaths are relative to the project folder). One that version
+    // doesn't have is skipped. Resolves how many came back.
+    window.copyFilesFromVersion = async function (chatId, appDir, versionId, relPaths) {
+        if (!chatId || !appDir || !versionId || versionId === EMPTY_VERSION || !Array.isArray(relPaths)) return 0;
+        const snapDir = versionsRootForChat(chatId) + '/' + versionId;
+        let copied = 0;
+        for (const rel of relPaths) {
+            if (typeof rel !== 'string' || !rel || rel.split('/').some(s => !s || s === '.' || s === '..')) continue;
+            const slash = rel.lastIndexOf('/');
+            const destDir = slash > 0 ? appDir + '/' + rel.slice(0, slash) : appDir;
+            try {
+                await puter.fs.stat(snapDir + '/' + rel);
+            } catch (e) { continue; }
+            try {
+                if (slash > 0) await puter.fs.mkdir(destDir, { recursive: true });
+                await lockedFs(appDir + '/' + rel, () => puter.fs.copy(snapDir + '/' + rel, destDir, { overwrite: true }));
+                window.markProjectModified?.(undefined, chatId);
+                copied++;
+            } catch (e) {
+                console.warn('Could not bring back a file the message was sent with:', rel, e);
+            }
+        }
+        return copied;
     };
 
     // ----- changes from outside: GitHub sync ---------------------------------

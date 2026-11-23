@@ -629,6 +629,11 @@ async function saveCurrentChatUnlocked(context) {
     // The chat was deleted this session — a late save (an aborted turn's
     // end-of-turn flush, the pagehide net) must not resurrect it.
     if (_deletedChatIds.has(chatId)) return;
+    // The conversation as it was before the user edited a message in it or
+    // switched to another version of one (js/message-edit.js). A turn stopped
+    // for the edit may still be unwinding into it, and its saves would put the
+    // whole old conversation back over the new one.
+    if (window.MessageEdit?.wasLeft?.(context.chatHistory)) return;
     // Title precedence:
     //   1. customTitle  — an explicit user rename (see renameChat) always wins.
     //   2. AI title     — generated the first time the app is built (see
@@ -672,6 +677,16 @@ async function saveCurrentChatUnlocked(context) {
             const prev = JSON.parse(await puter.fs.read(chatFilePath(chatId)).then(d => d.text()));
             interrupted = !!prev.interrupted;
         } catch (e) { interrupted = false; }
+    }
+    // The other versions of messages the user edited (js/message-edit.js).
+    // Kept by the open chat. Any other chat keeps what its file has, read
+    // only when its conversation has an edited message at all.
+    let branches = window.MessageEdit?.branchesFor?.(chatId, context.chatHistory);
+    if (branches === undefined && context.chatHistory.some(m => m && m.branchGroup)) {
+        try {
+            const prev = JSON.parse(await puter.fs.read(chatFilePath(chatId)).then(d => d.text()));
+            branches = prev.branches;
+        } catch (e) { branches = undefined; }
     }
     if (chatId === currentChatId) {
         previewUrl = window.currentPreviewUrl || null;
@@ -744,6 +759,9 @@ async function saveCurrentChatUnlocked(context) {
         // the "resume" banner so an interrupted build can be continued. See the
         // turn lifecycle in sendChatMessage.
         interrupted: interrupted,
+        // The versions of edited messages that aren't showing, with what came
+        // after each (js/message-edit.js). Left out when there are none.
+        ...(branches && typeof branches === 'object' && Object.keys(branches).length ? { branches } : {}),
         // Sidebar "pin" flag. Lives on the list entry (what the sidebar renders
         // from) and is mirrored here so it survives a chat-list rebuild. saveCurrentChat
         // rebuilds the entry from scratch, so carry the prior value forward rather
@@ -1373,6 +1391,10 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
         // Load the chat history
         chatHistory = chat.history;
         currentChatId = chatId;
+        // With the versions of its edited messages that aren't showing
+        // (js/message-edit.js), from the moment it is the open chat, since
+        // saves of the open chat read them back.
+        window.MessageEdit?.loadBranches?.(chatId, chat.branches);
         currentAppDir = `/${window.user.username}/AppData/${puter.appID}/${chatId}`;
         // The composer's model picker shows this project's model.
         window.ModelPicker?.render?.();
@@ -1429,244 +1451,11 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
         window.closeIssuesPanel?.();
         window.closeDevicePanel?.();
 
-        // Media that renders from a read URL — attachments saved without a
-        // thumbnail (SVG, HEIC, older chats), legacy attachments, generated
-        // images/videos — costs a stat + token request each, and the loop below
-        // awaited them one at a time: forty dropped icons meant ~80 sequential
-        // round trips of loading skeleton on every open. Resolve them all up
-        // front, a few at a time; the loop picks the results up in order.
-        const mediaPaths = new Set();
-        for (const m of history) {
-            if (!m) continue;
-            if (m.role === 'user' && Array.isArray(m.content)) {
-                for (const item of m.content) {
-                    if (item && item.type === 'image-ref' && !item.thumb && item.path) mediaPaths.add(item.path);
-                    else if (item && item.type === 'file' && item.puter_path) mediaPaths.add(item.puter_path);
-                }
-            } else if (m.content && typeof m.content === 'object' && m.content.type === 'tool_result'
-                && typeof m.content.content === 'string' && m.content.content.includes('"filename"')) {
-                try {
-                    const r = JSON.parse(m.content.content);
-                    if (r && r.success && r.path && r.filename) mediaPaths.add(r.path);
-                    // Several images from one request (GenerateImage count > 1).
-                    if (r && r.success && Array.isArray(r.items)) {
-                        for (const it of r.items) if (it && it.path) mediaPaths.add(it.path);
-                    }
-                } catch (e) { /* the loop reports unparseable results as before */ }
-            } else if (m.content && typeof m.content === 'object' && m.content.type === 'tool_result'
-                && Array.isArray(m.content.content)) {
-                // A PNG drawn by RenderSvg (its result is image blocks).
-                const p = window.__renderSvgInternals?.renderedPath(m.content.content, window.projectRootDir());
-                if (p) mediaPaths.add(p);
-            }
-        }
-        const mediaURLs = new Map();
-        await mapWithConcurrency([...mediaPaths], 6, async (p) => {
-            try { mediaURLs.set(p, { url: await mediaDisplayURL(p) }); }
-            catch (error) { mediaURLs.set(p, { error }); }
-        });
-        if (superseded()) return chat;
-        const readURLFor = async (p) => {
-            const r = mediaURLs.get(p);
-            if (!r) return mediaDisplayURL(p);
-            if (r.error) throw r.error;
-            return r.url;
-        };
-
-        // A project forked from a template opens with a note saying so above
-        // its conversation (which starts out empty). The origin rides on the
-        // system message, see createFork in templates.js.
-        if (history[0] && history[0].role === 'system' && history[0].templateOrigin) {
-            window.renderTemplateOriginNote?.(history[0].templateOrigin);
-        }
-
-        // Rebuild the chat display
-        // Skip all system prompts at the start
-        let startIndex = 0;
-        while (startIndex < history.length && history[startIndex].role === 'system') {
-            startIndex++;
-        }
-        for (let i = startIndex; i < history.length; i++) {
-            const message = history[i];
-            // Hidden "continue from where you left off" nudge injected by a resume
-            // (prepareResumeHistory). It carries no user-visible text — sent to the
-            // model only — so never render it as an (empty) chat bubble.
-            if (message.resumeNudge) continue;
-            // An out-of-credits error the account has since paid past.
-            if (message.creditErrorCleared) continue;
-            // Render each persisted message defensively: a single corrupted entry
-            // (e.g. a partial tool_use from a build interrupted mid-stream) must
-            // not throw out of the whole loop, which would abort loadChat before
-            // the preview renders and leave the project looking permanently broken.
-            // Log it and move on so the rest of the history — and the preview — load.
-            try {
-            if (message.role === 'user') {
-                const messageId = message.messageId;
-                if (typeof message.content === 'string') {
-                    appendMessage(message.content, true, false, false, false, messageId);
-                } else if (Array.isArray(message.content)) {
-                    let textContent = '';
-                    let imageContent = '';
-                    let pasteIndex = 0;
-
-                    for (const item of message.content) {
-                        if (item.type === 'text') {
-                            textContent = item.text;
-                        } else if (item.type === 'image' && item.source?.type === 'base64') {
-                            const dataURL = `data:${item.source.media_type};base64,${item.source.data}`;
-                            imageContent += `<img src="${dataURL}" alt="${htmlEscape(item._name || 'Attached image')}" class="message-image">`;
-                        } else if (item.type === 'document' && item.source?.type === 'text' && item._pasted) {
-                            imageContent += pastedCardHTML(item.source.data || '', item._name || 'Pasted text', { index: pasteIndex++ });
-                        } else if (item.type === 'document' && (item.source?.type === 'base64' || item.source?.type === 'text')) {
-                            imageContent += fileCardHTML(item._name || 'document');
-                        } else if (item.type === 'image-ref' && (item.thumb || item.path)) {
-                            // Attached image saved to assets/. Prefer the persisted
-                            // lightweight thumbnail; fall back to reading the saved
-                            // file (older chats saved before thumbnails existed).
-                            if (item.thumb) {
-                                imageContent += `<img src="${item.thumb}" alt="${htmlEscape(item._name || 'Attached image')}" class="message-image">`;
-                            } else {
-                                try {
-                                    const readURL = await readURLFor(item.path);
-                                    if (superseded()) return chat;
-                                    imageContent += `<img src="${readURL}" alt="${htmlEscape(item._name || 'Attached image')}" class="message-image">`;
-                                } catch (error) {
-                                    imageContent += fileCardHTML(item._name || 'Image', { badge: 'Image' });
-                                }
-                            }
-                        } else if (item.type === 'file-ref') {
-                            // Non-image attachment saved to assets/ (text/data, PDF,
-                            // or other binary). Re-render as a document chip.
-                            imageContent += fileCardHTML(item._name || 'file');
-                        } else if (item.type === 'file' && item.puter_path) {
-                            // Backward-compat: legacy Puter-storage attachments
-                            try {
-                                const readURL = await readURLFor(item.puter_path);
-                                if (superseded()) return chat;
-                                imageContent += `<img src="${readURL}" alt="Attached image" class="message-image">`;
-                            } catch (error) {
-                                imageContent += fileCardHTML('Image', { badge: 'Image' });
-                            }
-                        }
-                    }
-
-                    if (imageContent) {
-                        imageContent = '<div class="attached-images">' + imageContent + '</div>';
-                    }
-                    const processedText = textContent ? nl_to_p(htmlEscape(textContent)) : '';
-                    const fullContent = processedText + imageContent;
-                    appendMessageWithImages(fullContent, true, messageId);
-                } else if (typeof message.content === 'object' && message.content.type === 'tool_result') {
-                    // Handle tool result messages
-                    // Check if this is a generated image, video or audio result
-                    try {
-                        // Some tools (e.g. ViewImage) return content BLOCKS — an array,
-                        // not a JSON string. Only RenderSvg's has a card to show
-                        // again (the PNG it saved); the rest are skipped rather
-                        // than thrown at JSON.parse.
-                        if (typeof message.content.content !== 'string') {
-                            const p = window.__renderSvgInternals?.renderedPath(message.content.content, window.projectRootDir());
-                            if (p) {
-                                try {
-                                    const readURL = await readURLFor(p);
-                                    if (superseded()) return chat;
-                                    const relative = p.slice(window.projectRootDir().length + 1);
-                                    window.GeneratedMedia?.renderSaved({ success: true, kind: 'image', prompt: relative, path: p, filename: p.slice(p.lastIndexOf('/') + 1) }, readURL);
-                                } catch (error) {
-                                    // Deleted or moved since: no card, as for a
-                                    // generated image whose file is gone.
-                                }
-                            }
-                            continue;
-                        }
-                        const toolResponse = JSON.parse(message.content.content);
-                        if (toolResponse.__clarify_result && !toolResponse.error) {
-                            // Re-render the static recap of a past clarifying-questions
-                            // exchange (the interactive card is never replayed).
-                            window.renderClarifySummary?.(toolResponse);
-                        } else if (toolResponse.__upgrade_offer) {
-                            // A past upgrade offer: show its card again, unless
-                            // the user has a paid plan by now. Offers from before
-                            // the code editor carry no feature and are the badge.
-                            if (!toolResponse.subscribed && !window.Branding?.isSubscribed(window.user)) window.renderUpgradeCard?.({ feature: toolResponse.feature });
-                        } else if (toolResponse.__publish_offer) {
-                            // A past Publish card: shown again. The newest is
-                            // drawn from the project's publish state now; an
-                            // older one shows the publish made from it, if any.
-                            window.renderPublishCard?.({
-                                address: toolResponse.address,
-                                offer: toolResponse.offer,
-                                publishedUrl: message.publishCardUrl,
-                                kind: toolResponse.kind,
-                            });
-                        } else if (toolResponse.success && toolResponse.filename && (toolResponse.path
-                            || (Array.isArray(toolResponse.items) && toolResponse.items.some(it => it && it.path)))) {
-                            // A generated image, video or audio clip (see
-                            // js/media.js): show its card again from the saved file.
-                            try {
-                                let readURL;
-                                if (Array.isArray(toolResponse.items) && toolResponse.items.length > 1) {
-                                    // A grid: one URL per image (null for one
-                                    // that's gone; its tile is dropped).
-                                    readURL = [];
-                                    for (const it of toolResponse.items) {
-                                        try { readURL.push(it && it.path ? await readURLFor(it.path) : null); }
-                                        catch (e) { readURL.push(null); }
-                                    }
-                                } else {
-                                    readURL = await readURLFor(toolResponse.path);
-                                }
-                                if (superseded()) return chat;
-                                window.GeneratedMedia?.renderSaved(toolResponse, readURL);
-                            } catch (error) {
-                                console.error('Error displaying generated media:', error);
-                            }
-                        }
-                    } catch (error) {
-                        console.error('Error parsing tool result:', error);
-                    }
-                }
-            } else if (message.role === 'assistant') {
-                // Handle assistant messages
-                const messageId = message.messageId;
-                if (typeof message.content === 'string') {
-                    // Errors were persisted with an isError marker — re-render them
-                    // as the same styled error card rather than a plain AI message.
-                    if (message.isError) {
-                        const $card = appendErrorMessage(message.content);
-                        if (isCreditErrorEntry(message)) $card.addClass('credit-error');
-                    } else {
-                        appendMessage(message.content, false, false, false, false, messageId);
-                    }
-                } else if (Array.isArray(message.content)) {
-                    // Handle tool_use messages
-                    for (const toolCall of message.content) {
-                        if (toolCall.type === 'tool_use' && toolCall.name === 'TodoWrite') {
-                            // Extract todos from the tool call and display them
-                            if (toolCall.input && toolCall.input.todos) {
-                                // Import the updateTodoDisplay function from tools.js
-                                if (typeof window.updateTodoDisplay === 'function') {
-                                    window.updateTodoDisplay(toolCall.input.todos);
-                                }
-                            }
-                        }
-                    }
-                } else if (message.content && message.content.type === 'tool_use' && message.content.name === 'TodoWrite') {
-                    // Handle single tool_use (non-array)
-                    if (message.content.input && message.content.input.todos) {
-                        if (typeof window.updateTodoDisplay === 'function') {
-                            window.updateTodoDisplay(message.content.input.todos);
-                        }
-                    }
-                }
-            }
-            } catch (renderError) {
-                console.error('Skipping a chat message that failed to render during load:', renderError, message);
-            }
-        }
-
+        // The conversation, drawn as it was saved.
+        const drawn = await renderChatHistory(history, superseded);
         // A newer load may have taken over during the media awaits above.
-        if (superseded()) return chat;
+        if (!drawn || superseded()) return chat;
+
 
         // The build that last ran in this chat never finished (a Stop, or a
         // refresh/close mid-build). Offer to resume it where it left off. Shown
@@ -1763,6 +1552,252 @@ function markChatItemBusy($item, cls, on) {
     $item.find('.chat-item-link, .chat-menu-btn').attr('aria-disabled', busy ? 'true' : null);
 }
 window.markChatItemBusy = markChatItemBusy;
+
+// Draws a saved conversation into the chat box, which the caller has emptied:
+// every message, card and checklist, as they were. loadChat draws a project's
+// conversation with it, and so does a switch to another version of an edited
+// message (js/message-edit.js). `superseded` is asked after every await, and
+// drawing stops when it says a newer load or switch took over. Resolves false
+// then, and true once it is all drawn.
+async function renderChatHistory(history, superseded = () => false) {
+    // Media that renders from a read URL — attachments saved without a
+    // thumbnail (SVG, HEIC, older chats), legacy attachments, generated
+    // images/videos — costs a stat + token request each, and the loop below
+    // awaited them one at a time: forty dropped icons meant ~80 sequential
+    // round trips of loading skeleton on every open. Resolve them all up
+    // front, a few at a time; the loop picks the results up in order.
+    const mediaPaths = new Set();
+    for (const m of history) {
+        if (!m) continue;
+        if (m.role === 'user' && Array.isArray(m.content)) {
+            for (const item of m.content) {
+                if (item && item.type === 'image-ref' && !item.thumb && item.path) mediaPaths.add(item.path);
+                else if (item && item.type === 'file' && item.puter_path) mediaPaths.add(item.puter_path);
+            }
+        } else if (m.content && typeof m.content === 'object' && m.content.type === 'tool_result'
+            && typeof m.content.content === 'string' && m.content.content.includes('"filename"')) {
+            try {
+                const r = JSON.parse(m.content.content);
+                if (r && r.success && r.path && r.filename) mediaPaths.add(r.path);
+                // Several images from one request (GenerateImage count > 1).
+                if (r && r.success && Array.isArray(r.items)) {
+                    for (const it of r.items) if (it && it.path) mediaPaths.add(it.path);
+                }
+            } catch (e) { /* the loop reports unparseable results as before */ }
+        } else if (m.content && typeof m.content === 'object' && m.content.type === 'tool_result'
+            && Array.isArray(m.content.content)) {
+            // A PNG drawn by RenderSvg (its result is image blocks).
+            const p = window.__renderSvgInternals?.renderedPath(m.content.content, window.projectRootDir());
+            if (p) mediaPaths.add(p);
+        }
+    }
+    const mediaURLs = new Map();
+    await mapWithConcurrency([...mediaPaths], 6, async (p) => {
+        try { mediaURLs.set(p, { url: await mediaDisplayURL(p) }); }
+        catch (error) { mediaURLs.set(p, { error }); }
+    });
+    if (superseded()) return false;
+    const readURLFor = async (p) => {
+        const r = mediaURLs.get(p);
+        if (!r) return mediaDisplayURL(p);
+        if (r.error) throw r.error;
+        return r.url;
+    };
+
+    // A project forked from a template opens with a note saying so above
+    // its conversation (which starts out empty). The origin rides on the
+    // system message, see createFork in templates.js.
+    if (history[0] && history[0].role === 'system' && history[0].templateOrigin) {
+        window.renderTemplateOriginNote?.(history[0].templateOrigin);
+    }
+
+    // Rebuild the chat display
+    // Skip all system prompts at the start
+    let startIndex = 0;
+    while (startIndex < history.length && history[startIndex].role === 'system') {
+        startIndex++;
+    }
+    for (let i = startIndex; i < history.length; i++) {
+        const message = history[i];
+        // Hidden "continue from where you left off" nudge injected by a resume
+        // (prepareResumeHistory). It carries no user-visible text — sent to the
+        // model only — so never render it as an (empty) chat bubble.
+        if (message.resumeNudge) continue;
+        // An out-of-credits error the account has since paid past.
+        if (message.creditErrorCleared) continue;
+        // Render each persisted message defensively: a single corrupted entry
+        // (e.g. a partial tool_use from a build interrupted mid-stream) must
+        // not throw out of the whole loop, which would abort loadChat before
+        // the preview renders and leave the project looking permanently broken.
+        // Log it and move on so the rest of the history — and the preview — load.
+        try {
+        if (message.role === 'user') {
+            const messageId = message.messageId;
+            if (typeof message.content === 'string') {
+                appendMessage(message.content, true, false, false, false, messageId);
+            } else if (Array.isArray(message.content)) {
+                let textContent = '';
+                let imageContent = '';
+                let pasteIndex = 0;
+
+                for (const item of message.content) {
+                    if (item.type === 'text') {
+                        textContent = item.text;
+                    } else if (item.type === 'image' && item.source?.type === 'base64') {
+                        const dataURL = `data:${item.source.media_type};base64,${item.source.data}`;
+                        imageContent += `<img src="${dataURL}" alt="${htmlEscape(item._name || 'Attached image')}" class="message-image">`;
+                    } else if (item.type === 'document' && item.source?.type === 'text' && item._pasted) {
+                        imageContent += pastedCardHTML(item.source.data || '', item._name || 'Pasted text', { index: pasteIndex++ });
+                    } else if (item.type === 'document' && (item.source?.type === 'base64' || item.source?.type === 'text')) {
+                        imageContent += fileCardHTML(item._name || 'document');
+                    } else if (item.type === 'image-ref' && (item.thumb || item.path)) {
+                        // Attached image saved to assets/. Prefer the persisted
+                        // lightweight thumbnail; fall back to reading the saved
+                        // file (older chats saved before thumbnails existed).
+                        if (item.thumb) {
+                            imageContent += `<img src="${item.thumb}" alt="${htmlEscape(item._name || 'Attached image')}" class="message-image">`;
+                        } else {
+                            try {
+                                const readURL = await readURLFor(item.path);
+                                if (superseded()) return false;
+                                imageContent += `<img src="${readURL}" alt="${htmlEscape(item._name || 'Attached image')}" class="message-image">`;
+                            } catch (error) {
+                                imageContent += fileCardHTML(item._name || 'Image', { badge: 'Image' });
+                            }
+                        }
+                    } else if (item.type === 'file-ref') {
+                        // Non-image attachment saved to assets/ (text/data, PDF,
+                        // or other binary). Re-render as a document chip.
+                        imageContent += fileCardHTML(item._name || 'file');
+                    } else if (item.type === 'file' && item.puter_path) {
+                        // Backward-compat: legacy Puter-storage attachments
+                        try {
+                            const readURL = await readURLFor(item.puter_path);
+                            if (superseded()) return false;
+                            imageContent += `<img src="${readURL}" alt="Attached image" class="message-image">`;
+                        } catch (error) {
+                            imageContent += fileCardHTML('Image', { badge: 'Image' });
+                        }
+                    }
+                }
+
+                if (imageContent) {
+                    imageContent = '<div class="attached-images">' + imageContent + '</div>';
+                }
+                const processedText = textContent ? nl_to_p(htmlEscape(textContent)) : '';
+                const fullContent = processedText + imageContent;
+                appendMessageWithImages(fullContent, true, messageId);
+            } else if (typeof message.content === 'object' && message.content.type === 'tool_result') {
+                // Handle tool result messages
+                // Check if this is a generated image, video or audio result
+                try {
+                    // Some tools (e.g. ViewImage) return content BLOCKS — an array,
+                    // not a JSON string. Only RenderSvg's has a card to show
+                    // again (the PNG it saved); the rest are skipped rather
+                    // than thrown at JSON.parse.
+                    if (typeof message.content.content !== 'string') {
+                        const p = window.__renderSvgInternals?.renderedPath(message.content.content, window.projectRootDir());
+                        if (p) {
+                            try {
+                                const readURL = await readURLFor(p);
+                                if (superseded()) return false;
+                                const relative = p.slice(window.projectRootDir().length + 1);
+                                window.GeneratedMedia?.renderSaved({ success: true, kind: 'image', prompt: relative, path: p, filename: p.slice(p.lastIndexOf('/') + 1) }, readURL);
+                            } catch (error) {
+                                // Deleted or moved since: no card, as for a
+                                // generated image whose file is gone.
+                            }
+                        }
+                        continue;
+                    }
+                    const toolResponse = JSON.parse(message.content.content);
+                    if (toolResponse.__clarify_result && !toolResponse.error) {
+                        // Re-render the static recap of a past clarifying-questions
+                        // exchange (the interactive card is never replayed).
+                        window.renderClarifySummary?.(toolResponse);
+                    } else if (toolResponse.__upgrade_offer) {
+                        // A past upgrade offer: show its card again, unless
+                        // the user has a paid plan by now. Offers from before
+                        // the code editor carry no feature and are the badge.
+                        if (!toolResponse.subscribed && !window.Branding?.isSubscribed(window.user)) window.renderUpgradeCard?.({ feature: toolResponse.feature });
+                    } else if (toolResponse.__publish_offer) {
+                        // A past Publish card: shown again. The newest is
+                        // drawn from the project's publish state now; an
+                        // older one shows the publish made from it, if any.
+                        window.renderPublishCard?.({
+                            address: toolResponse.address,
+                            offer: toolResponse.offer,
+                            publishedUrl: message.publishCardUrl,
+                            kind: toolResponse.kind,
+                        });
+                    } else if (toolResponse.success && toolResponse.filename && (toolResponse.path
+                        || (Array.isArray(toolResponse.items) && toolResponse.items.some(it => it && it.path)))) {
+                        // A generated image, video or audio clip (see
+                        // js/media.js): show its card again from the saved file.
+                        try {
+                            let readURL;
+                            if (Array.isArray(toolResponse.items) && toolResponse.items.length > 1) {
+                                // A grid: one URL per image (null for one
+                                // that's gone; its tile is dropped).
+                                readURL = [];
+                                for (const it of toolResponse.items) {
+                                    try { readURL.push(it && it.path ? await readURLFor(it.path) : null); }
+                                    catch (e) { readURL.push(null); }
+                                }
+                            } else {
+                                readURL = await readURLFor(toolResponse.path);
+                            }
+                            if (superseded()) return false;
+                            window.GeneratedMedia?.renderSaved(toolResponse, readURL);
+                        } catch (error) {
+                            console.error('Error displaying generated media:', error);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error parsing tool result:', error);
+                }
+            }
+        } else if (message.role === 'assistant') {
+            // Handle assistant messages
+            const messageId = message.messageId;
+            if (typeof message.content === 'string') {
+                // Errors were persisted with an isError marker — re-render them
+                // as the same styled error card rather than a plain AI message.
+                if (message.isError) {
+                    const $card = appendErrorMessage(message.content);
+                    if (isCreditErrorEntry(message)) $card.addClass('credit-error');
+                } else {
+                    appendMessage(message.content, false, false, false, false, messageId);
+                }
+            } else if (Array.isArray(message.content)) {
+                // Handle tool_use messages
+                for (const toolCall of message.content) {
+                    if (toolCall.type === 'tool_use' && toolCall.name === 'TodoWrite') {
+                        // Extract todos from the tool call and display them
+                        if (toolCall.input && toolCall.input.todos) {
+                            // Import the updateTodoDisplay function from tools.js
+                            if (typeof window.updateTodoDisplay === 'function') {
+                                window.updateTodoDisplay(toolCall.input.todos);
+                            }
+                        }
+                    }
+                }
+            } else if (message.content && message.content.type === 'tool_use' && message.content.name === 'TodoWrite') {
+                // Handle single tool_use (non-array)
+                if (message.content.input && message.content.input.todos) {
+                    if (typeof window.updateTodoDisplay === 'function') {
+                        window.updateTodoDisplay(message.content.input.todos);
+                    }
+                }
+            }
+        }
+        } catch (renderError) {
+            console.error('Skipping a chat message that failed to render during load:', renderError, message);
+        }
+    }
+    return true;
+}
+window.renderChatHistory = renderChatHistory;
 
 async function deleteChat(chatId) {
     // Work still running on this project would outlive the delete: a publish
@@ -2290,6 +2325,12 @@ async function duplicateChat(chatId) {
         // The copy starts unpublished (below), so the original's publishes
         // aren't its own.
         unpublishCopiedHistory(finalHistory, origPublishedUrl);
+        // Nor are the original's versions, which the copy doesn't get. Its
+        // messages forget the versions they were sent with, and it starts
+        // with one version of each edited message (js/message-edit.js).
+        for (const m of finalHistory) {
+            if (m) { delete m.baseVersion; delete m.branchGroup; }
+        }
 
         // The copy's name: "X copy", then "X copy 2", "X copy 3"…
         const baseTitle = source.title || savedChats.find(c => c.id === chatId)?.title || 'Untitled';
@@ -3884,7 +3925,32 @@ function stopActiveTurn() {
 }
 window.stopActiveTurn = stopActiveTurn;
 
-// Stop the running build to edit the message it works on (js/message-edit.js).
+// Turns that haven't fully unwound yet. A Stop ends a turn at once, but one
+// that was running a tool goes on until that tool is done (tool execs aren't
+// abortable), and its last write can land seconds later. Editing a message
+// waits for them before it puts the project's files back to an older version
+// (js/message-edit.js), so no late write lands on top of the restored files.
+const _unwindingTurns = new Set();
+function turnUnwinding() {
+    let done;
+    const p = new Promise((resolve) => { done = resolve; });
+    _unwindingTurns.add(p);
+    return { done() { _unwindingTurns.delete(p); done(); } };
+}
+// Resolves once every turn started so far has unwound.
+function whenTurnsUnwound() {
+    return Promise.all([..._unwindingTurns]).then(() => {});
+}
+window.whenTurnsUnwound = whenTurnsUnwound;
+
+// Makes `history` the open chat's conversation. Editing a message and
+// switching between its versions put a new array in place of the old one
+// (js/message-edit.js).
+window.setOpenChatHistory = function (history) {
+    if (Array.isArray(history)) chatHistory = history;
+};
+
+// Stop the running build to edit a message (js/message-edit.js).
 // Like Stop, but no queued message takes over and the Resume banner waits for
 // the editor: what goes next is the edited message. True when a turn stopped.
 function stopTurnForEdit() {
@@ -5347,10 +5413,11 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // the .resume-build-btn handler). On this path we add no user bubble, ignore
     // the composer, and skip the empty-message guard.
     const isResume = !!opts.resume;
-    // The user's latest message, edited (js/message-edit.js): { messageId,
-    // text }. Like a resume it adds no message of its own. The conversation
-    // goes back to just before the message, which comes back with its new
-    // text, and the turn builds from there (see the rewind below).
+    // A message the user edited (js/message-edit.js): { messageId, reverted }.
+    // Like a resume it adds no message of its own. The editor already put the
+    // conversation back to just before the message, with the message's new
+    // text last, and the project's files back to the version it was sent
+    // with. The turn builds from there.
     const edit = !isResume && opts.edit && opts.edit.messageId ? opts.edit : null;
     // An automatic error fix waits while a message is open for editing: it
     // would go in after that message, and the edit could no longer go in.
@@ -5427,6 +5494,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         return;
     }
 
+
     // Same for a publish of THIS project: it is copying the working files into
     // the release right now, so a turn starting here would edit them mid-copy —
     // the public site would get a mix of two versions, and the snapshot the
@@ -5437,6 +5505,16 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     if (window.isPublishInFlight?.(currentChatId) || window.isPublishStarting?.(currentChatId)) {
         window.showToast?.('Finishing publishing — you can send the moment it’s done.',
             { type: 'info', key: 'send-blocked-publish', throttleMs: 3000 });
+        return;
+    }
+
+    // Nor while an edited message is being put in, or the chat is switching to
+    // another version of one (js/message-edit.js). Either may be putting the
+    // project's files back to an older version, and the edit's own send is
+    // the one that goes next.
+    if (!edit && window.MessageEdit?.isBusy?.()) {
+        window.showToast?.('Finishing your edit. You can send the moment it’s done.',
+            { type: 'info', key: 'send-blocked-edit', throttleMs: 3000 });
         return;
     }
 
@@ -5516,7 +5594,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // it was sent with: the composer isn't touched either.
     const queued = (!isResume && !edit && opts.queued) || null;
     const consumedComposer = !isResume && !queued && !edit && userInput == null && chat_input_message == null;
-    const messageText = isResume ? '' : edit ? String(edit.text || '') : queued ? queued.text : (userInput ?? chat_input_message ?? preAuthComposerText);
+    const messageText = isResume || edit ? '' : queued ? queued.text : (userInput ?? chat_input_message ?? preAuthComposerText);
     const sendAttachments = consumedComposer ? preAuthAttachments : queued ? queued.attachments : [];
     chat_input_message = undefined;
     if (!isResume && !edit && !messageText && sendAttachments.length === 0) { _sendSetupInFlight = false; return; }
@@ -5623,10 +5701,9 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         window.CodeEditor?.onTurnEnd?.(currentChatId);
         window.refreshPublishButton?.();
         return;
-    } else if (edit && window.MessageEdit?.editableId?.(chatHistory) !== edit.messageId) {
-        // Something changed after the message during the setup (a pull from
-        // GitHub noted in the conversation). The editor sees the send was
-        // called off and moves the text to the composer.
+    } else if (edit && !window.MessageEdit?.canBuild?.(chatHistory, edit.messageId)) {
+        // Another message went in after the edited one during the setup. The
+        // edited message stays, with the Resume banner to build from it.
         _sendSetupInFlight = false;
         window.CodeEditor?.onTurnEnd?.(currentChatId);
         window.refreshPublishButton?.();
@@ -5658,19 +5735,13 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // The user moved on, so a Publish card still waiting above the composer
     // goes back to its place in the conversation (tools/chat_ui/publish.js).
     window.closeDockedPublishCard?.();
-    // An edited message (js/message-edit.js) goes back in the conversation in
-    // place of the original and everything after it, and the chat follows. A
-    // new array, not the old one cut short: a turn stopped for the edit may
-    // still be unwinding (tool execs aren't abortable), and what it adds then
-    // lands in the conversation it left, which nothing saves once this turn
-    // has begun (supersededSameChat in its finally). No await since the check
-    // above, so the message is still there. Other turns tell the pencil which
-    // message they work on once it is in the conversation.
+    // An edited message (js/message-edit.js) is the last in the conversation
+    // already. Its turn takes what the version label and analytics need. No
+    // await since the check above, so it is still there. Other turns tell the
+    // editor which message they work on once it is in the conversation.
     let edited = null;
     if (edit) {
-        edited = window.MessageEdit.rewind(chatHistory, edit);
-        chatHistory = edited.history;
-        window.MessageEdit.turnFor(edit.messageId);
+        edited = window.MessageEdit.editTurn(chatHistory, edit);
     } else {
         window.MessageEdit?.turnStarted?.({ resume: isResume });
     }
@@ -5695,6 +5766,13 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // Start tracking file changes for this turn (used to decide whether to
     // snapshot the project for version history when the turn finishes).
     window.resetTurnFileChanges?.();
+    // The version of the project's files this turn's new message is sent with,
+    // asked before its attachments are saved and before the AI changes
+    // anything. Kept on the message, so editing it later can put the files
+    // back to that version (js/message-edit.js).
+    const turnBase = (!isResume && !edit && !skipAddToHistory) ? window.projectVersionNow?.(currentChatId, currentAppDir) : null;
+    // Set as the turn's end-of-turn save is scheduled (see turnBase above).
+    let turnSaved = false;
     // A preview cache clear started before this turn may predate files written
     // since, by the Code view or a GitHub pull (see startEarlyPreviewClear).
     window.dropEarlyPreviewClear?.();
@@ -5823,6 +5901,8 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         $('body').css('display', 'block');
         $('.chat-input-message').attr('placeholder', 'Reply to Puter...');
     }
+    // Settled once this turn has fully unwound (see whenTurnsUnwound).
+    const unwound = turnUnwinding();
     
     try {
         // An interrupted build can leave the persisted history ending on a
@@ -5860,7 +5940,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
                 window.CodeEditor?.notePosted?.(turnChatId);
             }
             isFirstBuildTurn = countUserMessages(turnSaveContext.chatHistory) === 1;
-            window.track?.('Build Started', { first_build: isFirstBuildTurn, has_attachments: edited.files, edited: true, ...turnTemplate, fast_mode: !!window.FastMode?.applies(chosenModel), ...window.experimentProps?.('speed') });
+            window.track?.('Build Started', { first_build: isFirstBuildTurn, has_attachments: edited.files, edited: true, reverted: !!edit.reverted, ...turnTemplate, fast_mode: !!window.FastMode?.applies(chosenModel), ...window.experimentProps?.('speed') });
             _activeBuild = { turnSeq, startedAt: turnStartedAt, firstBuild: isFirstBuildTurn, template: turnTemplate.template, stats: turnStats };
             userMessageAppended = true;
             scheduleSaveCurrentChat(turnSaveContext);
@@ -6142,6 +6222,14 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             turnSaveContext.chatHistory.push({ role: "user", content: messageContent, messageId });
             userMessageAppended = true;
             if (manualEditNote) window.CodeEditor?.notePosted?.(turnChatId);
+            // The version its files were at (turnBase), once known. Saved with
+            // the turn, or saved again if the turn's last save went first.
+            const userEntry = turnSaveContext.chatHistory[turnSaveContext.chatHistory.length - 1];
+            Promise.resolve(turnBase).then((v) => {
+                if (v === undefined) return;
+                userEntry.baseVersion = v;
+                if (turnSaved && !supersededSameChat) scheduleSaveCurrentChat(turnSaveContext);
+            }).catch(() => {});
             // Its pencil, while nothing done for it has changed anything
             // (js/message-edit.js). Only for the open chat's conversation.
             if (turnSaveContext.chatHistory === chatHistory) window.MessageEdit?.turnFor?.(messageId);
@@ -6509,7 +6597,11 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // files: a snapshot now would capture a half-restored directory under
         // this turn's label, and its cap prune could delete the version being
         // restored.
-        supersededSameChat = _latestTurnSeqByChat.get(turnChatId) !== turnSeq;
+        // The user editing a message, or switching to another version of one,
+        // left this turn's conversation for a new one, which counts the same
+        // as a newer turn (js/message-edit.js).
+        supersededSameChat = _latestTurnSeqByChat.get(turnChatId) !== turnSeq
+            || !!window.MessageEdit?.wasLeft?.(turnSaveContext.chatHistory);
         const restoredSince = (window.restoresStartedFor?.(turnChatId) || 0) !== turnRestoreGen;
         if (!supersededSameChat && !restoredSince && window._filesChangedThisTurn > 0) {
             // The fallback label (truncated message) is written with the snapshot
@@ -6556,6 +6648,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         // flushes a queued save if the tab closes first. The writer swallows its
         // own errors.
         if (!supersededSameChat) scheduleSaveCurrentChat(turnSaveContext);
+        turnSaved = true;
     }
 
     // A newer turn may have started in this SAME chat while this one was still
@@ -6588,6 +6681,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // sync may write pulled files again. Called for every turn, superseded or
     // not: each turn is tracked by its own sequence number.
     try { window.GitHubSync?.onTurnEnd?.(turnChatId, turnSeq); } catch (e) { /* never */ }
+    unwound.done();
 
     // Close the loop for a turn started from the Issues panel: a clean
     // completion auto-resolves the batch it was fixing; a stop/error/switch

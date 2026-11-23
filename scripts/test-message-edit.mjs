@@ -3,18 +3,22 @@ import path from 'node:path';
 import vm from 'node:vm';
 import { makeDom } from './lib/mini-dom.mjs';
 
-// ---- Editing the latest message (js/message-edit.js) ----------------------
-// A pencil under the user's latest message opens it for editing in place, for
-// as long as nothing done for it has changed anything: the AI has only read,
-// looked things up, planned or asked (READ_ONLY_TOOLS). The first call that
-// could change something takes the pencil away, so an edit never has anything
-// to undo. Opening the editor stops a running build. Send swaps in the new
-// text (files and hidden notes stay), drops what came after the message, and
-// builds again from there through sendChatMessage's opts.edit (rewind). Cancel
-// leaves the chat as it was, with the Resume banner back when there was one or
-// the edit stopped a build. An edit that can no longer go in goes to the
-// composer. This runs the REAL module on the mini DOM, then text-asserts
-// where app.js, tools.js, versions.js and ui.js hook into it.
+// ---- Copying, editing and switching versions of messages (js/message-edit.js)
+// Under each message the user sent, Copy and Edit (shown on hover). Edit turns
+// the message into a box to change it in place, and opening it stops a running
+// build. Send puts the new text in (files and hidden notes stay) and builds
+// again from there. When anything after the message changed the project's
+// files, they first go back to the version the message was sent with
+// (baseVersion), and the message's own attachments come back. The
+// conversation from the message on is kept as another version of it, with
+// the files it had got to, and arrows under the message switch between
+// versions, files included. Cancel leaves the chat as it was, with the Resume
+// banner back when there was one.
+//
+// This runs the REAL module on the mini DOM, with the versions.js and app.js
+// calls it makes stubbed, then text-asserts where app.js, tools.js,
+// versions.js, helpers.js and ui.js hook into it. scripts/test-message-versions
+// runs the versions.js side for real.
 
 let failures = 0;
 function check(name, cond, detail) {
@@ -41,7 +45,7 @@ function nl_to_p(text) {
     return text.split(/\n\n+/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('')
         .replace(/<p><\/p>/g, '').replace(/^<p><\/p>|<p><\/p>$/g, '');
 }
-const tick = () => new Promise(r => setTimeout(r, 0));
+const tick = async (n = 1) => { for (let i = 0; i < n; i++) await new Promise(r => setTimeout(r, 0)); };
 
 // A chat on the mini DOM, the module loaded into it.
 function setup({ flag = true } = {}) {
@@ -53,25 +57,37 @@ function setup({ flag = true } = {}) {
     const composer = document.createElement('textarea');
     composer.className = 'chat-input-message';
     dom.body.appendChild(composer);
-    const s = { toasts: [], announces: [], stops: 0, sends: [], banners: [], returned: [], cleared: 0 };
+    const s = {
+        toasts: [], announces: [], stops: 0, sends: [], banners: [], returned: [], cleared: 0, saves: [],
+        restores: [], copies: [], pins: [], clipboard: [], renders: 0,
+    };
+    let ids = 0;
     const env = {
         console, setTimeout, Promise,
         $, document,
         htmlEscape, nl_to_p,
         isProcessing: false,
+        _sendSetupInFlight: false,
+        currentChatId: 'chat1',
+        currentAppDir: '/u/AppData/b/chat1',
         chatHistory: [{ role: 'system', content: 'sys' }],
         isVersionNote: (m) => !!m.versionNote,
+        generateMessageId: () => 'new' + (++ids),
+        scheduleSaveCurrentChat: (ctx) => { s.saves.push({ ...ctx, history: ctx.chatHistory.slice() }); },
+        clearContinueSuggestions: () => {},
+        revokeChatMediaBlobURLs: () => {},
+        navigator: { clipboard: { writeText: async (t) => { if (env.clipboardFails) throw new Error('blocked'); s.clipboard.push(t); } } },
+        // The files: the version they are at, and what a restore does.
+        filesAt: 'v1',
+        restoreResult: null,
         // What the real sendChatMessage does with opts.edit, in short: the
-        // rewind, then the conversation swap. `onSend` lets a test call it off.
+        // turn begins (editTurn), and runs on. `onSend` lets a test call it off.
         onSend: null,
         sendChatMessage: (input, skip, opts) => {
             s.sends.push(opts);
             if (env.onSend) return env.onSend(opts);
-            const r = env.MessageEdit.rewind(env.chatHistory, opts.edit);
-            env.chatHistory = r.history;
+            s.turn = env.MessageEdit.editTurn(env.chatHistory, opts.edit);
             env.isProcessing = true;
-            env.MessageEdit.turnFor(opts.edit.messageId);
-            s.rewound = r;
             return new Promise(() => {}); // the turn runs on
         },
     };
@@ -89,67 +105,66 @@ function setup({ flag = true } = {}) {
             $(box).append('<div class="message resume-banner-message">banner</div>');
         },
         MessageQueue: { returnToComposer: (items) => { s.returned.push(...items.map(i => i.text)); composer.value = items.map(i => i.text).join('\n\n'); } },
+        setOpenChatHistory: (h) => { env.chatHistory = h; },
+        whenTurnsUnwound: () => Promise.resolve(),
+        projectVersionNow: async () => env.filesAt,
+        restoreProjectVersion: async (v) => {
+            s.restores.push(v);
+            if (env.restoreResult) return env.restoreResult(v);
+            const from = env.filesAt;
+            env.filesAt = v;
+            return { ok: true, from };
+        },
+        copyFilesFromVersion: async (chatId, appDir, v, rels) => { s.copies.push({ v, rels }); return rels.length; },
+        createProjectVersion: async (o) => { s.pins.push(o); env.filesAt = 'vpin'; return 'vpin'; },
+        // Draws a conversation the way loadChat does, in short.
+        renderChatHistory: async (history) => {
+            s.renders++;
+            for (const m of history) {
+                if (m.role === 'user' && m.messageId && !m.resumeNudge) bubble(m.messageId, textOfMsg(m));
+                else if (m.role === 'assistant' && typeof m.content === 'string') aiText(m.content);
+            }
+            return true;
+        },
+        restorePublishDock: () => {},
     });
     vm.createContext(env);
     vm.runInContext(ME, env);
     const ME_ = env.MessageEdit;
 
+    function textOfMsg(m) {
+        return typeof m.content === 'string' ? m.content : ((m.content.find(b => b.type === 'text') || {}).text || '');
+    }
     // Draws a sent message the way sendChatMessage does.
     function bubble(id, text, files = '') {
         $(box).append(`<div class="message user-message" data-message-id="${id}"><div class="message-content">${nl_to_p(htmlEscape(text))}${files}</div></div>`);
         return box.querySelector(`.user-message[data-message-id="${id}"]`);
     }
     function aiText(text) { $(box).append(`<div class="message ai-message"><div class="message-content"><p>${text}</p></div></div>`); }
-    function say(id, content) {
-        env.chatHistory.push({ role: 'user', content, messageId: id });
+    function say(id, content, extra = {}) {
+        env.chatHistory.push({ role: 'user', content, messageId: id, ...extra });
         bubble(id, typeof content === 'string' ? content : (content.find(b => b.type === 'text') || {}).text || '',
             Array.isArray(content) && content.some(b => b.type === 'image-ref') ? '<div class="attached-images"><img class="message-image" src="t"></div>' : '');
     }
+    function reply(text) { env.chatHistory.push({ role: 'assistant', content: text }); aiText(text); }
     const call = (name, id = 't' + Math.random().toString(36).slice(2, 7)) => ({ type: 'tool_use', id, name, input: {} });
     const result = (id) => ({ role: 'user', content: { type: 'tool_result', tool_use_id: id, content: '{}' } });
-    const pencil = () => box.querySelector('.message-edit-btn');
-    const pencilOn = () => { const b = pencil(); return b ? b.closest('.user-message').getAttribute('data-message-id') : null; };
+    const msgEl = (id) => box.querySelector(`.user-message[data-message-id="${id}"]`);
+    const editBtn = (id) => { const m = msgEl(id); return m ? m.querySelector('.message-edit-btn') : null; };
+    const copyBtn = (id) => { const m = msgEl(id); return m ? m.querySelector('.message-copy-btn') : null; };
+    const count = (id) => { const m = msgEl(id); const c = m && m.querySelector('.message-branch-count'); return c ? c.textContent : null; };
+    const arrow = (id, which) => { const m = msgEl(id); return m ? m.querySelector('.message-branch-' + which) : null; };
     const input = () => box.querySelector('.message-edit-input');
+    const hint = () => { const h = box.querySelector('.message-edit-hint'); return h ? h.textContent : ''; };
     const key = (el, k, extra = {}) => dom.dispatch(el, 'keydown', { key: k, ...extra });
-    return { dom, env, s, box, composer, ME: ME_, bubble, aiText, say, call, result, pencil, pencilOn, input, key, $ };
-}
-
-// ---- Which message can be edited ------------------------------------------
-{
-    const { ME, call } = setup();
-    const id = (h) => ME.editableId([{ role: 'system', content: 's' }, ...h]);
-    const u = (messageId, content = 'hi') => ({ role: 'user', content, messageId });
-    const a = (content) => ({ role: 'assistant', content });
-    const r = (callId) => ({ role: 'user', content: { type: 'tool_result', tool_use_id: callId, content: '{}' } });
-    const read = call('ReadTextFile', 'r1');
-    check('a message with only words after it can be edited', id([u('m1'), a('Sure, which colour?')]) === 'm1');
-    check('…and one with nothing after it yet', id([u('m1')]) === 'm1');
-    check('reads, searches, a checklist and a question change nothing',
-        id([u('m1'), a([read, call('SearchFiles'), call('TodoWrite'), call('AskClarifyingQuestions')]), r('r1')]) === 'm1');
-    check('a write takes it away', id([u('m1'), a(read), r('r1'), a(call('write'))]) === null);
-    check('…in a batch with reads too', id([u('m1'), a([call('ReadTextFile'), call('edit')])]) === null);
-    for (const t of ['multi_edit', 'delete', 'copy', 'move', 'rename', 'mkdir', 'create_worker', 'ExtractZip',
-        'GenerateImage', 'GenerateVideo', 'GenerateSpeech', 'RenderSvg', 'set_secret', 'set_email_sender_name',
-        'delete_worker', 'publish_site', 'OfferPublish', 'OfferAddressChange', 'OfferCustomDomain', 'AppTests']) {
-        check(`${t} counts as a change`, id([u('m1'), a(call(t))]) === null);
-    }
-    check('a tool this module has never heard of counts as a change', id([u('m1'), a(call('SomethingNew'))]) === null);
-    check('a restore (or a pull) noted after it takes it away',
-        id([u('m1'), a('Done.'), { role: 'assistant', content: '*Restored the project…*', versionNote: true }]) === null);
-    check('an error card leaves it editable', id([u('m1'), { role: 'assistant', content: 'Busy.', isError: true }]) === 'm1');
-    check('so does a resume\'s hidden nudge', id([u('m1'), a('Let me'), { role: 'user', resumeNudge: true, content: [{ type: 'text-hidden', text: 'go on' }] }]) === 'm1');
-    check('a tool result as an array of blocks is a result too',
-        id([u('m1'), a(read), { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'r1', content: '{}' }] }]) === 'm1');
-    check('only the latest message: an older one is never offered',
-        id([u('m1'), a(call('write')), r('x'), a('Done.'), u('m2')]) === 'm2');
-    check('a message saved without an id is not offered', id([{ role: 'user', content: 'old' }]) === null);
-    check('a conversation with no message has none', id([]) === null && ME.editableId(null) === null);
+    const ids_ = () => [...box.querySelectorAll('.user-message')].map(e => e.getAttribute('data-message-id'));
+    return { dom, env, s, box, composer, ME: ME_, bubble, aiText, say, reply, call, result, msgEl, editBtn, copyBtn, count, arrow, input, hint, key, ids: ids_, $ };
 }
 
 // ---- Rewriting a message ----------------------------------------------------
 {
     const { ME } = setup();
-    const { withText, textOf, requestText, hasFiles } = ME._internals;
+    const { withText, textOf, requestText, hasFiles, savedFiles } = ME._internals;
     check('a plain message is its text', withText('old', 'new') === 'new' && textOf('old') === 'old');
     const parts = [
         { type: 'text', text: 'old' },
@@ -167,78 +182,122 @@ function setup({ flag = true } = {}) {
     check('emptied with files left: the text block goes', !filesOnly.some(b => b.type === 'text') && filesOnly.length === 4);
     const noText = withText(parts.slice(2), 'caption');
     check('a message that was only files gets its text first', noText[0].type === 'text' && noText[0].text === 'caption' && noText.length === 4);
-    check('what was asked, for the version label: the text, then the pasted text', requestText(out) === 'new text\n\nPASTE');
+    check('what was asked, for the version label and Copy: the text, then the pasted text', requestText(out) === 'new text\n\nPASTE');
     check('files: the image and the paste count, the hidden notes don\'t',
         hasFiles(parts) && !hasFiles([{ type: 'text', text: 'x' }, { type: 'text-hidden', text: 'y' }]) && !hasFiles('x'));
+    check('the files a message was sent with, by their place in the project',
+        JSON.stringify(savedFiles([...parts, { type: 'file-ref', relativePath: 'assets/b.pdf' }])) === '["assets/a.png","assets/b.pdf"]'
+        && savedFiles('plain').length === 0);
     const m1 = { content: 'hi' };
     ME.addNote(m1, 'NOTE');
-    check('a hand-edit note joins a plain message as a hidden part',
+    check('a hidden note joins a plain message as a hidden part',
         JSON.stringify(m1.content) === JSON.stringify([{ type: 'text', text: 'hi' }, { type: 'text-hidden', text: 'NOTE' }]));
     const m2 = { content: [{ type: 'text', text: 'hi' }] };
     ME.addNote(m2, 'NOTE');
     check('…and one with parts, at the end', m2.content.length === 2 && m2.content[1].text === 'NOTE');
 }
 
-// ---- The pencil -------------------------------------------------------------
+// ---- What changed after a message -------------------------------------------------
+{
+    const { ME, call } = setup();
+    const { changedSince, hintFor, HINT_REVERT, HINT_KEPT, HINT_AFTER } = ME._internals;
+    const sys = { role: 'system', content: 's' };
+    const u = (messageId, content = 'hi', extra = {}) => ({ role: 'user', content, messageId, ...extra });
+    const a = (content) => ({ role: 'assistant', content });
+    const r = (callId) => ({ role: 'user', content: { type: 'tool_result', tool_use_id: callId, content: '{}' } });
+    const ch = (h) => changedSince([sys, ...h], 1);
+    check('words after it change nothing', !ch([u('m1'), a('Sure, which colour?')]));
+    check('reads, searches, a checklist and a question change nothing',
+        !ch([u('m1'), a([call('ReadTextFile', 'r1'), call('SearchFiles'), call('TodoWrite'), call('AskClarifyingQuestions')]), r('r1')]));
+    check('a write changes the files', ch([u('m1'), a(call('write'))]));
+    for (const t of ['multi_edit', 'delete', 'copy', 'move', 'rename', 'mkdir', 'create_worker', 'ExtractZip',
+        'GenerateImage', 'RenderSvg', 'set_secret', 'delete_worker', 'publish_site', 'OfferPublish', 'AppTests', 'SomethingNew']) {
+        check(`${t} counts as a change`, ch([u('m1'), a(call(t))]));
+    }
+    check('a restore (or a pull) noted after it is a change',
+        ch([u('m1'), a('Done.'), { role: 'assistant', content: '*Restored the project…*', versionNote: true }]));
+    check('an error card and a resume\'s nudge aren\'t',
+        !ch([u('m1'), { role: 'assistant', content: 'Busy.', isError: true }, { role: 'user', resumeNudge: true, content: [{ type: 'text-hidden', text: 'go on' }] }]));
+    check('a later message with no files isn\'t, one with files is',
+        !ch([u('m1'), a('ok'), u('m2', 'next')])
+        && ch([u('m1'), a('ok'), u('m2', [{ type: 'text', text: 'x' }, { type: 'image-ref', relativePath: 'assets/x.png' }])]));
+    const h = (list) => hintFor([sys, ...list], 1);
+    check('the box says the app goes back when the files changed and the version is known',
+        h([u('m1', 'hi', { baseVersion: 'v1' }), a(call('write'))]) === HINT_REVERT);
+    check('…that it stays as it is when the version isn\'t known (an older message)',
+        h([u('m1'), a(call('write'))]) === HINT_KEPT && h([u('m1', 'hi', { baseVersion: null }), a(call('write'))]) === HINT_KEPT);
+    check('…that what came after stays, with nothing changed', h([u('m1', 'hi', { baseVersion: 'v1' }), a('Which colour?')]) === HINT_AFTER);
+    check('…and nothing for the last message with nothing after it', h([u('m1')]) === '');
+}
+
+// ---- The buttons --------------------------------------------------------------------
 {
     const t = setup();
-    const { env, ME, say, aiText, call, pencil, pencilOn } = t;
+    const { env, ME, say, reply, call, result, editBtn, copyBtn, box, dom } = t;
     say('m1', 'first');
-    env.chatHistory.push({ role: 'assistant', content: call('write') });
-    aiText('Done.');
+    env.chatHistory.push({ role: 'assistant', content: call('write', 'w1') });
+    env.chatHistory.push(result('w1'));
+    reply('Done.');
     say('m2', 'second');
+    t.bubble('m3', 'not in the conversation yet');
     ME.refresh();
-    check('under the latest message, and only there', pencilOn() === 'm2' && t.box.querySelectorAll('.message-edit-btn').length === 1);
-    check('…labelled for a screen reader', pencil().getAttribute('aria-label') === 'Edit message');
-
-    // A turn starting: no pencil until its message is in.
-    env.isProcessing = true;
-    ME.turnStarted({});
-    check('a new turn setting up: no pencil on the message before it', !pencil());
-    ME.turnFor('m2');
-    check('its message is in: the pencil is on it while the AI works', pencilOn() === 'm2');
-    env.chatHistory.push({ role: 'assistant', content: call('ReadTextFile') });
-    const before = pencil();
+    check('every message the user sent gets Copy and Edit, the latest and older ones', !!editBtn('m1') && !!copyBtn('m1') && !!editBtn('m2') && !!copyBtn('m2'));
+    check('…not a bubble whose message isn\'t in the conversation yet', !t.msgEl('m3').querySelector('.message-actions'));
+    check('…labelled for a screen reader', editBtn('m1').getAttribute('aria-label') === 'Edit message' && copyBtn('m1').getAttribute('aria-label') === 'Copy message');
+    check('…in a bar after the message, Copy before Edit',
+        t.msgEl('m1').children.at(-1).className.includes('message-actions')
+        && t.msgEl('m1').querySelector('.message-actions').children.map(c => c.className).join(' ') === 'message-copy-btn message-edit-btn');
+    check('no arrows on a message with one version', !t.arrow('m1', 'prev'));
+    const before = editBtn('m2');
     before.focus();
+    env.chatHistory.push({ role: 'assistant', content: call('ReadTextFile') });
     ME.refresh();
-    check('a read keeps it, the same button (focus stays)', pencil() === before && t.dom.document.activeElement === before);
-    env.chatHistory.push({ role: 'user', content: { type: 'tool_result', tool_use_id: 'x', content: '{}' } });
-    env.chatHistory.push({ role: 'assistant', content: call('write') });
+    check('a refresh leaves a bar that is right alone (focus stays)', editBtn('m2') === before && dom.document.activeElement === before);
+    env.isProcessing = true;
     ME.refresh();
-    check('a write about to run takes it away', !pencil());
-    env.isProcessing = false;
-    ME.refresh();
-    check('…for good, after the turn', !pencil());
-
-    // A resume works on the latest message.
-    const r = setup();
-    r.say('m1', 'hello');
-    r.env.isProcessing = true;
-    r.ME.turnStarted({ resume: true });
-    check('a resume: the pencil stays on the message it continues', r.pencilOn() === 'm1');
+    check('a running build keeps them (Edit stops it)', !!editBtn('m1') && !!editBtn('m2'));
+    check('the turn hooks just refresh', typeof ME.turnStarted === 'function' && typeof ME.turnFor === 'function');
 
     const off = setup({ flag: false });
     off.say('m1', 'hello');
     off.ME.refresh();
-    check('FEATURE_FLAGS.messageEdit off: no pencil', !off.pencil());
+    check('FEATURE_FLAGS.messageEdit off: no buttons', !off.editBtn('m1') && !off.copyBtn('m1'));
+    void box;
+}
+
+// ---- Copying ------------------------------------------------------------------------
+{
+    const t = setup();
+    t.say('m1', [{ type: 'text', text: 'make it blue' }, { type: 'document', source: { type: 'text', data: 'spec' }, _pasted: true }]);
+    t.ME.refresh();
+    t.dom.dispatch(t.copyBtn('m1'), 'click');
+    await tick();
+    check('Copy puts the message on the clipboard, its pasted text too', t.s.clipboard[0] === 'make it blue\n\nspec');
+    check('…shows a check, and a screen reader hears it', t.copyBtn('m1').classList.contains('copied') && t.s.announces.includes('Copied.'));
+    t.env.clipboardFails = true;
+    t.say('m2', 'again');
+    t.ME.refresh();
+    t.dom.dispatch(t.copyBtn('m2'), 'click');
+    await tick();
+    check('a blocked clipboard: the user is told', /Couldn’t copy/.test(t.s.toasts.at(-1)));
 }
 
 // ---- Opening, cancelling ----------------------------------------------------
 {
     const t = setup();
-    const { env, s, ME, say, aiText, pencil, input, dom } = t;
+    const { env, s, ME, say, aiText, editBtn, input, dom } = t;
     say('m1', 'make it blue');
     env.isProcessing = true;
-    ME.turnFor('m1');
+    ME.refresh();
     aiText('Let me look at the styles first.');
-    dom.dispatch(pencil(), 'click');
-    const msg = t.box.querySelector('.user-message');
+    dom.dispatch(editBtn('m1'), 'click');
+    const msg = t.msgEl('m1');
     check('opening it while Puter works stops the build', s.stops === 1 && !env.isProcessing);
     check('…and turns the message into a box with its text', input() && input().value === 'make it blue' && msg.classList.contains('editing'));
     check('…the box comes first, the text it replaces stays (hidden by CSS)',
         msg.querySelector('.message-content').children[0] === input() && !!msg.querySelector('.message-content p'));
     check('…with Cancel and Send, Send ready', !!msg.querySelector('.message-edit-cancel') && msg.querySelector('.message-edit-send').disabled === false);
-    check('…no pencil while it\'s open, focus in the box', !pencil() && dom.document.activeElement === input());
+    check('…no buttons on it while it\'s open, focus in the box', !msg.querySelector('.message-actions') && dom.document.activeElement === input());
     check('…and a screen reader hears it stopped', /^Stopped\. Edit your message/.test(s.announces.at(-1)));
 
     // The stopped build ends meanwhile and asks for its Resume banner.
@@ -250,48 +309,47 @@ function setup({ flag = true } = {}) {
     check('Cancel: the message as it was', !input() && !msg.classList.contains('editing')
         && msg.querySelector('.message-content').textContent === 'make it blue');
     check('…the Resume banner back, with its words', s.banners.length === 1 && s.banners[0] === 'The response was interrupted.');
-    check('…and the pencil back, focused', pencil() && dom.document.activeElement === pencil());
+    check('…and Edit back, focused', editBtn('m1') && dom.document.activeElement === editBtn('m1'));
     check('…nothing sent', s.sends.length === 0);
 }
 {
     // Nothing running, no banner: Cancel puts back no banner.
     const t = setup();
     t.say('m1', 'hello');
-    t.aiText('Hi! What would you like to build?');
+    t.reply('Hi! What would you like to build?');
     t.ME.refresh();
-    t.dom.dispatch(t.pencil(), 'click');
+    t.dom.dispatch(t.editBtn('m1'), 'click');
     check('opening it with no build running stops nothing', t.s.stops === 0 && !!t.input());
+    check('…the box says what came after stays', t.hint() === t.ME._internals.HINT_AFTER);
     t.key(t.input(), 'Escape');
     check('Escape cancels, with no banner to bring back', !t.input() && t.s.banners.length === 0);
 
     // A banner that was up when it opened comes back on Cancel.
     t.$(t.box).append('<div class="message resume-banner-message">banner</div>');
-    t.dom.dispatch(t.pencil(), 'click');
+    t.dom.dispatch(t.editBtn('m1'), 'click');
     check('opening it takes the Resume banner down', !t.box.querySelector('.resume-banner-message'));
     t.key(t.input(), 'Escape');
     check('…and Cancel puts it back', !!t.box.querySelector('.resume-banner-message'));
-}
-{
-    // Clicked just as a write went out: refused, nothing stopped.
-    const t = setup();
-    t.say('m1', 'hello');
+
+    // Opening another message's box closes this one.
+    t.say('m2', 'second');
     t.ME.refresh();
-    const btn = t.pencil();
-    t.env.chatHistory.push({ role: 'assistant', content: t.call('write') });
-    t.dom.dispatch(btn, 'click');
-    check('a change since the pencil was drawn: no editor, the user is told', !t.input() && t.s.toasts.length === 1 && /can’t be edited/.test(t.s.toasts[0]));
-    check('…and the stale pencil goes', !t.pencil());
+    t.dom.dispatch(t.editBtn('m1'), 'click');
+    t.dom.dispatch(t.editBtn('m2'), 'click');
+    check('Edit on another message moves the box there', t.box.querySelectorAll('.message-edit-input').length === 1
+        && t.input().closest('.user-message').getAttribute('data-message-id') === 'm2' && !t.msgEl('m1').classList.contains('editing'));
 }
 
-// ---- Sending ------------------------------------------------------------------
+// ---- Sending: nothing changed since the message -------------------------------------
 {
     const t = setup();
-    const { env, s, ME, say, call, pencil, input, dom, box } = t;
+    const { env, s, ME, say, call, input, dom, box } = t;
     say('m1', [
         { type: 'text', text: 'add a gallery' },
         { type: 'image-ref', path: '/p/assets/a.png', relativePath: 'assets/a.png', thumb: 'data:x' },
         { type: 'text-hidden', text: '[note]' },
-    ]);
+    ], { baseVersion: 'v1' });
+    env.filesAt = 'v1';
     const original = env.chatHistory;
     env.chatHistory.push({ role: 'assistant', content: [call('readdir', 'r1')] });
     env.chatHistory.push({ role: 'user', content: { type: 'tool_result', tool_use_id: 'r1', content: '[]' } });
@@ -301,7 +359,7 @@ function setup({ flag = true } = {}) {
     t.$(box).append('<div class="message-queue" role="list"></div>');
     env.currentTodos = [{ content: 'Plan', status: 'in_progress' }];
     ME.refresh();
-    dom.dispatch(pencil(), 'click');
+    dom.dispatch(t.editBtn('m1'), 'click');
     check('a message with an image: the box shows its text, the image stays in view',
         input().value === 'add a gallery' && !!box.querySelector('.user-message .attached-images'));
     input().value = '';
@@ -313,127 +371,301 @@ function setup({ flag = true } = {}) {
     t.key(input(), 'Enter', { isComposing: true });
     check('the Enter that ends an IME composition doesn\'t send', s.sends.length === 0);
     t.key(input(), 'Enter');
-    await tick();
-    check('Enter sends it, as an edit, its text trimmed',
-        s.sends.length === 1 && s.sends[0].edit.messageId === 'm1' && s.sends[0].edit.text === 'add a photo gallery');
-
+    await tick(4);
     const h = env.chatHistory;
-    check('the conversation is a new array, up to the message and no further',
-        h !== original && h.length === 2 && h[1].messageId === 'm1');
-    check('…the message has its new text, its image and note kept',
-        h[1].content[0].text === 'add a photo gallery' && h[1].content[1].type === 'image-ref' && h[1].content[2].text === '[note]');
-    check('…the conversation it replaced is left as it was', original.length === 5 && original[1].content[0].text === 'add a gallery');
-    const msg = box.querySelector('.user-message');
-    check('the bubble shows the new text, its image still under it',
-        msg.querySelector('.message-content p').textContent === 'add a photo gallery'
+    const edited = h[h.length - 1];
+    check('Enter sends it: the conversation is a new array, up to the message, then the message edited',
+        h !== original && h.length === 2 && edited.messageId === 'new1' && edited.content[0].text === 'add a photo gallery');
+    check('…its image and note kept, and the version it was sent with', edited.content[1].type === 'image-ref' && edited.content[2].text === '[note]' && edited.baseVersion === 'v1');
+    check('…it and the original are versions of one message', edited.branchGroup === 'm1' && original[1].branchGroup === 'm1');
+    check('…the conversation it replaced is left as it was, and marked left', original.length === 5 && original[1].content[0].text === 'add a gallery' && ME.wasLeft(original) && !ME.wasLeft(h));
+    check('…nothing to restore: the files were still that version', s.restores.length === 0 && s.copies.length === 0);
+    check('…built from as an edit, not reverted', s.sends.length === 1 && s.sends[0].edit.messageId === 'new1' && s.sends[0].edit.reverted === false);
+    check('…its turn has what the version label and analytics need', s.turn.request === 'add a photo gallery' && s.turn.files === true && s.turn.message === edited);
+
+    const b = ME.branchesFor('chat1', h);
+    check('the version left is kept: two versions, the new one showing',
+        b.m1 && b.m1.active === 1 && b.m1.variants.length === 2 && b.m1.variants[1] === null);
+    check('…the old one with what came after it, and the files it had got to',
+        b.m1.variants[0].tail.length === 4 && b.m1.variants[0].tail[0] === original[1] && b.m1.variants[0].head === 'v1');
+    check('…saved as a build waiting to go, the moment it changed', s.saves.length >= 1 && s.saves[0].interrupted === true && s.saves[0].history.length === 2);
+
+    const msg = t.msgEl('new1');
+    check('the bubble takes the new id and text, its image still under it',
+        !!msg && msg.querySelector('.message-content p').textContent === 'add a photo gallery'
         && msg.querySelector('.message-content').children.at(-1).className === 'attached-images');
     check('…no editor left', !input() && !msg.classList.contains('editing') && !box.querySelector('.message-edit-actions'));
     check('what came after it is gone, the queued messages stay',
         !box.querySelector('.ai-message') && !box.querySelector('.todo-list') && !!box.querySelector('.message-queue'));
     check('…its checklist with it', env.currentTodos === null);
-    check('the pencil is back on it while it builds again', t.pencilOn() === 'm1');
-    check('the rewind reports what the version label and analytics need',
-        s.rewound.request === 'add a photo gallery' && s.rewound.files === true);
-    check('the focus goes back to the composer', dom.document.activeElement === t.composer);
+    check('the arrows show it is version 2 of 2', t.count('new1') === '2 / 2' && t.arrow('new1', 'prev').disabled === false && t.arrow('new1', 'next').disabled === true);
+    check('the focus goes to the composer', dom.document.activeElement === t.composer);
 }
+
+// ---- Sending: an older message, the files changed since ----------------------------------
 {
-    // Called off before its turn began (a restore started, say): the editor is
-    // the user's again.
     const t = setup();
-    t.say('m1', 'hello');
+    const { env, s, ME, say, reply, call, result, dom } = t;
+    say('m1', [{ type: 'text', text: 'a todo app' }, { type: 'image-ref', relativePath: 'assets/logo.png', path: '/x/assets/logo.png' }], { baseVersion: 'empty' });
+    env.chatHistory.push({ role: 'assistant', content: call('write', 'w1') });
+    env.chatHistory.push(result('w1'));
+    reply('Built it.');
+    say('m2', 'make it dark', { baseVersion: 'v1' });
+    env.chatHistory.push({ role: 'assistant', content: call('edit', 'w2') });
+    env.chatHistory.push(result('w2'));
+    reply('Dark now.');
+    env.filesAt = 'v2';
+    ME.refresh();
+    dom.dispatch(t.editBtn('m1'), 'click');
+    check('the box says the app goes back to how it was', t.hint() === ME._internals.HINT_REVERT);
+    t.input().value = 'a notes app';
+    dom.dispatch(t.msgEl('m1').querySelector('.message-edit-send'), 'click');
+    await tick(6);
+    check('the files go back to the version it was sent with (here, no files yet)', s.restores.length === 1 && s.restores[0] === 'empty');
+    check('…its own files come back from the version left', s.copies.length === 1 && s.copies[0].v === 'v2' && s.copies[0].rels[0] === 'assets/logo.png');
+    check('…the version left keeps the files it had got to', ME.branchesFor('chat1', env.chatHistory).m1.variants[0].head === 'v2');
+    check('…the build goes as reverted', s.sends.length === 1 && s.sends[0].edit.reverted === true);
+    check('…from the edited message, the later message in the version left',
+        env.chatHistory.length === 2 && env.chatHistory[1].content[0].text === 'a notes app'
+        && ME.branchesFor('chat1', env.chatHistory).m1.variants[0].tail.some(m => m.messageId === 'm2'));
+    check('the chat shows only the edited message now', JSON.stringify(t.ids()) === '["new1"]');
+}
+
+// ---- Sending: an older message with no version on record ----------------------------------
+{
+    const t = setup();
+    const { env, s, ME, say, reply, call, result, dom } = t;
+    say('m1', 'a todo app');
+    env.chatHistory.push({ role: 'assistant', content: call('write', 'w1') });
+    env.chatHistory.push(result('w1'));
+    reply('Built it.');
+    env.filesAt = null; // changed since its last version
+    ME.refresh();
+    dom.dispatch(t.editBtn('m1'), 'click');
+    check('the box says the app stays as it is', t.hint() === ME._internals.HINT_KEPT);
+    t.input().value = 'a notes app';
+    dom.dispatch(t.msgEl('m1').querySelector('.message-edit-send'), 'click');
+    await tick(6);
+    const edited = env.chatHistory[env.chatHistory.length - 1];
+    check('nothing is restored', s.restores.length === 0);
+    check('…the files no version held are saved as one, for the version left', s.pins.length === 1 && s.pins[0].label === 'Before edit'
+        && ME.branchesFor('chat1', env.chatHistory).m1.variants[0].head === 'vpin');
+    check('…the AI is told the files weren\'t put back', edited.content.some(b => b.type === 'text-hidden' && b.text === ME._internals.KEPT_NOTE));
+    check('…and the edited message keeps the files it goes with now', edited.baseVersion === 'vpin');
+    check('…built from, not reverted', s.sends.length === 1 && s.sends[0].edit.reverted === false);
+}
+
+// ---- Sending: the files can't be put back ----------------------------------------------
+{
+    const t = setup();
+    const { env, s, ME, say, reply, call, result, dom } = t;
+    say('m1', 'a todo app', { baseVersion: 'v1' });
+    env.chatHistory.push({ role: 'assistant', content: call('write', 'w1') });
+    env.chatHistory.push(result('w1'));
+    reply('Built it.');
+    env.filesAt = 'v2';
+    const original = env.chatHistory;
+    ME.refresh();
+    env.restoreResult = () => undefined; // refused or failed; the restore told the user
+    dom.dispatch(t.editBtn('m1'), 'click');
+    t.input().value = 'a notes app';
+    dom.dispatch(t.msgEl('m1').querySelector('.message-edit-send'), 'click');
+    await tick(8);
+    check('a failed restore: nothing is built', s.sends.length === 0);
+    check('…the conversation is put back as it was', env.chatHistory === original && !ME.wasLeft(original) && original.length === 5);
+    check('…with one version again', !ME.branchesFor('chat1', original).m1);
+    check('…drawn again, and the box open again with the edit in it',
+        s.renders === 1 && JSON.stringify(t.ids()) === '["m1"]' && !!t.input() && t.input().value === 'a notes app');
+}
+
+// ---- Sending: called off before its turn began -------------------------------------------
+{
+    const t = setup();
+    t.say('m1', 'hello', { baseVersion: 'v1' });
     t.ME.refresh();
-    t.dom.dispatch(t.pencil(), 'click');
+    t.dom.dispatch(t.editBtn('m1'), 'click');
     let release;
     t.env.onSend = () => new Promise(r => { release = r; });
     t.input().value = 'hello there';
-    t.dom.dispatch(t.box.querySelector('.message-edit-send'), 'click');
-    await tick();
-    check('sending: the box and both buttons wait', t.input().disabled === true
-        && t.box.querySelector('.message-edit-send').disabled === true && t.box.querySelector('.message-edit-cancel').disabled === true);
-    t.dom.dispatch(t.box.querySelector('.message-edit-send'), 'click');
-    await tick();
-    check('…and a second click sends nothing more', t.s.sends.length === 1);
+    t.dom.dispatch(t.msgEl('m1').querySelector('.message-edit-send'), 'click');
+    await tick(6);
+    check('while it goes in: busy, and sends from the composer wait', t.ME.isBusy() === true && t.ME.isOpen() === true);
+    t.env.showResumeBanner('old build interrupted');
+    check('…the stopped build\'s Resume banner is about the version left, so it doesn\'t show', t.s.banners.length === 0);
     release();
-    await tick(); await tick();
-    check('called off: still open, usable again, with what was typed', t.input() && t.input().disabled === false
-        && t.input().value === 'hello there' && t.box.querySelector('.message-edit-send').disabled === false);
-
-    // Called off because something changed meanwhile: the text goes to the composer.
-    t.env.onSend = () => { t.env.chatHistory.push({ role: 'assistant', content: '*Pulled from GitHub*', versionNote: true }); return Promise.resolve(); };
-    t.dom.dispatch(t.box.querySelector('.message-edit-send'), 'click');
-    await tick(); await tick();
-    check('called off by a change: the edit is in the composer and the user is told',
-        !t.input() && t.s.returned.at(-1) === 'hello there' && /in the message box/.test(t.s.toasts.at(-1)));
+    await tick(3);
+    check('called off (the Code view couldn\'t save, say): the edited message waits with the Resume banner',
+        t.s.banners.length === 1 && t.s.banners[0] === undefined && !t.ME.isBusy());
+    check('…the edit stays in the conversation', t.env.chatHistory.at(-1).content === 'hello there');
 }
 {
-    // Changed before Send: nothing is sent, the text goes to the composer.
+    // Changed project during the restore: the edit stays with its chat.
+    const t = setup();
+    t.say('m1', 'hello', { baseVersion: 'v1' });
+    t.env.chatHistory.push({ role: 'assistant', content: t.call('write') });
+    t.env.filesAt = 'v2';
+    t.ME.refresh();
+    let finish;
+    t.env.restoreResult = () => new Promise(r => { finish = r; });
+    t.dom.dispatch(t.editBtn('m1'), 'click');
+    t.input().value = 'hello there';
+    t.dom.dispatch(t.msgEl('m1').querySelector('.message-edit-send'), 'click');
+    await tick(4);
+    t.ME.reset();
+    t.env.currentChatId = 'chat2';
+    t.env.chatHistory = [{ role: 'system', content: 's' }];
+    finish({ ok: true, from: 'v2' });
+    await tick(4);
+    check('another project opened while the files went back: nothing builds there', t.s.sends.length === 0 && !t.ME.isBusy());
+}
+{
+    // Busy elsewhere: Send waits, nothing changes.
     const t = setup();
     t.say('m1', 'hello');
     t.ME.refresh();
-    t.dom.dispatch(t.pencil(), 'click');
-    t.input().value = 'hello again';
-    t.env.chatHistory.push({ role: 'assistant', content: '*Restored*', versionNote: true });
-    t.dom.dispatch(t.box.querySelector('.message-edit-send'), 'click');
-    check('no longer editable at Send: not sent, moved to the composer', t.s.sends.length === 0
-        && t.s.returned[0] === 'hello again' && t.composer.value === 'hello again' && !t.input());
-    check('…the message itself as it was', t.box.querySelector('.user-message .message-content').textContent === 'hello');
+    t.dom.dispatch(t.editBtn('m1'), 'click');
+    t.env._restoringVersion = true;
+    t.dom.dispatch(t.msgEl('m1').querySelector('.message-edit-send'), 'click');
+    await tick(3);
+    check('a restore running: Send says so and the box stays', /Finishing the restore/.test(t.s.toasts.at(-1)) && !!t.input() && t.s.sends.length === 0);
+    t.env._restoringVersion = false;
+}
+{
+    // A message sent from the composer while the box was open is building:
+    // Send stops it, and it goes into the version left.
+    const t = setup();
+    t.say('m1', 'hello', { baseVersion: 'v1' });
+    t.ME.refresh();
+    t.dom.dispatch(t.editBtn('m1'), 'click');
+    t.say('m2', 'something else', { baseVersion: 'v1' });
+    t.env.isProcessing = true;
+    t.ME.turnFor('m2');
+    check('another message joining leaves the box open', !!t.input());
+    t.input().value = 'hello edited';
+    t.dom.dispatch(t.msgEl('m1').querySelector('.message-edit-send'), 'click');
+    await tick(6);
+    check('Send stops that build and the edit goes', t.s.stops === 1 && t.s.sends.length === 1);
+    check('…the other message is in the version left', t.ME.branchesFor('chat1', t.env.chatHistory).m1.variants[0].tail.some(m => m.messageId === 'm2'));
 }
 {
     // Empty, with no files: nothing to send.
     const t = setup();
     t.say('m1', 'hello');
     t.ME.refresh();
-    t.dom.dispatch(t.pencil(), 'click');
+    t.dom.dispatch(t.editBtn('m1'), 'click');
     t.input().value = '   ';
     t.dom.dispatch(t.input(), 'input');
     check('emptied, no files: Send is off', t.box.querySelector('.message-edit-send').disabled === true);
     t.key(t.input(), 'Enter');
     check('…and Enter sends nothing', t.s.sends.length === 0);
 }
+
+// ---- Switching versions ---------------------------------------------------------------
 {
-    // A turn setting up from the composer when Send is pressed gives way.
     const t = setup();
-    t.say('m1', 'hello');
-    t.ME.refresh();
-    t.dom.dispatch(t.pencil(), 'click');
-    t.env.isProcessing = true;
-    t.ME.turnStarted({});
-    t.input().value = 'hello edited';
-    t.dom.dispatch(t.box.querySelector('.message-edit-send'), 'click');
-    await tick();
-    check('a send still setting up is stopped, and the edit goes', t.s.stops === 1 && t.s.sends.length === 1);
+    const { env, s, ME, say, reply, call, result, dom } = t;
+    say('m1', 'a todo app', { baseVersion: 'empty' });
+    env.chatHistory.push({ role: 'assistant', content: call('write', 'w1') });
+    env.chatHistory.push(result('w1'));
+    reply('Built the todo app.');
+    env.filesAt = 'v1';
+    ME.refresh();
+    dom.dispatch(t.editBtn('m1'), 'click');
+    t.input().value = 'a notes app';
+    dom.dispatch(t.msgEl('m1').querySelector('.message-edit-send'), 'click');
+    await tick(6);
+    // Its build finishes, with its own version of the files.
+    env.isProcessing = false;
+    env.chatHistory.push({ role: 'assistant', content: 'Built the notes app.' });
+    t.aiText('Built the notes app.');
+    env.filesAt = 'v2';
+    const second = env.chatHistory;
+    s.restores.length = 0;
+    s.renders = 0;
+
+    env.isProcessing = true;
+    dom.dispatch(t.arrow('new1', 'prev'), 'click');
+    await tick(3);
+    check('not while a build runs: the user is told', s.restores.length === 0 && /stop it, then switch/.test(s.toasts.at(-1)));
+    env.isProcessing = false;
+
+    const box = t.box;
+    box.scrollTop = 120;
+    dom.dispatch(t.arrow('new1', 'prev'), 'click');
+    await tick(6);
+    check('Previous puts the first version\'s files back', s.restores.length === 1 && s.restores[0] === 'v1');
+    check('…and its conversation, in a new array', env.chatHistory !== second && ME.wasLeft(second)
+        && env.chatHistory.length === 5 && env.chatHistory[1].messageId === 'm1' && env.chatHistory[4].content === 'Built the todo app.');
+    const b = ME.branchesFor('chat1', env.chatHistory).m1;
+    check('…the second version is kept, with the files it had got to', b.active === 0 && b.variants[0] === null
+        && b.variants[1].tail[0].messageId === 'new1' && b.variants[1].tail.at(-1).content === 'Built the notes app.' && b.variants[1].head === 'v2');
+    check('…the chat is drawn again, the scroll where it was', s.renders === 1 && JSON.stringify(t.ids()) === '["m1"]'
+        && !!box.querySelector('.ai-message') && box.scrollTop === 120);
+    check('…the arrows say 1 of 2, focus on them', t.count('m1') === '1 / 2' && t.arrow('m1', 'prev').disabled === true
+        && dom.document.activeElement === t.arrow('m1', 'next'));
+    check('…saved, and a screen reader hears it', s.saves.at(-1).history.length === 5 && s.announces.at(-1) === 'Version 1 of 2.');
+
+    dom.dispatch(t.arrow('m1', 'next'), 'click');
+    await tick(6);
+    check('Next goes back to the second version, files and all', s.restores.at(-1) === 'v2' && env.chatHistory.at(-1).content === 'Built the notes app.'
+        && t.count('new1') === '2 / 2' && ME.branchesFor('chat1', env.chatHistory).m1.variants[0].head === 'v1');
+
+    // Editing it again adds a third version.
+    dom.dispatch(t.editBtn('new1'), 'click');
+    t.input().value = 'a diary app';
+    dom.dispatch(t.msgEl('new1').querySelector('.message-edit-send'), 'click');
+    await tick(6);
+    check('editing a version again adds a third', t.count('new2') === '3 / 3' && ME.branchesFor('chat1', env.chatHistory).m1.variants.length === 3);
 }
 {
-    // A message sent from the composer while the editor is open comes after
-    // it: the edit can no longer go in.
+    // A version whose files weren't saved: the chat switches, the files stay.
     const t = setup();
-    t.say('m1', 'hello');
+    t.say('m1', 'hello', { baseVersion: 'v1', branchGroup: 'm1' });
+    t.ME.loadBranches('chat1', { m1: { active: 1, variants: [{ tail: [{ role: 'user', content: 'hi', messageId: 'm0', branchGroup: 'm1' }], head: null, interrupted: true }, null] } });
     t.ME.refresh();
-    t.dom.dispatch(t.pencil(), 'click');
-    t.input().value = 'hello edited';
-    t.env.isProcessing = true;
-    t.ME.turnStarted({});
-    t.say('m2', 'something else');
-    t.ME.turnFor('m2');
-    check('another message joined: the edit goes to the composer', !t.input() && t.s.returned[0] === 'hello edited');
-    const u = setup();
-    u.say('m1', 'hello');
-    u.ME.refresh();
-    u.dom.dispatch(u.pencil(), 'click');
-    u.say('m2', 'something else');
-    u.ME.turnFor('m2');
-    check('…unchanged, the editor just closes', !u.input() && u.s.returned.length === 0 && u.s.toasts.length === 0);
-    check('…and the pencil moves to the new message', u.pencilOn() === 'm2');
+    check('a chat opened with an edited message shows its arrows', t.count('m1') === '2 / 2');
+    t.dom.dispatch(t.arrow('m1', 'prev'), 'click');
+    await tick(6);
+    check('no files on record for it: nothing restored, the user is told', t.s.restores.length === 0 && /no saved copy/.test(t.s.toasts.at(-1)));
+    check('…the conversation switches, and its Resume banner comes back', t.env.chatHistory.at(-1).messageId === 'm0' && t.s.banners.length === 1
+        && t.s.saves.at(-1).interrupted === true);
 }
+
 {
-    // A chat switch drops the editor's state with the chat.
+    // The files can't be put back: the conversation goes back to the version
+    // they still match.
     const t = setup();
+    t.say('m1', 'hello', { baseVersion: 'v1', branchGroup: 'm1' });
+    t.reply('Hi.');
+    const shown = t.env.chatHistory;
+    t.ME.loadBranches('chat1', { m1: { active: 1, variants: [{ tail: [{ role: 'user', content: 'hey', messageId: 'm0', branchGroup: 'm1' }], head: 'v0' }, null] } });
+    t.ME.refresh();
+    t.env.restoreResult = () => undefined;
+    t.dom.dispatch(t.arrow('m1', 'prev'), 'click');
+    await tick(8);
+    check('a failed switch: the conversation is the one the files match again',
+        t.env.chatHistory === shown && !t.ME.wasLeft(shown) && t.s.restores[0] === 'v0'
+        && JSON.stringify(t.ids()) === '["m1"]' && t.count('m1') === '2 / 2');
+    const b = t.ME.branchesFor('chat1', shown).m1;
+    check('…with its versions as they were', b.active === 1 && b.variants[1] === null && b.variants[0].tail[0].messageId === 'm0');
+    check('…and the arrows work again', t.arrow('m1', 'prev').disabled === false && t.ME.isBusy() === false);
+}
+
+// ---- What's saved, and a switch to another project -----------------------------------------
+{
+    const t = setup();
+    check('a conversation with no edited message keeps no versions', JSON.stringify(t.ME.branchesFor('other', [{ role: 'user', content: 'x' }])) === '{}');
+    check('…one with an edited message, not the open chat, keeps its file\'s', t.ME.branchesFor('other', [{ role: 'user', branchGroup: 'g' }]) === undefined);
+    t.ME.loadBranches('chat1', { g: { active: 0, variants: [null, { tail: [], head: 'v1' }] } });
+    check('the open chat keeps the ones it loaded', t.ME.branchesFor('chat1', []).g.variants.length === 2);
     t.say('m1', 'hello');
     t.ME.refresh();
-    t.dom.dispatch(t.pencil(), 'click');
+    t.dom.dispatch(t.editBtn('m1'), 'click');
     t.ME.reset();
     t.box.textContent = '';
-    check('after a switch nothing is open', t.ME.isOpen() === false && t.ME.holdBanner('x') === false);
+    check('after a switch nothing is open, and no versions are held', t.ME.isOpen() === false && t.ME.holdBanner('x') === false
+        && t.ME.branchesFor('chat1', [{ branchGroup: 'g' }]) === undefined);
+    check('a conversation not left reads as such', t.ME.wasLeft([]) === false && t.ME.wasLeft(null) === false);
 }
 
 // ---- The read-only tools really are ------------------------------------------
@@ -466,7 +698,7 @@ function setup({ flag = true } = {}) {
         VITE.indexOf("'js/message-edit.js'") > VITE.indexOf("'js/message-queue.js'")
         && VITE.indexOf("'js/message-queue.js'") > VITE.indexOf("'js/app.js'"));
     check('FEATURE_FLAGS.messageEdit is on', /\n    messageEdit: true,\n/.test(HELP));
-    check('the test runs with npm test', PKG.scripts.test.includes('node scripts/test-message-edit.mjs'));
+    check('the tests run with npm test', PKG.scripts.test.includes('node scripts/test-message-edit.mjs') && PKG.scripts.test.includes('node scripts/test-message-versions.mjs'));
 
     const stopFn = APP.slice(APP.indexOf('function stopTurnForEdit() {'), APP.indexOf('window.stopTurnForEdit = stopTurnForEdit;'));
     check('stopping for an edit counts the build as abandoned, then stops it like Stop',
@@ -476,50 +708,90 @@ function setup({ flag = true } = {}) {
         banner.indexOf('window.MessageEdit?.holdBanner?.(message)') > 0 && banner.indexOf('window.MessageEdit?.holdBanner?.(message)') < banner.indexOf('clearResumeBanner();'));
     const reset = APP.slice(APP.indexOf('function resetChatUIForSwitch() {'), APP.indexOf('\n}\n', APP.indexOf('function resetChatUIForSwitch() {')));
     check('a chat switch resets it', reset.includes('window.MessageEdit?.reset?.();'));
+
+    const load = APP.slice(APP.indexOf('async function loadChat('), APP.indexOf('async function deleteChat('));
+    check('loadChat hands it the chat\'s versions the moment the chat is the open one',
+        /chatHistory = chat\.history;\s*currentChatId = chatId;[\s\S]{0,300}window\.MessageEdit\?\.loadBranches\?\.\(chatId, chat\.branches\);/.test(load));
+    check('loadChat draws the conversation through renderChatHistory, which a switch reuses',
+        load.includes('const drawn = await renderChatHistory(history, superseded);')
+        && APP.includes('async function renderChatHistory(history, superseded = () => false) {') && APP.includes('window.renderChatHistory = renderChatHistory;'));
     const dock = APP.indexOf('window.restorePublishDock?.();');
-    check('loadChat draws the pencil once the conversation is drawn', dock > 0 && APP.indexOf('window.MessageEdit?.refresh?.();', dock) - dock < 300);
+    check('loadChat draws the buttons once the conversation is drawn', dock > 0 && APP.indexOf('window.MessageEdit?.refresh?.();', dock) - dock < 300);
+    check('the open chat\'s conversation can be swapped from outside', APP.includes('window.setOpenChatHistory = function (history) {'));
+
+    const save = APP.slice(APP.indexOf('async function saveCurrentChatUnlocked('), APP.indexOf('window.savePublishedFields = async'));
+    check('a save of a conversation an edit left is never written', save.includes('if (window.MessageEdit?.wasLeft?.(context.chatHistory)) return;')
+        && save.indexOf('wasLeft') < save.indexOf('puter.fs.write('));
+    check('the versions not showing are saved with the chat, only when there are some',
+        save.includes('let branches = window.MessageEdit?.branchesFor?.(chatId, context.chatHistory);')
+        && save.includes('...(branches && typeof branches === \'object\' && Object.keys(branches).length ? { branches } : {}),'));
 
     const send = APP.slice(APP.indexOf('async function sendChatMessage('), APP.indexOf('// ---- Follow-up suggestions'));
     check('opts.edit is read (and never with a resume)', send.includes('const edit = !isResume && opts.edit && opts.edit.messageId ? opts.edit : null;'));
     check('an automatic fix waits while a message is open for editing',
         send.indexOf('if (opts.autoFix && window.MessageEdit?.isOpen?.()) return;') > 0
         && send.indexOf('if (opts.autoFix && window.MessageEdit?.isOpen?.()) return;') < send.indexOf('if (isProcessing) {'));
+    check('a send from the composer waits while an edit goes in or versions switch',
+        send.includes('if (!edit && window.MessageEdit?.isBusy?.()) {'));
     check('an edit isn\'t a reply to a clarifying question', send.includes('if (window._activeClarification && !edit) {'));
     check('an edit takes nothing from the composer',
         send.includes('const consumedComposer = !isResume && !queued && !edit && userInput == null')
-        && send.includes("const messageText = isResume ? '' : edit ? String(edit.text || '')"));
+        && send.includes("const messageText = isResume || edit ? '' :"));
     check('…nor joins the queue', send.includes("!opts.resume && !opts.queued && !edit) {"));
-    const check_ = send.indexOf('} else if (edit && window.MessageEdit?.editableId?.(chatHistory) !== edit.messageId) {');
-    const rewind = send.indexOf('edited = window.MessageEdit.rewind(chatHistory, edit);');
-    const swap = send.indexOf('chatHistory = edited.history;');
-    check('it checks the message can still be edited after the setup\'s awaits',
+    const check_ = send.indexOf('} else if (edit && !window.MessageEdit?.canBuild?.(chatHistory, edit.messageId)) {');
+    const began = send.indexOf('edited = window.MessageEdit.editTurn(chatHistory, edit);');
+    check('it checks the edited message is still the last after the setup\'s awaits',
         check_ > send.indexOf('window.GitHubSync.beforeTurn') && check_ < send.indexOf('isProcessing = true;'));
-    check('…then, with no await between, rewinds and swaps the conversation before the turn\'s context is built',
-        rewind > send.indexOf('isProcessing = true;') && swap > rewind && swap < send.indexOf('const turnSeq = ++_turnSeq;')
-        && swap < send.indexOf('const turnSaveContext = {')
-        && !send.slice(check_, swap).split('\n').some(l => !/^\s*\/\//.test(l) && /\bawait\b/.test(l)));
-    check('other turns tell the pencil they started', send.includes('window.MessageEdit?.turnStarted?.({ resume: isResume });'));
+    check('…then, with no await between, its turn begins before the turn\'s context is built',
+        began > send.indexOf('isProcessing = true;') && began < send.indexOf('const turnSaveContext = {')
+        && !send.slice(check_, began).split('\n').some(l => !/^\s*\/\//.test(l) && /\bawait\b/.test(l)));
+    check('other turns tell it they started', send.includes('window.MessageEdit?.turnStarted?.({ resume: isResume });'));
     check('a new message tells it once it is in the conversation',
-        /chatHistory\.push\(\{ role: "user", content: messageContent, messageId \}\);[\s\S]{0,400}window\.MessageEdit\?\.turnFor\?\.\(messageId\);/.test(send));
+        /chatHistory\.push\(\{ role: "user", content: messageContent, messageId \}\);[\s\S]{0,1000}window\.MessageEdit\?\.turnFor\?\.\(messageId\);/.test(send));
+
+    const base = send.indexOf("const turnBase = (!isResume && !edit && !skipAddToHistory) ? window.projectVersionNow?.(currentChatId, currentAppDir) : null;");
+    check('a new message\'s version is asked at turn start, before its files are saved and the AI runs',
+        base > send.indexOf('window.resetTurnFileChanges?.();') && base < send.indexOf('await puter.fs.write(assetPath, a.file);')
+        && base < send.indexOf('const turnSaveContext = {'));
+    check('…and kept on the message once known, saved again if the turn\'s save went first',
+        /const userEntry = turnSaveContext\.chatHistory\[turnSaveContext\.chatHistory\.length - 1\];\s*Promise\.resolve\(turnBase\)\.then\(\(v\) => \{\s*if \(v === undefined\) return;\s*userEntry\.baseVersion = v;\s*if \(turnSaved && !supersededSameChat\) scheduleSaveCurrentChat\(turnSaveContext\);/.test(send)
+        && /if \(!supersededSameChat\) scheduleSaveCurrentChat\(turnSaveContext\);\s*turnSaved = true;/.test(send));
+    check('a turn whose conversation an edit left neither snapshots nor saves it',
+        /supersededSameChat = _latestTurnSeqByChat\.get\(turnChatId\) !== turnSeq\s*\|\| !!window\.MessageEdit\?\.wasLeft\?\.\(turnSaveContext\.chatHistory\);/.test(send));
+    check('every turn says when it has fully unwound, for an edit to wait on',
+        send.includes('const unwound = turnUnwinding();') && /GitHubSync\?\.onTurnEnd\?\.\(turnChatId, turnSeq\); \} catch \(e\) \{ \/\* never \*\/ \}\s*unwound\.done\(\);/.test(send)
+        && APP.includes('window.whenTurnsUnwound = whenTurnsUnwound;'));
     const branch = send.slice(send.indexOf('} else if (edited) {'), send.indexOf('} else if (!skipAddToHistory) {'));
-    check('an edit\'s turn: Build Started marked edited, the build tracked, the message counted as in',
-        /window\.track\?\.\('Build Started', \{[^\n]*edited: true/.test(branch)
+    check('an edit\'s turn: Build Started marked edited and reverted, the build tracked, the message counted as in',
+        /window\.track\?\.\('Build Started', \{[^\n]*edited: true, reverted: !!edit\.reverted/.test(branch)
         && branch.includes('_activeBuild = { turnSeq,') && branch.includes('userMessageAppended = true;')
         && !branch.includes("'Project Created'"));
     check('…hand edits from the Code view go with it', branch.includes('window.MessageEdit.addNote(edited.message, manualEditNote);'));
     check('its version is labelled with the edited request', send.includes('const turnRequest = edited ? edited.request :'));
 
+    check('the AI never sees a message\'s version or its group',
+        HELP.includes("if ('baseVersion' in msg) delete msg.baseVersion;") && HELP.includes("if ('branchGroup' in msg) delete msg.branchGroup;"));
+    check('a copied project forgets the original\'s versions', /for \(const m of finalHistory\) \{\s*if \(m\) \{ delete m\.baseVersion; delete m\.branchGroup; \}/.test(APP));
+
+    check('versions.js offers what the edit needs',
+        VERSIONS.includes('window.projectVersionNow = function (chatId, appDir) {') && VERSIONS.includes('window.restoreProjectVersion = function (versionId, opts) {')
+        && VERSIONS.includes('window.copyFilesFromVersion = async function (chatId, appDir, versionId, relPaths) {')
+        && VERSIONS.includes("return restoreVersion(versionId, Object.assign({ skipConfirm: true, quiet: true, exact: true }, opts || {}));"));
+    check('a quiet restore leaves no note in the conversation', VERSIONS.includes("if (!opts.quiet && typeof chatHistory !== 'undefined' && Array.isArray(chatHistory)) {"));
+
     const push = TOOLS.indexOf('content: completion.length === 1 ? completion[0] : completion,');
     const refresh = TOOLS.indexOf('window.MessageEdit?.refresh?.()', push);
-    check('a round\'s calls take the pencil away before any of them runs',
+    check('a round\'s calls refresh the buttons before any of them runs',
         push > 0 && refresh > push && refresh < TOOLS.indexOf('await executeFunction(toolCall.name', push));
-    check('a restore and a pull from GitHub take it away', (VERSIONS.match(/window\.MessageEdit\?\.refresh\?\.\(\);/g) || []).length === 2);
+    check('a restore and a pull from GitHub refresh them', (VERSIONS.match(/window\.MessageEdit\?\.refresh\?\.\(\);/g) || []).length === 2);
     check('so does going live with backend keys', UI.includes("appendMessage(keysNote, false);\n                // The site went live under the last message: no editing it.\n                window.MessageEdit?.refresh?.();"));
 
-    check('styles: the pencil, the box, its buttons, on phones and in dark mode',
-        ['.message-edit-bar {', '.message-edit-btn {', '.message-edit-input {', '.message-edit-actions {', '.message-edit-send {',
-            '.user-message.editing .message-content > :not(.message-edit-input)',
-            'html[data-theme="dark"] .message-edit-input', '    .message-edit-btn { width: 36px; height: 36px; }'].every(c => CSS.includes(c)));
+    check('styles: the bar shown on hover or focus, always on touch screens, the arrows, the box, in dark mode and on phones',
+        ['.message-actions {', '.user-message:hover .message-actions > button,', '.message-actions:focus-within > button {',
+            '.message-copy-btn.copied', '.message-branch-nav {', '.message-branch-count {', '.message-edit-input {', '.message-edit-hint {',
+            '.message-edit-actions {', '.message-edit-send {', '.user-message.editing .message-content > :not(.message-edit-input)',
+            'html[data-theme="dark"] .message-edit-input', 'html[data-theme="dark"] .message-copy-btn'].every(c => CSS.includes(c))
+        && /@media \(hover: none\), \(pointer: coarse\) \{[\s\S]*?\.message-actions > \.message-copy-btn,\s*\.message-actions > \.message-edit-btn \{ opacity: 1; \}/.test(CSS));
 }
 
 if (failures) {

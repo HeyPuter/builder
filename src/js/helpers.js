@@ -116,9 +116,11 @@ window.FEATURE_FLAGS = {
     // and goes one message per turn once the turn finishes cleanly. When
     // false the composer is locked for the whole turn, as before.
     messageQueue: true,
-    // Editing the latest message (js/message-edit.js): a pencil under it
-    // opens it in place while nothing done for it has changed anything yet,
-    // and Send builds again from it. When false there is no pencil.
+    // Editing a message the user sent (js/message-edit.js). Copy and Edit
+    // under each one, and Send puts the project's files back to the version
+    // it was sent with and builds again from there. The conversation it
+    // replaces stays as another version of the message, with arrows to switch
+    // between them. When false there are no buttons.
     messageEdit: true,
     // Projects made while this is on build their backends as Puter dynamic
     // workers: a file __workers/<name>.worker.js in the folder the site
@@ -1194,6 +1196,10 @@ function prepareHistoryForAI(historyArray, modelId, opts) {
         if ('publishCardUrl' in msg) {
             delete msg.publishCardUrl;
         }
+        // The version of the files a message was sent with, and which edited
+        // message it is a version of (js/message-edit.js). Never sent.
+        if ('baseVersion' in msg) delete msg.baseVersion;
+        if ('branchGroup' in msg) delete msg.branchGroup;
         // Where a project forked from a template came from (on its system
         // message, see createFork in templates.js). Read by loadChat for the
         // "Started from" note; never sent to the chat endpoint.
