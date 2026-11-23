@@ -128,7 +128,7 @@
         const signedIn = () => !!(window.user && !window.user.is_temp);
         const wasSignedIn = signedIn();
         let authFailed = false;
-        try { if (typeof ensureAuthenticated === 'function') await ensureAuthenticated(); }
+        try { if (typeof ensureAuthenticated === 'function') await ensureAuthenticated('voice'); }
         catch (e) { authFailed = true; }
         // Signed in just now, from the mic: do what the Sign In button does.
         // The toolbar kept showing "Sign In" instead of the profile circle,

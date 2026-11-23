@@ -6802,7 +6802,7 @@ $(document).on('click', '.sign-in-btn', async function(e) {
     e.preventDefault();
     e.stopPropagation();
     try {
-        await ensureAuthenticated();
+        await ensureAuthenticated('button');
         updateUserMenu();
         // The composer was keyed to the signed-out identity until now: re-key
         // anything typed, or refill from the signed-in user's own saved draft
@@ -6815,7 +6815,10 @@ $(document).on('click', '.sign-in-btn', async function(e) {
 
 // <puter-user-menu>'s Sign In has already signed in by the time it says so, and
 // hands over the user; set it first so ensureAuthenticated doesn't ask again.
+// It only says so when the sign-in worked. A popup closed from it tells the
+// builder nothing, so source 'menu' never has closed or failed results.
 $(document).on('signin', 'puter-user-menu', async function(e) {
+    window.trackSignInResult?.('menu', 'signed_in');
     window.user = e.originalEvent?.detail?.user || await initializeUser();
     updateUserMenu();
     if (!window.user || window.user.is_temp) return;

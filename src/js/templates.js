@@ -361,7 +361,7 @@
         let template = null;
         const progress = { stage: null };
         try {
-            await ensureAuthenticated();
+            await ensureAuthenticated('template');
             template = await findTemplate(slug);
             if (!template) {
                 window.track?.('Template Use Failed', { template: slug, source, stage: 'unavailable' });
