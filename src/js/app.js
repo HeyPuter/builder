@@ -1679,6 +1679,9 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
         // after it, goes back above the composer (tools/chat_ui/publish.js).
         // Before the chips below, which wait while it's there.
         window.restorePublishDock?.();
+        // The pencil under the latest message, when nothing since has changed
+        // anything (js/message-edit.js).
+        window.MessageEdit?.refresh?.();
 
         // Update UI state
         $('.chat').addClass('active');
@@ -3822,7 +3825,8 @@ window.isStaleTurn = isStaleTurn;
 window.isAborted = isAborted;
 
 // The user gave up on a build before it finished: stopped it, opened another
-// project or a new one, deleted this one, or left the page. Sent the moment
+// project or a new one, deleted this one, left the page, or opened the
+// message it was working on to edit it ('edited'). Sent the moment
 // they do, so `waited` is how long they waited, and saw_output says whether
 // the model had shown anything yet or they left during the first wait.
 // Plausible's script sends with keepalive, so the event still goes out as the
@@ -3880,6 +3884,17 @@ function stopActiveTurn() {
 }
 window.stopActiveTurn = stopActiveTurn;
 
+// Stop the running build to edit the message it works on (js/message-edit.js).
+// Like Stop, but no queued message takes over and the Resume banner waits for
+// the editor: what goes next is the edited message. True when a turn stopped.
+function stopTurnForEdit() {
+    if (!isProcessing) return false;
+    trackBuildAbandoned('edited');
+    stopActiveTurn();
+    return true;
+}
+window.stopTurnForEdit = stopTurnForEdit;
+
 // Reset all transient, turn-owned state so a freshly opened/switched chat starts
 // clean and immediately usable — even while an aborted turn is still unwinding
 // in the background. The chat switch takes full ownership of this reset:
@@ -3916,6 +3931,10 @@ function resetChatUIForSwitch() {
     // left. It sits outside .chat-box, so .empty() doesn't reach it. loadChat
     // puts back what the chat it opens still has waiting.
     window.ChatDock?.clear?.();
+
+    // So does a message open for editing (js/message-edit.js). loadChat puts
+    // the pencil back under the latest message of the chat it opens.
+    window.MessageEdit?.reset?.();
 
     // Drop the previous turn's follow-up suggestion chips (they live above the
     // input, outside .chat-box, so .empty() doesn't reach them) and supersede
@@ -4136,6 +4155,9 @@ function resumeBannerHTML(message) {
 // Show the "response was interrupted" banner at the bottom of the chat. Single
 // instance: any existing banner is removed first.
 function showResumeBanner(message) {
+    // Not while the user edits their latest message (js/message-edit.js):
+    // Send builds again from it, and Cancel brings the banner back.
+    if (window.MessageEdit?.holdBanner?.(message)) return;
     clearResumeBanner();
     const $chatBox = $('.chat-box');
     if (!$chatBox.length) return;
@@ -5325,11 +5347,19 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // the .resume-build-btn handler). On this path we add no user bubble, ignore
     // the composer, and skip the empty-message guard.
     const isResume = !!opts.resume;
+    // The user's latest message, edited (js/message-edit.js): { messageId,
+    // text }. Like a resume it adds no message of its own. The conversation
+    // goes back to just before the message, which comes back with its new
+    // text, and the turn builds from there (see the rewind below).
+    const edit = !isResume && opts.edit && opts.edit.messageId ? opts.edit : null;
+    // An automatic error fix waits while a message is open for editing: it
+    // would go in after that message, and the edit could no longer go in.
+    if (opts.autoFix && window.MessageEdit?.isOpen?.()) return;
     // A clarifying-questions card is waiting for the user. Route a composer send
     // into that card as a "reply directly" answer instead of starting a new turn
     // (or being treated as a Stop). The agentic loop is paused inside the tool's
     // exec; resolving it here lets the model continue building with this reply.
-    if (window._activeClarification) {
+    if (window._activeClarification && !edit) {
         const typed = (userInput ?? $('.chat-input-message').val() ?? '').trim();
         // A long paste is a card in the tray (attachPastedText), but it is part
         // of what the user wrote: it goes in the reply, after the typed text.
@@ -5424,7 +5454,7 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // While a queued message is in that setup, a send from the composer joins
     // the queue behind it instead of being dropped.
     if (_sendSetupInFlight) {
-        if (userInput == null && chat_input_message == null && !opts.resume && !opts.queued) {
+        if (userInput == null && chat_input_message == null && !opts.resume && !opts.queued && !edit) {
             window.MessageQueue?.enqueueFromComposer?.();
         }
         return;
@@ -5482,12 +5512,14 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // A queued message (js/message-queue.js) carries what the composer held
     // when it was queued: its own text, files and picked element. It leaves
     // the composer, which holds the user's next message by now, alone.
-    const queued = (!isResume && opts.queued) || null;
-    const consumedComposer = !isResume && !queued && userInput == null && chat_input_message == null;
-    const messageText = isResume ? '' : queued ? queued.text : (userInput ?? chat_input_message ?? preAuthComposerText);
+    // An edited message brings its text from its editor, and keeps the files
+    // it was sent with: the composer isn't touched either.
+    const queued = (!isResume && !edit && opts.queued) || null;
+    const consumedComposer = !isResume && !queued && !edit && userInput == null && chat_input_message == null;
+    const messageText = isResume ? '' : edit ? String(edit.text || '') : queued ? queued.text : (userInput ?? chat_input_message ?? preAuthComposerText);
     const sendAttachments = consumedComposer ? preAuthAttachments : queued ? queued.attachments : [];
     chat_input_message = undefined;
-    if (!isResume && !messageText && sendAttachments.length === 0) { _sendSetupInFlight = false; return; }
+    if (!isResume && !edit && !messageText && sendAttachments.length === 0) { _sendSetupInFlight = false; return; }
 
     // The Code view, before the AI touches anything: unsaved hand edits are
     // saved, and saved ones become their own version, so this turn's snapshot
@@ -5591,6 +5623,14 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
         window.CodeEditor?.onTurnEnd?.(currentChatId);
         window.refreshPublishButton?.();
         return;
+    } else if (edit && window.MessageEdit?.editableId?.(chatHistory) !== edit.messageId) {
+        // Something changed after the message during the setup (a pull from
+        // GitHub noted in the conversation). The editor sees the send was
+        // called off and moves the text to the composer.
+        _sendSetupInFlight = false;
+        window.CodeEditor?.onTurnEnd?.(currentChatId);
+        window.refreshPublishButton?.();
+        return;
     }
     // Drop any "what next?" suggestion chips from the previous turn — a new turn
     // is starting, so they no longer apply (and would otherwise linger above the
@@ -5618,6 +5658,22 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // The user moved on, so a Publish card still waiting above the composer
     // goes back to its place in the conversation (tools/chat_ui/publish.js).
     window.closeDockedPublishCard?.();
+    // An edited message (js/message-edit.js) goes back in the conversation in
+    // place of the original and everything after it, and the chat follows. A
+    // new array, not the old one cut short: a turn stopped for the edit may
+    // still be unwinding (tool execs aren't abortable), and what it adds then
+    // lands in the conversation it left, which nothing saves once this turn
+    // has begun (supersededSameChat in its finally). No await since the check
+    // above, so the message is still there. Other turns tell the pencil which
+    // message they work on once it is in the conversation.
+    let edited = null;
+    if (edit) {
+        edited = window.MessageEdit.rewind(chatHistory, edit);
+        chatHistory = edited.history;
+        window.MessageEdit.turnFor(edit.messageId);
+    } else {
+        window.MessageEdit?.turnStarted?.({ resume: isResume });
+    }
     // This turn's id — see _turnSeq and the end-of-turn guard below.
     const turnSeq = ++_turnSeq;
     // When the user sent it, for Build Abandoned's `waited` and Build
@@ -5791,6 +5847,22 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             // Re-animate the progress checklist so the active step shimmers again
             // instead of sitting frozen from the interrupt (see restoreTodosForResume).
             restoreTodosForResume(turnSaveContext.chatHistory);
+            scheduleSaveCurrentChat(turnSaveContext);
+        } else if (edited) {
+            // The edited message is in the conversation already (the rewind
+            // above), its files saved when it was first sent; only its turn's
+            // bookkeeping is left. Hand edits made in the Code view since go
+            // with it, as with any message. Its project was created by its
+            // first send, so no Project Created.
+            const manualEditNote = window.CodeEditor?.pendingNote?.(turnChatId) || '';
+            if (manualEditNote) {
+                window.MessageEdit.addNote(edited.message, manualEditNote);
+                window.CodeEditor?.notePosted?.(turnChatId);
+            }
+            isFirstBuildTurn = countUserMessages(turnSaveContext.chatHistory) === 1;
+            window.track?.('Build Started', { first_build: isFirstBuildTurn, has_attachments: edited.files, edited: true, ...turnTemplate, fast_mode: !!window.FastMode?.applies(chosenModel), ...window.experimentProps?.('speed') });
+            _activeBuild = { turnSeq, startedAt: turnStartedAt, firstBuild: isFirstBuildTurn, template: turnTemplate.template, stats: turnStats };
+            userMessageAppended = true;
             scheduleSaveCurrentChat(turnSaveContext);
         } else if (!skipAddToHistory) {
             // Snapshot the attachments before the tray is cleared, and classify.
@@ -6070,6 +6142,9 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             turnSaveContext.chatHistory.push({ role: "user", content: messageContent, messageId });
             userMessageAppended = true;
             if (manualEditNote) window.CodeEditor?.notePosted?.(turnChatId);
+            // Its pencil, while nothing done for it has changed anything
+            // (js/message-edit.js). Only for the open chat's conversation.
+            if (turnSaveContext.chatHistory === chatHistory) window.MessageEdit?.turnFor?.(messageId);
 
             // Persist the user's message right away. The end-of-turn save only
             // lands after the whole AI response finishes — for a short/text-only
@@ -6444,7 +6519,9 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
             // builder-internal nudge, not a user request).
             // Pasted text cards are part of what the user wrote: a paste-only
             // message is labelled by its paste.
-            const turnRequest = [messageText, ...sendAttachments.filter(a => a.pastedText != null).map(a => a.pastedText)]
+            // An edited message's pasted text cards are in the conversation,
+            // not the tray.
+            const turnRequest = edited ? edited.request : [messageText, ...sendAttachments.filter(a => a.pastedText != null).map(a => a.pastedText)]
                 .filter(t => t && t.trim()).join('\n\n');
             const aiContext = isResume ? null : {
                 userMessage: turnRequest,

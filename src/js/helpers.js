@@ -116,6 +116,10 @@ window.FEATURE_FLAGS = {
     // and goes one message per turn once the turn finishes cleanly. When
     // false the composer is locked for the whole turn, as before.
     messageQueue: true,
+    // Editing the latest message (js/message-edit.js): a pencil under it
+    // opens it in place while nothing done for it has changed anything yet,
+    // and Send builds again from it. When false there is no pencil.
+    messageEdit: true,
     // Projects made while this is on build their backends as Puter dynamic
     // workers: a file __workers/<name>.worker.js in the folder the site
     // serves, which Puter runs at /__workers/<name>/ on that same site

@@ -1114,6 +1114,89 @@ puter-user-menu::part(sign-in):hover {
     color: #111;
 }
 
+/* Editing the latest message (js/message-edit.js): the pencil under it, like
+   a queued message's, and the message turned into a box to edit in place.
+   The bar's negative margin keeps the gap to the reply as it was. */
+.message-edit-bar {
+    display: flex;
+    justify-content: flex-end;
+    margin: 2px 0 -12px;
+}
+.message-edit-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: #757575;
+    cursor: pointer;
+}
+.message-edit-btn:hover {
+    background: #f0f0f0;
+    color: #111;
+}
+/* While it's being edited, the box takes the text's place. The files it was
+   sent with stay in view under it, as they stay with the message. */
+.user-message.editing .message-content > :not(.message-edit-input):not(.attached-images):not(.message-edit-actions) {
+    display: none;
+}
+.message-edit-input {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 40px;
+    max-height: 50vh;
+    margin: 0;
+    padding: 8px 10px;
+    border: 1px solid #d0d0d0;
+    border-radius: 10px;
+    background: #fff;
+    color: inherit;
+    font: inherit;
+    font-size: 14px;
+    line-height: 1.5;
+    resize: none;
+    overflow-y: auto;
+}
+.message-edit-input:focus {
+    outline: none;
+    border-color: #8a8a8a;
+}
+.user-message.editing .attached-images { margin-top: 10px; }
+.message-edit-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-top: 8px;
+}
+.message-edit-cancel,
+.message-edit-send {
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+.message-edit-cancel {
+    border: 1px solid #d0d0d0;
+    background: #fff;
+    color: #333;
+}
+.message-edit-cancel:hover { background: #f3f3f3; }
+.message-edit-send {
+    border: 1px solid #484d51;
+    background: #484d51;
+    color: #fff;
+}
+.message-edit-send:hover { background: #333; border-color: #333; }
+.message-edit-send:disabled,
+.message-edit-cancel:disabled { opacity: 0.55; cursor: not-allowed; }
+
 .attachment-button {
     padding: 7px 10px;
     background-color: transparent;
@@ -5782,7 +5865,8 @@ body.preview-active.chat-hidden .chat {
     .publish-address-input,
     .publish-card-input,
     .chat-title-input,
-    .clarify-custom-input {
+    .clarify-custom-input,
+    .message-edit-input {
         font-size: 16px;
     }
     /* Keep the https:// / .puter.site affixes the same size as the (now 16px)
@@ -5799,6 +5883,9 @@ body.preview-active.chat-hidden .chat {
         height: 34px;
     }
     .queued-message-icon { width: 36px; height: 36px; }
+    .message-edit-btn { width: 36px; height: 36px; }
+    .message-edit-cancel,
+    .message-edit-send { height: 36px; padding: 0 14px; }
     .queued-message-send-now { height: 36px; }
     .model-picker-btn {
         height: 34px;
@@ -7673,6 +7760,14 @@ html[data-theme="dark"] .queued-message-send-now:hover {
     background: var(--surface-hover);
     color: var(--text);
 }
+html[data-theme="dark"] .message-edit-btn { color: var(--text-muted); }
+html[data-theme="dark"] .message-edit-btn:hover { background: var(--surface-hover); color: var(--text); }
+html[data-theme="dark"] .message-edit-input { background: var(--surface); border-color: var(--border); color: var(--text); }
+html[data-theme="dark"] .message-edit-input:focus { border-color: var(--border-strong); }
+html[data-theme="dark"] .message-edit-cancel { background: var(--surface); border-color: var(--border); color: var(--text); }
+html[data-theme="dark"] .message-edit-cancel:hover { background: var(--surface-hover); }
+html[data-theme="dark"] .message-edit-send { background: var(--text); border-color: var(--text); color: var(--bg); }
+html[data-theme="dark"] .message-edit-send:hover { background: #fff; border-color: #fff; }
 html[data-theme="dark"] .chat-input-message:focus-within,
 html[data-theme="dark"] .chat-input-message:focus { border-color: var(--border-strong); }
 

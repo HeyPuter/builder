@@ -49,6 +49,7 @@ export class El {
     remove() { if (this.parentNode) this.parentNode.removeChild(this); }
     replaceWith(n) { const p = this.parentNode; if (!p) return; p.insertAfter(n, this); p.removeChild(this); }
     before(n) { const p = this.parentNode; if (!p) return; if (n.parentNode) n.parentNode.removeChild(n); n.parentNode = p; p.childNodes.splice(p.childNodes.indexOf(this), 0, n); }
+    prepend(n) { if (n.parentNode) n.parentNode.removeChild(n); n.parentNode = this; this.childNodes.unshift(n); }
     get nextElementSibling() { const s = this.parentNode ? this.parentNode.children : []; return s[s.indexOf(this) + 1] || null; }
     contains(n) { for (let x = n; x; x = x.parentNode) if (x === this) return true; return false; }
     descendants() { const out = []; const walk = (e) => e.children.forEach(c => { out.push(c); walk(c); }); walk(this); return out; }

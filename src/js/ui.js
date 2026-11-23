@@ -3404,6 +3404,8 @@ async function publishProject(ui) {
                 // versionNote: not a build reply (see countCompletedBuilds).
                 chatHistory.push({ role: 'assistant', content: keysNote, messageId, versionNote: true });
                 if (typeof appendMessage === 'function') appendMessage(keysNote, false);
+                // The site went live under the last message: no editing it.
+                window.MessageEdit?.refresh?.();
             }
             if (typeof saveCurrentChat === 'function') {
                 try { await saveCurrentChat({ currentChatId: chatId, chatHistory: chatHistory }); }

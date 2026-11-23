@@ -179,7 +179,8 @@ check('a tray file that isn\'t an image is drawn as a file card', /attachment-th
         suggestionMessageText({ role: 'user', content: [{ type: 'text', text: 'fix it' }, ...pasteOnly.content, { type: 'image-ref', path: 'p' }] })
             === 'fix it TypeError: boom\n  at x.js:1');
     check('the version label and its AI context read the pastes',
-        /const turnRequest = \[messageText, \.\.\.sendAttachments\.filter\(a => a\.pastedText != null\)\.map\(a => a\.pastedText\)\][\s\S]{0,200}userMessage: turnRequest,[\s\S]{0,200}label: isResume \? 'Resumed build' : turnRequest,/.test(APP));
+        // (An edited message's pastes are in the conversation: js/message-edit.js.)
+        /const turnRequest = edited \? edited\.request : \[messageText, \.\.\.sendAttachments\.filter\(a => a\.pastedText != null\)\.map\(a => a\.pastedText\)\][\s\S]{0,200}userMessage: turnRequest,[\s\S]{0,200}label: isResume \? 'Resumed build' : turnRequest,/.test(APP));
 }
 
 check('a click outside the edit dialog keeps unsaved edits instead of discarding them',

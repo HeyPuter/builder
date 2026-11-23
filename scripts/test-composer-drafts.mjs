@@ -561,8 +561,10 @@ check('sendChatMessage clears the draft when the composer is consumed',
 // target — all of which belong to the user's own next message.
 // A queued message (js/message-queue.js) is not a composer send either: by the
 // time it goes, the composer holds the user's next message.
-check('the main-path clear is gated on consumedComposer (Resume + programmatic + queued sends leave the composer alone)',
-    /const consumedComposer = !isResume && !queued && userInput == null && chat_input_message == null;/.test(sendSrc) &&
+// Nor is an edit of the latest message (js/message-edit.js): its text comes
+// from its own editor.
+check('the main-path clear is gated on consumedComposer (Resume + programmatic + queued sends and edits leave the composer alone)',
+    /const consumedComposer = !isResume && !queued && !edit && userInput == null && chat_input_message == null;/.test(sendSrc) &&
     /if \(consumedComposer\) \{[^}]*clearComposerDraft\(preAuthDraftContext\)/s.test(sendSrc));
 check('programmatic sends do not take or clear the attachment tray (a queued one brings its own files)',
     sendSrc.includes('const sendAttachments = consumedComposer ? preAuthAttachments : queued ? queued.attachments : [];') &&
@@ -582,8 +584,9 @@ check('send snapshots the attachment tray BEFORE ensureAuthenticated',
 check('programmatic sends do not spend the click-to-edit target (a queued one carries its own)',
     sendSrc.includes(': consumedComposer ? preAuthEditTarget : (queued && queued.editTarget);') &&
     sendSrc.includes('if (consumedComposer && window._pendingEditTarget === preAuthEditTarget) window.clearEditTarget?.();'));
+// (An edit keeps the files it was sent with, so it may have no text either.)
 check('an attachment-only composer or queued send still goes through',
-    /if \(!isResume && !messageText && sendAttachments\.length === 0\) \{[^}]*return; \}/.test(sendSrc));
+    /if \(!isResume && !edit && !messageText && sendAttachments\.length === 0\) \{[^}]*return; \}/.test(sendSrc));
 
 const deleteSrc = fnSlice(APP, 'async function deleteChat(');
 check('deleteChat DISCARDS the gone chat\'s draft (both layers, no tombstone litter)',

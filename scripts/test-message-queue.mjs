@@ -447,8 +447,9 @@ function fnSlice(src, header) {
     check('stopActiveTurn marks, aborts and frees the composer, for Stop and Send now alike',
         /activeTurnInterrupted = true;[\s\S]*abortController\.abort\(\);[\s\S]*resetUIForAbort\(\);/.test(stop)
         && APP.includes('window.stopActiveTurn = stopActiveTurn;'));
+    // (An edit of the latest message isn't a composer send: js/message-edit.js.)
     check('a send during a queued message\'s setup joins the queue instead of being dropped',
-        /if \(_sendSetupInFlight\) \{\s*if \(userInput == null && chat_input_message == null && !opts\.resume && !opts\.queued\) \{\s*window\.MessageQueue\?\.enqueueFromComposer\?\.\(\);/.test(send));
+        /if \(_sendSetupInFlight\) \{\s*if \(userInput == null && chat_input_message == null && !opts\.resume && !opts\.queued && !edit\) \{\s*window\.MessageQueue\?\.enqueueFromComposer\?\.\(\);/.test(send));
     check('a queued send claims its message where a composer send consumes the composer',
         /\} else if \(queued && !window\.MessageQueue\?\.claim\?\.\(queued\)\) \{[\s\S]{0,400}?_sendSetupInFlight = false;[\s\S]{0,200}?return;/.test(send)
         && send.indexOf('window.MessageQueue?.claim?.(queued)') < send.indexOf('isProcessing = true;'));

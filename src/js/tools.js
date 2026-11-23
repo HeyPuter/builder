@@ -461,6 +461,9 @@ async function handleToolCalls(completion, isTopLevel = false, c) {
         content: completion.length === 1 ? completion[0] : completion,
         ...(c.model ? { model: c.model } : {})
     });
+    // A call that could change something takes the pencil off the user's
+    // message before it runs (js/message-edit.js).
+    if (!isStaleTurn(c)) window.MessageEdit?.refresh?.();
 
     // Process tool calls - execute all tools
     const toolCalls = completion.filter(t => t && t.type === 'tool_use');

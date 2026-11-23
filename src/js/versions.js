@@ -1061,6 +1061,8 @@
                     chatHistory.push({ role: 'assistant', content: note, messageId, versionNote: true });
                     restoreNoted = true;
                     if (typeof appendMessage === 'function') appendMessage(note, false);
+                    // The files changed under the last message: no editing it.
+                    window.MessageEdit?.refresh?.();
                     // Best effort: the note is in memory and the next save
                     // carries it. saveCurrentChat is async, so a failed write
                     // rejects (an unhandled rejection in the console) rather
@@ -1239,6 +1241,8 @@
                 const messageId = (typeof generateMessageId === 'function') ? generateMessageId() : null;
                 chatHistory.push({ role: 'assistant', content: opts.note, messageId, versionNote: true });
                 if (typeof appendMessage === 'function') appendMessage(opts.note, false);
+                // The files changed under the last message: no editing it.
+                window.MessageEdit?.refresh?.();
                 try {
                     if (typeof saveCurrentChat === 'function') {
                         Promise.resolve(saveCurrentChat({ currentChatId: chatId, chatHistory: chatHistory })).catch(() => {});

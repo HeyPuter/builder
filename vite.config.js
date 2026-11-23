@@ -138,6 +138,10 @@ const SCRIPTS = [
   // After app.js: it reads isProcessing and the tray, and calls the composer
   // draft helpers and sendChatMessage.
   'js/message-queue.js',
+  // After app.js and message-queue.js: it reads isProcessing and chatHistory,
+  // calls sendChatMessage, and hands an edit it can't send to the composer
+  // through MessageQueue.returnToComposer.
+  'js/message-edit.js',
   // After app.js: a tap on a build notification reads currentChatId and
   // savedChats and calls loadChat.
   'js/build-notify.js',
