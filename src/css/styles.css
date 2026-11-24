@@ -1309,9 +1309,11 @@ puter-user-menu::part(sign-in):hover {
 
 /* Fixed on <body> and placed by place() in fast-mode.js, at the model
    picker panel's layer, with a caret that points at the button: ▼ above it,
-   ▲ when there's only room below (.is-below). --fast-caret-x is set there. */
+   ▲ when there's only room below (.is-below). --fast-caret-x is set there.
+   The hint under Publish (publish-hint.js) is the same bubble. */
 .fast-mode-panel,
-.fast-mode-hint {
+.fast-mode-hint,
+.publish-hint {
     position: fixed;
     top: 0;
     left: 0;
@@ -1332,7 +1334,9 @@ puter-user-menu::part(sign-in):hover {
 .fast-mode-panel::before,
 .fast-mode-panel::after,
 .fast-mode-hint::before,
-.fast-mode-hint::after {
+.fast-mode-hint::after,
+.publish-hint::before,
+.publish-hint::after {
     content: '';
     position: absolute;
     bottom: -8px;
@@ -1344,11 +1348,14 @@ puter-user-menu::part(sign-in):hover {
     pointer-events: none;
 }
 .fast-mode-panel::after,
-.fast-mode-hint::after { bottom: -7px; border-top-color: var(--panel-caret-fill); }
+.fast-mode-hint::after,
+.publish-hint::after { bottom: -7px; border-top-color: var(--panel-caret-fill); }
 .fast-mode-panel.is-below::before,
 .fast-mode-panel.is-below::after,
 .fast-mode-hint.is-below::before,
-.fast-mode-hint.is-below::after {
+.fast-mode-hint.is-below::after,
+.publish-hint.is-below::before,
+.publish-hint.is-below::after {
     bottom: auto;
     top: -8px;
     border: 8px solid transparent;
@@ -1356,7 +1363,8 @@ puter-user-menu::part(sign-in):hover {
     border-bottom-color: var(--panel-caret-border);
 }
 .fast-mode-panel.is-below::after,
-.fast-mode-hint.is-below::after { top: -7px; border-bottom-color: var(--panel-caret-fill); }
+.fast-mode-hint.is-below::after,
+.publish-hint.is-below::after { top: -7px; border-bottom-color: var(--panel-caret-fill); }
 .fast-mode-panel {
     width: 280px;
     padding: 6px;
@@ -1412,13 +1420,15 @@ puter-user-menu::part(sign-in):hover {
 .fast-mode-note { margin: 0; padding: 0 8px 8px; color: #666; font-size: 12.5px; line-height: 1.4; text-wrap: pretty; }
 .fast-mode-note { color: #8a5a00; }
 
-/* The long-build hint. */
-.fast-mode-hint {
+/* The long-build hint, and the hint under Publish. */
+.fast-mode-hint,
+.publish-hint {
     width: 300px;
     padding: 12px 14px;
     animation: suggestionsIn 0.2s ease;
 }
-.fast-mode-hint-close {
+.fast-mode-hint-close,
+.publish-hint-close {
     position: absolute;
     top: 8px;
     right: 8px;
@@ -1434,8 +1444,10 @@ puter-user-menu::part(sign-in):hover {
     color: #555;
     cursor: pointer;
 }
-.fast-mode-hint-close:hover { background: #ececec; }
-.fast-mode-hint-title {
+.fast-mode-hint-close:hover,
+.publish-hint-close:hover { background: #ececec; }
+.fast-mode-hint-title,
+.publish-hint-title {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -1443,9 +1455,12 @@ puter-user-menu::part(sign-in):hover {
     font-weight: 600;
     color: #1a1a1a;
 }
-.fast-mode-hint-text { margin: 0; color: #555; font-size: 12.5px; line-height: 1.45; text-wrap: pretty; }
-.fast-mode-hint-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
-.fast-mode-hint-later {
+.fast-mode-hint-text,
+.publish-hint-text { margin: 0; color: #555; font-size: 12.5px; line-height: 1.45; text-wrap: pretty; }
+.fast-mode-hint-actions,
+.publish-hint-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.fast-mode-hint-later,
+.publish-hint-later {
     border: none;
     border-radius: 8px;
     padding: 7px 12px;
@@ -1455,7 +1470,8 @@ puter-user-menu::part(sign-in):hover {
     font-size: 13px;
     cursor: pointer;
 }
-.fast-mode-hint-later:hover { background: #f0f0f0; color: #222; }
+.fast-mode-hint-later:hover,
+.publish-hint-later:hover { background: #f0f0f0; color: #222; }
 
 /* showMe's pointer, and the ring that pulses on the button while it's up. */
 .fast-mode-hint.is-pointer { width: auto; }
@@ -1469,6 +1485,27 @@ puter-user-menu::part(sign-in):hover {
 }
 @media (prefers-reduced-motion: reduce) {
     .fast-mode-btn.is-pointed { animation: none; }
+}
+
+/* The hint under Publish: a globe in the Publish blue, and a ring that pulses
+   on the button while the hint is up. */
+.publish-hint-title svg { width: 15px; height: 15px; flex: 0 0 auto; color: #0a6ae0; }
+.preview-toolbar .preview-publish-btn.is-hinted {
+    --publish-ring: rgba(10, 106, 224, 0.5);
+    --publish-ring-out: rgba(10, 106, 224, 0);
+    box-shadow: 0 0 0 2px var(--publish-ring);
+    animation: publish-hint-pulse 1.4s ease-out infinite;
+}
+html[data-theme="dark"] .preview-toolbar .preview-publish-btn.is-hinted {
+    --publish-ring: rgba(108, 176, 245, 0.5);
+    --publish-ring-out: rgba(108, 176, 245, 0);
+}
+@keyframes publish-hint-pulse {
+    0% { box-shadow: 0 0 0 0 var(--publish-ring); }
+    70%, 100% { box-shadow: 0 0 0 8px var(--publish-ring-out); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .preview-toolbar .preview-publish-btn.is-hinted { animation: none; }
 }
 
 .attachment-button:disabled {
@@ -2769,7 +2806,8 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
 .upgrade-card-btn,
 .model-panel-upgrade,
 .fast-mode-hint-go,
-.fast-mode-hint-got {
+.fast-mode-hint-got,
+.publish-hint-go {
     flex: 0 0 auto;
     border: none;
     border-radius: 8px;
@@ -2785,7 +2823,8 @@ audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-panel {
 .upgrade-card-btn:hover,
 .model-panel-upgrade:hover,
 .fast-mode-hint-go:hover,
-.fast-mode-hint-got:hover { background: #000; }
+.fast-mode-hint-got:hover,
+.publish-hint-go:hover { background: #000; }
 
 /* The Publish card the AI puts in the chat (tools/chat_ui/publish.js): one
    row, either the address to publish at and a Publish button, or the live
@@ -7704,7 +7743,8 @@ html[data-theme="dark"] .fast-mode-btn { color: var(--text-muted); }
 html[data-theme="dark"] .fast-mode-btn:hover,
 html[data-theme="dark"] .fast-mode-btn[aria-expanded="true"] { background: var(--surface-hover); color: var(--text); }
 html[data-theme="dark"] .fast-mode-panel,
-html[data-theme="dark"] .fast-mode-hint {
+html[data-theme="dark"] .fast-mode-hint,
+html[data-theme="dark"] .publish-hint {
     background: var(--surface);
     border-color: var(--border);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
@@ -7716,13 +7756,20 @@ html[data-theme="dark"] .fast-mode-switch:hover { background: var(--surface-hove
 html[data-theme="dark"] .fast-mode-name svg { color: var(--text-muted); }
 html[data-theme="dark"] .fast-mode-track { background: var(--border-strong); }
 html[data-theme="dark"] .fast-mode-text,
-html[data-theme="dark"] .fast-mode-hint-text { color: var(--text-secondary); }
+html[data-theme="dark"] .fast-mode-hint-text,
+html[data-theme="dark"] .publish-hint-text { color: var(--text-secondary); }
 html[data-theme="dark"] .fast-mode-note { color: #fcd34d; }
-html[data-theme="dark"] .fast-mode-hint-title { color: var(--text); }
+html[data-theme="dark"] .fast-mode-hint-title,
+html[data-theme="dark"] .publish-hint-title { color: var(--text); }
+html[data-theme="dark"] .publish-hint-title svg { color: var(--accent); }
 html[data-theme="dark"] .fast-mode-hint-close,
-html[data-theme="dark"] .fast-mode-hint-later { color: var(--text-secondary); }
+html[data-theme="dark"] .fast-mode-hint-later,
+html[data-theme="dark"] .publish-hint-close,
+html[data-theme="dark"] .publish-hint-later { color: var(--text-secondary); }
 html[data-theme="dark"] .fast-mode-hint-close:hover,
-html[data-theme="dark"] .fast-mode-hint-later:hover { background: var(--surface-hover); color: var(--text); }
+html[data-theme="dark"] .fast-mode-hint-later:hover,
+html[data-theme="dark"] .publish-hint-close:hover,
+html[data-theme="dark"] .publish-hint-later:hover { background: var(--surface-hover); color: var(--text); }
 html[data-theme="dark"] .attachment-button { color: var(--text-muted); }
 html[data-theme="dark"] .attachment-button svg { stroke: currentColor; }
 html[data-theme="dark"] .attachment-button:hover:not(:disabled) {
@@ -8212,6 +8259,7 @@ html[data-theme="dark"] .upgrade-card-btn,
 html[data-theme="dark"] .model-panel-upgrade,
 html[data-theme="dark"] .fast-mode-hint-go,
 html[data-theme="dark"] .fast-mode-hint-got,
+html[data-theme="dark"] .publish-hint-go,
 html[data-theme="dark"] .publish-branding-btn,
 html[data-theme="dark"] .upgrade-btn,
 html[data-theme="dark"] a.upgrade-go { background: #eef2f7; border-color: #eef2f7; color: #0b1118; }
@@ -8219,6 +8267,7 @@ html[data-theme="dark"] .upgrade-card-btn:hover,
 html[data-theme="dark"] .model-panel-upgrade:hover,
 html[data-theme="dark"] .fast-mode-hint-go:hover,
 html[data-theme="dark"] .fast-mode-hint-got:hover,
+html[data-theme="dark"] .publish-hint-go:hover,
 html[data-theme="dark"] .publish-branding-btn:hover,
 html[data-theme="dark"] .upgrade-btn:hover,
 html[data-theme="dark"] a.upgrade-go:hover { background: #fff; }

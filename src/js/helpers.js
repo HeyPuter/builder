@@ -496,6 +496,8 @@ function updateSendButtonState(processing) {
     // it gets the real turn state, since the clarify card shows Send mid-turn
     // and a false here dropped the hint's timer for the rest of the turn.
     window.FastMode?.setBusy?.(typeof isProcessing !== 'undefined' ? !!isProcessing : processing);
+    // The hint under Publish (js/publish-hint.js) goes when a build starts.
+    window.PublishHint?.setBusy?.(typeof isProcessing !== 'undefined' ? !!isProcessing : processing);
     // The PWA offers (js/pwa.js) key on the turn. The install toast shows
     // when one starts, and an update prompt found mid-turn waits for its end.
     // They get the real turn state, not the icon's, since the clarify card

@@ -1423,7 +1423,8 @@ async function loadChat(chatId, { urlMode = 'push', preloaded = null } = {}) {
 
         // Close any version-history / publish / share / issues / device panel
         // left open from the previous chat so it can't render (or act) against
-        // the wrong project.
+        // the wrong project. The hint under Publish goes with them.
+        window.PublishHint?.hide?.('away');
         window.closeVersionsPanel?.();
         window.closePublishPanel?.();
         window.closeSharePanel?.();
@@ -6596,6 +6597,14 @@ async function sendChatMessage(userInput = null, skipAddToHistory = false, opts 
     // defers them until the card leaves the chat.)
     if (turnSucceeded && turnChatId === currentChatId && !isProcessing && !sendingQueued) {
         generateContinueSuggestions(turnSaveContext);
+        // The one-time hint under Publish (js/publish-hint.js), once the
+        // build is done. Not after one that ran out of credits partway.
+        if (!(context && context.usageLimited)) {
+            window.PublishHint?.buildDone?.({
+                chatId: turnChatId,
+                everPublished: savedChats.some((c) => c && c.publishedUrl),
+            });
+        }
     }
 
     // The turn ended without finishing (a Stop, or the stream aborted) — offer to

@@ -1530,7 +1530,8 @@ window.hideAppPreview = function() {
     // element belongs to the preview we're tearing down.
     window.clearEditTarget?.();
     // Tear down any open version-history / publish / share / issues / device
-    // panel with the preview pane.
+    // panel with the preview pane, and the hint under Publish.
+    window.PublishHint?.hide?.('away');
     window.closeVersionsPanel?.();
     window.closePublishPanel?.();
     window.closeSharePanel?.();
@@ -2107,6 +2108,8 @@ window.isPublishInFlight = function (chatId) {
     return _publishBusyChats.has(chatId || currentChatId);
 };
 let _publishPanelOpen = false;
+// What opened the popover, for analytics (openPublishPanel).
+let _publishPanelSource = null;
 // Cached random address suggestion for the first-publish field, generated once
 // per popover open (so re-renders don't reshuffle it) and cleared on close.
 let _suggestedPublishName = null;
@@ -2114,6 +2117,8 @@ let _suggestedPublishName = null;
 window.refreshPublishButton = function () {
     // The Publish cards in the chat follow the same state as this button.
     window.refreshPublishCards?.();
+    // So does the hint under it, which goes once the site is published.
+    window.PublishHint?.refresh?.();
     const $btn = $('.preview-publish-btn');
     if (!$btn.length) return;
     window.syncPreviewBadge?.();
@@ -2355,7 +2360,10 @@ function keepPublishPanelFocus($panel) {
     };
 }
 
-function openPublishPanel() {
+// source: what opened it, for the Project Published event ('hint' for the
+// hint under Publish, js/publish-hint.js). None for the toolbar's button,
+// unless the hint was up when it was pressed.
+function openPublishPanel({ source = null } = {}) {
     if (!window.user) return;
     // Only one toolbar popover at a time — close the version-history,
     // share-draft, issues, and device panels if any is open.
@@ -2364,6 +2372,8 @@ function openPublishPanel() {
     window.closeGitHubPanel?.();
     window.closeIssuesPanel?.();
     window.closeDevicePanel?.();
+    const hinted = !!window.PublishHint?.panelOpened?.();
+    _publishPanelSource = source || (hinted ? 'hint' : null);
     _publishPanelOpen = true;
     _upgradePromptsShown.clear();
     $('.preview-publish-btn').attr('aria-expanded', 'true');
@@ -2392,8 +2402,11 @@ function openPublishPanel() {
     watchCustomDomains();
 }
 
+window.openPublishPanel = openPublishPanel;
+
 function closePublishPanel() {
     _publishPanelOpen = false;
+    _publishPanelSource = null;
     _suggestedPublishName = null; // fresh suggestion on the next open
     // Closing acknowledges the progress/share view — the next open starts from
     // the form. (A publish still in flight re-shows progress via publishBusyHere.)
@@ -2976,6 +2989,9 @@ async function doPublish({ reserved = null } = {}) {
         render: renderPublishPanel,
         desiredName: () => $('.preview-publish-panel .publish-name-input').val(),
         reserved,
+        // For Project Published: 'hint' when the hint under Publish opened
+        // the popover (openPublishPanel). The toolbar's button sends none.
+        ...(_publishPanelSource ? { source: _publishPanelSource } : {}),
         // Swap the popover body to the progress note for the duration. The user
         // just clicked inside the panel and the swap discards the clicked button,
         // so re-focus the panel to keep Escape-to-close working.

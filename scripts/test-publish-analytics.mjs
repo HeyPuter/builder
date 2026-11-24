@@ -80,6 +80,7 @@ async function run({ published, history, withUsageHelpers = true, ui = null, cre
         chatHistory: history,
         isProcessing: false,
         _publishPanelOpen: false,
+        _publishPanelSource: null,
         _publishPanelView: 'form',
         _publishViewIsFirst: false,
         _publishSuccessData: null,

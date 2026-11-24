@@ -105,6 +105,7 @@ async function run({ switchTo = null, aPublished = true, typedName = '' } = {}) 
         chatHistory: [{ role: 'system', content: '' }, { role: 'user', content: 'Alpha Notes App' }],
         isProcessing: false,
         _publishPanelOpen: false,
+        _publishPanelSource: null,
         _publishPanelView: 'form',
         _publishViewIsFirst: false,
         _publishSuccessData: null,

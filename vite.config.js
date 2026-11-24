@@ -85,6 +85,9 @@ const SCRIPTS = [
   // The composer's fast mode switch (premium). After model-picker.js, whose
   // project model it reads.
   'js/fast-mode.js',
+  // The one-time hint under Publish after a build. After ui.js, whose
+  // Publish popover it opens.
+  'js/publish-hint.js',
   'js/mcp-ui.js',
   'js/featured.js',
   'js/templates.js',
